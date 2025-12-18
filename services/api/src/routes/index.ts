@@ -1,11 +1,9 @@
 /**
  * Routes barrel file.
- * Add new route modules here as the API grows.
+ * All route modules are exported here for registration in the main server.
  */
 export { healthRoutes } from './health.js';
-
-// Future routes:
-// export { roomRoutes } from './rooms.js';
-// export { lockerRoutes } from './lockers.js';
-// export { sessionRoutes } from './sessions.js';
-
+export { sessionRoutes } from './sessions.js';
+export { inventoryRoutes } from './inventory.js';
+export { keysRoutes } from './keys.js';
+export { cleaningRoutes } from './cleaning.js';
