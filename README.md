@@ -58,6 +58,26 @@ WebSocket endpoint: `ws://localhost:3001/ws`
 | `pnpm typecheck` | TypeScript type checking |
 | `pnpm format` | Format code with Prettier |
 
+### Database Setup
+
+The API uses PostgreSQL. For local development:
+
+```bash
+# Navigate to the API service
+cd services/api
+
+# Start PostgreSQL in Docker
+pnpm db:start
+
+# Run database migrations
+pnpm db:migrate
+
+# Check migration status
+pnpm db:migrate:status
+```
+
+See [services/api/README.md](./services/api/README.md) for detailed database documentation.
+
 ## 📦 Packages
 
 ### `@club-ops/shared`
