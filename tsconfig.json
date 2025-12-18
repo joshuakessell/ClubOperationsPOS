@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "services/api" },
+    { "path": "apps/customer-kiosk" },
+    { "path": "apps/employee-register" },
+    { "path": "apps/office-dashboard" }
+  ]
+}
+

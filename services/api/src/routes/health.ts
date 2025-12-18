@@ -1,0 +1,18 @@
+import { FastifyInstance } from 'fastify';
+
+interface HealthResponse {
+  status: 'ok' | 'error';
+  timestamp: string;
+  uptime: number;
+}
+
+export async function healthRoutes(fastify: FastifyInstance) {
+  fastify.get<{ Reply: HealthResponse }>('/health', async (_request, _reply) => {
+    return {
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+    };
+  });
+}
+
