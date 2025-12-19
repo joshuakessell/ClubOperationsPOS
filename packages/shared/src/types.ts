@@ -50,7 +50,8 @@ export type WebSocketEventType =
   | 'ROOM_STATUS_CHANGED'
   | 'INVENTORY_UPDATED'
   | 'ROOM_ASSIGNED'
-  | 'ROOM_RELEASED';
+  | 'ROOM_RELEASED'
+  | 'SESSION_UPDATED';
 
 /**
  * Base WebSocket event structure.
@@ -78,5 +79,16 @@ export interface RoomStatusChangedPayload {
  */
 export interface InventoryUpdatedPayload {
   inventory: DetailedInventory;
+}
+
+/**
+ * Session updated event payload.
+ * Emitted whenever a lane session is created or updated.
+ */
+export interface SessionUpdatedPayload {
+  sessionId: string;
+  customerName: string;
+  membershipNumber?: string;
+  allowedRentals: string[];
 }
 

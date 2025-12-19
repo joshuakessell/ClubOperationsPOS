@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { serializableTransaction, query } from '../db/index.js';
 import type { Broadcaster } from '../websocket/broadcaster.js';
+import type { SessionUpdatedPayload } from '@club-ops/shared';
 
 /**
  * Schema for creating a new session.
@@ -50,6 +51,56 @@ declare module 'fastify' {
   interface FastifyInstance {
     broadcaster: Broadcaster;
   }
+}
+
+/**
+ * Check if a membership number is eligible for Gym Locker rental.
+ * Eligibility is determined by configurable numeric ranges in GYM_LOCKER_ELIGIBLE_RANGES.
+ * Format: "1000-1999,5000-5999" (comma-separated ranges)
+ */
+function isGymLockerEligible(membershipNumber: string | null | undefined): boolean {
+  if (!membershipNumber) {
+    return false;
+  }
+
+  const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
+  if (!rangesEnv.trim()) {
+    return false;
+  }
+
+  // Parse membership number as integer
+  const membershipNum = parseInt(membershipNumber, 10);
+  if (isNaN(membershipNum)) {
+    return false;
+  }
+
+  // Parse ranges (e.g., "1000-1999,5000-5999")
+  const ranges = rangesEnv.split(',').map(range => range.trim()).filter(Boolean);
+  
+  for (const range of ranges) {
+    const [startStr, endStr] = range.split('-').map(s => s.trim());
+    const start = parseInt(startStr || '', 10);
+    const end = parseInt(endStr || '', 10);
+    
+    if (!isNaN(start) && !isNaN(end) && membershipNum >= start && membershipNum <= end) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+/**
+ * Determine allowed rentals based on membership eligibility.
+ */
+function getAllowedRentals(membershipNumber: string | null | undefined): string[] {
+  const allowed: string[] = ['STANDARD', 'DELUXE', 'VIP'];
+  
+  if (isGymLockerEligible(membershipNumber)) {
+    allowed.push('GYM_LOCKER');
+  }
+  
+  return allowed;
 }
 
 /**
@@ -257,6 +308,205 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.send({ sessions });
     } catch (error) {
       fastify.log.error(error, 'Failed to fetch active sessions');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /v1/sessions/scan-id - Scan ID to create/update session with customer name
+   * 
+   * Used by employee register when scanning customer ID.
+   * Creates a new session or updates existing one with customer name.
+   */
+  const ScanIdSchema = z.object({
+    idNumber: z.string().min(1),
+  });
+
+  fastify.post('/v1/sessions/scan-id', async (
+    request: FastifyRequest<{ Body: z.infer<typeof ScanIdSchema> }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const body = ScanIdSchema.parse(request.body);
+      
+      // Look up member by ID number (assuming ID number maps to some identifier)
+      // For now, we'll create a temporary session or look up by a different field
+      // This is a simplified implementation - adjust based on your actual ID lookup logic
+      const memberResult = await query<MemberRow & { membership_number: string | null }>(
+        `SELECT id, name, is_active, membership_number 
+         FROM members 
+         WHERE id::text = $1 OR membership_number = $1 
+         LIMIT 1`,
+        [body.idNumber]
+      );
+
+      if (memberResult.rows.length === 0) {
+        return reply.status(404).send({ error: 'Member not found' });
+      }
+
+      const member = memberResult.rows[0]!;
+      if (!member.is_active) {
+        return reply.status(400).send({ error: 'Member account is not active' });
+      }
+
+      // Check for existing active session or create new one
+      const existingSession = await query<SessionRow>(
+        `SELECT id, member_id, member_name, room_id, locker_id, check_in_time, expected_duration, status
+         FROM sessions 
+         WHERE member_id = $1 AND status = 'ACTIVE'
+         LIMIT 1`,
+        [member.id]
+      );
+
+      let session: SessionRow;
+      if (existingSession.rows.length > 0) {
+        session = existingSession.rows[0]!;
+      } else {
+        // Create new session
+        const newSessionResult = await query<SessionRow>(
+          `INSERT INTO sessions (member_id, member_name, expected_duration, status)
+           VALUES ($1, $2, 60, 'ACTIVE')
+           RETURNING id, member_id, member_name, room_id, locker_id, check_in_time, expected_duration, status`,
+          [member.id, member.name]
+        );
+        session = newSessionResult.rows[0]!;
+      }
+
+      // Determine allowed rentals
+      const allowedRentals = getAllowedRentals(member.membership_number);
+
+      // Broadcast SESSION_UPDATED event
+      const payload: SessionUpdatedPayload = {
+        sessionId: session.id,
+        customerName: session.member_name,
+        membershipNumber: member.membership_number || undefined,
+        allowedRentals,
+      };
+
+      fastify.broadcaster.broadcastSessionUpdated(payload);
+
+      return reply.status(200).send({
+        sessionId: session.id,
+        customerName: session.member_name,
+        membershipNumber: member.membership_number || undefined,
+        allowedRentals,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: error.errors,
+        });
+      }
+      fastify.log.error(error, 'Failed to process ID scan');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /v1/sessions/scan-membership - Scan membership to update session with membership number
+   * 
+   * Used by employee register when scanning membership card.
+   * Updates existing session with membership number and recalculates allowed rentals.
+   */
+  const ScanMembershipSchema = z.object({
+    membershipNumber: z.string().min(1),
+    sessionId: z.string().uuid().optional(),
+  });
+
+  fastify.post('/v1/sessions/scan-membership', async (
+    request: FastifyRequest<{ Body: z.infer<typeof ScanMembershipSchema> }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const body = ScanMembershipSchema.parse(request.body);
+      
+      // Look up member by membership number
+      const memberResult = await query<MemberRow & { membership_number: string }>(
+        `SELECT id, name, is_active, membership_number 
+         FROM members 
+         WHERE membership_number = $1 
+         LIMIT 1`,
+        [body.membershipNumber]
+      );
+
+      if (memberResult.rows.length === 0) {
+        return reply.status(404).send({ error: 'Member not found' });
+      }
+
+      const member = memberResult.rows[0]!;
+      if (!member.is_active) {
+        return reply.status(400).send({ error: 'Member account is not active' });
+      }
+
+      // Find or create session
+      let session: SessionRow;
+      if (body.sessionId) {
+        const sessionResult = await query<SessionRow>(
+          `SELECT id, member_id, member_name, room_id, locker_id, check_in_time, expected_duration, status
+           FROM sessions 
+           WHERE id = $1 AND status = 'ACTIVE'
+           LIMIT 1`,
+          [body.sessionId]
+        );
+        if (sessionResult.rows.length === 0) {
+          return reply.status(404).send({ error: 'Session not found' });
+        }
+        session = sessionResult.rows[0]!;
+      } else {
+        // Find existing active session for this member
+        const existingSession = await query<SessionRow>(
+          `SELECT id, member_id, member_name, room_id, locker_id, check_in_time, expected_duration, status
+           FROM sessions 
+           WHERE member_id = $1 AND status = 'ACTIVE'
+           LIMIT 1`,
+          [member.id]
+        );
+        if (existingSession.rows.length > 0) {
+          session = existingSession.rows[0]!;
+        } else {
+          // Create new session
+          const newSessionResult = await query<SessionRow>(
+            `INSERT INTO sessions (member_id, member_name, expected_duration, status)
+             VALUES ($1, $2, 60, 'ACTIVE')
+             RETURNING id, member_id, member_name, room_id, locker_id, check_in_time, expected_duration, status`,
+            [member.id, member.name]
+          );
+          session = newSessionResult.rows[0]!;
+        }
+      }
+
+      // Determine allowed rentals (now with membership number)
+      const allowedRentals = getAllowedRentals(member.membership_number);
+
+      // Broadcast SESSION_UPDATED event
+      const payload: SessionUpdatedPayload = {
+        sessionId: session.id,
+        customerName: session.member_name,
+        membershipNumber: member.membership_number,
+        allowedRentals,
+      };
+
+      fastify.broadcaster.broadcast({
+        type: 'SESSION_UPDATED',
+        payload,
+        timestamp: new Date().toISOString(),
+      });
+
+      return reply.status(200).send({
+        sessionId: session.id,
+        customerName: session.member_name,
+        membershipNumber: member.membership_number,
+        allowedRentals,
+      });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: error.errors,
+        });
+      }
+      fastify.log.error(error, 'Failed to process membership scan');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

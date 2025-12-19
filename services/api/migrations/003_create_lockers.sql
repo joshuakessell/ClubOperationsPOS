@@ -12,3 +12,5 @@ CREATE TABLE IF NOT EXISTS lockers (
 CREATE INDEX idx_lockers_status ON lockers(status);
 CREATE INDEX idx_lockers_assigned ON lockers(assigned_to) WHERE assigned_to IS NOT NULL;
 
+
+

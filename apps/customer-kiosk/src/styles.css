@@ -1,112 +1,107 @@
+/* Black and white theme only */
 :root {
-  --primary: #6366f1;
-  --primary-dark: #4f46e5;
-  --bg: #0f172a;
-  --bg-card: #1e293b;
-  --text: #f8fafc;
-  --text-muted: #94a3b8;
-  --success: #22c55e;
-  --error: #ef4444;
-  --border: #334155;
+  --bg: #000000;
+  --text: #ffffff;
+  --text-muted: #cccccc;
+  --border: #666666;
 }
 
-.container {
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* Idle state: centered logo */
+.idle-container {
   min-height: 100vh;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg);
+}
+
+.logo-idle {
+  width: clamp(240px, 45vw, 720px);
+  height: auto;
+  transition: all 300ms ease;
+}
+
+/* Active session state */
+.active-container {
+  min-height: 100vh;
+  background: var(--bg);
   padding: 2rem;
+  display: flex;
+  flex-direction: column;
 }
 
-.header {
-  text-align: center;
-  margin-bottom: 3rem;
+.logo-header {
+  width: clamp(120px, 18vw, 240px);
+  height: auto;
+  transition: all 300ms ease;
+  margin-bottom: 2rem;
 }
 
-.header h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
-  background: linear-gradient(135deg, var(--primary), #a855f7);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.subtitle {
-  color: var(--text-muted);
-  margin-top: 0.5rem;
-}
-
-.main {
+.main-content {
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 2rem;
-  max-width: 600px;
+  gap: 3rem;
+  max-width: 800px;
   margin: 0 auto;
   width: 100%;
 }
 
-.card {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  padding: 2rem;
+.customer-info {
+  text-align: center;
 }
 
-.card h2 {
-  font-size: 1.5rem;
+.customer-name {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  font-weight: 600;
+  color: var(--text);
   margin-bottom: 0.5rem;
 }
 
-.card p {
+.membership-number {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
   color: var(--text-muted);
 }
 
-.placeholder-content {
-  margin-top: 2rem;
-  padding: 3rem;
-  border: 2px dashed var(--border);
-  border-radius: 0.5rem;
+.package-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.package-option {
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  padding: 2rem;
   text-align: center;
+  background: transparent;
+  transition: all 250ms ease;
+  cursor: pointer;
 }
 
-.icon {
-  font-size: 3rem;
-  display: block;
-  margin-bottom: 1rem;
+.package-option:hover {
+  border-color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
 }
 
-.status-panel {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 1rem;
-  padding: 1.5rem;
-}
-
-.status-panel h3 {
-  font-size: 1rem;
-  color: var(--text-muted);
-  margin-bottom: 1rem;
-}
-
-.status-item {
-  display: flex;
-  justify-content: space-between;
-  padding: 0.5rem 0;
-}
-
-.status-ok {
-  color: var(--success);
-}
-
-.status-error {
-  color: var(--error);
-}
-
-.footer {
-  text-align: center;
-  margin-top: 2rem;
-  color: var(--text-muted);
-  font-size: 0.875rem;
+.package-name {
+  font-size: clamp(1.125rem, 2vw, 1.5rem);
+  font-weight: 500;
+  color: var(--text);
 }
 

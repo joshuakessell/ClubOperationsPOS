@@ -24,3 +24,5 @@ CREATE INDEX idx_sessions_status ON sessions(status);
 CREATE INDEX idx_sessions_active ON sessions(status) WHERE status = 'ACTIVE';
 CREATE INDEX idx_sessions_check_in ON sessions(check_in_time);
 
+
+

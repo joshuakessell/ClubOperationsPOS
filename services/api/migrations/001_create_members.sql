@@ -14,3 +14,5 @@ CREATE TABLE IF NOT EXISTS members (
 CREATE INDEX idx_members_membership_number ON members(membership_number);
 CREATE INDEX idx_members_active ON members(is_active) WHERE is_active = true;
 
+
+

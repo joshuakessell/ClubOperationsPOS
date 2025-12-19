@@ -13,15 +13,24 @@ This system manages club operations including member check-ins, room assignments
 **Purpose**: Tablet-based self-service kiosk for member check-ins.
 
 **Features**:
-- Membership card scanning (QR/NFC)
-- Manual membership number entry
+- Logo-only idle screen until session is created
+- ID scan to display customer name
+- Membership card scanning (QR/NFC) to display membership number
+- Conditional Gym Locker option for grandfathered memberships only
 - Real-time room availability display
 - Room type selection (Standard, Deluxe, VIP)
 - Locker assignment confirmation
 
+**Flow**:
+1. **Idle State**: Displays logo only, waiting for employee register to create session
+2. **After ID Scan**: Customer name appears (via SESSION_UPDATED WebSocket event)
+3. **After Membership Scan**: Membership number appears (via SESSION_UPDATED WebSocket event)
+4. **Rental Options**: Displays available rental options including Gym Locker if eligible
+
 **Technical Requirements**:
 - Locked single-app experience (no browser navigation)
-- WebSocket connection for live inventory updates
+- WebSocket connection for live inventory updates and session events
+- Listens for SESSION_UPDATED events to update UI state
 - Offline-capable with sync on reconnection
 - Touch-optimized UI (minimum 44px touch targets)
 
@@ -30,6 +39,7 @@ This system manages club operations including member check-ins, room assignments
 **Purpose**: Staff-facing tablet application for session management.
 
 **Features**:
+- Barcode scanner input capture for ID and membership scans
 - Member lookup and check-in processing
 - Room assignment with real-time availability
 - Locker assignment and key tracking
@@ -38,6 +48,9 @@ This system manages club operations including member check-ins, room assignments
 
 **Technical Requirements**:
 - Split-screen compatible (runs alongside Square)
+- Captures barcode scanner input (keyboard wedge mode)
+- Sends ID scans to `/sessions/scan-id` endpoint
+- Sends membership scans to `/sessions/scan-membership` endpoint
 - Batch operations for efficiency
 - Quick-action shortcuts for common tasks
 - Real-time inventory synchronization
@@ -76,6 +89,8 @@ This system manages club operations including member check-ins, room assignments
 | GET | `/inventory` | Get inventory summary |
 | GET | `/lockers` | List all lockers |
 | POST | `/sessions` | Create check-in session |
+| POST | `/sessions/scan-id` | Scan ID to create/update session with customer name |
+| POST | `/sessions/scan-membership` | Scan membership to update session with membership number |
 | GET | `/sessions/active` | List active sessions |
 
 ### WebSocket Events
@@ -85,6 +100,7 @@ This system manages club operations including member check-ins, room assignments
 - `INVENTORY_UPDATED` - Inventory counts changed
 - `ROOM_ASSIGNED` - Room assigned to member
 - `ROOM_RELEASED` - Room released from session
+- `SESSION_UPDATED` - Session created or updated (contains customer_name, membership_number, allowed_rentals)
 
 **Client → Server**:
 - `subscribe` - Subscribe to specific event types
@@ -154,11 +170,24 @@ interface Session {
   id: string;
   memberId: string;
   memberName: string;
+  membershipNumber?: string;
   roomId?: string;
   lockerId?: string;
   checkInTime: Date;
   expectedDuration: number;
   status: 'ACTIVE' | 'COMPLETED' | 'CANCELLED';
+  allowedRentals: string[]; // e.g., ['STANDARD', 'DELUXE', 'VIP', 'GYM_LOCKER']
+}
+```
+
+### Session Updated Event
+
+```typescript
+interface SessionUpdatedPayload {
+  sessionId: string;
+  customerName: string;
+  membershipNumber?: string;
+  allowedRentals: string[];
 }
 ```
 

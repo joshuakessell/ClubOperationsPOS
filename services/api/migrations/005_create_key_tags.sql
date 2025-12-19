@@ -17,3 +17,5 @@ CREATE INDEX idx_key_tags_room ON key_tags(room_id);
 CREATE INDEX idx_key_tags_code ON key_tags(tag_code);
 CREATE INDEX idx_key_tags_active ON key_tags(is_active) WHERE is_active = true;
 
+
+

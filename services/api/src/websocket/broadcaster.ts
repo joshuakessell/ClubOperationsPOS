@@ -4,6 +4,7 @@ import type {
   WebSocketEvent,
   RoomStatusChangedPayload,
   InventoryUpdatedPayload,
+  SessionUpdatedPayload,
 } from '@club-ops/shared';
 
 /**
@@ -30,7 +31,8 @@ export type WebSocketPayload =
   | RoomStatusChangedPayload
   | InventoryUpdatedPayload
   | RoomAssignedPayload
-  | RoomReleasedPayload;
+  | RoomReleasedPayload
+  | SessionUpdatedPayload;
 
 /**
  * WebSocket broadcaster for sending real-time updates to connected clients.
@@ -44,6 +46,7 @@ export interface Broadcaster {
   broadcastInventoryUpdated(payload: InventoryUpdatedPayload): void;
   broadcastRoomAssigned(payload: RoomAssignedPayload): void;
   broadcastRoomReleased(payload: RoomReleasedPayload): void;
+  broadcastSessionUpdated(payload: SessionUpdatedPayload): void;
   getClientCount(): number;
 }
 
@@ -121,6 +124,10 @@ export function createBroadcaster(): Broadcaster {
      */
     broadcastRoomReleased(payload: RoomReleasedPayload) {
       broadcast(createEvent('ROOM_RELEASED', payload));
+    },
+
+    broadcastSessionUpdated(payload: SessionUpdatedPayload) {
+      broadcast(createEvent('SESSION_UPDATED', payload));
     },
 
     getClientCount() {

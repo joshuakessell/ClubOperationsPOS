@@ -19,3 +19,5 @@ CREATE INDEX idx_cleaning_batch_rooms_batch ON cleaning_batch_rooms(batch_id);
 CREATE INDEX idx_cleaning_batch_rooms_room ON cleaning_batch_rooms(room_id);
 CREATE INDEX idx_cleaning_batch_rooms_transition ON cleaning_batch_rooms(transition_time);
 
+
+

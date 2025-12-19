@@ -181,3 +181,5 @@ Another PostgreSQL instance may be running. Either:
 - Stop the other instance, or
 - Change the port in `docker-compose.yml` and `DB_PORT` environment variable
 
+
+

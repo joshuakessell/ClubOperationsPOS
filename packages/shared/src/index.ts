@@ -14,6 +14,7 @@ export type {
   WebSocketEvent,
   RoomStatusChangedPayload,
   InventoryUpdatedPayload,
+  SessionUpdatedPayload,
 } from './types';
 
 // Zod schemas

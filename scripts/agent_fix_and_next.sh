@@ -1,5 +1,3 @@
-mkdir -p scripts
-cat > scripts/agent_fix_and_next.sh <<'EOF'
 #!/usr/bin/env bash
 set -euo pipefail
 
@@ -146,6 +144,3 @@ echo
 echo "== 9) Next step: start dev servers =="
 echo "Starting pnpm dev. Press Ctrl+C to stop."
 pnpm dev
-EOF
-
-chmod +x scripts/agent_fix_and_next.sh

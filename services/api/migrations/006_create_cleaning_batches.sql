@@ -15,3 +15,5 @@ CREATE INDEX idx_cleaning_batches_started ON cleaning_batches(started_at);
 CREATE INDEX idx_cleaning_batches_incomplete ON cleaning_batches(completed_at) 
   WHERE completed_at IS NULL;
 
+
+

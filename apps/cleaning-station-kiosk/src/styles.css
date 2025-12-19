@@ -1,0 +1,408 @@
+/* Kiosk-style: full screen, black background, white text/buttons */
+:root {
+  --bg: #000000;
+  --text: #ffffff;
+  --text-muted: #888888;
+  --border: #333333;
+  --button-bg: #ffffff;
+  --button-text: #000000;
+  --button-hover: #e0e0e0;
+  --button-secondary-bg: #333333;
+  --button-secondary-text: #ffffff;
+  --status-dirty: #ff4444;
+  --status-cleaning: #ffaa00;
+  --status-clean: #44ff44;
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.app-container {
+  display: flex;
+  height: 100vh;
+  width: 100vw;
+}
+
+/* Camera Preview */
+.camera-container {
+  flex: 1;
+  position: relative;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+}
+
+.camera-preview {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.camera-canvas {
+  display: none;
+}
+
+.camera-error {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  padding: 2rem;
+  background: rgba(0, 0, 0, 0.8);
+  border: 2px solid var(--border);
+  border-radius: 8px;
+}
+
+.camera-switch-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid var(--text);
+  color: var(--text);
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.camera-switch-button:hover {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+/* Content Panel */
+.content-panel {
+  width: 400px;
+  background: var(--bg);
+  border-left: 2px solid var(--border);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.panel-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 1.5rem;
+  color: var(--text);
+}
+
+.empty-state {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  font-size: 1.125rem;
+}
+
+/* Scanned List */
+.scanned-list {
+  flex: 1;
+  margin-bottom: 1rem;
+  min-height: 0;
+}
+
+.scanned-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.scanned-info {
+  flex: 1;
+}
+
+.scanned-room-number {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+
+.scanned-status {
+  font-size: 0.875rem;
+  font-weight: 500;
+  text-transform: uppercase;
+}
+
+.status-dirty {
+  color: var(--status-dirty);
+}
+
+.status-cleaning {
+  color: var(--status-cleaning);
+}
+
+.status-clean {
+  color: var(--status-clean);
+}
+
+.button-remove {
+  background: transparent;
+  border: 2px solid var(--text);
+  color: var(--text);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 1.5rem;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.button-remove:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Control Buttons */
+.control-buttons {
+  display: flex;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+/* Action Buttons */
+.action-buttons {
+  margin-top: auto;
+}
+
+.button-primary,
+.button-secondary {
+  width: 100%;
+  padding: 1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-height: 48px;
+}
+
+.button-primary {
+  background: var(--button-bg);
+  color: var(--button-text);
+}
+
+.button-primary:hover:not(:disabled) {
+  background: var(--button-hover);
+}
+
+.button-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.button-secondary {
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  border: 2px solid var(--border);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.button-large {
+  padding: 1.5rem;
+  font-size: 1.25rem;
+}
+
+.warning-message {
+  background: rgba(255, 170, 0, 0.2);
+  border: 2px solid var(--status-cleaning);
+  color: var(--status-cleaning);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1rem;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+/* Resolve Screen */
+.resolve-container {
+  width: 100%;
+  height: 100%;
+  padding: 2rem;
+  overflow-y: auto;
+}
+
+.resolve-title {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.resolve-table {
+  margin-bottom: 2rem;
+}
+
+.resolve-header {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 2px solid var(--border);
+  font-weight: 600;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.resolve-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 2fr;
+  gap: 1rem;
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  align-items: center;
+}
+
+.resolve-room-number {
+  font-size: 1.125rem;
+  font-weight: 600;
+}
+
+.resolve-current-status {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.resolve-status-controls {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.status-button {
+  flex: 1;
+  padding: 0.75rem;
+  background: var(--button-secondary-bg);
+  color: var(--button-secondary-text);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-transform: uppercase;
+}
+
+.status-button:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.status-button.active {
+  background: var(--button-bg);
+  color: var(--button-text);
+  border-color: var(--text);
+}
+
+.resolve-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: auto;
+}
+
+.resolve-actions .button-primary,
+.resolve-actions .button-secondary {
+  flex: 1;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background: var(--bg);
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 500px;
+  width: 90%;
+}
+
+.modal-content h2 {
+  font-size: 1.5rem;
+  margin-bottom: 1rem;
+}
+
+.modal-content p {
+  margin-bottom: 1rem;
+  color: var(--text-muted);
+}
+
+.modal-warning {
+  color: var(--status-cleaning) !important;
+  font-weight: 600;
+}
+
+.modal-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.1);
+  border: 2px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 1rem;
+  resize: vertical;
+  margin-bottom: 1.5rem;
+}
+
+.modal-textarea:focus {
+  outline: none;
+  border-color: var(--text);
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.modal-actions .button-primary,
+.modal-actions .button-secondary {
+  flex: 1;
+}
+
+

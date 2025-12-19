@@ -23,3 +23,5 @@ CREATE INDEX idx_rooms_type ON rooms(type);
 CREATE INDEX idx_rooms_floor ON rooms(floor);
 CREATE INDEX idx_rooms_assigned ON rooms(assigned_to) WHERE assigned_to IS NOT NULL;
 
+
+
