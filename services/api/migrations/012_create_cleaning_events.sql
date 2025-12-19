@@ -22,3 +22,4 @@ CREATE INDEX idx_cleaning_events_device ON cleaning_events(device_id) WHERE devi
 CREATE INDEX idx_cleaning_events_override ON cleaning_events(override_flag) WHERE override_flag = true;
 
 
+

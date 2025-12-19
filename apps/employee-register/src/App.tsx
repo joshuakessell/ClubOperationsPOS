@@ -183,6 +183,18 @@ function App() {
       return;
     }
 
+    // Require check-in mode to be selected before starting session
+    if (!checkinMode) {
+      alert('Please select check-in mode (Initial Check-In or Renewal) before starting session');
+      return;
+    }
+
+    // For RENEWAL mode, require visit to be selected
+    if (checkinMode === CheckinMode.RENEWAL && !selectedVisit) {
+      alert('Please select a visit to renew before starting session');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
@@ -194,6 +206,8 @@ function App() {
         body: JSON.stringify({
           idScanValue,
           membershipScanValue: membershipScanValue || undefined,
+          checkinMode: checkinMode === CheckinMode.RENEWAL ? 'RENEWAL' : 'INITIAL',
+          visitId: checkinMode === CheckinMode.RENEWAL && selectedVisit ? selectedVisit.id : undefined,
         }),
       });
 
@@ -284,6 +298,17 @@ function App() {
       setSelectedVisit(null);
       setCheckinMode(CheckinMode.INITIAL);
       setShowRenewalSearch(false);
+      setSelectedRentalType(null);
+      setCustomerSelectedType(null);
+      setWaitlistDesiredTier(null);
+      setWaitlistBackupType(null);
+      setSelectedInventoryItem(null);
+      setPaymentIntentId(null);
+      setPaymentQuote(null);
+      setPaymentStatus(null);
+      setShowCustomerConfirmationPending(false);
+      setCustomerConfirmationType(null);
+      setShowWaitlistModal(false);
       console.log('Session cleared');
     } catch (error) {
       console.error('Failed to clear session:', error);
@@ -673,24 +698,30 @@ function App() {
     setSelectedInventoryItem({ type, id, number, tier });
   };
 
-  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
-  const [paymentQuote, setPaymentQuote] = useState<{ total: number; lineItems: Array<{ description: string; amount: number }>; messages: string[] } | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<'DUE' | 'PAID' | null>(null);
-
   const handleAssign = async () => {
     if (!selectedInventoryItem || !currentSessionId || !session?.sessionToken) {
       alert('Please select an item to assign');
       return;
     }
 
+    // Guardrails: Prevent assignment if conditions not met
+    if (showCustomerConfirmationPending) {
+      alert('Please wait for customer confirmation before assigning');
+      return;
+    }
+
+    if (!agreementSigned) {
+      alert('Agreement must be signed before assignment. Please wait for customer to sign the agreement.');
+      return;
+    }
+
+    if (paymentStatus !== 'PAID') {
+      alert('Payment must be marked as paid before assignment. Please mark payment as paid in Square first.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Check if customer confirmation is pending
-      if (showCustomerConfirmationPending) {
-        alert('Please wait for customer confirmation');
-        setIsSubmitting(false);
-        return;
-      }
 
       // Use new check-in assign endpoint
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/assign`, {
@@ -1071,6 +1102,22 @@ function App() {
                 setCheckinMode(CheckinMode.INITIAL);
                 setSelectedVisit(null);
                 setShowRenewalSearch(false);
+                // Clear all session state when switching modes
+                setCustomerName('');
+                setMembershipNumber('');
+                setCurrentSessionId(null);
+                setAgreementSigned(false);
+                setSelectedRentalType(null);
+                setCustomerSelectedType(null);
+                setWaitlistDesiredTier(null);
+                setWaitlistBackupType(null);
+                setSelectedInventoryItem(null);
+                setPaymentIntentId(null);
+                setPaymentQuote(null);
+                setPaymentStatus(null);
+                setShowCustomerConfirmationPending(false);
+                setCustomerConfirmationType(null);
+                setShowWaitlistModal(false);
               }}
               style={{
                 padding: '0.5rem 1rem',
@@ -1088,6 +1135,22 @@ function App() {
               onClick={() => {
                 setCheckinMode(CheckinMode.RENEWAL);
                 setShowRenewalSearch(true);
+                // Clear all session state when switching modes
+                setCustomerName('');
+                setMembershipNumber('');
+                setCurrentSessionId(null);
+                setAgreementSigned(false);
+                setSelectedRentalType(null);
+                setCustomerSelectedType(null);
+                setWaitlistDesiredTier(null);
+                setWaitlistBackupType(null);
+                setSelectedInventoryItem(null);
+                setPaymentIntentId(null);
+                setPaymentQuote(null);
+                setPaymentStatus(null);
+                setShowCustomerConfirmationPending(false);
+                setCustomerConfirmationType(null);
+                setShowWaitlistModal(false);
               }}
               style={{
                 padding: '0.5rem 1rem',
@@ -1176,6 +1239,26 @@ function App() {
           </section>
         )}
 
+        {/* Waitlist Banner */}
+        {waitlistDesiredTier && waitlistBackupType && (
+          <div style={{
+            padding: '1rem',
+            background: '#fef3c7',
+            border: '2px solid #f59e0b',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            color: '#92400e',
+          }}>
+            <div style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+              ⚠️ Customer Waitlisted
+            </div>
+            <div style={{ fontSize: '0.875rem' }}>
+              Customer requested <strong>{waitlistDesiredTier}</strong> but it's unavailable.
+              Assigning <strong>{waitlistBackupType}</strong> as backup. If {waitlistDesiredTier} becomes available, customer can upgrade.
+            </div>
+          </div>
+        )}
+
         {/* Inventory Selector */}
         {currentSessionId && customerName && (
           <InventorySelector
@@ -1214,23 +1297,24 @@ function App() {
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   onClick={handleAssign}
-                  disabled={isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID'}
+                  disabled={isSubmitting || showCustomerConfirmationPending}
                   style={{
                     padding: '0.75rem 1.5rem',
-                    background: isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID' ? '#475569' : '#3b82f6',
+                    background: (isSubmitting || showCustomerConfirmationPending) ? '#475569' : '#3b82f6',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
                     fontSize: '1rem',
                     fontWeight: 600,
-                    cursor: isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID' ? 'not-allowed' : 'pointer',
+                    cursor: (isSubmitting || showCustomerConfirmationPending) ? 'not-allowed' : 'pointer',
                   }}
+                  title={showCustomerConfirmationPending ? 'Waiting for customer confirmation' : 'Assign resource'}
                 >
-                  {isSubmitting ? 'Assigning...' : paymentStatus === 'PAID' ? 'Assigned ✓' : 'Assign'}
+                  {isSubmitting ? 'Assigning...' : showCustomerConfirmationPending ? 'Waiting for Confirmation' : 'Assign'}
                 </button>
                 <button
                   onClick={handleClearSelection}
-                  disabled={isSubmitting || paymentStatus === 'PAID'}
+                  disabled={isSubmitting}
                   style={{
                     padding: '0.75rem 1.5rem',
                     background: 'transparent',

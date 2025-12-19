@@ -102,6 +102,7 @@ export interface SessionUpdatedPayload {
   mode?: CheckinMode; // INITIAL or RENEWAL
   blockEndsAt?: string; // ISO timestamp of when current block ends
   visitId?: string; // Visit ID if this is part of a visit
+  status?: string; // Lane session status (IDLE, ACTIVE, AWAITING_ASSIGNMENT, AWAITING_PAYMENT, AWAITING_SIGNATURE, COMPLETED, CANCELLED)
 }
 
 /**

@@ -22,6 +22,7 @@ interface SessionState {
   allowedRentals: string[];
   visitId?: string;
   mode?: CheckinMode;
+  blockEndsAt?: string; // ISO timestamp of when current block ends
 }
 
 interface Agreement {
@@ -73,6 +74,9 @@ function App() {
   const [showCustomerConfirmation, setShowCustomerConfirmation] = useState(false);
   const [customerConfirmationData, setCustomerConfirmationData] = useState<CustomerConfirmationRequiredPayload | null>(null);
   const [inventory, setInventory] = useState<{ rooms: Record<string, number>; lockers: number } | null>(null);
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [waitlistDesiredType, setWaitlistDesiredType] = useState<string | null>(null);
+  const [waitlistBackupType, setWaitlistBackupType] = useState<string | null>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
 
@@ -132,6 +136,7 @@ function App() {
             allowedRentals: payload.allowedRentals,
             visitId: payload.visitId,
             mode: payload.mode,
+            blockEndsAt: payload.blockEndsAt,
           });
           // Set check-in mode from payload
           if (payload.mode) {
@@ -139,6 +144,31 @@ function App() {
           }
           if (payload.customerName) {
             setView('selection');
+          }
+          // Handle completion status
+          if ((payload as any).status === 'COMPLETED') {
+            setView('complete');
+            // Return to idle after delay
+            setTimeout(() => {
+              setView('idle');
+              setSession({
+                sessionId: null,
+                customerName: null,
+                membershipNumber: null,
+                allowedRentals: [],
+                blockEndsAt: undefined,
+              });
+              setSelectedRental(null);
+              setAgreed(false);
+              setSignatureData(null);
+              setShowUpgradeDisclaimer(false);
+              setUpgradeAction(null);
+              setShowRenewalDisclaimer(false);
+              setCheckinMode(null);
+              setShowWaitlistModal(false);
+              setWaitlistDesiredType(null);
+              setWaitlistBackupType(null);
+            }, 3000);
           }
         } else if (message.type === 'CUSTOMER_CONFIRMATION_REQUIRED') {
           const payload = message.payload as CustomerConfirmationRequiredPayload;
@@ -198,6 +228,15 @@ function App() {
       return;
     }
 
+    const availableCount = inventory?.rooms[rental] || (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : 0) || 0;
+    
+    // If unavailable, show waitlist modal
+    if (availableCount === 0) {
+      setWaitlistDesiredType(rental);
+      setShowWaitlistModal(true);
+      return;
+    }
+
     setSelectedRental(rental);
     setIsSubmitting(true);
 
@@ -235,12 +274,14 @@ function App() {
   const handleDisclaimerAcknowledge = async () => {
     if (!session.sessionId || !upgradeAction) return;
 
-    // Note: Upgrade endpoints require staff authentication.
-    // For customer kiosk, these actions should be initiated by staff via employee-register.
-    // This is a placeholder - in production, upgrades should be handled by staff.
-    alert('Upgrade actions must be processed by staff. Please contact an employee.');
+    // Upgrade disclaimer is informational only - no signature required
+    // Just acknowledge and close the modal
+    // The actual upgrade processing happens on the employee register side
     setShowUpgradeDisclaimer(false);
     setUpgradeAction(null);
+    
+    // After acknowledging upgrade disclaimer, do NOT proceed to agreement
+    // Upgrades don't require agreement signing - that's only for initial check-ins and renewals
   };
 
   // Initialize signature canvas
@@ -334,7 +375,8 @@ function App() {
 
       setView('complete');
       
-      // Return to idle after a delay
+      // Return to idle after a delay (will be handled by WebSocket COMPLETED status)
+      // Keep this as fallback
       setTimeout(() => {
         setView('idle');
         setSession({
@@ -342,11 +384,19 @@ function App() {
           customerName: null,
           membershipNumber: null,
           allowedRentals: [],
+          blockEndsAt: undefined,
         });
         setSelectedRental(null);
         setAgreed(false);
         setSignatureData(null);
-      }, 3000);
+        setShowUpgradeDisclaimer(false);
+        setUpgradeAction(null);
+        setShowRenewalDisclaimer(false);
+        setCheckinMode(null);
+        setShowWaitlistModal(false);
+        setWaitlistDesiredType(null);
+        setWaitlistBackupType(null);
+      }, 5000);
     } catch (error) {
       console.error('Failed to sign agreement:', error);
       alert(error instanceof Error ? error.message : 'Failed to sign agreement. Please try again.');
@@ -439,7 +489,10 @@ function App() {
         <main className="main-content">
           <div className="complete-screen">
             <h1>Thank you!</h1>
-            <p>Your agreement has been signed.</p>
+            <p>Please wait for staff to complete payment and assignment.</p>
+            <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '1rem' }}>
+              Your check-in is being processed...
+            </p>
           </div>
         </main>
       </div>
@@ -470,18 +523,18 @@ function App() {
                 <div key={rental}>
                   <div
                     className="package-option"
-                    onClick={() => !isUnavailable && handleRentalSelection(rental)}
-                    style={{ opacity: isUnavailable ? 0.5 : 1, cursor: isUnavailable ? 'not-allowed' : 'pointer' }}
+                    onClick={() => handleRentalSelection(rental)}
+                    style={{ opacity: 1, cursor: 'pointer' }}
                   >
                     <div className="package-name">{getRentalDisplayName(rental)}</div>
                     {showWarning && (
-                      <div style={{ fontSize: '0.875rem', color: '#f59e0b', marginTop: '0.5rem' }}>
-                        Only {availableCount} available
+                      <div style={{ fontSize: '0.875rem', color: '#f59e0b', marginTop: '0.5rem', fontWeight: 600 }}>
+                        ⚠️ Only {availableCount} available
                       </div>
                     )}
                     {isUnavailable && (
-                      <div style={{ fontSize: '0.875rem', color: '#ef4444', marginTop: '0.5rem' }}>
-                        Currently unavailable
+                      <div style={{ fontSize: '0.875rem', color: '#ef4444', marginTop: '0.5rem', fontWeight: 600 }}>
+                        Currently unavailable - Tap to join waitlist
                       </div>
                     )}
                   </div>
@@ -512,10 +565,21 @@ function App() {
           <div className="modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Upgrade Disclaimer</h2>
             <div className="disclaimer-text">
-              <p>Upgrade availability and time estimates are not guarantees.</p>
-              <p>Upgrade fees are charged only if an upgrade becomes available and you choose to accept it.</p>
-              <p>Upgrades do not extend your stay. Your checkout time remains the same as your original 6-hour check-in.</p>
-              <p>The full upgrade fee applies even if limited time remains.</p>
+              <p><strong>Upgrade Disclaimer</strong></p>
+              <ul style={{ listStyle: 'disc', paddingLeft: '1.5rem', textAlign: 'left', marginTop: '1rem' }}>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  Upgrade fees apply only to remaining time in your current stay.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  Upgrades do not extend your stay. Your checkout time remains the same.
+                </li>
+                <li style={{ marginBottom: '0.5rem', fontWeight: 600, color: '#ef4444' }}>
+                  No refunds under any circumstances.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  Upgrade fees are charged only when an upgrade becomes available and you choose to accept it.
+                </li>
+              </ul>
             </div>
             <button
               className="modal-ok-btn"
@@ -603,10 +667,13 @@ function App() {
             <div className="disclaimer-text">
               <ul style={{ listStyle: 'disc', paddingLeft: '1.5rem', textAlign: 'left' }}>
                 <li style={{ marginBottom: '0.5rem' }}>
-                  This is a renewal that extends your stay for another 6 hours from your current checkout time.
+                  This renewal extends your stay for 6 hours from your current checkout time.
+                  {session.blockEndsAt && (
+                    <span> (Current checkout: {new Date(session.blockEndsAt).toLocaleString()})</span>
+                  )}
                 </li>
-                <li style={{ marginBottom: '0.5rem' }}>
-                  You are nearing the 14-hour maximum stay for a single visit.
+                <li style={{ marginBottom: '0.5rem', color: '#f59e0b', fontWeight: 600 }}>
+                  ⚠️ You are approaching the 14-hour maximum stay for a single visit.
                 </li>
                 <li style={{ marginBottom: '0.5rem' }}>
                   At the end of this 6-hour renewal, you may extend one final time for 2 additional hours for a flat $20 fee (same for lockers or any room type).

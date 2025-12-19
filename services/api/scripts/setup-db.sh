@@ -53,3 +53,4 @@ echo ""
 echo "To stop the database: pnpm db:stop"
 echo "To reset the database: pnpm db:reset"
 
+

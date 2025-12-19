@@ -1,0 +1,25 @@
+=== COMMIT 1: 9323bbf - "added database" ===
+
+This commit added the full check-in flow implementation with database setup, pricing engine, and comprehensive tests.
+
+Key changes:
+- Added database setup scripts (setup-db.sh, setup-db.ps1, setup-db.ts)
+- Created migrations for lane_sessions, customers, payment_intents tables
+- Implemented full check-in flow API endpoints
+- Added pricing engine with weekday/weekend, youth, and membership fee logic
+- Updated customer kiosk and employee register UIs
+- Added office dashboard check-in session monitoring
+- Created comprehensive test suite (9 check-in tests, 31 pricing tests)
+- Fixed migration SQL issues (NOW() in index predicates, COALESCE usage)
+
+Files changed: 52 files, 8953 insertions(+), 576 deletions(-)
+
+=== COMMIT 2: ab3563c - "Implemented the checkout kiosk flow with employee verification, late fees, and bans." ===
+
+[Run: git show ab3563c216c6b50636231d8004f05f49c0ecf262 to see full diff]
+
+=== COMMIT 3: 69be351 - "Added several new features." ===
+
+[Run: git show 69be351ade102db7465974ad148f205306fe84cf to see full diff]
+
+

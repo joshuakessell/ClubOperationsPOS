@@ -115,3 +115,4 @@ export function registerAuthMiddleware(fastify: FastifyInstance): void {
 }
 
 
+

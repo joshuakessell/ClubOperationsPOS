@@ -276,3 +276,4 @@ function arrayBufferToBase64URL(buffer: ArrayBuffer): string {
     .replace(/=/g, '');
 }
 
+
