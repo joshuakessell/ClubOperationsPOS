@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload } from '@club-ops/shared';
+import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type CheckoutCompletedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload } from '@club-ops/shared';
 import { LockScreen, type StaffSession } from './LockScreen';
 import { InventorySelector } from './InventorySelector';
 
@@ -621,12 +621,13 @@ function App() {
             setCheckoutFeePaid(payload.feePaid);
           }
         } else if (message.type === 'CHECKOUT_COMPLETED') {
+          const payload = message.payload as CheckoutCompletedPayload;
           setCheckoutRequests(prev => {
             const next = new Map(prev);
-            next.delete(message.payload.requestId);
+            next.delete(payload.requestId);
             return next;
           });
-          if (selectedCheckoutRequest === message.payload.requestId) {
+          if (selectedCheckoutRequest === payload.requestId) {
             setSelectedCheckoutRequest(null);
             setCheckoutChecklist({});
             setCheckoutItemsConfirmed(false);
