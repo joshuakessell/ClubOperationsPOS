@@ -25,7 +25,7 @@ describe('App', () => {
 
   it('renders logo-only idle screen', () => {
     render(<App />);
-    const logo = screen.getByAltText('The Clubs');
+    const logo = screen.getByAltText('Club Dallas');
     expect(logo).toBeDefined();
     expect(logo.className).toBe('logo-idle');
   });
@@ -33,7 +33,7 @@ describe('App', () => {
   it('shows idle state when no session exists', () => {
     render(<App />);
     // Should show logo-only idle screen
-    const logo = screen.getByAltText('The Clubs');
+    const logo = screen.getByAltText('Club Dallas');
     expect(logo).toBeDefined();
     expect(logo.className).toBe('logo-idle');
     // Should not show customer info

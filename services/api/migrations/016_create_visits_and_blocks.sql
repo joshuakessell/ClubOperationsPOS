@@ -49,7 +49,9 @@ CREATE INDEX idx_visits_started ON visits(started_at);
 CREATE INDEX idx_checkin_blocks_visit ON checkin_blocks(visit_id);
 CREATE INDEX idx_checkin_blocks_type ON checkin_blocks(block_type);
 CREATE INDEX idx_checkin_blocks_session ON checkin_blocks(session_id) WHERE session_id IS NOT NULL;
-CREATE INDEX idx_checkin_blocks_active ON checkin_blocks(visit_id, ends_at) WHERE ends_at > NOW();
+-- Note: Cannot use NOW() in index predicate (not immutable)
+-- Instead, create index on ends_at for efficient queries of active blocks
+CREATE INDEX idx_checkin_blocks_ends_at ON checkin_blocks(ends_at) WHERE ends_at IS NOT NULL;
 
 -- Indexes for charges
 CREATE INDEX idx_charges_visit ON charges(visit_id);

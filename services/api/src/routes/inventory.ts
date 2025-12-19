@@ -1,5 +1,26 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { query } from '../db/index.js';
+import { requireAuth } from '../auth/middleware.js';
+
+/**
+ * Map room number to tier (Special, Double, or Standard).
+ */
+function getRoomTier(roomNumber: string): 'SPECIAL' | 'DOUBLE' | 'STANDARD' {
+  const num = parseInt(roomNumber, 10);
+  
+  // Special: rooms 201, 232, 256
+  if (num === 201 || num === 232 || num === 256) {
+    return 'SPECIAL';
+  }
+  
+  // Double: even rooms 216, 218, 232, 252, 256, 262 and odd room 225
+  if (num === 216 || num === 218 || num === 232 || num === 252 || num === 256 || num === 262 || num === 225) {
+    return 'DOUBLE';
+  }
+  
+  // All else standard
+  return 'STANDARD';
+}
 
 interface RoomCountRow {
   status: string;
@@ -106,20 +127,19 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
   });
 
   /**
-   * GET /v1/inventory/available - Get available (CLEAN) rooms by type
+   * GET /v1/inventory/available - Get available (CLEAN) rooms by tier
    * 
-   * Returns only unassigned CLEAN rooms, useful for check-in flow.
+   * Returns only unassigned CLEAN rooms, grouped by tier (SPECIAL, DOUBLE, STANDARD).
+   * Uses room number mapping to determine tier.
    */
   fastify.get('/v1/inventory/available', async (_request, reply: FastifyReply) => {
     try {
-      const result = await query<{ room_type: string; count: string }>(
-        `SELECT type as room_type, COUNT(*) as count
+      const result = await query<{ number: string; status: string; assigned_to: string | null }>(
+        `SELECT number, status, assigned_to
          FROM rooms
          WHERE status = 'CLEAN' 
            AND assigned_to IS NULL
-           AND type != 'LOCKER'
-         GROUP BY type
-         ORDER BY type`
+           AND type != 'LOCKER'`
       );
 
       const lockerResult = await query<{ count: string }>(
@@ -128,23 +148,144 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
          WHERE status = 'CLEAN' AND assigned_to IS NULL`
       );
 
+      // Group by tier using room number mapping
       const available: Record<string, number> = {
+        SPECIAL: 0,
+        DOUBLE: 0,
         STANDARD: 0,
-        DELUXE: 0,
-        VIP: 0,
+        LOCKER: 0,
       };
 
       for (const row of result.rows) {
-        available[row.room_type] = parseInt(row.count, 10);
+        const tier = getRoomTier(row.number);
+        available[tier]++;
       }
 
+      available.LOCKER = parseInt(lockerResult.rows[0]?.count ?? '0', 10);
+
       return reply.send({
-        rooms: available,
-        lockers: parseInt(lockerResult.rows[0]?.count ?? '0', 10),
-        total: Object.values(available).reduce((a, b) => a + b, 0),
+        rooms: {
+          SPECIAL: available.SPECIAL,
+          DOUBLE: available.DOUBLE,
+          STANDARD: available.STANDARD,
+        },
+        lockers: available.LOCKER,
+        total: available.SPECIAL + available.DOUBLE + available.STANDARD,
       });
     } catch (error) {
       fastify.log.error(error, 'Failed to fetch available inventory');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * GET /v1/inventory/rooms-by-tier - Get all rooms grouped by tier for assignment
+   * 
+   * Returns rooms grouped by tier (SPECIAL, DOUBLE, STANDARD) with availability status.
+   * Includes expiring soon (next 30 minutes) and recently reserved rooms.
+   * Auth required.
+   */
+  fastify.get('/v1/inventory/rooms-by-tier', {
+    preHandler: [requireAuth],
+  }, async (_request, reply: FastifyReply) => {
+    try {
+      // Get all rooms with their assignment and checkout info
+      const result = await query<{
+        id: string;
+        number: string;
+        status: string;
+        assigned_to: string | null;
+        checkout_at: Date | null;
+      }>(
+        `SELECT 
+          r.id,
+          r.number,
+          r.status,
+          r.assigned_to,
+          cb.ends_at as checkout_at
+         FROM rooms r
+         LEFT JOIN checkin_blocks cb ON cb.room_id = r.id 
+           AND cb.ends_at > NOW()
+         WHERE r.type != 'LOCKER'
+         ORDER BY r.number`
+      );
+
+      const now = new Date();
+      const expiringSoonThreshold = new Date(now.getTime() + 30 * 60 * 1000); // 30 minutes
+
+      // Group by tier
+      const byTier: Record<string, {
+        available: Array<{ id: string; number: string; status: string }>;
+        expiringSoon: Array<{ id: string; number: string; checkoutAt: string }>;
+        recentlyReserved: Array<{ id: string; number: string; checkoutAt: string }>;
+      }> = {
+        SPECIAL: { available: [], expiringSoon: [], recentlyReserved: [] },
+        DOUBLE: { available: [], expiringSoon: [], recentlyReserved: [] },
+        STANDARD: { available: [], expiringSoon: [], recentlyReserved: [] },
+      };
+
+      for (const row of result.rows) {
+        const tier = getRoomTier(row.number);
+        const roomInfo = {
+          id: row.id,
+          number: row.number,
+          status: row.status,
+        };
+
+        if (row.status === 'CLEAN' && !row.assigned_to) {
+          // Available now
+          byTier[tier].available.push(roomInfo);
+        } else if (row.checkout_at) {
+          const checkoutAt = new Date(row.checkout_at);
+          if (checkoutAt <= expiringSoonThreshold && checkoutAt > now) {
+            // Expiring soon (read-only)
+            byTier[tier].expiringSoon.push({
+              id: row.id,
+              number: row.number,
+              checkoutAt: checkoutAt.toISOString(),
+            });
+          } else if (checkoutAt > expiringSoonThreshold) {
+            // Recently reserved (read-only)
+            byTier[tier].recentlyReserved.push({
+              id: row.id,
+              number: row.number,
+              checkoutAt: checkoutAt.toISOString(),
+            });
+          }
+        }
+      }
+
+      // Get lockers
+      const lockerResult = await query<{
+        id: string;
+        number: string;
+        status: string;
+        assigned_to: string | null;
+      }>(
+        `SELECT id, number, status, assigned_to
+         FROM lockers
+         ORDER BY number`
+      );
+
+      const lockers = {
+        available: [] as Array<{ id: string; number: string }>,
+        assigned: [] as Array<{ id: string; number: string }>,
+      };
+
+      for (const locker of lockerResult.rows) {
+        if (locker.status === 'CLEAN' && !locker.assigned_to) {
+          lockers.available.push({ id: locker.id, number: locker.number });
+        } else {
+          lockers.assigned.push({ id: locker.id, number: locker.number });
+        }
+      }
+
+      return reply.send({
+        rooms: byTier,
+        lockers,
+      });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to fetch rooms by tier');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
@@ -198,6 +339,104 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.send({ rooms });
     } catch (error) {
       fastify.log.error(error, 'Failed to fetch rooms');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * GET /v1/inventory/detailed - Get detailed inventory with occupancy info
+   * 
+   * Returns all rooms and lockers with checkin_at/checkout_at from active sessions.
+   * Auth required.
+   */
+  fastify.get('/v1/inventory/detailed', {
+    preHandler: [requireAuth],
+  }, async (_request, reply: FastifyReply) => {
+    try {
+      // Get rooms with occupancy info
+      const roomResult = await query<{
+        id: string;
+        number: string;
+        type: string;
+        status: string;
+        floor: number;
+        last_status_change: Date;
+        assigned_to: string | null;
+        assigned_member_name: string | null;
+        override_flag: boolean;
+        checkin_at: Date | null;
+        checkout_at: Date | null;
+      }>(
+        `SELECT 
+          r.id,
+          r.number,
+          r.type,
+          r.status,
+          r.floor,
+          r.last_status_change,
+          r.assigned_to,
+          m.name as assigned_member_name,
+          r.override_flag,
+          s.check_in_time as checkin_at,
+          s.checkout_at
+         FROM rooms r
+         LEFT JOIN members m ON r.assigned_to = m.id
+         LEFT JOIN sessions s ON s.room_id = r.id AND s.status = 'ACTIVE'
+         WHERE r.type != 'LOCKER'
+         ORDER BY r.number`
+      );
+
+      // Get lockers with occupancy info
+      const lockerResult = await query<{
+        id: string;
+        number: string;
+        status: string;
+        assigned_to: string | null;
+        assigned_member_name: string | null;
+        checkin_at: Date | null;
+        checkout_at: Date | null;
+      }>(
+        `SELECT 
+          l.id,
+          l.number,
+          l.status,
+          l.assigned_to,
+          m.name as assigned_member_name,
+          s.check_in_time as checkin_at,
+          s.checkout_at
+         FROM lockers l
+         LEFT JOIN members m ON l.assigned_to = m.id
+         LEFT JOIN sessions s ON s.locker_id = l.id AND s.status = 'ACTIVE'
+         ORDER BY l.number`
+      );
+
+      const rooms = roomResult.rows.map(row => ({
+        id: row.id,
+        number: row.number,
+        tier: row.type, // Using 'tier' to match spec terminology
+        status: row.status,
+        floor: row.floor,
+        lastStatusChange: row.last_status_change,
+        assignedTo: row.assigned_to || undefined,
+        assignedMemberName: row.assigned_member_name || undefined,
+        overrideFlag: row.override_flag,
+        checkinAt: row.checkin_at ? new Date(row.checkin_at).toISOString() : undefined,
+        checkoutAt: row.checkout_at ? new Date(row.checkout_at).toISOString() : undefined,
+      }));
+
+      const lockers = lockerResult.rows.map(row => ({
+        id: row.id,
+        number: row.number,
+        status: row.status,
+        assignedTo: row.assigned_to || undefined,
+        assignedMemberName: row.assigned_member_name || undefined,
+        checkinAt: row.checkin_at ? new Date(row.checkin_at).toISOString() : undefined,
+        checkoutAt: row.checkout_at ? new Date(row.checkout_at).toISOString() : undefined,
+      }));
+
+      return reply.send({ rooms, lockers });
+    } catch (error) {
+      fastify.log.error(error, 'Failed to fetch detailed inventory');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

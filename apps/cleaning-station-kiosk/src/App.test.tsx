@@ -52,15 +52,16 @@ describe('App', () => {
     vi.restoreAllMocks();
   });
 
-  it('renders camera preview and content panel', () => {
+  it('renders lock screen when not authenticated', () => {
     render(<App />);
-    // Should show camera container and content panel
-    expect(screen.getByText('Scanned Rooms')).toBeDefined();
+    // When not authenticated, LockScreen is shown
+    expect(screen.getByText('Staff Login')).toBeDefined();
   });
 
-  it('shows empty state when no rooms scanned', () => {
+  it('shows lock screen with PIN input', () => {
     render(<App />);
-    expect(screen.getByText('Scan QR codes to add rooms')).toBeDefined();
+    // Lock screen should show PIN input
+    expect(screen.getByPlaceholderText('Enter PIN')).toBeDefined();
   });
 });
 

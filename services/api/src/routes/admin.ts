@@ -398,24 +398,63 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * GET /v1/admin/staff - Get list of staff members
    * 
-   * Returns all active staff members for filtering metrics.
+   * Returns all staff members (active and inactive) with last login info.
    */
   fastify.get('/v1/admin/staff', {
     preHandler: [requireAuth, requireAdmin],
   }, async (
-    _request: FastifyRequest,
+    request: FastifyRequest<{
+      Querystring: {
+        search?: string;
+        role?: string;
+        active?: string;
+      };
+    }>,
     reply: FastifyReply
   ) => {
     try {
+      let whereClause = '1=1';
+      const params: unknown[] = [];
+      let paramIndex = 1;
+
+      if (request.query.search) {
+        whereClause += ` AND (name ILIKE $${paramIndex} OR id::text = $${paramIndex})`;
+        params.push(`%${request.query.search}%`);
+        paramIndex++;
+      }
+
+      if (request.query.role) {
+        whereClause += ` AND role = $${paramIndex}`;
+        params.push(request.query.role);
+        paramIndex++;
+      }
+
+      if (request.query.active !== undefined) {
+        whereClause += ` AND active = $${paramIndex}`;
+        params.push(request.query.active === 'true');
+        paramIndex++;
+      }
+
       const result = await query<{
         id: string;
         name: string;
         role: string;
+        active: boolean;
+        created_at: Date;
+        last_login: Date | null;
       }>(
-        `SELECT id, name, role
-         FROM staff
-         WHERE active = true
-         ORDER BY name`
+        `SELECT 
+          s.id,
+          s.name,
+          s.role,
+          s.active,
+          s.created_at,
+          MAX(ss.created_at) as last_login
+         FROM staff s
+         LEFT JOIN staff_sessions ss ON s.id = ss.staff_id
+         WHERE ${whereClause}
+         GROUP BY s.id, s.name, s.role, s.active, s.created_at
+         ORDER BY s.name`
       );
 
       return reply.send({
@@ -423,10 +462,253 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
           id: row.id,
           name: row.name,
           role: row.role,
+          active: row.active,
+          createdAt: row.created_at.toISOString(),
+          lastLogin: row.last_login?.toISOString() || null,
         })),
       });
     } catch (error) {
       request.log.error(error, 'Failed to fetch staff list');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /v1/admin/staff - Create a new staff member
+   */
+  fastify.post('/v1/admin/staff', {
+    preHandler: [requireAuth, requireAdmin],
+  }, async (
+    request: FastifyRequest<{
+      Body: {
+        name: string;
+        role: 'STAFF' | 'ADMIN';
+        pin: string;
+        active?: boolean;
+      };
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const CreateStaffSchema = z.object({
+      name: z.string().min(1),
+      role: z.enum(['STAFF', 'ADMIN']),
+      pin: z.string().regex(/^\d{4,6}$/, 'PIN must be 4-6 digits'),
+      active: z.boolean().optional().default(true),
+    });
+
+    let body;
+    try {
+      body = CreateStaffSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      const { hashPin } = await import('../auth/utils.js');
+      const pinHash = await hashPin(body.pin);
+
+      const result = await query<{ id: string }>(
+        `INSERT INTO staff (name, role, pin_hash, active)
+         VALUES ($1, $2, $3, $4)
+         RETURNING id`,
+        [body.name, body.role, pinHash, body.active]
+      );
+
+      const staffId = result.rows[0]!.id;
+
+      // Log audit action
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id, new_value)
+         VALUES ($1, 'STAFF_CREATED', 'staff', $2, $3)`,
+        [
+          request.staff.staffId,
+          staffId,
+          JSON.stringify({ name: body.name, role: body.role, active: body.active }),
+        ]
+      );
+
+      return reply.status(201).send({
+        id: staffId,
+        name: body.name,
+        role: body.role,
+        active: body.active,
+      });
+    } catch (error) {
+      request.log.error(error, 'Failed to create staff');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * PATCH /v1/admin/staff/:id - Update a staff member
+   */
+  fastify.patch('/v1/admin/staff/:id', {
+    preHandler: [requireAuth, requireAdmin],
+  }, async (
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: {
+        name?: string;
+        role?: 'STAFF' | 'ADMIN';
+        active?: boolean;
+      };
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const UpdateStaffSchema = z.object({
+      name: z.string().min(1).optional(),
+      role: z.enum(['STAFF', 'ADMIN']).optional(),
+      active: z.boolean().optional(),
+    });
+
+    let body;
+    try {
+      body = UpdateStaffSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      const updates: string[] = [];
+      const params: unknown[] = [];
+      let paramIndex = 1;
+
+      if (body.name !== undefined) {
+        updates.push(`name = $${paramIndex}`);
+        params.push(body.name);
+        paramIndex++;
+      }
+
+      if (body.role !== undefined) {
+        updates.push(`role = $${paramIndex}`);
+        params.push(body.role);
+        paramIndex++;
+      }
+
+      if (body.active !== undefined) {
+        updates.push(`active = $${paramIndex}`);
+        params.push(body.active);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        return reply.status(400).send({ error: 'No fields to update' });
+      }
+
+      params.push(request.params.id);
+
+      const result = await query<{
+        id: string;
+        name: string;
+        role: string;
+        active: boolean;
+      }>(
+        `UPDATE staff
+         SET ${updates.join(', ')}, updated_at = NOW()
+         WHERE id = $${paramIndex}
+         RETURNING id, name, role, active`,
+        params
+      );
+
+      if (result.rows.length === 0) {
+        return reply.status(404).send({ error: 'Staff not found' });
+      }
+
+      const staff = result.rows[0]!;
+
+      // Log audit action
+      const action = body.active !== undefined
+        ? (body.active ? 'STAFF_ACTIVATED' : 'STAFF_DEACTIVATED')
+        : 'STAFF_UPDATED';
+
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id, new_value)
+         VALUES ($1, $2, 'staff', $3, $4)`,
+        [
+          request.staff.staffId,
+          action,
+          staff.id,
+          JSON.stringify(body),
+        ]
+      );
+
+      return reply.send(staff);
+    } catch (error) {
+      request.log.error(error, 'Failed to update staff');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /v1/admin/staff/:id/pin-reset - Reset a staff member's PIN
+   */
+  fastify.post('/v1/admin/staff/:id/pin-reset', {
+    preHandler: [requireAuth, requireAdmin],
+  }, async (
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: { newPin: string };
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const PinResetSchema = z.object({
+      newPin: z.string().regex(/^\d{4,6}$/, 'PIN must be 4-6 digits'),
+    });
+
+    let body;
+    try {
+      body = PinResetSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      const { hashPin } = await import('../auth/utils.js');
+      const pinHash = await hashPin(body.newPin);
+
+      const result = await query<{ id: string }>(
+        `UPDATE staff
+         SET pin_hash = $1, updated_at = NOW()
+         WHERE id = $2
+         RETURNING id`,
+        [pinHash, request.params.id]
+      );
+
+      if (result.rows.length === 0) {
+        return reply.status(404).send({ error: 'Staff not found' });
+      }
+
+      // Log audit action
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
+         VALUES ($1, 'STAFF_PIN_RESET', 'staff', $2)`,
+        [request.staff.staffId, request.params.id]
+      );
+
+      return reply.send({ success: true });
+    } catch (error) {
+      request.log.error(error, 'Failed to reset PIN');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

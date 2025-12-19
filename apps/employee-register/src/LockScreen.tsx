@@ -1,5 +1,11 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { useState, useEffect } from 'react';
+import {
+  isWebAuthnSupported,
+  requestAuthenticationOptions,
+  getCredential,
+  authenticationCredentialToJSON,
+  verifyAuthentication,
+} from './webauthn';
 
 const API_BASE = '/api';
 
@@ -17,157 +23,66 @@ interface LockScreenProps {
 }
 
 export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
-  const [mode, setMode] = useState<'qr' | 'pin'>('qr');
+  const [mode, setMode] = useState<'webauthn' | 'pin'>('webauthn');
+  const [staffLookup, setStaffLookup] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const scanningIntervalRef = useRef<number | null>(null);
-  const handleScanRef = useRef<((qrToken: string) => Promise<void>) | null>(null);
+  const [webauthnSupported, setWebauthnSupported] = useState(false);
 
-  // Initialize camera for QR scanning
+  // Check WebAuthn support on mount
   useEffect(() => {
-    if (mode !== 'qr') {
-      // Stop camera when not in QR mode
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-      if (scanningIntervalRef.current) {
-        clearInterval(scanningIntervalRef.current);
-        scanningIntervalRef.current = null;
-      }
+    setWebauthnSupported(isWebAuthnSupported());
+    if (!isWebAuthnSupported()) {
+      setMode('pin');
+    }
+  }, []);
+
+  const handleWebAuthnLogin = async () => {
+    if (!staffLookup.trim()) {
+      setError('Please enter your name or staff ID');
       return;
     }
 
-    const initCamera = async () => {
-      try {
-        const constraints: MediaStreamConstraints = {
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
-        };
-
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        streamRef.current = stream;
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-        }
-
-        const codeReader = new BrowserMultiFormatReader();
-        codeReaderRef.current = codeReader;
-        setError(null);
-
-        startScanning();
-      } catch (error) {
-        console.error('Camera error:', error);
-        setError('Camera access denied. Please use PIN entry.');
-        setMode('pin');
-      }
-    };
-
-    initCamera();
-
-    return () => {
-      if (codeReaderRef.current) {
-        codeReaderRef.current.reset();
-      }
-      if (scanningIntervalRef.current) {
-        clearInterval(scanningIntervalRef.current);
-        scanningIntervalRef.current = null;
-      }
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach((track) => track.stop());
-        streamRef.current = null;
-      }
-    };
-  }, [mode]);
-
-  const startScanning = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || !codeReaderRef.current) return;
-
-    const scan = async () => {
-      if (!videoRef.current || !canvasRef.current || !codeReaderRef.current) return;
-
-      try {
-        const canvas = canvasRef.current;
-        const video = videoRef.current;
-        const context = canvas.getContext('2d');
-
-        if (!context || video.readyState !== video.HAVE_ENOUGH_DATA) return;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        context.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-        const img = new Image();
-        img.src = canvas.toDataURL();
-        await new Promise((resolve) => {
-          img.onload = resolve;
-        });
-
-        const result = await codeReaderRef.current.decodeFromImageElement(img);
-
-        if (result && handleScanRef.current) {
-          handleScanRef.current(result.getText());
-        }
-      } catch (error) {
-        if (!(error instanceof NotFoundException)) {
-          console.error('Scan error:', error);
-        }
-      }
-    };
-
-    scanningIntervalRef.current = window.setInterval(scan, 500);
-  }, []);
-
-  const handleQrScan = useCallback(async (qrToken: string) => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/auth/login`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          deviceId,
-          deviceType,
-          qrToken,
-        }),
-      });
+      // Request authentication options
+      const options = await requestAuthenticationOptions(staffLookup.trim(), deviceId);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Login failed');
+      // Get credential from authenticator
+      const credential = await getCredential(options);
+
+      // Convert to JSON
+      const credentialResponse = authenticationCredentialToJSON(credential);
+
+      // Verify with server
+      const result = await verifyAuthentication(deviceId, credentialResponse);
+
+      if (result.verified) {
+        onLogin({
+          staffId: result.staffId,
+          name: result.name,
+          role: result.role as 'STAFF' | 'ADMIN',
+          sessionToken: result.sessionToken,
+        });
+      } else {
+        throw new Error('Authentication verification failed');
       }
-
-      const session: StaffSession = await response.json();
-      onLogin(session);
     } catch (error) {
-      console.error('Login error:', error);
-      setError(error instanceof Error ? error.message : 'Login failed');
+      console.error('WebAuthn login error:', error);
+      setError(error instanceof Error ? error.message : 'Fingerprint authentication failed');
     } finally {
       setIsLoading(false);
     }
-  }, [deviceId, deviceType, onLogin]);
-
-  useEffect(() => {
-    handleScanRef.current = handleQrScan;
-  }, [handleQrScan]);
+  };
 
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!pin.trim()) {
-      setError('Please enter a PIN');
+    if (!staffLookup.trim() || !pin.trim()) {
+      setError('Please enter your name/ID and PIN');
       return;
     }
 
@@ -175,12 +90,12 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/auth/login`, {
+      const response = await fetch(`${API_BASE}/v1/auth/login-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          staffLookup: staffLookup.trim(),
           deviceId,
-          deviceType,
           pin: pin.trim(),
         }),
       });
@@ -193,9 +108,10 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
       const session: StaffSession = await response.json();
       onLogin(session);
       setPin('');
+      setStaffLookup('');
     } catch (error) {
       console.error('Login error:', error);
-      setError(error instanceof Error ? error.message : 'Invalid PIN');
+      setError(error instanceof Error ? error.message : 'Invalid credentials');
       setPin('');
     } finally {
       setIsLoading(false);
@@ -207,20 +123,22 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
       <div className="lock-screen-content">
         <div className="lock-screen-header">
           <h1>Staff Login</h1>
-          <p>Scan QR code or enter PIN</p>
+          <p>Sign in with fingerprint or PIN</p>
         </div>
 
         <div className="lock-screen-tabs">
-          <button
-            className={`tab-button ${mode === 'qr' ? 'active' : ''}`}
-            onClick={() => {
-              setMode('qr');
-              setError(null);
-            }}
-            disabled={isLoading}
-          >
-            QR Code
-          </button>
+          {webauthnSupported && (
+            <button
+              className={`tab-button ${mode === 'webauthn' ? 'active' : ''}`}
+              onClick={() => {
+                setMode('webauthn');
+                setError(null);
+              }}
+              disabled={isLoading}
+            >
+              Fingerprint
+            </button>
+          )}
           <button
             className={`tab-button ${mode === 'pin' ? 'active' : ''}`}
             onClick={() => {
@@ -239,27 +157,48 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
           </div>
         )}
 
-        {mode === 'qr' ? (
-          <div className="lock-screen-qr">
-            <div className="qr-scanner-container">
-              <video
-                ref={videoRef}
-                className="qr-scanner-video"
-                autoPlay
-                playsInline
-                muted
-              />
-              <canvas ref={canvasRef} className="qr-scanner-canvas" style={{ display: 'none' }} />
-              {isLoading && (
-                <div className="qr-scanner-overlay">
-                  <div className="spinner">Processing...</div>
-                </div>
-              )}
-            </div>
-            <p className="qr-hint">Point camera at staff QR code</p>
+        {mode === 'webauthn' ? (
+          <div className="lock-screen-webauthn">
+            <input
+              type="text"
+              className="staff-lookup-input"
+              placeholder="Enter your name or staff ID"
+              value={staffLookup}
+              onChange={(e) => setStaffLookup(e.target.value)}
+              disabled={isLoading}
+              autoFocus
+            />
+            <button
+              type="button"
+              className="webauthn-button"
+              onClick={handleWebAuthnLogin}
+              disabled={isLoading || !staffLookup.trim()}
+            >
+              {isLoading ? 'Authenticating...' : 'Sign in with fingerprint'}
+            </button>
+            <button
+              type="button"
+              className="pin-fallback-button"
+              onClick={() => {
+                setMode('pin');
+                setError(null);
+              }}
+              disabled={isLoading}
+            >
+              Use PIN instead
+            </button>
           </div>
         ) : (
           <form className="lock-screen-pin" onSubmit={handlePinSubmit}>
+            <input
+              type="text"
+              className="staff-lookup-input"
+              placeholder="Enter your name or staff ID"
+              value={staffLookup}
+              onChange={(e) => setStaffLookup(e.target.value)}
+              disabled={isLoading}
+              autoFocus
+            />
             <input
               type="password"
               className="pin-input"
@@ -267,21 +206,31 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               disabled={isLoading}
-              autoFocus
               maxLength={10}
             />
             <button
               type="submit"
               className="pin-submit-button"
-              disabled={isLoading || !pin.trim()}
+              disabled={isLoading || !pin.trim() || !staffLookup.trim()}
             >
               {isLoading ? 'Logging in...' : 'Login'}
             </button>
+            {webauthnSupported && (
+              <button
+                type="button"
+                className="webauthn-fallback-button"
+                onClick={() => {
+                  setMode('webauthn');
+                  setError(null);
+                }}
+                disabled={isLoading}
+              >
+                Use fingerprint instead
+              </button>
+            )}
           </form>
         )}
       </div>
     </div>
   );
 }
-
-

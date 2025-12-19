@@ -4,6 +4,7 @@
  */
 export { healthRoutes } from './health.js';
 export { authRoutes } from './auth.js';
+export { webauthnRoutes } from './webauthn.js';
 export { sessionRoutes } from './sessions.js';
 export { laneRoutes } from './lanes.js';
 export { inventoryRoutes } from './inventory.js';
@@ -14,3 +15,4 @@ export { agreementRoutes } from './agreements.js';
 export { upgradeRoutes } from './upgrades.js';
 export { visitRoutes } from './visits.js';
 export { checkoutRoutes } from './checkout.js';
+export { checkinRoutes } from './checkin.js';

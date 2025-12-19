@@ -509,11 +509,7 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
         const block = blockResult.rows[0]!;
 
         // 9. Create a session for backward compatibility
-        const memberResult = await client.query<MemberRow>(
-          'SELECT id, name, membership_number FROM members WHERE id = $1',
-          [visit.customer_id]
-        );
-        const member = memberResult.rows[0]!;
+        // Reuse member from earlier in the function (line 398)
 
         const sessionResult = await client.query<{ id: string }>(
           `INSERT INTO sessions (member_id, member_name, membership_number, room_id, locker_id, expected_duration, status, checkin_type, checkout_at, visit_id, lane)

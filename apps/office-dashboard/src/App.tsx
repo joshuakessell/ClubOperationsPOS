@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { RoomStatus, RoomType, type DetailedInventory, type WebSocketEvent, type InventoryUpdatedPayload } from '@club-ops/shared';
 import { LockScreen, type StaffSession } from './LockScreen';
 import { AdminView } from './AdminView';
+import { StaffManagement } from './StaffManagement';
 
 interface HealthStatus {
   status: string;
@@ -96,12 +97,40 @@ function App() {
     );
   }
 
-  // Render routes
+  // Render routes - protect admin routes
+  const isAdmin = session.role === 'ADMIN';
+  
   return (
     <Routes>
-      <Route path="/admin" element={<AdminView session={session} />} />
+      <Route path="/admin" element={isAdmin ? <AdminView session={session} /> : <NotAuthorizedView />} />
+      <Route path="/admin/staff" element={isAdmin ? <StaffManagement session={session} /> : <NotAuthorizedView />} />
       <Route path="/" element={<DashboardContent session={session} />} />
     </Routes>
+  );
+}
+
+function NotAuthorizedView() {
+  const navigate = useNavigate();
+  return (
+    <div style={{ padding: '2rem', textAlign: 'center' }}>
+      <h1>Not authorized</h1>
+      <p>You must be an administrator to access this page.</p>
+      <button
+        onClick={() => navigate('/')}
+        style={{
+          marginTop: '1rem',
+          padding: '0.75rem 1.5rem',
+          background: '#8b5cf6',
+          border: 'none',
+          borderRadius: '6px',
+          color: '#f9fafb',
+          cursor: 'pointer',
+          fontSize: '1rem',
+        }}
+      >
+        Return to Dashboard
+      </button>
+    </div>
   );
 }
 
@@ -146,9 +175,23 @@ function DashboardContent({ session }: { session: StaffSession }) {
       .catch(console.error);
 
     // Fetch initial rooms list
-    fetch('/api/v1/inventory/rooms')
+    fetch('/api/v1/inventory/rooms', {
+      headers: {
+        'Authorization': `Bearer ${session.sessionToken}`,
+      },
+    })
       .then((res) => res.json())
       .then((data: { rooms: Room[] }) => setRooms(data.rooms))
+      .catch(console.error);
+
+    // Fetch active lane sessions
+    fetch('/api/v1/checkin/lane-sessions', {
+      headers: {
+        'Authorization': `Bearer ${session.sessionToken}`,
+      },
+    })
+      .then((res) => res.json())
+      .then((data: { sessions: typeof laneSessions }) => setLaneSessions(data.sessions || []))
       .catch(console.error);
 
     // Connect to WebSocket
@@ -158,10 +201,10 @@ function DashboardContent({ session }: { session: StaffSession }) {
       console.log('WebSocket connected');
       setWsConnected(true);
       
-      // Subscribe to inventory updates
+      // Subscribe to inventory updates and session updates
       ws.send(JSON.stringify({
         type: 'subscribe',
-        events: ['INVENTORY_UPDATED', 'ROOM_STATUS_CHANGED'],
+        events: ['INVENTORY_UPDATED', 'ROOM_STATUS_CHANGED', 'SESSION_UPDATED'],
       }));
     };
 
@@ -184,15 +227,33 @@ function DashboardContent({ session }: { session: StaffSession }) {
           });
           
           // Refresh rooms list when inventory updates
-          fetch('/api/v1/inventory/rooms')
+          fetch('/api/v1/inventory/rooms', {
+            headers: {
+              'Authorization': `Bearer ${session.sessionToken}`,
+            },
+          })
             .then((res) => res.json())
             .then((data: { rooms: Room[] }) => setRooms(data.rooms))
             .catch(console.error);
         } else if (message.type === 'ROOM_STATUS_CHANGED') {
           // Refresh rooms list when room status changes
-          fetch('/api/v1/inventory/rooms')
+          fetch('/api/v1/inventory/rooms', {
+            headers: {
+              'Authorization': `Bearer ${session.sessionToken}`,
+            },
+          })
             .then((res) => res.json())
             .then((data: { rooms: Room[] }) => setRooms(data.rooms))
+            .catch(console.error);
+        } else if (message.type === 'SESSION_UPDATED') {
+          // Refresh lane sessions when session updates
+          fetch('/api/v1/checkin/lane-sessions', {
+            headers: {
+              'Authorization': `Bearer ${session.sessionToken}`,
+            },
+          })
+            .then((res) => res.json())
+            .then((data: { sessions: typeof laneSessions }) => setLaneSessions(data.sessions || []))
             .catch(console.error);
         }
       } catch (error) {
@@ -232,13 +293,27 @@ function DashboardContent({ session }: { session: StaffSession }) {
           >
             👥 Staff
           </button>
+          <button
+            className={`nav-item ${activeTab === 'checkins' ? 'active' : ''}`}
+            onClick={() => setActiveTab('checkins')}
+          >
+            🏁 Check-ins
+          </button>
           {session.role === 'ADMIN' && (
-            <button
-              className={`nav-item ${location.pathname === '/admin' ? 'active' : ''}`}
-              onClick={() => navigate('/admin')}
-            >
-              ⚙️ Operations Admin
-            </button>
+            <>
+              <button
+                className={`nav-item ${location.pathname === '/admin/staff' ? 'active' : ''}`}
+                onClick={() => navigate('/admin/staff')}
+              >
+                👤 Staff Management
+              </button>
+              <button
+                className={`nav-item ${location.pathname === '/admin' ? 'active' : ''}`}
+                onClick={() => navigate('/admin')}
+              >
+                ⚙️ Operations Admin
+              </button>
+            </>
           )}
         </nav>
         <div className="sidebar-footer">
@@ -380,7 +455,62 @@ function DashboardContent({ session }: { session: StaffSession }) {
             </>
           )}
 
-          {activeTab !== 'rooms' && (
+          {activeTab === 'checkins' && (
+            <section className="panel">
+              <div className="panel-header">
+                <h2>Active Check-in Sessions</h2>
+              </div>
+              <div className="panel-content">
+                {laneSessions.length === 0 ? (
+                  <div className="placeholder">
+                    <span className="placeholder-icon">🏁</span>
+                    <p>No active check-in sessions</p>
+                  </div>
+                ) : (
+                  <table className="rooms-table">
+                    <thead>
+                      <tr>
+                        <th>Lane</th>
+                        <th>Status</th>
+                        <th>Customer</th>
+                        <th>Membership</th>
+                        <th>Rental Type</th>
+                        <th>Assigned</th>
+                        <th>Staff</th>
+                        <th>Started</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {laneSessions.map((session) => (
+                        <tr key={session.id}>
+                          <td className="room-number">{session.laneId}</td>
+                          <td>
+                            <span className={`status-badge status-${session.status.toLowerCase()}`}>
+                              {session.status}
+                            </span>
+                          </td>
+                          <td>{session.customerName || '-'}</td>
+                          <td>{session.membershipNumber || '-'}</td>
+                          <td>{session.desiredRentalType || '-'}</td>
+                          <td>
+                            {session.assignedResource
+                              ? `${session.assignedResource.type === 'room' ? 'Room' : 'Locker'} ${session.assignedResource.number}`
+                              : '-'}
+                          </td>
+                          <td>{session.staffName || '-'}</td>
+                          <td className="last-change">
+                            {new Date(session.createdAt).toLocaleString()}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </section>
+          )}
+
+          {activeTab !== 'rooms' && activeTab !== 'checkins' && (
             <section className="panel">
               <div className="panel-header">
                 <h2>{activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Overview</h2>

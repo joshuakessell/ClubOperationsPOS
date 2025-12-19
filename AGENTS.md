@@ -15,17 +15,34 @@ Codex must follow the rules below strictly.
   - Locked single-app experience
   - Displays customer name, membership number, room options
   - Receives realtime inventory updates
+  - Handles agreement signing and rental selection
 
 - apps/employee-register
   - Employee-facing tablet app
   - Runs alongside Square POS
   - Creates sessions and assigns rooms/lockers
   - Displays live inventory and countdowns
+  - Handles check-in processing, renewals, and checkout verification
+
+- apps/cleaning-station-kiosk
+  - Staff-facing tablet for cleaning workflow
+  - Batch scanning of QR or NFC room key tags
+  - Updates room status (DIRTY → CLEANING → CLEAN)
+  - Handles mixed-status scans with resolution UI
+  - Supports override transitions with audit logging
+
+- apps/checkout-kiosk
+  - Customer-facing tablet for self-service checkout
+  - QR code scanning of room keys
+  - Checklist for items returned (TV remote, etc.)
+  - Displays late fees and checkout completion status
+  - WebSocket integration for real-time updates
 
 - apps/office-dashboard
   - Web app for office PC
   - Global view of rooms, lockers, waitlists, and staff activity
   - Used for overrides and administration
+  - Metrics and analytics dashboards
 
 ### Backend
 - services/api

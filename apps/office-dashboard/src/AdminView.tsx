@@ -181,9 +181,14 @@ export function AdminView({ session }: AdminViewProps) {
     <div className="admin-container">
       <div className="admin-header">
         <h1>Operations Admin</h1>
-        <button onClick={() => navigate('/')} className="btn-secondary">
-          ← Back to Dashboard
-        </button>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button onClick={() => navigate('/admin/staff')} className="btn-secondary">
+            Staff Management
+          </button>
+          <button onClick={() => navigate('/')} className="btn-secondary">
+            ← Back to Dashboard
+          </button>
+        </div>
       </div>
 
       {isLoading && <div className="loading">Loading...</div>}

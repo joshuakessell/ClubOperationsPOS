@@ -55,7 +55,12 @@ export type WebSocketEventType =
   | 'CHECKOUT_REQUESTED'
   | 'CHECKOUT_CLAIMED'
   | 'CHECKOUT_UPDATED'
-  | 'CHECKOUT_COMPLETED';
+  | 'CHECKOUT_COMPLETED'
+  | 'ASSIGNMENT_CREATED'
+  | 'ASSIGNMENT_FAILED'
+  | 'CUSTOMER_CONFIRMATION_REQUIRED'
+  | 'CUSTOMER_CONFIRMED'
+  | 'CUSTOMER_DECLINED';
 
 /**
  * Base WebSocket event structure.
@@ -233,5 +238,57 @@ export interface CheckoutCompletedPayload {
   kioskDeviceId: string;
   success: boolean;
   message?: string;
+}
+
+/**
+ * Assignment created WebSocket event payload.
+ */
+export interface AssignmentCreatedPayload {
+  sessionId: string;
+  roomId?: string;
+  lockerId?: string;
+  roomNumber?: string;
+  lockerNumber?: string;
+  rentalType: string;
+}
+
+/**
+ * Assignment failed WebSocket event payload.
+ */
+export interface AssignmentFailedPayload {
+  sessionId: string;
+  reason: string;
+  requestedRoomId?: string;
+  requestedLockerId?: string;
+}
+
+/**
+ * Customer confirmation required WebSocket event payload.
+ * Sent to customer kiosk when employee selects different type than customer requested.
+ */
+export interface CustomerConfirmationRequiredPayload {
+  sessionId: string;
+  requestedType: string;
+  selectedType: string;
+  selectedNumber: string;
+}
+
+/**
+ * Customer confirmed WebSocket event payload.
+ * Sent when customer accepts the different selection.
+ */
+export interface CustomerConfirmedPayload {
+  sessionId: string;
+  confirmedType: string;
+  confirmedNumber: string;
+}
+
+/**
+ * Customer declined WebSocket event payload.
+ * Sent when customer rejects the different selection.
+ */
+export interface CustomerDeclinedPayload {
+  sessionId: string;
+  requestedType: string;
 }
 

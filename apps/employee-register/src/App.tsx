@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
-import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload } from '@club-ops/shared';
+import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload } from '@club-ops/shared';
 import { LockScreen, type StaffSession } from './LockScreen';
+import { InventorySelector } from './InventorySelector';
 
 interface HealthStatus {
   status: string;
@@ -46,6 +47,16 @@ function App() {
   const [checkoutChecklist, setCheckoutChecklist] = useState<CheckoutChecklist>({});
   const [checkoutItemsConfirmed, setCheckoutItemsConfirmed] = useState(false);
   const [checkoutFeePaid, setCheckoutFeePaid] = useState(false);
+  const [customerSelectedType, setCustomerSelectedType] = useState<string | null>(null);
+  const [waitlistDesiredTier, setWaitlistDesiredTier] = useState<string | null>(null);
+  const [waitlistBackupType, setWaitlistBackupType] = useState<string | null>(null);
+  const [selectedInventoryItem, setSelectedInventoryItem] = useState<{ type: 'room' | 'locker'; id: string; number: string; tier: string } | null>(null);
+  const [showWaitlistModal, setShowWaitlistModal] = useState(false);
+  const [showCustomerConfirmationPending, setShowCustomerConfirmationPending] = useState(false);
+  const [customerConfirmationType, setCustomerConfirmationType] = useState<{ requested: string; selected: string; number: string } | null>(null);
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [paymentQuote, setPaymentQuote] = useState<{ total: number; lineItems: Array<{ description: string; amount: number }>; messages: string[] } | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'DUE' | 'PAID' | null>(null);
   const [lane] = useState(() => {
     // Get lane from URL query param or localStorage, default to 'lane-1'
     const params = new URLSearchParams(window.location.search);
@@ -149,16 +160,13 @@ function App() {
     }
 
     try {
-      // For ID scan, we'll extract name from the scan (simplified - in production, parse ID format)
-      // For membership scan, we'll update the membership number
+      // Use new check-in start endpoint
       if (mode === 'id') {
-        // Simplified: treat scanned ID as customer name for now
-        // In production, parse ID format to extract name
-        await updateLaneSession(value, null);
+        // ID scan - start or update session
+        await startLaneSession(value, null);
       } else {
         // Membership scan - update existing session with membership number
-        // First get current session or use a placeholder name
-        await updateLaneSession(customerName || 'Customer', value);
+        await startLaneSession(customerName || 'Customer', value);
       }
 
       // Reset scan mode after successful scan
@@ -169,7 +177,7 @@ function App() {
     }
   };
 
-  const updateLaneSession = async (name: string, membership: string | null) => {
+  const startLaneSession = async (idScanValue: string, membershipScanValue?: string | null) => {
     if (!session?.sessionToken) {
       alert('Not authenticated');
       return;
@@ -177,46 +185,46 @@ function App() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/lanes/${lane}/session`, {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.sessionToken}`,
         },
         body: JSON.stringify({
-          customerName: name,
-          membershipNumber: membership,
+          idScanValue,
+          membershipScanValue: membershipScanValue || undefined,
         }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to update session');
+        throw new Error(error.error || 'Failed to start session');
       }
 
       const data = await response.json();
-      console.log('Session updated:', data);
+      console.log('Session started:', data);
       
       // Update local state
-      if (name) setCustomerName(name);
-      if (membership !== null) setMembershipNumber(membership || '');
+      if (data.customerName) setCustomerName(data.customerName);
+      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
       if (data.sessionId) setCurrentSessionId(data.sessionId);
-      
-      // Fetch agreement status if session ID is available
-      if (data.sessionId) {
-        fetchAgreementStatus(data.sessionId);
-      }
       
       // Clear manual entry mode if active
       if (manualEntry) {
         setManualEntry(false);
       }
     } catch (error) {
-      console.error('Failed to update session:', error);
-      alert(error instanceof Error ? error.message : 'Failed to update session');
+      console.error('Failed to start session:', error);
+      alert(error instanceof Error ? error.message : 'Failed to start session');
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const updateLaneSession = async (name: string, membership: string | null) => {
+    // Use new check-in start endpoint
+    await startLaneSession(name, membership);
   };
 
   const handleManualSubmit = async (e: React.FormEvent) => {
@@ -532,16 +540,28 @@ function App() {
       .catch(console.error);
 
     // Connect to WebSocket
-    const ws = new WebSocket(`ws://${window.location.hostname}:3001/ws`);
+    const ws = new WebSocket(`ws://${window.location.hostname}:3001/ws?lane=${encodeURIComponent(lane)}`);
 
     ws.onopen = () => {
       console.log('WebSocket connected');
       setWsConnected(true);
       
-      // Subscribe to checkout events
+      // Subscribe to events
       ws.send(JSON.stringify({
         type: 'subscribe',
-        events: ['CHECKOUT_REQUESTED', 'CHECKOUT_CLAIMED', 'CHECKOUT_UPDATED', 'CHECKOUT_COMPLETED'],
+        events: [
+          'CHECKOUT_REQUESTED', 
+          'CHECKOUT_CLAIMED', 
+          'CHECKOUT_UPDATED', 
+          'CHECKOUT_COMPLETED',
+          'SESSION_UPDATED',
+          'ROOM_STATUS_CHANGED',
+          'INVENTORY_UPDATED',
+          'ASSIGNMENT_CREATED',
+          'ASSIGNMENT_FAILED',
+          'CUSTOMER_CONFIRMED',
+          'CUSTOMER_DECLINED',
+        ],
       }));
     };
 
@@ -569,7 +589,6 @@ function App() {
             next.delete(payload.requestId);
             return next;
           });
-          // If this is our claim, we might want to show the verification screen
         } else if (message.type === 'CHECKOUT_UPDATED') {
           const payload = message.payload as CheckoutUpdatedPayload;
           if (selectedCheckoutRequest === payload.requestId) {
@@ -588,6 +607,44 @@ function App() {
             setCheckoutItemsConfirmed(false);
             setCheckoutFeePaid(false);
           }
+        } else if (message.type === 'SESSION_UPDATED') {
+          const payload = message.payload as SessionUpdatedPayload;
+          // Track customer selection if available in payload
+          // For now, we'll need to add this to the payload structure
+        } else if (message.type === 'INVENTORY_UPDATED' || message.type === 'ROOM_STATUS_CHANGED') {
+          // Refresh inventory will be handled by InventorySelector component
+        } else if (message.type === 'ASSIGNMENT_CREATED') {
+          const payload = message.payload as AssignmentCreatedPayload;
+          if (payload.sessionId === currentSessionId) {
+            // Assignment successful - create payment intent
+            handleCreatePaymentIntent();
+          }
+        } else if (message.type === 'ASSIGNMENT_FAILED') {
+          const payload = message.payload as AssignmentFailedPayload;
+          if (payload.sessionId === currentSessionId) {
+            // Handle race condition - refresh and re-select
+            alert('Assignment failed: ' + payload.reason);
+            setSelectedInventoryItem(null);
+          }
+        } else if (message.type === 'CUSTOMER_CONFIRMED') {
+          const payload = message.payload as CustomerConfirmedPayload;
+          if (payload.sessionId === currentSessionId) {
+            setShowCustomerConfirmationPending(false);
+            setCustomerConfirmationType(null);
+            // Proceed with payment intent creation
+            handleCreatePaymentIntent();
+          }
+        } else if (message.type === 'CUSTOMER_DECLINED') {
+          const payload = message.payload as CustomerDeclinedPayload;
+          if (payload.sessionId === currentSessionId) {
+            setShowCustomerConfirmationPending(false);
+            setCustomerConfirmationType(null);
+            // Revert to customer's requested type
+            if (customerSelectedType) {
+              setSelectedInventoryItem(null);
+              // This will trigger auto-selection in InventorySelector
+            }
+          }
         }
       } catch (error) {
         console.error('Failed to parse WebSocket message:', error);
@@ -595,13 +652,154 @@ function App() {
     };
 
     return () => ws.close();
-  }, [selectedCheckoutRequest]);
+  }, [selectedCheckoutRequest, lane]);
 
-  // Sample inventory data for display
-  const inventoryDemo = {
-    [RoomType.STANDARD]: { clean: 12, cleaning: 3, dirty: 5 },
-    [RoomType.DELUXE]: { clean: 4, cleaning: 1, dirty: 2 },
-    [RoomType.VIP]: { clean: 2, cleaning: 0, dirty: 1 },
+  const handleInventorySelect = (type: 'room' | 'locker', id: string, number: string, tier: string) => {
+    // Check if employee selected different type than customer requested
+    if (customerSelectedType && tier !== customerSelectedType) {
+      // Require customer confirmation
+      setCustomerConfirmationType({
+        requested: customerSelectedType,
+        selected: tier,
+        number,
+      });
+      setShowCustomerConfirmationPending(true);
+      
+      // Send confirmation request to customer kiosk via WebSocket
+      // This would be handled by the API/WebSocket broadcaster
+      // For now, we'll show a modal
+    }
+    
+    setSelectedInventoryItem({ type, id, number, tier });
+  };
+
+  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
+  const [paymentQuote, setPaymentQuote] = useState<{ total: number; lineItems: Array<{ description: string; amount: number }>; messages: string[] } | null>(null);
+  const [paymentStatus, setPaymentStatus] = useState<'DUE' | 'PAID' | null>(null);
+
+  const handleAssign = async () => {
+    if (!selectedInventoryItem || !currentSessionId || !session?.sessionToken) {
+      alert('Please select an item to assign');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Check if customer confirmation is pending
+      if (showCustomerConfirmationPending) {
+        alert('Please wait for customer confirmation');
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Use new check-in assign endpoint
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/assign`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({
+          resourceType: selectedInventoryItem.type,
+          resourceId: selectedInventoryItem.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        if (error.raceLost || error.error?.includes('already assigned')) {
+          // Race condition - refresh inventory and re-select
+          alert('Item no longer available. Refreshing inventory...');
+          setSelectedInventoryItem(null);
+          // InventorySelector will auto-refresh and re-select
+        } else {
+          throw new Error(error.error || 'Failed to assign');
+        }
+      } else {
+        const data = await response.json();
+        console.log('Assignment successful:', data);
+        
+        // If cross-type assignment, wait for customer confirmation
+        if (data.needsConfirmation) {
+          setShowCustomerConfirmationPending(true);
+          setIsSubmitting(false);
+          return;
+        }
+
+        // Create payment intent after successful assignment
+        await handleCreatePaymentIntent();
+      }
+    } catch (error) {
+      console.error('Failed to assign:', error);
+      alert(error instanceof Error ? error.message : 'Failed to assign');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCreatePaymentIntent = async () => {
+    if (!currentSessionId || !session?.sessionToken) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/create-payment-intent`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create payment intent');
+      }
+
+      const data = await response.json();
+      setPaymentIntentId(data.paymentIntentId);
+      setPaymentQuote(data.quote);
+      setPaymentStatus('DUE');
+    } catch (error) {
+      console.error('Failed to create payment intent:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create payment intent');
+    }
+  };
+
+  const handleMarkPaid = async () => {
+    if (!paymentIntentId || !session?.sessionToken) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/payments/${paymentIntentId}/mark-paid`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({
+          squareTransactionId: undefined, // Would come from Square POS integration
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to mark payment as paid');
+      }
+
+      setPaymentStatus('PAID');
+      // Payment marked paid - customer can now sign agreement
+    } catch (error) {
+      console.error('Failed to mark payment as paid:', error);
+      alert(error instanceof Error ? error.message : 'Failed to mark payment as paid');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleClearSelection = () => {
+    setSelectedInventoryItem(null);
   };
 
   return (
@@ -978,30 +1176,134 @@ function App() {
           </section>
         )}
 
-        <section className="inventory-panel">
-          <h2>Room Inventory</h2>
-          <div className="inventory-grid">
-            {Object.entries(inventoryDemo).map(([type, counts]) => (
-              <div key={type} className="inventory-card">
-                <h3>{type}</h3>
-                <div className="counts">
-                  <div className="count count-clean">
-                    <span className="count-value">{counts.clean}</span>
-                    <span className="count-label">{RoomStatus.CLEAN}</span>
-                  </div>
-                  <div className="count count-cleaning">
-                    <span className="count-value">{counts.cleaning}</span>
-                    <span className="count-label">{RoomStatus.CLEANING}</span>
-                  </div>
-                  <div className="count count-dirty">
-                    <span className="count-value">{counts.dirty}</span>
-                    <span className="count-label">{RoomStatus.DIRTY}</span>
-                  </div>
+        {/* Inventory Selector */}
+        {currentSessionId && customerName && (
+          <InventorySelector
+            customerSelectedType={customerSelectedType}
+            waitlistDesiredTier={waitlistDesiredTier}
+            waitlistBackupType={waitlistBackupType}
+            onSelect={handleInventorySelect}
+            selectedItem={selectedInventoryItem}
+            sessionId={currentSessionId}
+            lane={lane}
+            sessionToken={session.sessionToken}
+          />
+        )}
+
+        {/* Assignment Bar */}
+        {selectedInventoryItem && (
+          <div style={{
+            position: 'sticky',
+            bottom: 0,
+            background: '#1e293b',
+            borderTop: '2px solid #3b82f6',
+            padding: '1rem',
+            zIndex: 100,
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: paymentQuote ? '1rem' : 0 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.25rem' }}>
+                  Selected: {selectedInventoryItem.type === 'room' ? 'Room' : 'Locker'} {selectedInventoryItem.number}
                 </div>
+                {customerSelectedType && selectedInventoryItem.tier !== customerSelectedType && (
+                  <div style={{ fontSize: '0.875rem', color: '#f59e0b' }}>
+                    Waiting for customer confirmation...
+                  </div>
+                )}
               </div>
-            ))}
+              <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <button
+                  onClick={handleAssign}
+                  disabled={isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID'}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID' ? '#475569' : '#3b82f6',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isSubmitting ? 'Assigning...' : paymentStatus === 'PAID' ? 'Assigned ✓' : 'Assign'}
+                </button>
+                <button
+                  onClick={handleClearSelection}
+                  disabled={isSubmitting || paymentStatus === 'PAID'}
+                  style={{
+                    padding: '0.75rem 1.5rem',
+                    background: 'transparent',
+                    color: '#94a3b8',
+                    border: '1px solid #475569',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: isSubmitting || paymentStatus === 'PAID' ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+
+            {/* Payment Quote and Mark Paid */}
+            {paymentQuote && (
+              <div style={{
+                padding: '1rem',
+                background: '#0f172a',
+                borderRadius: '6px',
+                border: '1px solid #475569',
+              }}>
+                <div style={{ marginBottom: '0.75rem', fontWeight: 600, fontSize: '1rem' }}>Payment Quote</div>
+                <div style={{ marginBottom: '0.5rem' }}>
+                  {paymentQuote.lineItems.map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.25rem', fontSize: '0.875rem' }}>
+                      <span>{item.description}</span>
+                      <span>${item.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
+                </div>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  fontWeight: 600, 
+                  fontSize: '1.125rem',
+                  paddingTop: '0.5rem',
+                  borderTop: '1px solid #475569',
+                  marginBottom: '0.75rem',
+                }}>
+                  <span>Total Due:</span>
+                  <span>${paymentQuote.total.toFixed(2)}</span>
+                </div>
+                {paymentQuote.messages && paymentQuote.messages.length > 0 && (
+                  <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}>
+                    {paymentQuote.messages.map((msg, idx) => (
+                      <div key={idx}>{msg}</div>
+                    ))}
+                  </div>
+                )}
+                <button
+                  onClick={handleMarkPaid}
+                  disabled={isSubmitting || paymentStatus === 'PAID'}
+                  style={{
+                    width: '100%',
+                    padding: '0.75rem',
+                    background: paymentStatus === 'PAID' ? '#10b981' : '#f59e0b',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontSize: '1rem',
+                    fontWeight: 600,
+                    cursor: paymentStatus === 'PAID' ? 'default' : 'pointer',
+                  }}
+                >
+                  {paymentStatus === 'PAID' ? '✓ Paid in Square' : 'Mark Paid in Square'}
+                </button>
+              </div>
+            )}
           </div>
-        </section>
+        )}
 
         <section className="actions-panel">
           <h2>Lane Session</h2>
@@ -1124,6 +1426,116 @@ function App() {
       <footer className="footer">
         <p>Employee-facing tablet • Runs alongside Square POS</p>
       </footer>
+
+      {/* Waitlist Modal */}
+      {showWaitlistModal && waitlistDesiredTier && waitlistBackupType && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+          }}
+          onClick={() => setShowWaitlistModal(false)}
+        >
+          <div
+            style={{
+              background: '#1e293b',
+              padding: '2rem',
+              borderRadius: '12px',
+              maxWidth: '500px',
+              width: '90%',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 600 }}>
+              Waitlist Notice
+            </h2>
+            <p style={{ marginBottom: '1.5rem', lineHeight: '1.6' }}>
+              Customer requested waitlist for {waitlistDesiredTier}. Assigning a {waitlistBackupType} in the meantime.
+            </p>
+            <button
+              onClick={() => setShowWaitlistModal(false)}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#3b82f6',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Confirmation Pending Modal */}
+      {showCustomerConfirmationPending && customerConfirmationType && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 2000,
+          }}
+        >
+          <div
+            style={{
+              background: '#1e293b',
+              padding: '2rem',
+              borderRadius: '12px',
+              maxWidth: '500px',
+              width: '90%',
+            }}
+          >
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.5rem', fontWeight: 600 }}>
+              Waiting for Customer Confirmation
+            </h2>
+            <p style={{ marginBottom: '1.5rem', lineHeight: '1.6' }}>
+              Staff selected a different option: {customerConfirmationType.selected} {customerConfirmationType.number}. 
+              Waiting for customer to accept or decline on their device.
+            </p>
+            <button
+              onClick={() => {
+                setShowCustomerConfirmationPending(false);
+                setCustomerConfirmationType(null);
+                // Revert selection
+                setSelectedInventoryItem(null);
+              }}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#475569',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                fontSize: '1rem',
+                fontWeight: 600,
+                cursor: 'pointer',
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Renewal Disclaimer Modal */}
       {showRenewalDisclaimer && (

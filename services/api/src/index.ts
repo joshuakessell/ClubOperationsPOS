@@ -6,6 +6,7 @@ import type { WebSocket } from 'ws';
 import {
   healthRoutes,
   authRoutes,
+  webauthnRoutes,
   sessionRoutes,
   laneRoutes,
   inventoryRoutes,
@@ -15,7 +16,8 @@ import {
   agreementRoutes,
   upgradeRoutes,
   visitRoutes,
-  checkoutRoutes
+  checkoutRoutes,
+  checkinRoutes
 } from './routes/index.js';
 import { createBroadcaster, type Broadcaster } from './websocket/broadcaster.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -74,6 +76,7 @@ async function main() {
   // Register routes
   await fastify.register(healthRoutes);
   await fastify.register(authRoutes);
+  await fastify.register(webauthnRoutes);
   await fastify.register(sessionRoutes);
   await fastify.register(laneRoutes);
   await fastify.register(inventoryRoutes);
@@ -84,6 +87,7 @@ async function main() {
   await fastify.register(upgradeRoutes);
   await fastify.register(visitRoutes);
   await fastify.register(checkoutRoutes);
+  await fastify.register(checkinRoutes);
 
   // WebSocket endpoint
   fastify.get('/ws', { websocket: true }, (connection, req) => {

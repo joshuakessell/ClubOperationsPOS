@@ -10,19 +10,15 @@ import {
 import { requireAuth } from '../auth/middleware.js';
 
 /**
- * Schema for login request.
+ * Schema for PIN login request.
  */
-const LoginSchema = z.object({
+const LoginPinSchema = z.object({
+  staffLookup: z.string().min(1), // staff ID or name
   deviceId: z.string().min(1),
-  deviceType: z.enum(['tablet', 'kiosk', 'desktop']),
-  qrToken: z.string().optional(),
-  pin: z.string().optional(),
-}).refine(
-  (data) => data.qrToken || data.pin,
-  { message: 'Either qrToken or pin must be provided' }
-);
+  pin: z.string().min(1),
+});
 
-type LoginInput = z.infer<typeof LoginSchema>;
+type LoginPinInput = z.infer<typeof LoginPinSchema>;
 
 interface StaffRow {
   id: string;
@@ -38,19 +34,19 @@ interface StaffRow {
  */
 export async function authRoutes(fastify: FastifyInstance): Promise<void> {
   /**
-   * POST /v1/auth/login - Staff login
+   * POST /v1/auth/login-pin - Staff login with PIN
    * 
-   * Accepts QR token or PIN for authentication.
+   * Accepts staff ID or name and PIN for authentication.
    * Creates a session and returns session token.
    */
-  fastify.post('/v1/auth/login', async (
-    request: FastifyRequest<{ Body: LoginInput }>,
+  fastify.post('/v1/auth/login-pin', async (
+    request: FastifyRequest<{ Body: LoginPinInput }>,
     reply: FastifyReply
   ) => {
-    let body: LoginInput;
+    let body: LoginPinInput;
 
     try {
-      body = LoginSchema.parse(request.body);
+      body = LoginPinSchema.parse(request.body);
     } catch (error) {
       return reply.status(400).send({
         error: 'Validation failed',
@@ -60,49 +56,32 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
     try {
       const result = await transaction(async (client) => {
-        // Find staff by QR token or prepare for PIN lookup
-        let staffResult: { rows: StaffRow[] };
-
-        if (body.qrToken) {
-          const qrTokenHash = hashQrToken(body.qrToken);
-          staffResult = await client.query<StaffRow>(
-            `SELECT id, name, role, qr_token_hash, pin_hash, active
-             FROM staff
-             WHERE qr_token_hash = $1
-             AND active = true`,
-            [qrTokenHash]
-          );
-        } else if (body.pin) {
-          // For PIN, we need to check all active staff and verify PINs
-          // This is less efficient but necessary for PIN-based auth
-          const allStaffResult = await client.query<StaffRow>(
-            `SELECT id, name, role, qr_token_hash, pin_hash, active
-             FROM staff
-             WHERE pin_hash IS NOT NULL
-             AND active = true`
-          );
-
-          // Try to match PIN
-          let matchedStaff: StaffRow | null = null;
-          for (const staff of allStaffResult.rows) {
-            if (staff.pin_hash && await verifyPin(body.pin, staff.pin_hash)) {
-              matchedStaff = staff;
-              break;
-            }
-          }
-
-          staffResult = {
-            rows: matchedStaff ? [matchedStaff] : [],
-          };
-        } else {
-          staffResult = { rows: [] };
-        }
+        // Find staff by ID or name (must be active)
+        const staffResult = await client.query<StaffRow>(
+          `SELECT id, name, role, pin_hash, active
+           FROM staff
+           WHERE (id = $1 OR name ILIKE $1)
+           AND pin_hash IS NOT NULL
+           AND active = true
+           LIMIT 1`,
+          [body.staffLookup]
+        );
 
         if (staffResult.rows.length === 0) {
           return null;
         }
 
         const staff = staffResult.rows[0]!;
+
+        // Enforce active status
+        if (!staff.active) {
+          return null;
+        }
+
+        // Verify PIN
+        if (!staff.pin_hash || !(await verifyPin(body.pin, staff.pin_hash))) {
+          return null;
+        }
 
         // Generate session token
         const sessionToken = generateSessionToken();
@@ -111,8 +90,15 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         // Create session
         await client.query(
           `INSERT INTO staff_sessions (staff_id, device_id, device_type, session_token, expires_at)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [staff.id, body.deviceId, body.deviceType, sessionToken, expiresAt]
+           VALUES ($1, $2, 'tablet', $3, $4)`,
+          [staff.id, body.deviceId, sessionToken, expiresAt]
+        );
+
+        // Log audit action
+        await client.query(
+          `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
+           VALUES ($1, 'STAFF_LOGIN_PIN', 'staff_session', $2)`,
+          [staff.id, sessionToken]
         );
 
         return {
@@ -161,13 +147,30 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const token = authHeader.substring(7);
 
     try {
-      await query(
-        `UPDATE staff_sessions
-         SET revoked_at = NOW()
-         WHERE session_token = $1
-         AND revoked_at IS NULL`,
+      // Get staff ID before revoking
+      const sessionResult = await query<{ staff_id: string }>(
+        `SELECT staff_id FROM staff_sessions WHERE session_token = $1 AND revoked_at IS NULL`,
         [token]
       );
+
+      if (sessionResult.rows.length > 0) {
+        const staffId = sessionResult.rows[0]!.staff_id;
+
+        await query(
+          `UPDATE staff_sessions
+           SET revoked_at = NOW()
+           WHERE session_token = $1
+           AND revoked_at IS NULL`,
+          [token]
+        );
+
+        // Log audit action
+        await query(
+          `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
+           VALUES ($1, 'STAFF_LOGOUT', 'staff_session', $2)`,
+          [staffId, token]
+        );
+      }
 
       return reply.send({ success: true });
     } catch (error) {

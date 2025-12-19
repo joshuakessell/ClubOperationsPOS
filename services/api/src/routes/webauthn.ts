@@ -1,0 +1,570 @@
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
+import {
+  generateRegistrationOptions,
+  verifyRegistrationResponse,
+  generateAuthenticationOptions,
+  verifyAuthenticationResponse,
+} from '@simplewebauthn/server';
+import type {
+  PublicKeyCredentialCreationOptionsJSON,
+  PublicKeyCredentialRequestOptionsJSON,
+} from '@simplewebauthn/server/script/deps';
+import { query, transaction } from '../db/index.js';
+import { requireAuth, requireAdmin } from '../auth/middleware.js';
+import { generateSessionToken, getSessionExpiry } from '../auth/utils.js';
+import {
+  getRpId,
+  getRpOrigin,
+  generateChallenge,
+  storeChallenge,
+  consumeChallenge,
+  getStaffCredentials,
+  getCredentialByCredentialId,
+  storeCredential,
+  updateCredentialSignCount,
+} from '../auth/webauthn.js';
+
+/**
+ * Schema for registration options request.
+ */
+const RegistrationOptionsSchema = z.object({
+  staffId: z.string().uuid(),
+  deviceId: z.string().min(1),
+});
+
+type RegistrationOptionsInput = z.infer<typeof RegistrationOptionsSchema>;
+
+/**
+ * Schema for registration verification request.
+ */
+const RegistrationVerifySchema = z.object({
+  staffId: z.string().uuid(),
+  deviceId: z.string().min(1),
+  credentialResponse: z.any(), // RegistrationResponseJSON from client
+});
+
+type RegistrationVerifyInput = z.infer<typeof RegistrationVerifySchema>;
+
+/**
+ * Schema for authentication options request.
+ */
+const AuthenticationOptionsSchema = z.object({
+  staffLookup: z.string().min(1), // staff ID or name
+  deviceId: z.string().min(1),
+});
+
+type AuthenticationOptionsInput = z.infer<typeof AuthenticationOptionsSchema>;
+
+/**
+ * Schema for authentication verification request.
+ */
+const AuthenticationVerifySchema = z.object({
+  deviceId: z.string().min(1),
+  credentialResponse: z.any(), // AuthenticationResponseJSON from client
+});
+
+type AuthenticationVerifyInput = z.infer<typeof AuthenticationVerifySchema>;
+
+/**
+ * WebAuthn routes for passkey registration and authentication.
+ */
+export async function webauthnRoutes(fastify: FastifyInstance): Promise<void> {
+  const rpId = getRpId();
+  const rpName = process.env.WEBAUTHN_RP_NAME || 'Club Operations';
+
+  /**
+   * POST /v1/auth/webauthn/registration/options
+   * 
+   * Generate registration options for enrolling a new passkey.
+   */
+  fastify.post('/v1/auth/webauthn/registration/options', async (
+    request: FastifyRequest<{ Body: RegistrationOptionsInput }>,
+    reply: FastifyReply
+  ) => {
+    let body: RegistrationOptionsInput;
+
+    try {
+      body = RegistrationOptionsSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      // Verify staff exists and is active
+      const staffResult = await query<{ id: string; name: string }>(
+        `SELECT id, name FROM staff WHERE id = $1 AND active = true`,
+        [body.staffId]
+      );
+
+      if (staffResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: 'Staff not found or inactive',
+        });
+      }
+
+      const staff = staffResult.rows[0]!;
+
+      // Get existing credentials for this staff member
+      const existingCredentials = await getStaffCredentials(body.staffId);
+
+      // Generate challenge
+      const challenge = generateChallenge();
+
+      // Store challenge
+      await storeChallenge(challenge, body.staffId, body.deviceId, 'registration');
+
+      // Generate registration options
+      const options = await generateRegistrationOptions({
+        rpName,
+        rpID: rpId,
+        userID: Buffer.from(body.staffId),
+        userName: staff.name,
+        userDisplayName: staff.name,
+        timeout: 120000, // 2 minutes
+        attestationType: 'none', // We don't need attestation
+        excludeCredentials: existingCredentials.map((cred) => ({
+          id: cred.credentialID,
+          type: 'public-key',
+          transports: cred.transports,
+        })),
+        authenticatorSelection: {
+          userVerification: 'required', // Require fingerprint/PIN
+          authenticatorAttachment: 'platform', // Prefer platform authenticators (fingerprint)
+        },
+        supportedAlgorithmIDs: [-7, -257], // ES256 and RS256
+      });
+
+      return reply.send(options);
+    } catch (error) {
+      request.log.error(error, 'Failed to generate registration options');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to generate registration options',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/auth/webauthn/registration/verify
+   * 
+   * Verify and store a new passkey credential.
+   */
+  fastify.post('/v1/auth/webauthn/registration/verify', async (
+    request: FastifyRequest<{ Body: RegistrationVerifyInput }>,
+    reply: FastifyReply
+  ) => {
+    let body: RegistrationVerifyInput;
+
+    try {
+      body = RegistrationVerifySchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      const origin = getRpOrigin(request.headers.origin);
+
+      // Extract challenge from clientDataJSON
+      const clientData = JSON.parse(
+        Buffer.from(body.credentialResponse.response.clientDataJSON, 'base64url').toString()
+      );
+      const expectedChallenge = clientData.challenge;
+
+      // Consume challenge
+      const challengeData = await consumeChallenge(expectedChallenge);
+      if (!challengeData || challengeData.staffId !== body.staffId) {
+        return reply.status(400).send({
+          error: 'Invalid or expired challenge',
+        });
+      }
+
+      // Verify staff exists
+      const staffResult = await query<{ id: string; name: string }>(
+        `SELECT id, name FROM staff WHERE id = $1 AND active = true`,
+        [body.staffId]
+      );
+
+      if (staffResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: 'Staff not found or inactive',
+        });
+      }
+
+      // Verify registration response
+      const verification = await verifyRegistrationResponse({
+        response: body.credentialResponse,
+        expectedChallenge,
+        expectedOrigin: origin,
+        expectedRPID: rpId,
+        requireUserVerification: true,
+      });
+
+      if (!verification.verified) {
+        return reply.status(400).send({
+          error: 'Registration verification failed',
+        });
+      }
+
+      // Store credential
+      const credentialId = Buffer.from(verification.registrationInfo!.credential.id)
+        .toString('base64url');
+      
+      await storeCredential(
+        body.staffId,
+        body.deviceId,
+        credentialId,
+        Buffer.from(verification.registrationInfo!.credential.publicKey),
+        verification.registrationInfo!.counter,
+        verification.registrationInfo!.credential.transports
+      );
+
+      // Log audit action
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id, new_value)
+         VALUES ($1, 'STAFF_WEBAUTHN_ENROLLED', 'staff_webauthn_credential', $2, $3)`,
+        [
+          body.staffId,
+          credentialId,
+          JSON.stringify({
+            deviceId: body.deviceId,
+            transports: verification.registrationInfo!.credential.transports,
+          }),
+        ]
+      );
+
+      return reply.send({
+        verified: true,
+        credentialId,
+      });
+    } catch (error) {
+      request.log.error(error, 'Failed to verify registration');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to verify registration',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/auth/webauthn/authentication/options
+   * 
+   * Generate authentication options for signing in with a passkey.
+   */
+  fastify.post('/v1/auth/webauthn/authentication/options', async (
+    request: FastifyRequest<{ Body: AuthenticationOptionsInput }>,
+    reply: FastifyReply
+  ) => {
+    let body: AuthenticationOptionsInput;
+
+    try {
+      body = AuthenticationOptionsSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      // Find staff by ID or name (must be active)
+      const staffResult = await query<{ id: string; name: string; active: boolean }>(
+        `SELECT id, name, active FROM staff 
+         WHERE (id = $1 OR name ILIKE $1)
+         AND active = true
+         LIMIT 1`,
+        [body.staffLookup]
+      );
+
+      if (staffResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: 'Staff not found or inactive',
+        });
+      }
+
+      // Enforce active status
+      if (!staffResult.rows[0]!.active) {
+        return reply.status(403).send({
+          error: 'Staff account is inactive',
+        });
+      }
+
+      const staff = staffResult.rows[0]!;
+
+      // Get credentials for this staff member
+      const credentials = await getStaffCredentials(staff.id);
+
+      if (credentials.length === 0) {
+        return reply.status(400).send({
+          error: 'No passkeys registered for this staff member',
+        });
+      }
+
+      // Generate challenge
+      const challenge = generateChallenge();
+
+      // Store challenge
+      await storeChallenge(challenge, staff.id, body.deviceId, 'authentication');
+
+      // Generate authentication options
+      const options = await generateAuthenticationOptions({
+        rpID: rpId,
+        timeout: 120000, // 2 minutes
+        allowCredentials: credentials.map((cred) => ({
+          id: cred.credentialID,
+          type: 'public-key',
+          transports: cred.transports,
+        })),
+        userVerification: 'required',
+      });
+
+      return reply.send(options);
+    } catch (error) {
+      request.log.error(error, 'Failed to generate authentication options');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to generate authentication options',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/auth/webauthn/authentication/verify
+   * 
+   * Verify authentication response and issue session token.
+   */
+  fastify.post('/v1/auth/webauthn/authentication/verify', async (
+    request: FastifyRequest<{ Body: AuthenticationVerifyInput }>,
+    reply: FastifyReply
+  ) => {
+    let body: AuthenticationVerifyInput;
+
+    try {
+      body = AuthenticationVerifySchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      const origin = getRpOrigin(request.headers.origin);
+
+      // Extract credential ID from response
+      const credentialIdBase64 = body.credentialResponse.id;
+      const credentialId = Buffer.from(credentialIdBase64, 'base64url').toString('base64url');
+
+      // Get credential and staff
+      const credentialData = await getCredentialByCredentialId(credentialId);
+      if (!credentialData) {
+        return reply.status(400).send({
+          error: 'Credential not found',
+        });
+      }
+
+      // Extract challenge from clientDataJSON
+      const clientData = JSON.parse(
+        Buffer.from(body.credentialResponse.response.clientDataJSON, 'base64url').toString()
+      );
+      const expectedChallenge = clientData.challenge;
+
+      // Consume challenge
+      const challengeData = await consumeChallenge(expectedChallenge);
+      if (!challengeData || challengeData.staffId !== credentialData.staffId) {
+        return reply.status(400).send({
+          error: 'Invalid or expired challenge',
+        });
+      }
+
+      // Verify authentication response
+      const verification = await verifyAuthenticationResponse({
+        response: body.credentialResponse,
+        expectedChallenge,
+        expectedOrigin: origin,
+        expectedRPID: rpId,
+        authenticator: credentialData.credential,
+        requireUserVerification: true,
+      });
+
+      if (!verification.verified) {
+        return reply.status(400).send({
+          error: 'Authentication verification failed',
+        });
+      }
+
+      // Update sign count
+      await updateCredentialSignCount(credentialId, verification.authenticationInfo.newCounter);
+
+      // Get staff info (must be active)
+      const staffResult = await query<{ id: string; name: string; role: string; active: boolean }>(
+        `SELECT id, name, role, active FROM staff WHERE id = $1 AND active = true`,
+        [credentialData.staffId]
+      );
+
+      if (staffResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: 'Staff not found or inactive',
+        });
+      }
+
+      // Enforce active status
+      if (!staffResult.rows[0]!.active) {
+        return reply.status(403).send({
+          error: 'Staff account is inactive',
+        });
+      }
+
+      const staff = staffResult.rows[0]!;
+
+      // Create session
+      const sessionToken = generateSessionToken();
+      const expiresAt = getSessionExpiry();
+
+      await query(
+        `INSERT INTO staff_sessions (staff_id, device_id, device_type, session_token, expires_at)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [staff.id, body.deviceId, 'tablet', sessionToken, expiresAt]
+      );
+
+      // Log audit action
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
+         VALUES ($1, 'STAFF_LOGIN_WEBAUTHN', 'staff_session', $2)`,
+        [staff.id, sessionToken]
+      );
+
+      return reply.send({
+        verified: true,
+        staffId: staff.id,
+        name: staff.name,
+        role: staff.role,
+        sessionToken,
+      });
+    } catch (error) {
+      request.log.error(error, 'Failed to verify authentication');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to verify authentication',
+      });
+    }
+  });
+
+  /**
+   * GET /v1/auth/webauthn/credentials/:staffId
+   * 
+   * Get all passkeys for a staff member (admin only).
+   */
+  fastify.get('/v1/auth/webauthn/credentials/:staffId', {
+    preHandler: [requireAuth, requireAdmin],
+  }, async (
+    request: FastifyRequest<{ Params: { staffId: string } }>,
+    reply: FastifyReply
+  ) => {
+    try {
+      const { staffId } = request.params;
+
+      const result = await query<{
+        id: string;
+        device_id: string;
+        credential_id: string;
+        sign_count: number;
+        transports: string[] | null;
+        created_at: Date;
+        last_used_at: Date | null;
+        revoked_at: Date | null;
+      }>(
+        `SELECT id, device_id, credential_id, sign_count, transports, created_at, last_used_at, revoked_at
+         FROM staff_webauthn_credentials
+         WHERE staff_id = $1
+         ORDER BY created_at DESC`,
+        [staffId]
+      );
+
+      const credentials = result.rows.map((row) => ({
+        id: row.id,
+        deviceId: row.device_id,
+        credentialId: row.credential_id,
+        signCount: Number(row.sign_count),
+        transports: (row.transports as string[]) || [],
+        createdAt: row.created_at.toISOString(),
+        lastUsedAt: row.last_used_at?.toISOString() || null,
+        revokedAt: row.revoked_at?.toISOString() || null,
+        isActive: row.revoked_at === null,
+      }));
+
+      return reply.send({ credentials });
+    } catch (error) {
+      request.log.error(error, 'Failed to fetch credentials');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch credentials',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/auth/webauthn/credentials/:credentialId/revoke
+   * 
+   * Revoke a passkey credential (admin only).
+   */
+  fastify.post('/v1/auth/webauthn/credentials/:credentialId/revoke', {
+    preHandler: [requireAuth, requireAdmin],
+  }, async (
+    request: FastifyRequest<{ Params: { credentialId: string } }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    try {
+      const { credentialId } = request.params;
+
+      // Get credential info before revoking
+      const credentialResult = await query<{ staff_id: string }>(
+        `SELECT staff_id FROM staff_webauthn_credentials WHERE credential_id = $1`,
+        [credentialId]
+      );
+
+      if (credentialResult.rows.length === 0) {
+        return reply.status(404).send({
+          error: 'Credential not found',
+        });
+      }
+
+      const staffId = credentialResult.rows[0]!.staff_id;
+
+      // Revoke credential
+      await query(
+        `UPDATE staff_webauthn_credentials
+         SET revoked_at = NOW()
+         WHERE credential_id = $1
+         AND revoked_at IS NULL`,
+        [credentialId]
+      );
+
+      // Log audit action
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
+         VALUES ($1, 'STAFF_WEBAUTHN_REVOKED', 'staff_webauthn_credential', $2)`,
+        [request.staff.staffId, credentialId]
+      );
+
+      return reply.send({ success: true });
+    } catch (error) {
+      request.log.error(error, 'Failed to revoke credential');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to revoke credential',
+      });
+    }
+  });
+}
+

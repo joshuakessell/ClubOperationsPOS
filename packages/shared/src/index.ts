@@ -26,6 +26,11 @@ export type {
   CheckoutClaimedPayload,
   CheckoutUpdatedPayload,
   CheckoutCompletedPayload,
+  AssignmentCreatedPayload,
+  AssignmentFailedPayload,
+  CustomerConfirmationRequiredPayload,
+  CustomerConfirmedPayload,
+  CustomerDeclinedPayload,
 } from './types';
 
 // Zod schemas

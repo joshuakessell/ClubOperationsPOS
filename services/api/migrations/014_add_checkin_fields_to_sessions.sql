@@ -9,7 +9,7 @@ ALTER TABLE sessions
 
 -- Set checkout_at for existing sessions (if any)
 UPDATE sessions 
-SET checkout_at = check_in_time + (expected_duration || 60) * INTERVAL '1 minute'
+SET checkout_at = check_in_time + COALESCE(expected_duration, 60) * INTERVAL '1 minute'
 WHERE checkout_at IS NULL;
 
 -- Index for checkin_type queries

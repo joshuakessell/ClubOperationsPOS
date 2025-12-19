@@ -1,0 +1,879 @@
+import { useState, useEffect } from 'react';
+import type { StaffSession } from './LockScreen';
+
+const API_BASE = '/api';
+
+interface StaffMember {
+  id: string;
+  name: string;
+  role: 'STAFF' | 'ADMIN';
+  active: boolean;
+  createdAt: string;
+  lastLogin: string | null;
+}
+
+interface PasskeyCredential {
+  id: string;
+  deviceId: string;
+  credentialId: string;
+  signCount: number;
+  transports: string[];
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+  isActive: boolean;
+}
+
+interface StaffManagementProps {
+  session: StaffSession;
+}
+
+export function StaffManagement({ session }: StaffManagementProps) {
+  const [staff, setStaff] = useState<StaffMember[]>([]);
+  const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const [activeFilter, setActiveFilter] = useState<string>('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedStaff, setSelectedStaff] = useState<StaffMember | null>(null);
+  const [passkeys, setPasskeys] = useState<PasskeyCredential[]>([]);
+  const [showPasskeyModal, setShowPasskeyModal] = useState(false);
+  const [showPinResetModal, setShowPinResetModal] = useState(false);
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  useEffect(() => {
+    loadStaff();
+  }, [search, roleFilter, activeFilter]);
+
+  const loadStaff = async () => {
+    if (!session.sessionToken) return;
+
+    setIsLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (search) params.set('search', search);
+      if (roleFilter) params.set('role', roleFilter);
+      if (activeFilter) params.set('active', activeFilter);
+
+      const response = await fetch(`${API_BASE}/v1/admin/staff?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStaff(data.staff || []);
+      }
+    } catch (error) {
+      console.error('Failed to load staff:', error);
+      showToast('Failed to load staff', 'error');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const loadPasskeys = async (staffId: string) => {
+    if (!session.sessionToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/auth/webauthn/credentials/${staffId}`, {
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setPasskeys(data.credentials || []);
+      }
+    } catch (error) {
+      console.error('Failed to load passkeys:', error);
+      showToast('Failed to load passkeys', 'error');
+    }
+  };
+
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setToast({ message, type });
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleCreateStaff = async (formData: {
+    name: string;
+    role: 'STAFF' | 'ADMIN';
+    pin: string;
+    active: boolean;
+  }) => {
+    if (!session.sessionToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/admin/staff`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (response.ok) {
+        showToast('Staff created successfully', 'success');
+        setShowCreateModal(false);
+        loadStaff();
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to create staff', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to create staff', 'error');
+    }
+  };
+
+  const handleToggleActive = async (staffId: string, currentActive: boolean) => {
+    if (!session.sessionToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/admin/staff/${staffId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({ active: !currentActive }),
+      });
+
+      if (response.ok) {
+        showToast(`Staff ${!currentActive ? 'activated' : 'deactivated'}`, 'success');
+        loadStaff();
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to update staff', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to update staff', 'error');
+    }
+  };
+
+  const handleRevokePasskey = async (credentialId: string) => {
+    if (!session.sessionToken) return;
+
+    if (!confirm('Are you sure you want to revoke this passkey?')) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/auth/webauthn/credentials/${credentialId}/revoke`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+      });
+
+      if (response.ok) {
+        showToast('Passkey revoked', 'success');
+        if (selectedStaff) {
+          loadPasskeys(selectedStaff.id);
+        }
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to revoke passkey', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to revoke passkey', 'error');
+    }
+  };
+
+  const handlePinReset = async (staffId: string, newPin: string) => {
+    if (!session.sessionToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/admin/staff/${staffId}/pin-reset`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({ newPin }),
+      });
+
+      if (response.ok) {
+        showToast('PIN reset successfully', 'success');
+        setShowPinResetModal(false);
+      } else {
+        const error = await response.json();
+        showToast(error.error || 'Failed to reset PIN', 'error');
+      }
+    } catch (error) {
+      showToast('Failed to reset PIN', 'error');
+    }
+  };
+
+  const openStaffDetail = (staffMember: StaffMember) => {
+    setSelectedStaff(staffMember);
+    setShowPasskeyModal(true);
+    loadPasskeys(staffMember.id);
+  };
+
+  return (
+    <div className="staff-management" style={{ padding: '2rem', maxWidth: '1400px', margin: '0 auto' }}>
+      <div className="staff-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 600 }}>Staff Management</h1>
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button
+            onClick={() => window.location.href = '/admin'}
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#f9fafb',
+              cursor: 'pointer',
+              fontSize: '1rem',
+            }}
+          >
+            ← Back to Admin
+          </button>
+          <button
+            onClick={() => setShowCreateModal(true)}
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: '#8b5cf6',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#f9fafb',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              fontWeight: 600,
+            }}
+          >
+            + Create Staff
+          </button>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="staff-filters" style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Search by name or ID..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          style={{
+            flex: 1,
+            minWidth: '200px',
+            padding: '0.75rem',
+            background: '#1f2937',
+            border: '1px solid #374151',
+            borderRadius: '6px',
+            color: '#f9fafb',
+            fontSize: '1rem',
+          }}
+        />
+        <select
+          value={roleFilter}
+          onChange={(e) => setRoleFilter(e.target.value)}
+          style={{
+            padding: '0.75rem',
+            background: '#1f2937',
+            border: '1px solid #374151',
+            borderRadius: '6px',
+            color: '#f9fafb',
+            fontSize: '1rem',
+          }}
+        >
+          <option value="">All Roles</option>
+          <option value="STAFF">STAFF</option>
+          <option value="ADMIN">ADMIN</option>
+        </select>
+        <select
+          value={activeFilter}
+          onChange={(e) => setActiveFilter(e.target.value)}
+          style={{
+            padding: '0.75rem',
+            background: '#1f2937',
+            border: '1px solid #374151',
+            borderRadius: '6px',
+            color: '#f9fafb',
+            fontSize: '1rem',
+          }}
+        >
+          <option value="">All Status</option>
+          <option value="true">Active</option>
+          <option value="false">Inactive</option>
+        </select>
+      </div>
+
+      {/* Staff Table */}
+      <div className="staff-table-container" style={{ background: '#1f2937', borderRadius: '8px', overflow: 'hidden' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr style={{ background: '#111827', borderBottom: '1px solid #374151' }}>
+              <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Name</th>
+              <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Role</th>
+              <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Active</th>
+              <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Created</th>
+              <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Last Login</th>
+              <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {isLoading ? (
+              <tr>
+                <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                  Loading...
+                </td>
+              </tr>
+            ) : staff.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                  No staff members found
+                </td>
+              </tr>
+            ) : (
+              staff.map((member) => (
+                <tr key={member.id} style={{ borderBottom: '1px solid #374151' }}>
+                  <td style={{ padding: '1rem' }}>{member.name}</td>
+                  <td style={{ padding: '1rem' }}>
+                    <span
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '4px',
+                        fontSize: '0.875rem',
+                        background: member.role === 'ADMIN' ? '#7c3aed' : '#374151',
+                        color: '#f9fafb',
+                      }}
+                    >
+                      {member.role}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <span
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '4px',
+                        fontSize: '0.875rem',
+                        background: member.active ? '#10b981' : '#ef4444',
+                        color: '#f9fafb',
+                      }}
+                    >
+                      {member.active ? 'Active' : 'Inactive'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '1rem', color: '#9ca3af' }}>
+                    {new Date(member.createdAt).toLocaleDateString()}
+                  </td>
+                  <td style={{ padding: '1rem', color: '#9ca3af' }}>
+                    {member.lastLogin ? new Date(member.lastLogin).toLocaleDateString() : 'Never'}
+                  </td>
+                  <td style={{ padding: '1rem' }}>
+                    <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                      <button
+                        onClick={() => openStaffDetail(member)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: '#374151',
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: '#f9fafb',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        View
+                      </button>
+                      <button
+                        onClick={() => handleToggleActive(member.id, member.active)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: member.active ? '#ef4444' : '#10b981',
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: '#f9fafb',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        {member.active ? 'Deactivate' : 'Activate'}
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Create Staff Modal */}
+      {showCreateModal && (
+        <CreateStaffModal
+          onClose={() => setShowCreateModal(false)}
+          onCreate={handleCreateStaff}
+        />
+      )}
+
+      {/* Staff Detail Modal */}
+      {showPasskeyModal && selectedStaff && (
+        <StaffDetailModal
+          staff={selectedStaff}
+          passkeys={passkeys}
+          onClose={() => {
+            setShowPasskeyModal(false);
+            setSelectedStaff(null);
+          }}
+          onRevokePasskey={handleRevokePasskey}
+          onPinReset={() => setShowPinResetModal(true)}
+          sessionToken={session.sessionToken}
+        />
+      )}
+
+      {/* PIN Reset Modal */}
+      {showPinResetModal && selectedStaff && (
+        <PinResetModal
+          staffId={selectedStaff.id}
+          staffName={selectedStaff.name}
+          onClose={() => setShowPinResetModal(false)}
+          onReset={handlePinReset}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: '2rem',
+            right: '2rem',
+            padding: '1rem 1.5rem',
+            background: toast.type === 'success' ? '#10b981' : '#ef4444',
+            color: '#f9fafb',
+            borderRadius: '8px',
+            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
+            zIndex: 1000,
+          }}
+        >
+          {toast.message}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CreateStaffModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (data: { name: string; role: 'STAFF' | 'ADMIN'; pin: string; active: boolean }) => void;
+}) {
+  const [name, setName] = useState('');
+  const [role, setRole] = useState<'STAFF' | 'ADMIN'>('STAFF');
+  const [pin, setPin] = useState('');
+  const [active, setActive] = useState(true);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !pin.match(/^\d{4,6}$/)) {
+      return;
+    }
+    onCreate({ name: name.trim(), role, pin, active });
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#1f2937',
+          padding: '2rem',
+          borderRadius: '12px',
+          maxWidth: '500px',
+          width: '90%',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem' }}>Create Staff Member</h2>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Name *
+            </label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#111827',
+                border: '1px solid #374151',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                fontSize: '1rem',
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Role *
+            </label>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as 'STAFF' | 'ADMIN')}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#111827',
+                border: '1px solid #374151',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                fontSize: '1rem',
+              }}
+            >
+              <option value="STAFF">STAFF</option>
+              <option value="ADMIN">ADMIN</option>
+            </select>
+          </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              PIN (4-6 digits) *
+            </label>
+            <input
+              type="password"
+              value={pin}
+              onChange={(e) => setPin(e.target.value)}
+              required
+              pattern="\d{4,6}"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#111827',
+                border: '1px solid #374151',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                fontSize: '1rem',
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+              />
+              <span>Active</span>
+            </label>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#374151',
+                border: 'none',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                cursor: 'pointer',
+                fontSize: '1rem',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#8b5cf6',
+                border: 'none',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 600,
+              }}
+            >
+              Create
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function StaffDetailModal({
+  staff,
+  passkeys,
+  onClose,
+  onRevokePasskey,
+  onPinReset,
+  sessionToken,
+}: {
+  staff: StaffMember;
+  passkeys: PasskeyCredential[];
+  onClose: () => void;
+  onRevokePasskey: (credentialId: string) => void;
+  onPinReset: () => void;
+  sessionToken: string;
+}) {
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1000,
+        overflow: 'auto',
+        padding: '2rem',
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#1f2937',
+          padding: '2rem',
+          borderRadius: '12px',
+          maxWidth: '800px',
+          width: '100%',
+          maxHeight: '90vh',
+          overflow: 'auto',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+          <h2 style={{ fontSize: '1.5rem' }}>{staff.name}</h2>
+          <button
+            onClick={onClose}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#9ca3af',
+              fontSize: '1.5rem',
+              cursor: 'pointer',
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <div style={{ marginBottom: '2rem' }}>
+          <p><strong>Role:</strong> {staff.role}</p>
+          <p><strong>Status:</strong> {staff.active ? 'Active' : 'Inactive'}</p>
+          <p><strong>Created:</strong> {new Date(staff.createdAt).toLocaleString()}</p>
+          <p><strong>Last Login:</strong> {staff.lastLogin ? new Date(staff.lastLogin).toLocaleString() : 'Never'}</p>
+        </div>
+
+        <div style={{ marginBottom: '1.5rem' }}>
+          <button
+            onClick={onPinReset}
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#f9fafb',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              marginRight: '1rem',
+            }}
+          >
+            Reset PIN
+          </button>
+        </div>
+
+        <h3 style={{ marginBottom: '1rem', fontSize: '1.25rem' }}>Passkeys</h3>
+        {passkeys.length === 0 ? (
+          <p style={{ color: '#9ca3af' }}>No passkeys registered</p>
+        ) : (
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead>
+              <tr style={{ borderBottom: '1px solid #374151' }}>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Credential ID</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Device</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Created</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Last Used</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
+                <th style={{ padding: '0.75rem', textAlign: 'left' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {passkeys.map((pk) => (
+                <tr key={pk.id} style={{ borderBottom: '1px solid #374151' }}>
+                  <td style={{ padding: '0.75rem', fontFamily: 'monospace', fontSize: '0.875rem' }}>
+                    {pk.credentialId.slice(0, 16)}...
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>{pk.deviceId}</td>
+                  <td style={{ padding: '0.75rem', color: '#9ca3af' }}>
+                    {new Date(pk.createdAt).toLocaleDateString()}
+                  </td>
+                  <td style={{ padding: '0.75rem', color: '#9ca3af' }}>
+                    {pk.lastUsedAt ? new Date(pk.lastUsedAt).toLocaleDateString() : 'Never'}
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    <span
+                      style={{
+                        padding: '0.25rem 0.75rem',
+                        borderRadius: '4px',
+                        fontSize: '0.875rem',
+                        background: pk.isActive ? '#10b981' : '#ef4444',
+                        color: '#f9fafb',
+                      }}
+                    >
+                      {pk.isActive ? 'Active' : 'Revoked'}
+                    </span>
+                  </td>
+                  <td style={{ padding: '0.75rem' }}>
+                    {pk.isActive && (
+                      <button
+                        onClick={() => onRevokePasskey(pk.credentialId)}
+                        style={{
+                          padding: '0.5rem 1rem',
+                          background: '#ef4444',
+                          border: 'none',
+                          borderRadius: '4px',
+                          color: '#f9fafb',
+                          cursor: 'pointer',
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        Revoke
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function PinResetModal({
+  staffId,
+  staffName,
+  onClose,
+  onReset,
+}: {
+  staffId: string;
+  staffName: string;
+  onClose: () => void;
+  onReset: (staffId: string, newPin: string) => void;
+}) {
+  const [newPin, setNewPin] = useState('');
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (newPin.match(/^\d{4,6}$/)) {
+      onReset(staffId, newPin);
+    }
+  };
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0, 0, 0, 0.7)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 1001,
+      }}
+      onClick={onClose}
+    >
+      <div
+        style={{
+          background: '#1f2937',
+          padding: '2rem',
+          borderRadius: '12px',
+          maxWidth: '400px',
+          width: '90%',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h2 style={{ marginBottom: '1rem' }}>Reset PIN for {staffName}</h2>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              New PIN (4-6 digits) *
+            </label>
+            <input
+              type="password"
+              value={newPin}
+              onChange={(e) => setNewPin(e.target.value)}
+              required
+              pattern="\d{4,6}"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#111827',
+                border: '1px solid #374151',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                fontSize: '1rem',
+              }}
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#374151',
+                border: 'none',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                cursor: 'pointer',
+                fontSize: '1rem',
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#8b5cf6',
+                border: 'none',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                cursor: 'pointer',
+                fontSize: '1rem',
+                fontWeight: 600,
+              }}
+            >
+              Reset PIN
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+

@@ -1,5 +1,11 @@
 import { useEffect, useState, useRef } from 'react';
-import type { SessionUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
+import type { 
+  SessionUpdatedPayload, 
+  WebSocketEvent,
+  CustomerConfirmationRequiredPayload,
+  AssignmentCreatedPayload,
+  InventoryUpdatedPayload,
+} from '@club-ops/shared';
 import { CheckinMode } from '@club-ops/shared';
 import logoImage from './assets/the-clubs-logo.png';
 
@@ -64,6 +70,9 @@ function App() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkinMode, setCheckinMode] = useState<CheckinMode | null>(null);
   const [showRenewalDisclaimer, setShowRenewalDisclaimer] = useState(false);
+  const [showCustomerConfirmation, setShowCustomerConfirmation] = useState(false);
+  const [customerConfirmationData, setCustomerConfirmationData] = useState<CustomerConfirmationRequiredPayload | null>(null);
+  const [inventory, setInventory] = useState<{ rooms: Record<string, number>; lockers: number } | null>(null);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
 
@@ -82,6 +91,14 @@ function App() {
       .then((data: HealthStatus) => setHealth(data))
       .catch(console.error);
 
+    // Fetch initial inventory
+    fetch(`${API_BASE}/v1/inventory/available`)
+      .then((res) => res.json())
+      .then((data: { rooms: Record<string, number>; lockers: number }) => {
+        setInventory(data);
+      })
+      .catch(console.error);
+
     // Connect to WebSocket with lane parameter
     const ws = new WebSocket(`ws://${window.location.hostname}:3001/ws?lane=${encodeURIComponent(lane)}`);
 
@@ -89,10 +106,10 @@ function App() {
       console.log('WebSocket connected to lane:', lane);
       setWsConnected(true);
       
-      // Subscribe to SESSION_UPDATED events
+      // Subscribe to relevant events
       ws.send(JSON.stringify({
         type: 'subscribe',
-        events: ['SESSION_UPDATED'],
+        events: ['SESSION_UPDATED', 'CUSTOMER_CONFIRMATION_REQUIRED', 'ASSIGNMENT_CREATED', 'INVENTORY_UPDATED'],
       }));
     };
 
@@ -122,6 +139,29 @@ function App() {
           }
           if (payload.customerName) {
             setView('selection');
+          }
+        } else if (message.type === 'CUSTOMER_CONFIRMATION_REQUIRED') {
+          const payload = message.payload as CustomerConfirmationRequiredPayload;
+          setCustomerConfirmationData(payload);
+          setShowCustomerConfirmation(true);
+        } else if (message.type === 'ASSIGNMENT_CREATED') {
+          const payload = message.payload as AssignmentCreatedPayload;
+          // Assignment successful - could show confirmation message
+          console.log('Assignment created:', payload);
+        } else if (message.type === 'INVENTORY_UPDATED') {
+          const payload = message.payload as InventoryUpdatedPayload;
+          // Update inventory counts for availability warnings
+          if (payload.inventory) {
+            const rooms: Record<string, number> = {};
+            if (payload.inventory.byType) {
+              Object.entries(payload.inventory.byType).forEach(([type, summary]) => {
+                rooms[type] = summary.clean;
+              });
+            }
+            setInventory({
+              rooms,
+              lockers: payload.inventory.lockers?.clean || 0,
+            });
           }
         }
       } catch (error) {
@@ -153,30 +193,26 @@ function App() {
   }, [view, agreement]);
 
   const handleRentalSelection = async (rental: string) => {
+    if (!session.sessionId) {
+      alert('No active session. Please wait for staff to start a session.');
+      return;
+    }
+
     setSelectedRental(rental);
     setIsSubmitting(true);
 
     try {
-      // For renewal mode, visit should already be selected by employee
-      // For initial mode, we need to look up member and create visit
-      if (checkinMode === CheckinMode.RENEWAL && session.visitId) {
-        // Renewal - visit already exists, just show disclaimer
-        setIsSubmitting(false);
-        setShowRenewalDisclaimer(true);
-        return;
-      }
-
-      // Initial check-in - need to look up member and create visit
-      // For now, we'll use a simplified approach: the employee should have
-      // already created the visit via the employee register
-      // This is a placeholder - in production, you'd look up member by name/membership
-      setIsSubmitting(false);
+      // Call the select-rental endpoint (requires staff auth, so this is a placeholder)
+      // In production, the employee register would call this on behalf of the customer
+      // For now, we'll proceed to agreement screen
       
       // If renewal mode, show renewal disclaimer before agreement
       if (checkinMode === CheckinMode.RENEWAL) {
+        setIsSubmitting(false);
         setShowRenewalDisclaimer(true);
       } else {
         // Show agreement screen after selection
+        setIsSubmitting(false);
         setView('agreement');
       }
     } catch (error) {
@@ -280,16 +316,14 @@ function App() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkins/${session.sessionId}/agreement-sign`, {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/sign-agreement`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-device-type': 'customer-kiosk',
-          'x-device-id': `kiosk-${lane}`,
         },
         body: JSON.stringify({
-          signaturePngBase64: signatureData.split(',')[1], // Remove data:image/png;base64, prefix
-          agreed: true,
+          signaturePayload: signatureData, // Full data URL or base64
+          sessionId: session.sessionId || undefined,
         }),
       });
 
@@ -299,6 +333,20 @@ function App() {
       }
 
       setView('complete');
+      
+      // Return to idle after a delay
+      setTimeout(() => {
+        setView('idle');
+        setSession({
+          sessionId: null,
+          customerName: null,
+          membershipNumber: null,
+          allowedRentals: [],
+        });
+        setSelectedRental(null);
+        setAgreed(false);
+        setSignatureData(null);
+      }, 3000);
     } catch (error) {
       console.error('Failed to sign agreement:', error);
       alert(error instanceof Error ? error.message : 'Failed to sign agreement. Please try again.');
@@ -413,15 +461,33 @@ function App() {
 
         <div className="package-options">
           {session.allowedRentals.length > 0 ? (
-            session.allowedRentals.map((rental) => (
-              <div
-                key={rental}
-                className="package-option"
-                onClick={() => handleRentalSelection(rental)}
-              >
-                <div className="package-name">{getRentalDisplayName(rental)}</div>
-              </div>
-            ))
+            session.allowedRentals.map((rental) => {
+              const availableCount = inventory?.rooms[rental] || (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : 0) || 0;
+              const showWarning = availableCount > 0 && availableCount < 3;
+              const isUnavailable = availableCount === 0;
+              
+              return (
+                <div key={rental}>
+                  <div
+                    className="package-option"
+                    onClick={() => !isUnavailable && handleRentalSelection(rental)}
+                    style={{ opacity: isUnavailable ? 0.5 : 1, cursor: isUnavailable ? 'not-allowed' : 'pointer' }}
+                  >
+                    <div className="package-name">{getRentalDisplayName(rental)}</div>
+                    {showWarning && (
+                      <div style={{ fontSize: '0.875rem', color: '#f59e0b', marginTop: '0.5rem' }}>
+                        Only {availableCount} available
+                      </div>
+                    )}
+                    {isUnavailable && (
+                      <div style={{ fontSize: '0.875rem', color: '#ef4444', marginTop: '0.5rem' }}>
+                        Currently unavailable
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })
           ) : (
             <div className="package-option">
               <div className="package-name">No options available</div>
@@ -458,6 +524,73 @@ function App() {
             >
               OK
             </button>
+          </div>
+        </div>
+      )}
+
+      {/* Customer Confirmation Modal */}
+      {showCustomerConfirmation && customerConfirmationData && (
+        <div className="modal-overlay" onClick={() => {}}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Staff Selected Different Option</h2>
+            <div className="disclaimer-text">
+              <p>You requested: <strong>{getRentalDisplayName(customerConfirmationData.requestedType)}</strong></p>
+              <p>Staff selected: <strong>{getRentalDisplayName(customerConfirmationData.selectedType)} {customerConfirmationData.selectedNumber}</strong></p>
+              <p>Do you accept this selection?</p>
+            </div>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button
+                className="modal-ok-btn"
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/customer-confirm`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        sessionId: customerConfirmationData.sessionId,
+                        confirmed: true,
+                      }),
+                    });
+                    if (response.ok) {
+                      setShowCustomerConfirmation(false);
+                      setCustomerConfirmationData(null);
+                    }
+                  } catch (error) {
+                    console.error('Failed to confirm:', error);
+                    alert('Failed to confirm selection. Please try again.');
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                Accept
+              </button>
+              <button
+                className="modal-ok-btn"
+                style={{ backgroundColor: '#ef4444' }}
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/customer-confirm`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        sessionId: customerConfirmationData.sessionId,
+                        confirmed: false,
+                      }),
+                    });
+                    if (response.ok) {
+                      setShowCustomerConfirmation(false);
+                      setCustomerConfirmationData(null);
+                    }
+                  } catch (error) {
+                    console.error('Failed to decline:', error);
+                    alert('Failed to decline selection. Please try again.');
+                  }
+                }}
+                disabled={isSubmitting}
+              >
+                Decline
+              </button>
+            </div>
           </div>
         </div>
       )}

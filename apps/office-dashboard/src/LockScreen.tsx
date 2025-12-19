@@ -17,7 +17,8 @@ interface LockScreenProps {
 }
 
 export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
-  const [mode, setMode] = useState<'qr' | 'pin'>('qr');
+  const [mode, setMode] = useState<'qr' | 'pin'>('pin');
+  const [staffLookup, setStaffLookup] = useState('');
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -166,8 +167,8 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
   const handlePinSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!pin.trim()) {
-      setError('Please enter a PIN');
+    if (!staffLookup.trim() || !pin.trim()) {
+      setError('Please enter your name/ID and PIN');
       return;
     }
 
@@ -175,12 +176,12 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/auth/login`, {
+      const response = await fetch(`${API_BASE}/v1/auth/login-pin`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
+          staffLookup: staffLookup.trim(),
           deviceId,
-          deviceType,
           pin: pin.trim(),
         }),
       });
@@ -193,9 +194,10 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
       const session: StaffSession = await response.json();
       onLogin(session);
       setPin('');
+      setStaffLookup('');
     } catch (error) {
       console.error('Login error:', error);
-      setError(error instanceof Error ? error.message : 'Invalid PIN');
+      setError(error instanceof Error ? error.message : 'Invalid credentials');
       setPin('');
     } finally {
       setIsLoading(false);
@@ -261,19 +263,27 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
         ) : (
           <form className="lock-screen-pin" onSubmit={handlePinSubmit}>
             <input
+              type="text"
+              className="staff-lookup-input"
+              placeholder="Enter your name or staff ID"
+              value={staffLookup}
+              onChange={(e) => setStaffLookup(e.target.value)}
+              disabled={isLoading}
+              autoFocus
+            />
+            <input
               type="password"
               className="pin-input"
               placeholder="Enter PIN"
               value={pin}
               onChange={(e) => setPin(e.target.value)}
               disabled={isLoading}
-              autoFocus
               maxLength={10}
             />
             <button
               type="submit"
               className="pin-submit-button"
-              disabled={isLoading || !pin.trim()}
+              disabled={isLoading || !pin.trim() || !staffLookup.trim()}
             >
               {isLoading ? 'Logging in...' : 'Login'}
             </button>
