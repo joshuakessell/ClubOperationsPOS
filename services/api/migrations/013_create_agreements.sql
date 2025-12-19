@@ -33,3 +33,4 @@ CREATE INDEX IF NOT EXISTS idx_agreement_signatures_checkin ON agreement_signatu
 CREATE INDEX IF NOT EXISTS idx_agreement_signatures_agreement ON agreement_signatures(agreement_id);
 CREATE INDEX IF NOT EXISTS idx_agreement_signatures_signed_at ON agreement_signatures(signed_at);
 
+

@@ -36,3 +36,4 @@ CREATE INDEX idx_staff_sessions_token ON staff_sessions(session_token) WHERE rev
 CREATE INDEX idx_staff_sessions_device ON staff_sessions(device_id, device_type);
 CREATE INDEX idx_staff_sessions_active ON staff_sessions(staff_id, revoked_at) WHERE revoked_at IS NULL;
 
+

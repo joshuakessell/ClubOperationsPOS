@@ -5,6 +5,10 @@ import type {
   RoomStatusChangedPayload,
   InventoryUpdatedPayload,
   SessionUpdatedPayload,
+  CheckoutRequestedPayload,
+  CheckoutClaimedPayload,
+  CheckoutUpdatedPayload,
+  CheckoutCompletedPayload,
 } from '@club-ops/shared';
 
 /**
@@ -32,7 +36,11 @@ export type WebSocketPayload =
   | InventoryUpdatedPayload
   | RoomAssignedPayload
   | RoomReleasedPayload
-  | SessionUpdatedPayload;
+  | SessionUpdatedPayload
+  | CheckoutRequestedPayload
+  | CheckoutClaimedPayload
+  | CheckoutUpdatedPayload
+  | CheckoutCompletedPayload;
 
 /**
  * Client metadata for lane-scoped broadcasts.

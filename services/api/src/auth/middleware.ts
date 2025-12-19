@@ -114,3 +114,4 @@ export function registerAuthMiddleware(fastify: FastifyInstance): void {
   // No global hook needed - we'll apply it per-route
 }
 
+

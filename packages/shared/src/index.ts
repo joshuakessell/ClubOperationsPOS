@@ -1,5 +1,5 @@
 // Enums
-export { RoomStatus, RoomType } from './enums';
+export { RoomStatus, RoomType, BlockType, CheckinMode } from './enums';
 
 // Transition validation
 export { isAdjacentTransition, validateTransition, type TransitionResult } from './transitions';
@@ -15,6 +15,17 @@ export type {
   RoomStatusChangedPayload,
   InventoryUpdatedPayload,
   SessionUpdatedPayload,
+  Visit,
+  CheckinBlock,
+  ActiveVisit,
+  CheckoutRequestStatus,
+  CheckoutChecklist,
+  ResolvedCheckoutKey,
+  CheckoutRequestSummary,
+  CheckoutRequestedPayload,
+  CheckoutClaimedPayload,
+  CheckoutUpdatedPayload,
+  CheckoutCompletedPayload,
 } from './types';
 
 // Zod schemas

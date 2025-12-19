@@ -151,19 +151,33 @@ export async function agreementRoutes(fastify: FastifyInstance): Promise<void> {
 
         const agreement = agreementResult.rows[0]!;
 
-        // 5. Store the signature
+        // 5. Get the checkin_block_id from the session's visit (if exists)
+        const blockResult = await client.query<{ id: string }>(
+          `SELECT cb.id 
+           FROM checkin_blocks cb
+           JOIN sessions s ON cb.session_id = s.id
+           WHERE s.id = $1
+           ORDER BY cb.created_at DESC
+           LIMIT 1`,
+          [session.id]
+        );
+
+        const checkinBlockId = blockResult.rows[0]?.id || null;
+
+        // 6. Store the signature
         const signatureResult = await client.query<{ id: string }>(
           `INSERT INTO agreement_signatures (
-            agreement_id, checkin_id, customer_name, membership_number,
+            agreement_id, checkin_id, checkin_block_id, customer_name, membership_number,
             signature_png_base64, signature_strokes_json,
             agreement_text_snapshot, agreement_version,
             device_id, device_type, user_agent, ip_address
           )
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
           RETURNING id`,
           [
             agreement.id,
             session.id,
+            checkinBlockId,
             session.member_name,
             session.membership_number,
             body.signaturePngBase64 || null,
@@ -177,13 +191,22 @@ export async function agreementRoutes(fastify: FastifyInstance): Promise<void> {
           ]
         );
 
-        // 6. Mark session as agreement signed
+        // 7. Mark session and block as agreement signed
         await client.query(
           `UPDATE sessions 
            SET agreement_signed = true, updated_at = NOW()
            WHERE id = $1`,
           [session.id]
         );
+
+        if (checkinBlockId) {
+          await client.query(
+            `UPDATE checkin_blocks 
+             SET agreement_signed = true, updated_at = NOW()
+             WHERE id = $1`,
+            [checkinBlockId]
+          );
+        }
 
         return {
           signatureId: signatureResult.rows[0]!.id,

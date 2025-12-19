@@ -21,3 +21,4 @@ CREATE INDEX idx_cleaning_events_completed ON cleaning_events(completed_at);
 CREATE INDEX idx_cleaning_events_device ON cleaning_events(device_id) WHERE device_id IS NOT NULL;
 CREATE INDEX idx_cleaning_events_override ON cleaning_events(override_flag) WHERE override_flag = true;
 
+

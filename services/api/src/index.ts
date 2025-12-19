@@ -3,17 +3,19 @@ import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import type { WebSocket } from 'ws';
 
-import { 
+import {
   healthRoutes,
   authRoutes,
   sessionRoutes,
   laneRoutes,
-  inventoryRoutes, 
-  keysRoutes, 
+  inventoryRoutes,
+  keysRoutes,
   cleaningRoutes,
   adminRoutes,
   agreementRoutes,
-  upgradeRoutes
+  upgradeRoutes,
+  visitRoutes,
+  checkoutRoutes
 } from './routes/index.js';
 import { createBroadcaster, type Broadcaster } from './websocket/broadcaster.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -80,6 +82,8 @@ async function main() {
   await fastify.register(adminRoutes);
   await fastify.register(agreementRoutes);
   await fastify.register(upgradeRoutes);
+  await fastify.register(visitRoutes);
+  await fastify.register(checkoutRoutes);
 
   // WebSocket endpoint
   fastify.get('/ws', { websocket: true }, (connection, req) => {

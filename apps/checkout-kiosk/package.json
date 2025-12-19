@@ -1,10 +1,10 @@
 {
-  "name": "@club-ops/office-dashboard",
+  "name": "@club-ops/checkout-kiosk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --port 5176 --strictPort",
+    "dev": "vite --port 5177 --strictPort",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "vitest run",
@@ -14,10 +14,9 @@
   },
   "dependencies": {
     "@club-ops/shared": "workspace:*",
-    "@zxing/library": "^0.21.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-router-dom": "^6.21.0"
+    "html5-qrcode": "^2.3.8"
   },
   "devDependencies": {
     "@testing-library/react": "^14.1.2",

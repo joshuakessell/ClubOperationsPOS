@@ -8,3 +8,4 @@ CREATE INDEX IF NOT EXISTS idx_sessions_lane ON sessions(lane) WHERE lane IS NOT
 CREATE INDEX IF NOT EXISTS idx_sessions_lane_active ON sessions(lane, status) 
   WHERE lane IS NOT NULL AND status = 'ACTIVE';
 
+

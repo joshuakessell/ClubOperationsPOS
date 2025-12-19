@@ -12,3 +12,5 @@ export { cleaningRoutes } from './cleaning.js';
 export { adminRoutes } from './admin.js';
 export { agreementRoutes } from './agreements.js';
 export { upgradeRoutes } from './upgrades.js';
+export { visitRoutes } from './visits.js';
+export { checkoutRoutes } from './checkout.js';

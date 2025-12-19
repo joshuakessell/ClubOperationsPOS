@@ -8,3 +8,4 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_staff_id ON audit_log(staff_id);
 -- Note: We keep user_id and user_role for backward compatibility during migration
 -- They can be removed in a future migration once all code is updated
 
+

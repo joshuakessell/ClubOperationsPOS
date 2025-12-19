@@ -15,3 +15,4 @@ WHERE checkout_at IS NULL;
 -- Index for checkin_type queries
 CREATE INDEX IF NOT EXISTS idx_sessions_checkin_type ON sessions(checkin_type);
 
+

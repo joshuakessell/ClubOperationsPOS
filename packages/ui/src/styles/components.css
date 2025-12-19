@@ -1,0 +1,305 @@
+/* Component Base Styles */
+
+/* Reset and Base */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Button Base */
+.cs-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--cs-space-md) var(--cs-space-xl);
+  font-family: var(--cs-font-family);
+  font-size: var(--cs-text-base);
+  font-weight: var(--cs-font-semibold);
+  line-height: 1;
+  border: none;
+  border-radius: var(--cs-radius-lg);
+  cursor: pointer;
+  transition: all var(--cs-transition-base);
+  min-height: var(--cs-touch-target-min);
+  text-decoration: none;
+  user-select: none;
+}
+
+.cs-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cs-button:focus-visible {
+  outline: 2px solid var(--cs-text);
+  outline-offset: 2px;
+}
+
+/* Primary Button */
+.cs-button-primary {
+  background: var(--cs-white);
+  color: var(--cs-black);
+}
+
+.cs-button-primary:hover:not(:disabled) {
+  background: var(--cs-gray-light);
+  transform: translateY(-1px);
+}
+
+/* Secondary Button */
+.cs-button-secondary {
+  background: transparent;
+  color: var(--cs-text);
+  border: 2px solid var(--cs-text);
+}
+
+.cs-button-secondary:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+/* Accent Button */
+.cs-button-accent {
+  background: var(--cs-accent);
+  color: var(--cs-black);
+}
+
+.cs-button-accent:hover:not(:disabled) {
+  background: var(--cs-accent-dark);
+}
+
+/* Button Sizes */
+.cs-button-sm {
+  padding: var(--cs-space-sm) var(--cs-space-md);
+  font-size: var(--cs-text-sm);
+  min-height: 36px;
+}
+
+.cs-button-lg {
+  padding: var(--cs-space-lg) var(--cs-space-2xl);
+  font-size: var(--cs-text-lg);
+  min-height: 56px;
+}
+
+/* Card */
+.cs-card {
+  background: var(--cs-bg-card);
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius-xl);
+  padding: var(--cs-space-xl);
+  transition: all var(--cs-transition-base);
+}
+
+.cs-card:hover {
+  border-color: var(--cs-text-muted);
+}
+
+/* Section */
+.cs-section {
+  margin-bottom: var(--cs-space-3xl);
+}
+
+.cs-section-title {
+  font-size: var(--cs-text-3xl);
+  font-weight: var(--cs-font-semibold);
+  color: var(--cs-text);
+  margin-bottom: var(--cs-space-xl);
+  line-height: var(--cs-leading-tight);
+}
+
+/* Input */
+.cs-input {
+  width: 100%;
+  padding: var(--cs-space-md) var(--cs-space-md);
+  background: transparent;
+  border: 1px solid var(--cs-border);
+  border-radius: var(--cs-radius-md);
+  color: var(--cs-text);
+  font-family: var(--cs-font-family);
+  font-size: var(--cs-text-base);
+  transition: all var(--cs-transition-base);
+}
+
+.cs-input:focus {
+  outline: none;
+  border-color: var(--cs-text);
+}
+
+.cs-input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.cs-input::placeholder {
+  color: var(--cs-text-muted);
+}
+
+/* Label */
+.cs-label {
+  display: block;
+  font-size: var(--cs-text-sm);
+  font-weight: var(--cs-font-semibold);
+  color: var(--cs-text);
+  margin-bottom: var(--cs-space-sm);
+}
+
+/* Pill/Badge */
+.cs-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--cs-space-sm) var(--cs-space-md);
+  border-radius: var(--cs-radius-full);
+  font-size: var(--cs-text-xs);
+  font-weight: var(--cs-font-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  line-height: 1;
+}
+
+.cs-pill-success {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--cs-success);
+  border: 1px solid var(--cs-success);
+}
+
+.cs-pill-warning {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--cs-warning);
+  border: 1px solid var(--cs-warning);
+}
+
+.cs-pill-error {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--cs-error);
+  border: 1px solid var(--cs-error);
+}
+
+.cs-pill-info {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--cs-text);
+  border: 1px solid var(--cs-border);
+}
+
+/* Modal */
+.cs-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: var(--cs-bg-overlay);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: var(--cs-z-modal);
+  animation: cs-fade-in var(--cs-transition-base);
+}
+
+.cs-modal-content {
+  background: var(--cs-bg);
+  border: 2px solid var(--cs-border);
+  border-radius: var(--cs-radius-xl);
+  padding: var(--cs-space-xl);
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  animation: cs-slide-up var(--cs-transition-base);
+}
+
+@keyframes cs-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes cs-slide-up {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Table */
+.cs-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cs-table thead {
+  background: var(--cs-bg-card);
+}
+
+.cs-table th {
+  padding: var(--cs-space-md) var(--cs-space-md);
+  text-align: left;
+  font-size: var(--cs-text-xs);
+  font-weight: var(--cs-font-semibold);
+  text-transform: uppercase;
+  color: var(--cs-text-muted);
+  border-bottom: 1px solid var(--cs-border);
+  letter-spacing: 0.05em;
+}
+
+.cs-table td {
+  padding: var(--cs-space-md) var(--cs-space-md);
+  border-bottom: 1px solid var(--cs-border);
+  font-size: var(--cs-text-sm);
+  color: var(--cs-text);
+}
+
+.cs-table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+/* Top Bar */
+.cs-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--cs-space-md) var(--cs-space-xl);
+  border-bottom: 1px solid var(--cs-border);
+  min-height: 64px;
+}
+
+/* Page Shell */
+.cs-page-shell {
+  min-height: 100vh;
+  background: var(--cs-bg);
+  color: var(--cs-text);
+  font-family: var(--cs-font-family);
+}
+
+/* Kiosk Choice Button */
+.cs-kiosk-choice {
+  border: 2px solid var(--cs-border);
+  border-radius: var(--cs-radius-lg);
+  padding: var(--cs-space-xl);
+  text-align: center;
+  background: transparent;
+  transition: all var(--cs-transition-base);
+  cursor: pointer;
+  min-height: var(--cs-touch-target-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.cs-kiosk-choice:hover {
+  border-color: var(--cs-text);
+  background: rgba(255, 255, 255, 0.05);
+  transform: translateY(-2px);
+}
+
+.cs-kiosk-choice:active {
+  transform: translateY(0);
+}
+
+

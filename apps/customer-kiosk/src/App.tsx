@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import type { SessionUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
+import { CheckinMode } from '@club-ops/shared';
 import logoImage from './assets/the-clubs-logo.png';
 
 interface HealthStatus {
@@ -13,6 +14,8 @@ interface SessionState {
   customerName: string | null;
   membershipNumber: string | null;
   allowedRentals: string[];
+  visitId?: string;
+  mode?: CheckinMode;
 }
 
 interface Agreement {
@@ -59,6 +62,8 @@ function App() {
   const [showUpgradeDisclaimer, setShowUpgradeDisclaimer] = useState(false);
   const [upgradeAction, setUpgradeAction] = useState<'waitlist' | 'accept' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [checkinMode, setCheckinMode] = useState<CheckinMode | null>(null);
+  const [showRenewalDisclaimer, setShowRenewalDisclaimer] = useState(false);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
 
@@ -108,7 +113,13 @@ function App() {
             customerName: payload.customerName,
             membershipNumber: payload.membershipNumber || null,
             allowedRentals: payload.allowedRentals,
+            visitId: payload.visitId,
+            mode: payload.mode,
           });
+          // Set check-in mode from payload
+          if (payload.mode) {
+            setCheckinMode(payload.mode);
+          }
           if (payload.customerName) {
             setView('selection');
           }
@@ -141,10 +152,38 @@ function App() {
     }
   }, [view, agreement]);
 
-  const handleRentalSelection = (rental: string) => {
+  const handleRentalSelection = async (rental: string) => {
     setSelectedRental(rental);
-    // Show agreement screen after selection
-    setView('agreement');
+    setIsSubmitting(true);
+
+    try {
+      // For renewal mode, visit should already be selected by employee
+      // For initial mode, we need to look up member and create visit
+      if (checkinMode === CheckinMode.RENEWAL && session.visitId) {
+        // Renewal - visit already exists, just show disclaimer
+        setIsSubmitting(false);
+        setShowRenewalDisclaimer(true);
+        return;
+      }
+
+      // Initial check-in - need to look up member and create visit
+      // For now, we'll use a simplified approach: the employee should have
+      // already created the visit via the employee register
+      // This is a placeholder - in production, you'd look up member by name/membership
+      setIsSubmitting(false);
+      
+      // If renewal mode, show renewal disclaimer before agreement
+      if (checkinMode === CheckinMode.RENEWAL) {
+        setShowRenewalDisclaimer(true);
+      } else {
+        // Show agreement screen after selection
+        setView('agreement');
+      }
+    } catch (error) {
+      console.error('Failed to process rental selection:', error);
+      alert('Failed to process selection. Please try again.');
+      setIsSubmitting(false);
+    }
   };
 
   const handleJoinWaitlist = () => {
@@ -415,6 +454,42 @@ function App() {
             <button
               className="modal-ok-btn"
               onClick={handleDisclaimerAcknowledge}
+              disabled={isSubmitting}
+            >
+              OK
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Renewal Disclaimer Modal */}
+      {showRenewalDisclaimer && (
+        <div className="modal-overlay" onClick={() => setShowRenewalDisclaimer(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <h2>Renewal Notice</h2>
+            <div className="disclaimer-text">
+              <ul style={{ listStyle: 'disc', paddingLeft: '1.5rem', textAlign: 'left' }}>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  This is a renewal that extends your stay for another 6 hours from your current checkout time.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  You are nearing the 14-hour maximum stay for a single visit.
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  At the end of this 6-hour renewal, you may extend one final time for 2 additional hours for a flat $20 fee (same for lockers or any room type).
+                </li>
+                <li style={{ marginBottom: '0.5rem' }}>
+                  The $20 fee is not charged now; it applies only if you choose the final 2-hour extension later.
+                </li>
+              </ul>
+            </div>
+            <button
+              className="modal-ok-btn"
+              onClick={() => {
+                setShowRenewalDisclaimer(false);
+                // Proceed to agreement screen
+                setView('agreement');
+              }}
               disabled={isSubmitting}
             >
               OK

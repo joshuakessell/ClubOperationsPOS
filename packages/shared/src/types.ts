@@ -1,4 +1,4 @@
-import { RoomStatus, RoomType } from './enums';
+import { RoomStatus, RoomType, BlockType, CheckinMode } from './enums';
 
 /**
  * Represents a room in the club.
@@ -51,7 +51,11 @@ export type WebSocketEventType =
   | 'INVENTORY_UPDATED'
   | 'ROOM_ASSIGNED'
   | 'ROOM_RELEASED'
-  | 'SESSION_UPDATED';
+  | 'SESSION_UPDATED'
+  | 'CHECKOUT_REQUESTED'
+  | 'CHECKOUT_CLAIMED'
+  | 'CHECKOUT_UPDATED'
+  | 'CHECKOUT_COMPLETED';
 
 /**
  * Base WebSocket event structure.
@@ -90,5 +94,144 @@ export interface SessionUpdatedPayload {
   customerName: string;
   membershipNumber?: string;
   allowedRentals: string[];
+  mode?: CheckinMode; // INITIAL or RENEWAL
+  blockEndsAt?: string; // ISO timestamp of when current block ends
+  visitId?: string; // Visit ID if this is part of a visit
+}
+
+/**
+ * Represents a visit (overall stay) that can contain multiple time blocks.
+ */
+export interface Visit {
+  id: string;
+  customerId: string;
+  startedAt: Date;
+  endedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Represents a check-in block within a visit.
+ */
+export interface CheckinBlock {
+  id: string;
+  visitId: string;
+  blockType: BlockType;
+  startsAt: Date;
+  endsAt: Date;
+  rentalType: string;
+  roomId?: string;
+  lockerId?: string;
+  sessionId?: string;
+  agreementSigned: boolean;
+  hasTvRemote?: boolean; // Whether TV remote was provided for this stay
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Active visit search result with computed fields.
+ */
+export interface ActiveVisit {
+  id: string;
+  customerId: string;
+  customerName: string;
+  membershipNumber?: string;
+  startedAt: Date;
+  currentCheckoutAt: Date; // When the current block ends
+  totalHoursIfRenewed: number; // Total hours if renewal is added
+  canFinalExtend: boolean; // Whether final 2-hour extension is possible
+  blocks: CheckinBlock[];
+}
+
+/**
+ * Checkout request status.
+ */
+export type CheckoutRequestStatus = 'REQUESTED' | 'CLAIMED' | 'COMPLETED' | 'CANCELLED';
+
+/**
+ * Customer checklist items for checkout.
+ */
+export interface CheckoutChecklist {
+  lockerKey?: boolean;
+  towel?: boolean;
+  roomKey?: boolean;
+  bedSheets?: boolean;
+  tvRemote?: boolean;
+}
+
+/**
+ * Resolved key information for checkout.
+ */
+export interface ResolvedCheckoutKey {
+  keyTagId: string;
+  occupancyId: string; // checkin_block.id
+  customerId: string;
+  customerName: string;
+  membershipNumber?: string;
+  rentalType: string;
+  roomId?: string;
+  roomNumber?: string;
+  lockerId?: string;
+  lockerNumber?: string;
+  scheduledCheckoutAt: Date;
+  hasTvRemote: boolean;
+  lateMinutes: number;
+  lateFeeAmount: number;
+  banApplied: boolean;
+}
+
+/**
+ * Checkout request summary for notifications.
+ */
+export interface CheckoutRequestSummary {
+  requestId: string;
+  customerId: string;
+  customerName: string;
+  membershipNumber?: string;
+  rentalType: string;
+  roomNumber?: string;
+  lockerNumber?: string;
+  scheduledCheckoutAt: Date;
+  currentTime: Date;
+  lateMinutes: number;
+  lateFeeAmount: number;
+  banApplied: boolean;
+}
+
+/**
+ * Checkout requested WebSocket event payload.
+ */
+export interface CheckoutRequestedPayload {
+  request: CheckoutRequestSummary;
+}
+
+/**
+ * Checkout claimed WebSocket event payload.
+ */
+export interface CheckoutClaimedPayload {
+  requestId: string;
+  staffId: string;
+  staffName: string;
+}
+
+/**
+ * Checkout updated WebSocket event payload.
+ */
+export interface CheckoutUpdatedPayload {
+  requestId: string;
+  itemsConfirmed: boolean;
+  feePaid: boolean;
+}
+
+/**
+ * Checkout completed WebSocket event payload.
+ */
+export interface CheckoutCompletedPayload {
+  requestId: string;
+  kioskDeviceId: string;
+  success: boolean;
+  message?: string;
 }
 

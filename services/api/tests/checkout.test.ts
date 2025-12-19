@@ -1,0 +1,364 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import Fastify, { FastifyInstance } from 'fastify';
+import pg from 'pg';
+import { checkoutRoutes } from '../src/routes/checkout.js';
+import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
+import { RoomStatus } from '@club-ops/shared';
+
+// Augment FastifyInstance with broadcaster
+declare module 'fastify' {
+  interface FastifyInstance {
+    broadcaster: Broadcaster;
+  }
+}
+
+describe('Checkout Flow', () => {
+  let fastify: FastifyInstance;
+  let pool: pg.Pool;
+  let testMemberId: string;
+  let testRoomId: string;
+  let testLockerId: string;
+  let testKeyTagId: string;
+  let testVisitId: string;
+  let testBlockId: string;
+  let testStaffId: string;
+  let testStaffToken: string;
+
+  beforeAll(async () => {
+    // Initialize database connection
+    const config = {
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '5433', 10),
+      database: process.env.DB_NAME || 'club_operations',
+      user: process.env.DB_USER || 'clubops',
+      password: process.env.DB_PASSWORD || 'clubops_dev',
+    };
+
+    pool = new pg.Pool(config);
+
+    // Create test data
+    const memberResult = await pool.query(
+      `INSERT INTO members (name, membership_number, is_active)
+       VALUES ('Test Customer', '12345', true)
+       RETURNING id`
+    );
+    testMemberId = memberResult.rows[0]!.id;
+
+    const roomResult = await pool.query(
+      `INSERT INTO rooms (number, type, status, floor)
+       VALUES ('101', 'STANDARD', 'CLEAN', 1)
+       RETURNING id`
+    );
+    testRoomId = roomResult.rows[0]!.id;
+
+    const lockerResult = await pool.query(
+      `INSERT INTO lockers (number, status)
+       VALUES ('L01', 'CLEAN')
+       RETURNING id`
+    );
+    testLockerId = lockerResult.rows[0]!.id;
+
+    const keyTagResult = await pool.query(
+      `INSERT INTO key_tags (room_id, tag_code, tag_type, is_active)
+       VALUES ($1, 'TEST-KEY-001', 'QR', true)
+       RETURNING id`,
+      [testRoomId]
+    );
+    testKeyTagId = keyTagResult.rows[0]!.id;
+
+    const staffResult = await pool.query(
+      `INSERT INTO staff (name, role, active)
+       VALUES ('Test Staff', 'STAFF', true)
+       RETURNING id`
+    );
+    testStaffId = staffResult.rows[0]!.id;
+
+    const sessionToken = `test-token-${Date.now()}`;
+    await pool.query(
+      `INSERT INTO staff_sessions (staff_id, device_id, device_type, session_token, expires_at)
+       VALUES ($1, 'test-device', 'tablet', $2, NOW() + INTERVAL '1 hour')`,
+      [testStaffId, sessionToken]
+    );
+    testStaffToken = sessionToken;
+
+    // Create a visit and block
+    const visitResult = await pool.query(
+      `INSERT INTO visits (customer_id, started_at)
+       VALUES ($1, NOW() - INTERVAL '7 hours')
+       RETURNING id`,
+      [testMemberId]
+    );
+    testVisitId = visitResult.rows[0]!.id;
+
+    const blockResult = await pool.query(
+      `INSERT INTO checkin_blocks (visit_id, block_type, starts_at, ends_at, rental_type, room_id, has_tv_remote)
+       VALUES ($1, 'INITIAL', NOW() - INTERVAL '7 hours', NOW() - INTERVAL '1 hour', 'STANDARD', $2, true)
+       RETURNING id`,
+      [testVisitId, testRoomId]
+    );
+    testBlockId = blockResult.rows[0]!.id;
+
+    await pool.query(
+      `UPDATE rooms SET assigned_to = $1 WHERE id = $2`,
+      [testMemberId, testRoomId]
+    );
+  });
+
+  afterAll(async () => {
+    // Clean up test data
+    await pool.query('DELETE FROM checkout_requests WHERE customer_id = $1', [testMemberId]);
+    await pool.query('DELETE FROM late_checkout_events WHERE customer_id = $1', [testMemberId]);
+    await pool.query('DELETE FROM checkin_blocks WHERE visit_id = $1', [testVisitId]);
+    await pool.query('DELETE FROM visits WHERE id = $1', [testVisitId]);
+    await pool.query('DELETE FROM key_tags WHERE id = $1', [testKeyTagId]);
+    await pool.query('DELETE FROM rooms WHERE id = $1', [testRoomId]);
+    await pool.query('DELETE FROM lockers WHERE id = $1', [testLockerId]);
+    await pool.query('DELETE FROM staff_sessions WHERE staff_id = $1', [testStaffId]);
+    await pool.query('DELETE FROM staff WHERE id = $1', [testStaffId]);
+    await pool.query('DELETE FROM members WHERE id = $1', [testMemberId]);
+    await pool.end();
+  });
+
+  beforeEach(async () => {
+    fastify = Fastify();
+    const broadcaster = createBroadcaster();
+    fastify.decorate('broadcaster', broadcaster);
+    await fastify.register(checkoutRoutes);
+    await fastify.ready();
+  });
+
+  afterEach(async () => {
+    await fastify.close();
+  });
+
+  describe('Late fee calculations', () => {
+    it('should calculate $0 fee for < 30 minutes late', async () => {
+      // Create a block that ended 15 minutes ago
+      const blockResult = await pool.query(
+        `INSERT INTO checkin_blocks (visit_id, block_type, starts_at, ends_at, rental_type, room_id)
+         VALUES ($1, 'INITIAL', NOW() - INTERVAL '6 hours 15 minutes', NOW() - INTERVAL '15 minutes', 'STANDARD', $2)
+         RETURNING id`,
+        [testVisitId, testRoomId]
+      );
+      const blockId = blockResult.rows[0]!.id;
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/checkout/resolve-key',
+        payload: {
+          token: 'TEST-KEY-001',
+          kioskDeviceId: 'test-kiosk',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.lateMinutes).toBeGreaterThanOrEqual(0);
+      expect(data.lateMinutes).toBeLessThan(30);
+      expect(data.lateFeeAmount).toBe(0);
+      expect(data.banApplied).toBe(false);
+
+      await pool.query('DELETE FROM checkin_blocks WHERE id = $1', [blockId]);
+    });
+
+    it('should calculate $15 fee for 30-59 minutes late', async () => {
+      const blockResult = await pool.query(
+        `UPDATE checkin_blocks SET ends_at = NOW() - INTERVAL '45 minutes' WHERE id = $1 RETURNING id`,
+        [testBlockId]
+      );
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/checkout/resolve-key',
+        payload: {
+          token: 'TEST-KEY-001',
+          kioskDeviceId: 'test-kiosk',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.lateMinutes).toBeGreaterThanOrEqual(30);
+      expect(data.lateMinutes).toBeLessThan(60);
+      expect(data.lateFeeAmount).toBe(15);
+      expect(data.banApplied).toBe(false);
+    });
+
+    it('should calculate $35 fee for 60-89 minutes late', async () => {
+      await pool.query(
+        `UPDATE checkin_blocks SET ends_at = NOW() - INTERVAL '75 minutes' WHERE id = $1`,
+        [testBlockId]
+      );
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/checkout/resolve-key',
+        payload: {
+          token: 'TEST-KEY-001',
+          kioskDeviceId: 'test-kiosk',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.lateMinutes).toBeGreaterThanOrEqual(60);
+      expect(data.lateMinutes).toBeLessThan(90);
+      expect(data.lateFeeAmount).toBe(35);
+      expect(data.banApplied).toBe(false);
+    });
+
+    it('should calculate $35 fee and apply ban for 90+ minutes late', async () => {
+      await pool.query(
+        `UPDATE checkin_blocks SET ends_at = NOW() - INTERVAL '95 minutes' WHERE id = $1`,
+        [testBlockId]
+      );
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/checkout/resolve-key',
+        payload: {
+          token: 'TEST-KEY-001',
+          kioskDeviceId: 'test-kiosk',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.lateMinutes).toBeGreaterThanOrEqual(90);
+      expect(data.lateFeeAmount).toBe(35);
+      expect(data.banApplied).toBe(true);
+    });
+  });
+
+  describe('Ban enforcement', () => {
+    it('should prevent check-in for banned member', async () => {
+      // Ban the member
+      const banUntil = new Date();
+      banUntil.setDate(banUntil.getDate() + 30);
+      await pool.query(
+        `UPDATE members SET banned_until = $1 WHERE id = $2`,
+        [banUntil, testMemberId]
+      );
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/visits',
+        payload: {
+          customerId: testMemberId,
+          rentalType: 'STANDARD',
+          roomId: testRoomId,
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      const data = JSON.parse(response.body);
+      expect(data.error).toContain('banned');
+
+      // Clean up
+      await pool.query(`UPDATE members SET banned_until = NULL WHERE id = $1`, [testMemberId]);
+    });
+  });
+
+  describe('Checkout request flow', () => {
+    it('should create checkout request', async () => {
+      await pool.query(
+        `UPDATE checkin_blocks SET ends_at = NOW() - INTERVAL '45 minutes' WHERE id = $1`,
+        [testBlockId]
+      );
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/checkout/request',
+        payload: {
+          occupancyId: testBlockId,
+          kioskDeviceId: 'test-kiosk',
+          checklist: {
+            roomKey: true,
+            bedSheets: true,
+            tvRemote: true,
+          },
+        },
+      });
+
+      expect(response.statusCode).toBe(201);
+      const data = JSON.parse(response.body);
+      expect(data.requestId).toBeDefined();
+
+      // Verify request was created
+      const requestResult = await pool.query(
+        'SELECT * FROM checkout_requests WHERE id = $1',
+        [data.requestId]
+      );
+      expect(requestResult.rows.length).toBe(1);
+      expect(requestResult.rows[0]!.late_minutes).toBeGreaterThanOrEqual(30);
+      expect(requestResult.rows[0]!.late_fee_amount).toBe(15);
+
+      // Clean up
+      await pool.query('DELETE FROM checkout_requests WHERE id = $1', [data.requestId]);
+    });
+
+    it('should allow staff to claim checkout request', async () => {
+      // Create a checkout request
+      const requestResult = await pool.query(
+        `INSERT INTO checkout_requests (occupancy_id, customer_id, kiosk_device_id, customer_checklist_json, late_minutes, late_fee_amount)
+         VALUES ($1, $2, 'test-kiosk', '{}', 45, 15)
+         RETURNING id`,
+        [testBlockId, testMemberId]
+      );
+      const requestId = requestResult.rows[0]!.id;
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: `/v1/checkout/${requestId}/claim`,
+        headers: {
+          authorization: `Bearer ${testStaffToken}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.requestId).toBe(requestId);
+      expect(data.claimedBy).toBe(testStaffId);
+
+      // Clean up
+      await pool.query('DELETE FROM checkout_requests WHERE id = $1', [requestId]);
+    });
+
+    it('should complete checkout and update room status', async () => {
+      // Create a checkout request
+      const requestResult = await pool.query(
+        `INSERT INTO checkout_requests (occupancy_id, customer_id, kiosk_device_id, customer_checklist_json, late_minutes, late_fee_amount, claimed_by_staff_id, status, items_confirmed, fee_paid)
+         VALUES ($1, $2, 'test-kiosk', '{}', 0, 0, $3, 'CLAIMED', true, true)
+         RETURNING id`,
+        [testBlockId, testMemberId, testStaffId]
+      );
+      const requestId = requestResult.rows[0]!.id;
+
+      const response = await fastify.inject({
+        method: 'POST',
+        url: `/v1/checkout/${requestId}/complete`,
+        headers: {
+          authorization: `Bearer ${testStaffToken}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.completed).toBe(true);
+
+      // Verify room status was updated
+      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomId]);
+      expect(roomResult.rows[0]!.status).toBe(RoomStatus.DIRTY);
+
+      // Verify visit was ended
+      const visitResult = await pool.query('SELECT ended_at FROM visits WHERE id = $1', [testVisitId]);
+      expect(visitResult.rows[0]!.ended_at).not.toBeNull();
+
+      // Clean up
+      await pool.query('DELETE FROM checkout_requests WHERE id = $1', [requestId]);
+      await pool.query('UPDATE rooms SET status = $1, assigned_to = NULL WHERE id = $2', [RoomStatus.CLEAN, testRoomId]);
+      await pool.query('UPDATE visits SET ended_at = NULL WHERE id = $1', [testVisitId]);
+    });
+  });
+});
+

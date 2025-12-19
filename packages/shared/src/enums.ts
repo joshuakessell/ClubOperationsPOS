@@ -19,3 +19,20 @@ export enum RoomType {
   LOCKER = 'LOCKER',
 }
 
+/**
+ * Type of check-in block within a visit.
+ */
+export enum BlockType {
+  INITIAL = 'INITIAL',
+  RENEWAL = 'RENEWAL',
+  FINAL2H = 'FINAL2H',
+}
+
+/**
+ * Check-in mode: Initial check-in or Renewal.
+ */
+export enum CheckinMode {
+  INITIAL = 'INITIAL',
+  RENEWAL = 'RENEWAL',
+}
+
