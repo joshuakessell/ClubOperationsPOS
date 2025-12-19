@@ -2,7 +2,7 @@
 
 /**
  * Script to kill processes running on development ports
- * Ports: 3001 (API), 5173 (customer-kiosk), 5174 (employee-register/cleaning-station), 5175 (office-dashboard)
+ * Ports: 3001 (API), 5173 (customer-kiosk), 5174 (cleaning-station-kiosk), 5175 (employee-register), 5176 (office-dashboard)
  */
 
 const { exec } = require('child_process');
@@ -11,7 +11,8 @@ const { promisify } = require('util');
 const execAsync = promisify(exec);
 const isWindows = process.platform === 'win32';
 
-const PORTS = [3001, 5173, 5174, 5175];
+const PORTS = [3001, 5173, 5174, 5175, 5176];
+const POSTGRES_PORT = 5432;
 
 async function killPortWindows(port) {
   try {
@@ -85,6 +86,30 @@ async function killPortUnix(port) {
   }
 }
 
+async function checkPostgres() {
+  try {
+    if (isWindows) {
+      const { stdout } = await execAsync(`netstat -ano | findstr :${POSTGRES_PORT}`);
+      if (stdout.trim()) {
+        console.log(`✓ PostgreSQL is running on port ${POSTGRES_PORT}`);
+        return true;
+      }
+    } else {
+      const { stdout } = await execAsync(`lsof -ti:${POSTGRES_PORT}`);
+      if (stdout.trim()) {
+        console.log(`✓ PostgreSQL is running on port ${POSTGRES_PORT}`);
+        return true;
+      }
+    }
+  } catch (err) {
+    // Port is not in use
+  }
+  
+  console.log(`\n⚠ PostgreSQL is not running on port ${POSTGRES_PORT}`);
+  console.log('   Run: pnpm --filter @club-ops/api db:start\n');
+  return false;
+}
+
 async function main() {
   console.log('Checking and closing development ports...\n');
 
@@ -97,6 +122,8 @@ async function main() {
   }
 
   console.log('\n✓ All ports checked');
+  console.log('\nChecking PostgreSQL status...');
+  await checkPostgres();
 }
 
 main().catch((err) => {
