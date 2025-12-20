@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { query } from '../db/index.js';
-import { requireAuth, requireAdmin } from '../auth/middleware.js';
+import { requireAuth, requireAdmin, requireReauthForAdmin } from '../auth/middleware.js';
 
 /**
  * Admin-only routes for operations management and metrics.
@@ -252,15 +252,17 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/v1/admin/rooms/expirations', {
     preHandler: [requireAuth, requireAdmin],
   }, async (
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply
   ) => {
     try {
       const result = await query<{
         room_id: string;
         room_number: string;
+        room_type: string;
         session_id: string;
         customer_name: string;
+        membership_number: string | null;
         check_in_time: Date;
         expected_duration: number;
         checkout_at: Date;
@@ -268,13 +270,19 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         `SELECT 
           r.id as room_id,
           r.number as room_number,
+          r.type as room_type,
           s.id as session_id,
-          s.member_name as customer_name,
-          s.check_in_time,
-          s.expected_duration,
-          (s.check_in_time + (s.expected_duration || 60) * INTERVAL '1 minute') as checkout_at
+          COALESCE(s.member_name, m.name) as customer_name,
+          m.membership_number,
+          COALESCE(s.check_in_time, s.checkin_at) as check_in_time,
+          COALESCE(s.expected_duration, 360) as expected_duration,
+          COALESCE(
+            s.checkout_at,
+            COALESCE(s.check_in_time, s.checkin_at) + (COALESCE(s.expected_duration, 360) * INTERVAL '1 minute')
+          ) as checkout_at
          FROM sessions s
          JOIN rooms r ON s.room_id = r.id
+         LEFT JOIN members m ON s.member_id = m.id
          WHERE s.status = 'ACTIVE'
            AND s.room_id IS NOT NULL
          ORDER BY checkout_at ASC`
@@ -293,8 +301,10 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         return {
           roomId: row.room_id,
           roomNumber: row.room_number,
+          roomTier: row.room_type,
           sessionId: row.session_id,
           customerName: row.customer_name,
+          membershipNumber: row.membership_number || null,
           checkoutAt: checkoutAt.toISOString(),
           minutesPast: isExpired ? minutesPast : null,
           minutesRemaining: !isExpired ? minutesRemaining : null,
@@ -332,7 +342,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   fastify.get('/v1/admin/kpi', {
     preHandler: [requireAuth, requireAdmin],
   }, async (
-    _request: FastifyRequest,
+    request: FastifyRequest,
     reply: FastifyReply
   ) => {
     try {
@@ -655,9 +665,11 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
 
   /**
    * POST /v1/admin/staff/:id/pin-reset - Reset a staff member's PIN
+   * 
+   * Requires re-authentication for security.
    */
   fastify.post('/v1/admin/staff/:id/pin-reset', {
-    preHandler: [requireAuth, requireAdmin],
+    preHandler: [requireReauthForAdmin],
   }, async (
     request: FastifyRequest<{
       Params: { id: string };

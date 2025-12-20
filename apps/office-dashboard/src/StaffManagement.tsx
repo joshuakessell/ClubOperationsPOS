@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import type { StaffSession } from './LockScreen';
+import { ReAuthModal } from './ReAuthModal';
 
 const API_BASE = '/api';
 
@@ -39,6 +40,9 @@ export function StaffManagement({ session }: StaffManagementProps) {
   const [passkeys, setPasskeys] = useState<PasskeyCredential[]>([]);
   const [showPasskeyModal, setShowPasskeyModal] = useState(false);
   const [showPinResetModal, setShowPinResetModal] = useState(false);
+  const [showReAuthModal, setShowReAuthModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
+  const [pendingPinReset, setPendingPinReset] = useState<{ staffId: string; newPin: string } | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
@@ -159,6 +163,16 @@ export function StaffManagement({ session }: StaffManagementProps) {
 
     if (!confirm('Are you sure you want to revoke this passkey?')) return;
 
+    // Request re-auth before proceeding
+    setPendingAction(() => async () => {
+      await performRevokePasskey(credentialId);
+    });
+    setShowReAuthModal(true);
+  };
+
+  const performRevokePasskey = async (credentialId: string) => {
+    if (!session.sessionToken) return;
+
     try {
       const response = await fetch(`${API_BASE}/v1/auth/webauthn/credentials/${credentialId}/revoke`, {
         method: 'POST',
@@ -174,7 +188,11 @@ export function StaffManagement({ session }: StaffManagementProps) {
         }
       } else {
         const error = await response.json();
-        showToast(error.error || 'Failed to revoke passkey', 'error');
+        if (error.code === 'REAUTH_REQUIRED' || error.code === 'REAUTH_EXPIRED') {
+          showToast('Re-authentication required. Please try again.', 'error');
+        } else {
+          showToast(error.error || 'Failed to revoke passkey', 'error');
+        }
       }
     } catch (error) {
       showToast('Failed to revoke passkey', 'error');
@@ -182,6 +200,20 @@ export function StaffManagement({ session }: StaffManagementProps) {
   };
 
   const handlePinReset = async (staffId: string, newPin: string) => {
+    if (!session.sessionToken) return;
+
+    // Store the PIN reset data and request re-auth
+    setPendingPinReset({ staffId, newPin });
+    setPendingAction(() => async () => {
+      if (pendingPinReset) {
+        await performPinReset(pendingPinReset.staffId, pendingPinReset.newPin);
+        setPendingPinReset(null);
+      }
+    });
+    setShowReAuthModal(true);
+  };
+
+  const performPinReset = async (staffId: string, newPin: string) => {
     if (!session.sessionToken) return;
 
     try {
@@ -199,7 +231,11 @@ export function StaffManagement({ session }: StaffManagementProps) {
         setShowPinResetModal(false);
       } else {
         const error = await response.json();
-        showToast(error.error || 'Failed to reset PIN', 'error');
+        if (error.code === 'REAUTH_REQUIRED' || error.code === 'REAUTH_EXPIRED') {
+          showToast('Re-authentication required. Please try again.', 'error');
+        } else {
+          showToast(error.error || 'Failed to reset PIN', 'error');
+        }
       }
     } catch (error) {
       showToast('Failed to reset PIN', 'error');
@@ -431,7 +467,29 @@ export function StaffManagement({ session }: StaffManagementProps) {
           staffId={selectedStaff.id}
           staffName={selectedStaff.name}
           onClose={() => setShowPinResetModal(false)}
-          onReset={handlePinReset}
+          onReset={(staffId, newPin) => {
+            setShowPinResetModal(false);
+            handlePinReset(staffId, newPin);
+          }}
+        />
+      )}
+
+      {/* Re-auth Modal */}
+      {showReAuthModal && session.sessionToken && (
+        <ReAuthModal
+          sessionToken={session.sessionToken}
+          onSuccess={() => {
+            setShowReAuthModal(false);
+            if (pendingAction) {
+              pendingAction();
+              setPendingAction(null);
+            }
+          }}
+          onCancel={() => {
+            setShowReAuthModal(false);
+            setPendingAction(null);
+            setPendingPinReset(null);
+          }}
         />
       )}
 

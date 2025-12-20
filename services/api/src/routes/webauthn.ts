@@ -11,7 +11,7 @@ import type {
   PublicKeyCredentialRequestOptionsJSON,
 } from '@simplewebauthn/server/script/deps';
 import { query, transaction } from '../db/index.js';
-import { requireAuth, requireAdmin } from '../auth/middleware.js';
+import { requireAuth, requireAdmin, requireReauthForAdmin } from '../auth/middleware.js';
 import { generateSessionToken, getSessionExpiry } from '../auth/utils.js';
 import {
   getRpId,
@@ -513,9 +513,10 @@ export async function webauthnRoutes(fastify: FastifyInstance): Promise<void> {
    * POST /v1/auth/webauthn/credentials/:credentialId/revoke
    * 
    * Revoke a passkey credential (admin only).
+   * Requires re-authentication for security.
    */
   fastify.post('/v1/auth/webauthn/credentials/:credentialId/revoke', {
-    preHandler: [requireAuth, requireAdmin],
+    preHandler: [requireReauthForAdmin],
   }, async (
     request: FastifyRequest<{ Params: { credentialId: string } }>,
     reply: FastifyReply

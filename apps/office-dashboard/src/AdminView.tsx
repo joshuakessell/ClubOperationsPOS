@@ -17,8 +17,10 @@ interface KPI {
 interface RoomExpiration {
   roomId: string;
   roomNumber: string;
+  roomTier: string;
   sessionId: string;
   customerName: string;
+  membershipNumber: string | null;
   checkoutAt: string;
   minutesPast: number | null;
   minutesRemaining: number | null;
@@ -236,7 +238,8 @@ export function AdminView({ session }: AdminViewProps) {
             <thead>
               <tr>
                 <th>Room</th>
-                <th>Customer / Session</th>
+                <th>Tier</th>
+                <th>Customer / Member</th>
                 <th>Checkout At</th>
                 <th>Status</th>
               </tr>
@@ -244,7 +247,7 @@ export function AdminView({ session }: AdminViewProps) {
             <tbody>
               {expirations.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="empty-state">No active room sessions</td>
+                  <td colSpan={5} className="empty-state">No active room sessions</td>
                 </tr>
               ) : (
                 expirations.map((exp) => (
@@ -254,8 +257,33 @@ export function AdminView({ session }: AdminViewProps) {
                   >
                     <td className="room-number">{exp.roomNumber}</td>
                     <td>
+                      <span
+                        style={{
+                          padding: '0.25rem 0.75rem',
+                          borderRadius: '4px',
+                          fontSize: '0.875rem',
+                          background:
+                            exp.roomTier === 'SPECIAL'
+                              ? '#7c3aed'
+                              : exp.roomTier === 'DOUBLE'
+                              ? '#3b82f6'
+                              : '#374151',
+                          color: '#f9fafb',
+                        }}
+                      >
+                        {exp.roomTier}
+                      </span>
+                    </td>
+                    <td>
                       <div>{exp.customerName}</div>
-                      <div className="session-id">{exp.sessionId.slice(0, 8)}...</div>
+                      {exp.membershipNumber && (
+                        <div className="session-id" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                          Member: {exp.membershipNumber}
+                        </div>
+                      )}
+                      <div className="session-id" style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                        {exp.sessionId.slice(0, 8)}...
+                      </div>
                     </td>
                     <td>{new Date(exp.checkoutAt).toLocaleString()}</td>
                     <td>

@@ -176,9 +176,93 @@ export async function requireReauth(
 }
 
 /**
+ * Middleware to require re-authentication for sensitive admin actions.
+ * Checks that reauth_ok_until is set and not expired (must be within last 5 minutes).
+ * 
+ * Sensitive admin actions include:
+ * - Revoking passkeys
+ * - Resetting staff PINs
+ * - Other high-privilege admin operations
+ */
+export async function requireReauthForAdmin(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> {
+  // First ensure basic auth and admin role
+  await requireAuth(request, reply);
+  
+  if (!request.staff) {
+    return; // requireAuth already sent error response
+  }
+
+  await requireAdmin(request, reply);
+
+  if (!request.staff) {
+    return; // requireAdmin already sent error response
+  }
+
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.status(401).send({
+      error: 'Unauthorized',
+      message: 'Missing authorization header',
+    });
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    // Check if reauth_ok_until is set and not expired
+    const sessionResult = await query<{
+      reauth_ok_until: string | null;
+    }>(
+      `SELECT reauth_ok_until 
+       FROM staff_sessions 
+       WHERE session_token = $1 
+       AND revoked_at IS NULL`,
+      [token]
+    );
+
+    if (sessionResult.rows.length === 0) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+        message: 'Invalid session token',
+      });
+    }
+
+    const session = sessionResult.rows[0]!;
+    
+    if (!session.reauth_ok_until) {
+      return reply.status(403).send({
+        error: 'Re-authentication required',
+        message: 'This action requires re-authentication. Please re-authenticate first.',
+        code: 'REAUTH_REQUIRED',
+      });
+    }
+
+    const reauthOkUntil = new Date(session.reauth_ok_until);
+    const now = new Date();
+
+    if (reauthOkUntil < now) {
+      return reply.status(403).send({
+        error: 'Re-authentication expired',
+        message: 'Re-authentication has expired. Please re-authenticate again.',
+        code: 'REAUTH_EXPIRED',
+      });
+    }
+  } catch (error) {
+    request.log.error(error, 'Error checking re-auth for admin');
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Failed to validate re-authentication',
+    });
+  }
+}
+
+/**
  * Register authentication middleware as a Fastify hook.
  */
-export function registerAuthMiddleware(fastify: FastifyInstance): void {
+export function registerAuthMiddleware(_fastify: FastifyInstance): void {
   // This will be used as a preHandler on specific routes
   // No global hook needed - we'll apply it per-route
 }

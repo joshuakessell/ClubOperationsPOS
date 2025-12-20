@@ -205,6 +205,100 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       role: request.staff.role,
     });
   });
+
+  /**
+   * POST /v1/auth/reauth-pin - Re-authenticate with PIN for sensitive admin actions
+   * 
+   * Requires existing session. Verifies PIN and sets reauth_ok_until timestamp
+   * (valid for 5 minutes).
+   */
+  const ReauthPinSchema = z.object({
+    pin: z.string().min(1),
+  });
+
+  fastify.post('/v1/auth/reauth-pin', {
+    preHandler: [requireAuth],
+  }, async (
+    request: FastifyRequest<{ Body: z.infer<typeof ReauthPinSchema> }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+      });
+    }
+
+    let body: z.infer<typeof ReauthPinSchema>;
+    try {
+      body = ReauthPinSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+      });
+    }
+
+    const token = authHeader.substring(7);
+
+    try {
+      // Get staff PIN hash
+      const staffResult = await query<{ pin_hash: string | null }>(
+        `SELECT pin_hash FROM staff WHERE id = $1 AND active = true`,
+        [request.staff.staffId]
+      );
+
+      if (staffResult.rows.length === 0 || !staffResult.rows[0]!.pin_hash) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Invalid credentials',
+        });
+      }
+
+      // Verify PIN
+      if (!(await verifyPin(body.pin, staffResult.rows[0]!.pin_hash))) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Invalid PIN',
+        });
+      }
+
+      // Set reauth_ok_until to 5 minutes from now
+      const reauthOkUntil = new Date(Date.now() + 5 * 60 * 1000);
+
+      await query(
+        `UPDATE staff_sessions
+         SET reauth_ok_until = $1
+         WHERE session_token = $2
+         AND revoked_at IS NULL`,
+        [reauthOkUntil, token]
+      );
+
+      // Log audit action
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
+         VALUES ($1, 'STAFF_REAUTH_PIN', 'staff_session', $2)`,
+        [request.staff.staffId, token]
+      );
+
+      return reply.send({
+        success: true,
+        reauthOkUntil: reauthOkUntil.toISOString(),
+      });
+    } catch (error) {
+      request.log.error(error, 'Re-auth error');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to process re-authentication',
+      });
+    }
+  });
 }
 
 

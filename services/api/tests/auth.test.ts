@@ -486,4 +486,233 @@ describe('Auth Tests', () => {
       expect(remaining.rows.length).toBe(0);
     });
   });
+
+  describe('Re-authentication for Admin Actions', () => {
+    it('should set reauth_ok_until on successful PIN re-auth', async () => {
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/auth/reauth-pin',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+        payload: {
+          pin: '1234',
+        },
+      });
+
+      expect(response.statusCode).toBe(200);
+      const body = JSON.parse(response.body);
+      expect(body).toHaveProperty('success', true);
+      expect(body).toHaveProperty('reauthOkUntil');
+
+      // Verify reauth_ok_until was set in database
+      const sessionResult = await query(
+        `SELECT reauth_ok_until FROM staff_sessions WHERE session_token = $1`,
+        [adminToken]
+      );
+      expect(sessionResult.rows[0]?.reauth_ok_until).not.toBeNull();
+      
+      const reauthOkUntil = new Date(sessionResult.rows[0]!.reauth_ok_until);
+      const now = new Date();
+      // Should be approximately 5 minutes from now (within 10 seconds tolerance)
+      const diffMinutes = (reauthOkUntil.getTime() - now.getTime()) / (1000 * 60);
+      expect(diffMinutes).toBeGreaterThan(4.8);
+      expect(diffMinutes).toBeLessThan(5.2);
+    });
+
+    it('should fail re-auth with incorrect PIN', async () => {
+      const response = await fastify.inject({
+        method: 'POST',
+        url: '/v1/auth/reauth-pin',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+        payload: {
+          pin: '9999',
+        },
+      });
+
+      expect(response.statusCode).toBe(401);
+      const body = JSON.parse(response.body);
+      expect(body.message).toContain('Invalid PIN');
+    });
+
+    it('should require re-auth for PIN reset', async () => {
+      // Try to reset PIN without re-auth - should fail
+      const response = await fastify.inject({
+        method: 'POST',
+        url: `/v1/admin/staff/${staffStaffId}/pin-reset`,
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        payload: {
+          newPin: '9999',
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      const body = JSON.parse(response.body);
+      expect(body.code).toBe('REAUTH_REQUIRED');
+    });
+
+    it('should allow PIN reset after re-auth', async () => {
+      // First, re-authenticate
+      const reauthResponse = await fastify.inject({
+        method: 'POST',
+        url: '/v1/auth/reauth-pin',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+        payload: {
+          pin: '1234',
+        },
+      });
+
+      expect(reauthResponse.statusCode).toBe(200);
+
+      // Now try to reset PIN - should succeed
+      const resetResponse = await fastify.inject({
+        method: 'POST',
+        url: `/v1/admin/staff/${staffStaffId}/pin-reset`,
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        payload: {
+          newPin: '9999',
+        },
+      });
+
+      expect(resetResponse.statusCode).toBe(200);
+
+      // Verify PIN was actually changed
+      const staffResult = await query(
+        `SELECT pin_hash FROM staff WHERE id = $1`,
+        [staffStaffId]
+      );
+      const newPinHash = staffResult.rows[0]!.pin_hash;
+
+      // Try to login with new PIN
+      const loginResponse = await fastify.inject({
+        method: 'POST',
+        url: '/v1/auth/login-pin',
+        payload: {
+          staffLookup: 'Staff User',
+          deviceId: 'test-device',
+          pin: '9999',
+        },
+      });
+
+      expect(loginResponse.statusCode).toBe(200);
+    });
+
+    it('should require re-auth for passkey revocation', async () => {
+      // Create a test credential
+      const credentialId = 'test-credential-reauth';
+      await query(
+        `INSERT INTO staff_webauthn_credentials 
+         (staff_id, device_id, credential_id, public_key, sign_count)
+         VALUES ($1, 'test-device', $2, 'dGVzdC1wdWJsaWMta2V5', 0)`,
+        [staffStaffId, credentialId]
+      );
+
+      // Try to revoke without re-auth - should fail
+      const response = await fastify.inject({
+        method: 'POST',
+        url: `/v1/auth/webauthn/credentials/${credentialId}/revoke`,
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+      });
+
+      expect(response.statusCode).toBe(403);
+      const body = JSON.parse(response.body);
+      expect(body.code).toBe('REAUTH_REQUIRED');
+    });
+
+    it('should allow passkey revocation after re-auth', async () => {
+      // Create a test credential
+      const credentialId = 'test-credential-reauth-ok';
+      await query(
+        `INSERT INTO staff_webauthn_credentials 
+         (staff_id, device_id, credential_id, public_key, sign_count)
+         VALUES ($1, 'test-device', $2, 'dGVzdC1wdWJsaWMta2V5', 0)`,
+        [staffStaffId, credentialId]
+      );
+
+      // First, re-authenticate
+      const reauthResponse = await fastify.inject({
+        method: 'POST',
+        url: '/v1/auth/reauth-pin',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+        payload: {
+          pin: '1234',
+        },
+      });
+
+      expect(reauthResponse.statusCode).toBe(200);
+
+      // Now try to revoke - should succeed
+      const revokeResponse = await fastify.inject({
+        method: 'POST',
+        url: `/v1/auth/webauthn/credentials/${credentialId}/revoke`,
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+      });
+
+      expect(revokeResponse.statusCode).toBe(200);
+
+      // Verify credential is revoked
+      const credResult = await query(
+        `SELECT revoked_at FROM staff_webauthn_credentials WHERE credential_id = $1`,
+        [credentialId]
+      );
+      expect(credResult.rows[0]?.revoked_at).not.toBeNull();
+    });
+
+    it('should reject expired re-auth', async () => {
+      // Re-authenticate
+      const reauthResponse = await fastify.inject({
+        method: 'POST',
+        url: '/v1/auth/reauth-pin',
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+        },
+        payload: {
+          pin: '1234',
+        },
+      });
+
+      expect(reauthResponse.statusCode).toBe(200);
+
+      // Manually expire the reauth_ok_until timestamp
+      await query(
+        `UPDATE staff_sessions 
+         SET reauth_ok_until = NOW() - INTERVAL '1 minute'
+         WHERE session_token = $1`,
+        [adminToken]
+      );
+
+      // Try to reset PIN - should fail with expired re-auth
+      const resetResponse = await fastify.inject({
+        method: 'POST',
+        url: `/v1/admin/staff/${staffStaffId}/pin-reset`,
+        headers: {
+          'Authorization': `Bearer ${adminToken}`,
+          'Content-Type': 'application/json',
+        },
+        payload: {
+          newPin: '9999',
+        },
+      });
+
+      expect(resetResponse.statusCode).toBe(403);
+      const body = JSON.parse(resetResponse.body);
+      expect(body.code).toBe('REAUTH_EXPIRED');
+    });
+  });
 });
