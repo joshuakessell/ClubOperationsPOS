@@ -299,6 +299,203 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
   });
+
+  /**
+   * POST /v1/auth/reauth/webauthn/options - Get WebAuthn options for re-authentication
+   * 
+   * Requires existing session. Returns WebAuthn authentication options for the current staff.
+   */
+  fastify.post('/v1/auth/reauth/webauthn/options', {
+    preHandler: [requireAuth],
+  }, async (
+    request: FastifyRequest,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+      });
+    }
+
+    try {
+      // Import WebAuthn utilities
+      const { generateAuthenticationOptions } = await import('@simplewebauthn/server');
+      const {
+        getRpId,
+        generateChallenge,
+        storeChallenge,
+        getStaffCredentials,
+      } = await import('../auth/webauthn.js');
+
+      const rpId = getRpId();
+      const deviceId = request.headers['x-device-id'] as string || 'reauth-device';
+
+      // Get credentials for this staff member
+      const credentials = await getStaffCredentials(request.staff.staffId);
+
+      if (credentials.length === 0) {
+        return reply.status(400).send({
+          error: 'No passkeys registered for this staff member',
+        });
+      }
+
+      // Generate challenge
+      const challenge = generateChallenge();
+
+      // Store challenge with reauth type
+      await storeChallenge(challenge, request.staff.staffId, deviceId, 'reauth');
+
+      // Generate authentication options
+      const options = await generateAuthenticationOptions({
+        rpID: rpId,
+        timeout: 120000, // 2 minutes
+        allowCredentials: credentials.map((cred) => ({
+          id: cred.credentialID,
+          type: 'public-key',
+          transports: cred.transports,
+        })),
+        userVerification: 'required',
+      });
+
+      return reply.send(options);
+    } catch (error) {
+      request.log.error(error, 'Failed to generate reauth WebAuthn options');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to generate re-authentication options',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/auth/reauth/webauthn/verify - Verify WebAuthn re-authentication
+   * 
+   * Requires existing session. Verifies WebAuthn response and sets reauth_ok_until.
+   */
+  fastify.post('/v1/auth/reauth/webauthn/verify', {
+    preHandler: [requireAuth],
+  }, async (
+    request: FastifyRequest<{ Body: { credentialResponse: unknown; deviceId?: string } }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+      });
+    }
+
+    const authHeader = request.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+      });
+    }
+
+    const token = authHeader.substring(7);
+    const deviceId = request.body.deviceId || 'reauth-device';
+    const origin = request.headers.origin || request.headers.host || '';
+
+    try {
+      // Import WebAuthn utilities
+      const { verifyAuthenticationResponse } = await import('@simplewebauthn/server');
+      const {
+        getRpId,
+        getRpOrigin,
+        consumeChallenge,
+        getCredentialByCredentialId,
+        updateCredentialSignCount,
+      } = await import('../auth/webauthn.js');
+
+      const rpId = getRpId();
+      const rpOrigin = getRpOrigin(origin);
+
+      // Get and consume challenge
+      const challengeResult = await query<{ challenge: string }>(
+        `SELECT challenge FROM webauthn_challenges
+         WHERE staff_id = $1
+           AND device_id = $2
+           AND purpose = 'reauth'
+           AND consumed_at IS NULL
+           AND expires_at > NOW()
+         ORDER BY created_at DESC
+         LIMIT 1`,
+        [request.staff.staffId, deviceId]
+      );
+
+      if (challengeResult.rows.length === 0) {
+        return reply.status(400).send({
+          error: 'Invalid or expired challenge',
+        });
+      }
+
+      const expectedChallenge = challengeResult.rows[0]!.challenge;
+      await consumeChallenge(expectedChallenge);
+
+      // Get credential
+      const credentialResponse = request.body.credentialResponse as { id: string; rawId?: string };
+      const credentialId = credentialResponse.id || credentialResponse.rawId || '';
+      const credentialData = await getCredentialByCredentialId(credentialId);
+
+      if (!credentialData) {
+        return reply.status(400).send({
+          error: 'Credential not found',
+        });
+      }
+
+      // Verify authentication response
+      const verification = await verifyAuthenticationResponse({
+        response: request.body.credentialResponse as any,
+        expectedChallenge,
+        expectedOrigin: rpOrigin,
+        expectedRPID: rpId,
+        authenticator: credentialData.credential,
+        requireUserVerification: true,
+      });
+
+      if (!verification.verified) {
+        return reply.status(400).send({
+          error: 'Authentication verification failed',
+        });
+      }
+
+      // Update credential sign count
+      if (verification.authenticationInfo) {
+        await updateCredentialSignCount(
+          credentialId,
+          verification.authenticationInfo.newCounter
+        );
+      }
+
+      // Set reauth_ok_until to 5 minutes from now
+      const reauthOkUntil = new Date(Date.now() + 5 * 60 * 1000);
+
+      await query(
+        `UPDATE staff_sessions
+         SET reauth_ok_until = $1
+         WHERE session_token = $2
+         AND revoked_at IS NULL`,
+        [reauthOkUntil, token]
+      );
+
+      // Log audit action
+      await query(
+        `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
+         VALUES ($1, 'STAFF_REAUTH_WEBAUTHN', 'staff_session', $2)`,
+        [request.staff.staffId, token]
+      );
+
+      return reply.send({
+        success: true,
+        reauthOkUntil: reauthOkUntil.toISOString(),
+      });
+    } catch (error) {
+      request.log.error(error, 'Re-auth WebAuthn error');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to process re-authentication',
+      });
+    }
+  });
 }
 
 

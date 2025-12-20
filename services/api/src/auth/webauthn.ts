@@ -47,7 +47,7 @@ export async function storeChallenge(
   challenge: string,
   staffId: string | null,
   deviceId: string | null,
-  type: 'registration' | 'authentication'
+  type: 'registration' | 'authentication' | 'reauth'
 ): Promise<void> {
   const expiresAt = new Date();
   expiresAt.setMinutes(expiresAt.getMinutes() + 2); // 2 minute TTL
@@ -66,12 +66,12 @@ export async function storeChallenge(
 export async function consumeChallenge(challenge: string): Promise<{
   staffId: string | null;
   deviceId: string | null;
-  type: 'registration' | 'authentication';
+  type: 'registration' | 'authentication' | 'reauth';
 } | null> {
   const result = await query<{
     staff_id: string | null;
     device_id: string | null;
-    type: 'registration' | 'authentication';
+    type: 'registration' | 'authentication' | 'reauth';
   }>(
     `SELECT staff_id, device_id, type
      FROM webauthn_challenges

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
+import type { WebSocketEvent } from '@club-ops/shared';
 
 const API_BASE = '/api';
 
@@ -10,7 +11,8 @@ interface KPI {
   roomsDirty: number;
   roomsCleaning: number;
   roomsClean: number;
-  lockersInUse: number;
+  lockersOccupied: number;
+  lockersAvailable: number;
   waitingListCount: number;
 }
 
@@ -35,10 +37,12 @@ interface MetricsSummary {
   dirtyTimeSampleCount: number;
   averageCleaningDurationMinutes: number | null;
   cleaningDurationSampleCount: number;
+  totalRoomsCleaned: number;
 }
 
 interface MetricsByStaff extends MetricsSummary {
   staffId: string;
+  staffName: string;
 }
 
 interface StaffMember {
@@ -51,17 +55,20 @@ interface AdminViewProps {
   session: StaffSession;
 }
 
+type AdminTab = 'operations' | 'metrics';
+
 export function AdminView({ session }: AdminViewProps) {
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<AdminTab>('operations');
   const [kpi, setKpi] = useState<KPI | null>(null);
   const [expirations, setExpirations] = useState<RoomExpiration[]>([]);
   const [metricsSummary, setMetricsSummary] = useState<MetricsSummary | null>(null);
-  const [metricsByStaff, setMetricsByStaff] = useState<MetricsByStaff | null>(null);
+  const [metricsByStaff, setMetricsByStaff] = useState<MetricsByStaff[]>([]);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>(() => {
     const d = new Date();
-    d.setHours(0, 0, 0, 0);
+    d.setHours(d.getHours() - 24, 0, 0, 0);
     return d.toISOString().slice(0, 16);
   });
   const [dateTo, setDateTo] = useState<string>(() => {
@@ -70,16 +77,29 @@ export function AdminView({ session }: AdminViewProps) {
     return d.toISOString().slice(0, 16);
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [wsConnected, setWsConnected] = useState(false);
 
-  // Check admin role
-  useEffect(() => {
-    if (session.role !== 'ADMIN') {
-      // Not authorized - will show message below
-      return;
+  const loadOperationsData = async () => {
+    if (!session.sessionToken) return;
+
+    const headers = {
+      'Authorization': `Bearer ${session.sessionToken}`,
+    };
+
+    // Load KPI
+    const kpiRes = await fetch(`${API_BASE}/v1/admin/kpi`, { headers });
+    if (kpiRes.ok) {
+      const kpiData = await kpiRes.json();
+      setKpi(kpiData);
     }
 
-    loadData();
-  }, [session.role]);
+    // Load expirations
+    const expRes = await fetch(`${API_BASE}/v1/admin/rooms/expirations`, { headers });
+    if (expRes.ok) {
+      const expData = await expRes.json();
+      setExpirations(expData.expirations || []);
+    }
+  };
 
   const loadData = async () => {
     if (!session.sessionToken) return;
@@ -90,29 +110,18 @@ export function AdminView({ session }: AdminViewProps) {
         'Authorization': `Bearer ${session.sessionToken}`,
       };
 
-      // Load KPI
-      const kpiRes = await fetch(`${API_BASE}/v1/admin/kpi`, { headers });
-      if (kpiRes.ok) {
-        const kpiData = await kpiRes.json();
-        setKpi(kpiData);
-      }
-
-      // Load expirations
-      const expRes = await fetch(`${API_BASE}/v1/admin/rooms/expirations`, { headers });
-      if (expRes.ok) {
-        const expData = await expRes.json();
-        setExpirations(expData.expirations || []);
-      }
-
-      // Load staff members
+      // Load staff members (needed for both tabs)
       const staffRes = await fetch(`${API_BASE}/v1/admin/staff`, { headers }).catch(() => null);
       if (staffRes?.ok) {
         const staffData = await staffRes.json();
         setStaffMembers(staffData.staff || []);
       }
 
-      // Load metrics summary
-      await loadMetricsSummary();
+      if (activeTab === 'operations') {
+        await loadOperationsData();
+      } else if (activeTab === 'metrics') {
+        await loadMetricsData();
+      }
     } catch (error) {
       console.error('Failed to load admin data:', error);
     } finally {
@@ -120,7 +129,48 @@ export function AdminView({ session }: AdminViewProps) {
     }
   };
 
-  const loadMetricsSummary = async () => {
+  // Check admin role and load data
+  useEffect(() => {
+    if (session.role !== 'ADMIN') {
+      return;
+    }
+
+    loadData();
+
+    // Connect to WebSocket for real-time updates
+    const ws = new WebSocket(`ws://${window.location.hostname}:3001/ws`);
+
+    ws.onopen = () => {
+      setWsConnected(true);
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        events: ['INVENTORY_UPDATED', 'ROOM_STATUS_CHANGED', 'SESSION_UPDATED'],
+      }));
+    };
+
+    ws.onclose = () => {
+      setWsConnected(false);
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message: WebSocketEvent = JSON.parse(event.data);
+        if (message.type === 'INVENTORY_UPDATED' || message.type === 'ROOM_STATUS_CHANGED' || message.type === 'SESSION_UPDATED') {
+          // Refresh operations data when inventory or sessions change
+          if (activeTab === 'operations') {
+            loadOperationsData().catch(console.error);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
+    };
+
+    return () => ws.close();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.role, activeTab]);
+
+  const loadMetricsData = async () => {
     if (!session.sessionToken) return;
 
     try {
@@ -132,21 +182,37 @@ export function AdminView({ session }: AdminViewProps) {
         'Authorization': `Bearer ${session.sessionToken}`,
       };
 
+      // Load overall summary
       const res = await fetch(`${API_BASE}/v1/admin/metrics/summary?${params}`, { headers });
       if (res.ok) {
         const data = await res.json();
         setMetricsSummary(data);
       }
 
+      // Load per-staff breakdown
+      const perStaffData: MetricsByStaff[] = [];
+      for (const staff of staffMembers) {
+        const byStaffParams = new URLSearchParams({ from, to, staffId: staff.id });
+        const byStaffRes = await fetch(`${API_BASE}/v1/admin/metrics/by-staff?${byStaffParams}`, { headers });
+        if (byStaffRes.ok) {
+          const byStaffData = await byStaffRes.json();
+          perStaffData.push({
+            ...byStaffData,
+            staffName: staff.name,
+          });
+        }
+      }
+      setMetricsByStaff(perStaffData);
+
+      // If a specific staff is selected, also load their detailed metrics
       if (selectedStaffId) {
         const byStaffParams = new URLSearchParams({ from, to, staffId: selectedStaffId });
         const byStaffRes = await fetch(`${API_BASE}/v1/admin/metrics/by-staff?${byStaffParams}`, { headers });
         if (byStaffRes.ok) {
           const byStaffData = await byStaffRes.json();
-          setMetricsByStaff(byStaffData);
+          const staffName = staffMembers.find(s => s.id === selectedStaffId)?.name || 'Unknown';
+          // This is already included in perStaffData, but we keep it for backward compatibility
         }
-      } else {
-        setMetricsByStaff(null);
       }
     } catch (error) {
       console.error('Failed to load metrics:', error);
@@ -154,10 +220,10 @@ export function AdminView({ session }: AdminViewProps) {
   };
 
   useEffect(() => {
-    if (session.role === 'ADMIN') {
-      loadMetricsSummary();
+    if (session.role === 'ADMIN' && activeTab === 'metrics') {
+      loadMetricsData();
     }
-  }, [dateFrom, dateTo, selectedStaffId, session.sessionToken, session.role]);
+  }, [dateFrom, dateTo, selectedStaffId, session.sessionToken, session.role, activeTab, staffMembers.length]);
 
   if (session.role !== 'ADMIN') {
     return (
@@ -180,209 +246,340 @@ export function AdminView({ session }: AdminViewProps) {
   };
 
   return (
-    <div className="admin-container">
-      <div className="admin-header">
-        <h1>Operations Admin</h1>
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <button onClick={() => navigate('/admin/staff')} className="btn-secondary">
+    <div className="admin-container" style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}>
+      <div className="admin-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h1 style={{ fontSize: '2rem', fontWeight: 600 }}>Admin Console</h1>
+        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', color: '#9ca3af' }}>
+            <span className={`dot ${wsConnected ? 'dot-live' : 'dot-offline'}`} style={{ width: '8px', height: '8px', borderRadius: '50%' }}></span>
+            <span>{wsConnected ? 'Live' : 'Offline'}</span>
+          </div>
+          <button 
+            onClick={() => navigate('/admin/staff')} 
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#f9fafb',
+              cursor: 'pointer',
+              fontSize: '1rem',
+            }}
+          >
             Staff Management
           </button>
-          <button onClick={() => navigate('/')} className="btn-secondary">
+          <button 
+            onClick={() => navigate('/')} 
+            style={{
+              padding: '0.75rem 1.5rem',
+              background: '#374151',
+              border: 'none',
+              borderRadius: '6px',
+              color: '#f9fafb',
+              cursor: 'pointer',
+              fontSize: '1rem',
+            }}
+          >
             ← Back to Dashboard
           </button>
         </div>
       </div>
 
-      {isLoading && <div className="loading">Loading...</div>}
+      {/* Tab Navigation */}
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '2rem', borderBottom: '1px solid #374151' }}>
+        <button
+          onClick={() => {
+            setActiveTab('operations');
+            loadOperationsData();
+          }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: activeTab === 'operations' ? '#8b5cf6' : 'transparent',
+            border: 'none',
+            borderBottom: activeTab === 'operations' ? '2px solid #8b5cf6' : '2px solid transparent',
+            color: '#f9fafb',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: activeTab === 'operations' ? 600 : 400,
+          }}
+        >
+          Operations
+        </button>
+        <button
+          onClick={() => {
+            setActiveTab('metrics');
+            loadMetricsData();
+          }}
+          style={{
+            padding: '0.75rem 1.5rem',
+            background: activeTab === 'metrics' ? '#8b5cf6' : 'transparent',
+            border: 'none',
+            borderBottom: activeTab === 'metrics' ? '2px solid #8b5cf6' : '2px solid transparent',
+            color: '#f9fafb',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            fontWeight: activeTab === 'metrics' ? 600 : 400,
+          }}
+        >
+          Metrics
+        </button>
+      </div>
 
-      {/* KPI Cards */}
-      <section className="admin-section">
-        <h2>Key Performance Indicators</h2>
-        <div className="kpi-grid">
-          <div className="kpi-card">
-            <div className="kpi-value">{kpi?.roomsOccupied ?? 0}</div>
-            <div className="kpi-label">Rooms Occupied</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-value">{kpi?.roomsUnoccupied ?? 0}</div>
-            <div className="kpi-label">Rooms Unoccupied</div>
-          </div>
-          <div className="kpi-card kpi-dirty">
-            <div className="kpi-value">{kpi?.roomsDirty ?? 0}</div>
-            <div className="kpi-label">Rooms Dirty</div>
-          </div>
-          <div className="kpi-card kpi-cleaning">
-            <div className="kpi-value">{kpi?.roomsCleaning ?? 0}</div>
-            <div className="kpi-label">Rooms Cleaning</div>
-          </div>
-          <div className="kpi-card kpi-clean">
-            <div className="kpi-value">{kpi?.roomsClean ?? 0}</div>
-            <div className="kpi-label">Rooms Clean</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-value">{kpi?.lockersInUse ?? 0}</div>
-            <div className="kpi-label">Lockers in Use</div>
-          </div>
-          <div className="kpi-card">
-            <div className="kpi-value">{kpi?.waitingListCount ?? 0}</div>
-            <div className="kpi-label">Waiting List</div>
-          </div>
-        </div>
-      </section>
+      {isLoading && <div style={{ padding: '1rem', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}
 
-      {/* Rooms Nearing or Past Expiration */}
-      <section className="admin-section">
-        <h2>Rooms Nearing or Past Expiration</h2>
-        <div className="panel-content">
-          <table className="expirations-table">
-            <thead>
-              <tr>
-                <th>Room</th>
-                <th>Tier</th>
-                <th>Customer / Member</th>
-                <th>Checkout At</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {expirations.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="empty-state">No active room sessions</td>
-                </tr>
-              ) : (
-                expirations.map((exp) => (
-                  <tr
-                    key={exp.sessionId}
-                    className={exp.isExpired ? 'expired-row' : exp.isExpiringSoon ? 'expiring-row' : ''}
-                  >
-                    <td className="room-number">{exp.roomNumber}</td>
-                    <td>
-                      <span
+      {activeTab === 'operations' && (
+        <>
+          {/* KPI Cards */}
+          <section style={{ marginBottom: '2rem' }}>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem' }}>Key Performance Indicators</h2>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem' }}>
+              <div style={{ background: '#1f2937', padding: '1.5rem', borderRadius: '8px' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>{kpi?.roomsOccupied ?? 0}</div>
+                <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>Rooms Occupied</div>
+              </div>
+              <div style={{ background: '#1f2937', padding: '1.5rem', borderRadius: '8px' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>{kpi?.roomsUnoccupied ?? 0}</div>
+                <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>Rooms Unoccupied</div>
+              </div>
+              <div style={{ background: '#1f2937', padding: '1.5rem', borderRadius: '8px' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>{kpi?.lockersOccupied ?? 0}</div>
+                <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>Lockers Occupied</div>
+              </div>
+              <div style={{ background: '#1f2937', padding: '1.5rem', borderRadius: '8px' }}>
+                <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>{kpi?.lockersAvailable ?? 0}</div>
+                <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>Lockers Available</div>
+              </div>
+            </div>
+          </section>
+
+          {/* Rooms Nearing or Past Expiration */}
+          <section>
+            <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem' }}>Room Expirations</h2>
+            <div style={{ background: '#1f2937', borderRadius: '8px', overflow: 'hidden' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ background: '#111827', borderBottom: '1px solid #374151' }}>
+                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Room</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Tier</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Customer / Member</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Checkout At</th>
+                    <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {expirations.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                        No active room sessions
+                      </td>
+                    </tr>
+                  ) : (
+                    expirations.map((exp) => (
+                      <tr
+                        key={exp.sessionId}
                         style={{
-                          padding: '0.25rem 0.75rem',
-                          borderRadius: '4px',
-                          fontSize: '0.875rem',
-                          background:
-                            exp.roomTier === 'SPECIAL'
-                              ? '#7c3aed'
-                              : exp.roomTier === 'DOUBLE'
-                              ? '#3b82f6'
-                              : '#374151',
-                          color: '#f9fafb',
+                          borderBottom: '1px solid #374151',
+                          background: exp.isExpired ? 'rgba(239, 68, 68, 0.1)' : exp.isExpiringSoon ? 'rgba(245, 158, 11, 0.1)' : 'transparent',
                         }}
                       >
-                        {exp.roomTier}
-                      </span>
-                    </td>
-                    <td>
-                      <div>{exp.customerName}</div>
-                      {exp.membershipNumber && (
-                        <div className="session-id" style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-                          Member: {exp.membershipNumber}
-                        </div>
-                      )}
-                      <div className="session-id" style={{ fontSize: '0.75rem', color: '#6b7280' }}>
-                        {exp.sessionId.slice(0, 8)}...
-                      </div>
-                    </td>
-                    <td>{new Date(exp.checkoutAt).toLocaleString()}</td>
-                    <td>
-                      {exp.isExpired ? (
-                        <span className="status-badge status-expired">
-                          {formatMinutes(exp.minutesPast)} past
-                        </span>
-                      ) : (
-                        <span className="status-badge status-expiring">
-                          {formatMinutes(exp.minutesRemaining)} remaining
-                        </span>
-                      )}
+                        <td style={{ padding: '1rem', fontWeight: 600 }}>{exp.roomNumber}</td>
+                        <td style={{ padding: '1rem' }}>
+                          <span
+                            style={{
+                              padding: '0.25rem 0.75rem',
+                              borderRadius: '4px',
+                              fontSize: '0.875rem',
+                              background:
+                                exp.roomTier === 'SPECIAL'
+                                  ? '#7c3aed'
+                                  : exp.roomTier === 'DOUBLE'
+                                  ? '#3b82f6'
+                                  : '#374151',
+                              color: '#f9fafb',
+                            }}
+                          >
+                            {exp.roomTier}
+                          </span>
+                        </td>
+                        <td style={{ padding: '1rem' }}>
+                          <div>{exp.customerName}</div>
+                          {exp.membershipNumber && (
+                            <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                              Member: {exp.membershipNumber}
+                            </div>
+                          )}
+                          <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                            {exp.sessionId.slice(0, 8)}...
+                          </div>
+                        </td>
+                        <td style={{ padding: '1rem', color: '#9ca3af' }}>{new Date(exp.checkoutAt).toLocaleString()}</td>
+                        <td style={{ padding: '1rem' }}>
+                          {exp.isExpired ? (
+                            <span style={{ padding: '0.25rem 0.75rem', borderRadius: '4px', fontSize: '0.875rem', background: '#ef4444', color: '#f9fafb' }}>
+                              {formatMinutes(exp.minutesPast)} past
+                            </span>
+                          ) : (
+                            <span style={{ padding: '0.25rem 0.75rem', borderRadius: '4px', fontSize: '0.875rem', background: '#f59e0b', color: '#f9fafb' }}>
+                              {formatMinutes(exp.minutesRemaining)} remaining
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </>
+      )}
+
+      {activeTab === 'metrics' && (
+        <section>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 600, marginBottom: '1rem' }}>Cleaning Performance Metrics</h2>
+          
+          <div style={{ display: 'flex', gap: '1rem', marginBottom: '2rem', flexWrap: 'wrap' }}>
+            <div>
+              <label htmlFor="dateFrom" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>From:</label>
+              <input
+                id="dateFrom"
+                type="datetime-local"
+                value={dateFrom}
+                onChange={(e) => setDateFrom(e.target.value)}
+                style={{
+                  padding: '0.75rem',
+                  background: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                  fontSize: '1rem',
+                }}
+              />
+            </div>
+            <div>
+              <label htmlFor="dateTo" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>To:</label>
+              <input
+                id="dateTo"
+                type="datetime-local"
+                value={dateTo}
+                onChange={(e) => setDateTo(e.target.value)}
+                style={{
+                  padding: '0.75rem',
+                  background: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                  fontSize: '1rem',
+                }}
+              />
+            </div>
+            <div>
+              <label htmlFor="staffSelect" style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>Staff Member:</label>
+              <select
+                id="staffSelect"
+                value={selectedStaffId}
+                onChange={(e) => setSelectedStaffId(e.target.value)}
+                style={{
+                  padding: '0.75rem',
+                  background: '#1f2937',
+                  border: '1px solid #374151',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                  fontSize: '1rem',
+                  minWidth: '200px',
+                }}
+              >
+                <option value="">All Staff</option>
+                {staffMembers.map((staff) => (
+                  <option key={staff.id} value={staff.id}>
+                    {staff.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Overall Metrics Cards */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: '1rem', marginBottom: '2rem' }}>
+            <div style={{ background: '#1f2937', padding: '1.5rem', borderRadius: '8px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', color: '#9ca3af' }}>Average Dirty Duration</h3>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb', marginBottom: '0.5rem' }}>
+                {metricsSummary?.averageDirtyTimeMinutes !== null && metricsSummary?.averageDirtyTimeMinutes !== undefined
+                  ? `${Math.round(metricsSummary.averageDirtyTimeMinutes)} min`
+                  : 'N/A'}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                Sample size: {metricsSummary?.dirtyTimeSampleCount ?? 0}
+              </div>
+            </div>
+
+            <div style={{ background: '#1f2937', padding: '1.5rem', borderRadius: '8px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', color: '#9ca3af' }}>Average Cleaning Duration</h3>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb', marginBottom: '0.5rem' }}>
+                {metricsSummary?.averageCleaningDurationMinutes !== null && metricsSummary?.averageCleaningDurationMinutes !== undefined
+                  ? `${Math.round(metricsSummary.averageCleaningDurationMinutes)} min`
+                  : 'N/A'}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                Sample size: {metricsSummary?.cleaningDurationSampleCount ?? 0}
+              </div>
+            </div>
+
+            <div style={{ background: '#1f2937', padding: '1.5rem', borderRadius: '8px' }}>
+              <h3 style={{ fontSize: '1rem', fontWeight: 600, marginBottom: '0.5rem', color: '#9ca3af' }}>Total Rooms Cleaned</h3>
+              <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb', marginBottom: '0.5rem' }}>
+                {metricsSummary?.totalRoomsCleaned ?? 0}
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
+                In selected time range
+              </div>
+            </div>
+          </div>
+
+          {/* Per-Staff Breakdown Table */}
+          <div style={{ background: '#1f2937', borderRadius: '8px', overflow: 'hidden' }}>
+            <h3 style={{ fontSize: '1.25rem', fontWeight: 600, padding: '1.5rem', borderBottom: '1px solid #374151' }}>Per-Staff Breakdown</h3>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ background: '#111827', borderBottom: '1px solid #374151' }}>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Staff Member</th>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Rooms Cleaned</th>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Avg Dirty Duration</th>
+                  <th style={{ padding: '1rem', textAlign: 'left', fontWeight: 600 }}>Avg Cleaning Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {metricsByStaff.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} style={{ padding: '2rem', textAlign: 'center', color: '#9ca3af' }}>
+                      No metrics data available for selected time range
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      {/* Metrics Section */}
-      <section className="admin-section">
-        <h2>Cleaning Metrics</h2>
-        
-        <div className="metrics-filters">
-          <div className="filter-group">
-            <label htmlFor="dateFrom">From:</label>
-            <input
-              id="dateFrom"
-              type="datetime-local"
-              value={dateFrom}
-              onChange={(e) => setDateFrom(e.target.value)}
-            />
+                ) : (
+                  metricsByStaff
+                    .filter(staff => !selectedStaffId || staff.staffId === selectedStaffId)
+                    .map((staff) => (
+                      <tr key={staff.staffId} style={{ borderBottom: '1px solid #374151' }}>
+                        <td style={{ padding: '1rem', fontWeight: 600 }}>{staff.staffName}</td>
+                        <td style={{ padding: '1rem' }}>{staff.totalRoomsCleaned ?? 0}</td>
+                        <td style={{ padding: '1rem' }}>
+                          {staff.averageDirtyTimeMinutes !== null && staff.averageDirtyTimeMinutes !== undefined
+                            ? `${Math.round(staff.averageDirtyTimeMinutes)} min (n=${staff.dirtyTimeSampleCount})`
+                            : 'N/A'}
+                        </td>
+                        <td style={{ padding: '1rem' }}>
+                          {staff.averageCleaningDurationMinutes !== null && staff.averageCleaningDurationMinutes !== undefined
+                            ? `${Math.round(staff.averageCleaningDurationMinutes)} min (n=${staff.cleaningDurationSampleCount})`
+                            : 'N/A'}
+                        </td>
+                      </tr>
+                    ))
+                )}
+              </tbody>
+            </table>
           </div>
-          <div className="filter-group">
-            <label htmlFor="dateTo">To:</label>
-            <input
-              id="dateTo"
-              type="datetime-local"
-              value={dateTo}
-              onChange={(e) => setDateTo(e.target.value)}
-            />
-          </div>
-          <div className="filter-group">
-            <label htmlFor="staffSelect">Staff Member:</label>
-            <select
-              id="staffSelect"
-              value={selectedStaffId}
-              onChange={(e) => setSelectedStaffId(e.target.value)}
-            >
-              <option value="">All Staff</option>
-              {staffMembers.map((staff) => (
-                <option key={staff.id} value={staff.id}>
-                  {staff.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className="metrics-grid">
-          <div className="metric-card">
-            <h3>Average Dirty Time</h3>
-            <div className="metric-value">
-              {metricsSummary?.averageDirtyTimeMinutes !== null && metricsSummary?.averageDirtyTimeMinutes !== undefined
-                ? `${Math.round(metricsSummary.averageDirtyTimeMinutes)} min`
-                : 'N/A'}
-            </div>
-            <div className="metric-sample">
-              Sample size: {metricsSummary?.dirtyTimeSampleCount ?? 0}
-            </div>
-            {selectedStaffId && metricsByStaff && (
-              <div className="metric-staff">
-                <strong>Selected Staff:</strong> {Math.round(metricsByStaff.averageDirtyTimeMinutes || 0)} min
-                (n={metricsByStaff.dirtyTimeSampleCount})
-              </div>
-            )}
-          </div>
-
-          <div className="metric-card">
-            <h3>Average Cleaning Duration</h3>
-            <div className="metric-value">
-              {metricsSummary?.averageCleaningDurationMinutes !== null && metricsSummary?.averageCleaningDurationMinutes !== undefined
-                ? `${Math.round(metricsSummary.averageCleaningDurationMinutes)} min`
-                : 'N/A'}
-            </div>
-            <div className="metric-sample">
-              Sample size: {metricsSummary?.cleaningDurationSampleCount ?? 0}
-            </div>
-            {selectedStaffId && metricsByStaff && (
-              <div className="metric-staff">
-                <strong>Selected Staff:</strong> {Math.round(metricsByStaff.averageCleaningDurationMinutes || 0)} min
-                (n={metricsByStaff.cleaningDurationSampleCount})
-              </div>
-            )}
-          </div>
-        </div>
-      </section>
+        </section>
+      )}
     </div>
   );
 }

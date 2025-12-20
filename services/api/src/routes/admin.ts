@@ -34,6 +34,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Calculate average time rooms remain dirty (DIRTY -> CLEANING transition)
       // Find when room became DIRTY from audit_log (non-override) or previous cleaning event
+      // Exclude anomalies: negative durations, < 30s, > 4h
       const dirtyTimeResult = await query<{
         avg_minutes: string | null;
         count: string;
@@ -69,30 +70,59 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
             AND ce.override_flag = false
             AND ce.started_at >= $1
             AND ce.started_at <= $2
+        ),
+        durations AS (
+          SELECT 
+            EXTRACT(EPOCH FROM (started_at - became_dirty_at) / 60) as minutes
+          FROM dirty_to_cleaning
+          WHERE became_dirty_at > '1970-01-01'::timestamptz
         )
         SELECT 
-          AVG(EXTRACT(EPOCH FROM (started_at - became_dirty_at) / 60)) as avg_minutes,
+          AVG(minutes) as avg_minutes,
           COUNT(*) as count
-        FROM dirty_to_cleaning
-        WHERE became_dirty_at > '1970-01-01'::timestamptz`,
+        FROM durations
+        WHERE minutes >= 0.5  -- At least 30 seconds
+          AND minutes <= 240   -- At most 4 hours
+          AND minutes IS NOT NULL`,
         [from, to]
       );
 
       // Calculate average cleaning duration (CLEANING start -> CLEAN completion)
       // Match started_at from DIRTY->CLEANING with completed_at from CLEANING->CLEAN
+      // Exclude anomalies: negative durations, < 30s, > 4h
       const cleaningDurationResult = await query<{
         avg_minutes: string | null;
         count: string;
       }>(
-        `SELECT 
-          AVG(EXTRACT(EPOCH FROM (completed_at - started_at) / 60)) as avg_minutes,
+        `WITH durations AS (
+          SELECT 
+            EXTRACT(EPOCH FROM (completed_at - started_at) / 60) as minutes
+          FROM cleaning_events ce
+          WHERE ce.from_status = 'CLEANING'
+            AND ce.to_status = 'CLEAN'
+            AND ce.override_flag = false
+            AND ce.started_at IS NOT NULL
+            AND ce.completed_at IS NOT NULL
+            AND ce.completed_at >= $1
+            AND ce.completed_at <= $2
+        )
+        SELECT 
+          AVG(minutes) as avg_minutes,
           COUNT(*) as count
+        FROM durations
+        WHERE minutes >= 0.5  -- At least 30 seconds
+          AND minutes <= 240   -- At most 4 hours
+          AND minutes IS NOT NULL`,
+        [from, to]
+      );
+
+      // Count total rooms cleaned (CLEANING -> CLEAN transitions, excluding overrides)
+      const totalCleanedResult = await query<{ count: string }>(
+        `SELECT COUNT(*) as count
          FROM cleaning_events ce
          WHERE ce.from_status = 'CLEANING'
            AND ce.to_status = 'CLEAN'
            AND ce.override_flag = false
-           AND ce.started_at IS NOT NULL
-           AND ce.completed_at IS NOT NULL
            AND ce.completed_at >= $1
            AND ce.completed_at <= $2`,
         [from, to]
@@ -107,6 +137,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         ? parseFloat(cleaningDurationResult.rows[0].avg_minutes)
         : null;
       const cleaningDurationCount = parseInt(cleaningDurationResult.rows[0]?.count || '0', 10);
+      const totalRoomsCleaned = parseInt(totalCleanedResult.rows[0]?.count || '0', 10);
 
       return reply.send({
         from: from.toISOString(),
@@ -115,6 +146,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         dirtyTimeSampleCount: dirtyTimeCount,
         averageCleaningDurationMinutes: avgCleaningDuration,
         cleaningDurationSampleCount: cleaningDurationCount,
+        totalRoomsCleaned,
       });
     } catch (error) {
       request.log.error(error, 'Failed to fetch metrics summary');
@@ -152,7 +184,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(400).send({ error: 'staffId is required' });
       }
 
-      // Average dirty time for this staff member
+      // Average dirty time for this staff member (with anomaly exclusions)
       const dirtyTimeResult = await query<{
         avg_minutes: string | null;
         count: string;
@@ -189,30 +221,59 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
             AND ce.staff_id = $1
             AND ce.started_at >= $2
             AND ce.started_at <= $3
+        ),
+        durations AS (
+          SELECT 
+            EXTRACT(EPOCH FROM (started_at - became_dirty_at) / 60) as minutes
+          FROM dirty_to_cleaning
+          WHERE became_dirty_at > '1970-01-01'::timestamptz
         )
         SELECT 
-          AVG(EXTRACT(EPOCH FROM (started_at - became_dirty_at) / 60)) as avg_minutes,
+          AVG(minutes) as avg_minutes,
           COUNT(*) as count
-        FROM dirty_to_cleaning
-        WHERE became_dirty_at > '1970-01-01'::timestamptz`,
+        FROM durations
+        WHERE minutes >= 0.5  -- At least 30 seconds
+          AND minutes <= 240   -- At most 4 hours
+          AND minutes IS NOT NULL`,
         [staffId, from, to]
       );
 
-      // Average cleaning duration for this staff member
+      // Average cleaning duration for this staff member (with anomaly exclusions)
       const cleaningDurationResult = await query<{
         avg_minutes: string | null;
         count: string;
       }>(
-        `SELECT 
-          AVG(EXTRACT(EPOCH FROM (completed_at - started_at) / 60)) as avg_minutes,
+        `WITH durations AS (
+          SELECT 
+            EXTRACT(EPOCH FROM (completed_at - started_at) / 60) as minutes
+          FROM cleaning_events ce
+          WHERE ce.from_status = 'CLEANING'
+            AND ce.to_status = 'CLEAN'
+            AND ce.override_flag = false
+            AND ce.staff_id = $1
+            AND ce.started_at IS NOT NULL
+            AND ce.completed_at IS NOT NULL
+            AND ce.completed_at >= $2
+            AND ce.completed_at <= $3
+        )
+        SELECT 
+          AVG(minutes) as avg_minutes,
           COUNT(*) as count
+        FROM durations
+        WHERE minutes >= 0.5  -- At least 30 seconds
+          AND minutes <= 240   -- At most 4 hours
+          AND minutes IS NOT NULL`,
+        [staffId, from, to]
+      );
+
+      // Count total rooms cleaned by this staff member
+      const totalCleanedResult = await query<{ count: string }>(
+        `SELECT COUNT(*) as count
          FROM cleaning_events ce
          WHERE ce.from_status = 'CLEANING'
            AND ce.to_status = 'CLEAN'
            AND ce.override_flag = false
            AND ce.staff_id = $1
-           AND ce.started_at IS NOT NULL
-           AND ce.completed_at IS NOT NULL
            AND ce.completed_at >= $2
            AND ce.completed_at <= $3`,
         [staffId, from, to]
@@ -227,6 +288,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         ? parseFloat(cleaningDurationResult.rows[0].avg_minutes)
         : null;
       const cleaningDurationCount = parseInt(cleaningDurationResult.rows[0]?.count || '0', 10);
+      const totalRoomsCleaned = parseInt(totalCleanedResult.rows[0]?.count || '0', 10);
 
       return reply.send({
         staffId,
@@ -236,6 +298,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         dirtyTimeSampleCount: dirtyTimeCount,
         averageCleaningDurationMinutes: avgCleaningDuration,
         cleaningDurationSampleCount: cleaningDurationCount,
+        totalRoomsCleaned,
       });
     } catch (error) {
       request.log.error(error, 'Failed to fetch metrics by staff');
@@ -363,13 +426,6 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
            AND r.type != 'LOCKER'`
       );
 
-      // Get locker counts
-      const lockerResult = await query<{ status: string; count: string }>(
-        `SELECT status, COUNT(*) as count
-         FROM lockers
-         GROUP BY status`
-      );
-
       // Get lockers in use
       const lockersInUseResult = await query<{ count: string }>(
         `SELECT COUNT(DISTINCT l.id) as count
@@ -378,13 +434,22 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
          WHERE s.status = 'ACTIVE'`
       );
 
+      // Get total lockers and available lockers
+      const totalLockersResult = await query<{ count: string }>(
+        `SELECT COUNT(*) as count FROM lockers`
+      );
+      const totalLockers = parseInt(totalLockersResult.rows[0]?.count || '0', 10);
+      const lockersOccupied = parseInt(lockersInUseResult.rows[0]?.count || '0', 10);
+      const lockersAvailable = totalLockers - lockersOccupied;
+
       const kpi: Record<string, number> = {
         roomsOccupied: parseInt(occupiedResult.rows[0]?.count || '0', 10),
         roomsUnoccupied: 0,
         roomsDirty: 0,
         roomsCleaning: 0,
         roomsClean: 0,
-        lockersInUse: parseInt(lockersInUseResult.rows[0]?.count || '0', 10),
+        lockersOccupied,
+        lockersAvailable,
         waitingListCount: 0, // Placeholder for future implementation
       };
 
@@ -396,7 +461,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         else if (status === 'clean') kpi.roomsClean = count;
       }
 
-      kpi.roomsUnoccupied = kpi.roomsClean + kpi.roomsCleaning + kpi.roomsDirty - kpi.roomsOccupied;
+      kpi.roomsUnoccupied = (kpi.roomsClean || 0) + (kpi.roomsCleaning || 0) + (kpi.roomsDirty || 0) - kpi.roomsOccupied;
 
       return reply.send(kpi);
     } catch (error) {
