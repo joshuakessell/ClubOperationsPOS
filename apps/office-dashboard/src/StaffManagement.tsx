@@ -205,16 +205,19 @@ export function StaffManagement({ session }: StaffManagementProps) {
     // Store the PIN reset data and request re-auth
     setPendingPinReset({ staffId, newPin });
     setPendingAction(() => async () => {
-      if (pendingPinReset) {
-        await performPinReset(pendingPinReset.staffId, pendingPinReset.newPin);
+      // Use the parameters directly instead of captured state to avoid stale closures
+      const success = await performPinReset(staffId, newPin);
+      if (success) {
+        // Only clear state on successful completion
         setPendingPinReset(null);
       }
+      // On failure (including re-auth errors), keep the state so user can retry
     });
     setShowReAuthModal(true);
   };
 
-  const performPinReset = async (staffId: string, newPin: string) => {
-    if (!session.sessionToken) return;
+  const performPinReset = async (staffId: string, newPin: string): Promise<boolean> => {
+    if (!session.sessionToken) return false;
 
     try {
       const response = await fetch(`${API_BASE}/v1/admin/staff/${staffId}/pin-reset`, {
@@ -229,16 +232,21 @@ export function StaffManagement({ session }: StaffManagementProps) {
       if (response.ok) {
         showToast('PIN reset successfully', 'success');
         setShowPinResetModal(false);
+        return true;
       } else {
         const error = await response.json();
         if (error.code === 'REAUTH_REQUIRED' || error.code === 'REAUTH_EXPIRED') {
           showToast('Re-authentication required. Please try again.', 'error');
+          // Don't clear state - allow retry after re-auth
+          setShowReAuthModal(true);
         } else {
           showToast(error.error || 'Failed to reset PIN', 'error');
         }
+        return false;
       }
     } catch (error) {
       showToast('Failed to reset PIN', 'error');
+      return false;
     }
   };
 
