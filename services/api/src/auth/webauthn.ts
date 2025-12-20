@@ -217,3 +217,4 @@ export async function cleanupExpiredChallenges(): Promise<number> {
   return result.rowCount || 0;
 }
 
+

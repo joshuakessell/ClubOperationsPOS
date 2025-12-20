@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { serializableTransaction, query, transaction } from '../db/index.js';
+import { requireAuth, requireReauth } from '../auth/middleware.js';
 import type { Broadcaster } from '../websocket/broadcaster.js';
 import type { SessionUpdatedPayload } from '@club-ops/shared';
 
@@ -15,7 +16,7 @@ declare module 'fastify' {
  */
 const CreateVisitSchema = z.object({
   customerId: z.string().uuid(),
-  rentalType: z.enum(['STANDARD', 'DELUXE', 'VIP', 'LOCKER', 'GYM_LOCKER']),
+  rentalType: z.enum(['STANDARD', 'DOUBLE', 'SPECIAL', 'LOCKER', 'GYM_LOCKER']),
   roomId: z.string().uuid().optional(),
   lockerId: z.string().uuid().optional(),
   lane: z.string().min(1).optional(),
@@ -27,7 +28,7 @@ type CreateVisitInput = z.infer<typeof CreateVisitSchema>;
  * Schema for renewing a visit.
  */
 const RenewVisitSchema = z.object({
-  rentalType: z.enum(['STANDARD', 'DELUXE', 'VIP', 'LOCKER', 'GYM_LOCKER']),
+  rentalType: z.enum(['STANDARD', 'DOUBLE', 'SPECIAL', 'LOCKER', 'GYM_LOCKER']),
   roomId: z.string().uuid().optional(),
   lockerId: z.string().uuid().optional(),
   lane: z.string().min(1).optional(),
@@ -299,7 +300,7 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
         const member = memberResult.rows[0]!;
 
         // Determine allowed rentals (simplified - reuse logic from sessions.ts)
-        const allowedRentals = ['STANDARD', 'DELUXE', 'VIP'];
+        const allowedRentals = ['STANDARD', 'DOUBLE', 'SPECIAL'];
         if (member.membership_number) {
           // Check gym locker eligibility (simplified)
           const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
@@ -561,7 +562,7 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
         );
         const member = memberResult.rows[0]!;
 
-        const allowedRentals = ['STANDARD', 'DELUXE', 'VIP'];
+        const allowedRentals = ['STANDARD', 'DOUBLE', 'SPECIAL'];
         if (member.membership_number) {
           const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
           if (rangesEnv.trim()) {
@@ -707,6 +708,261 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.send({ visits: activeVisits });
     } catch (error) {
       fastify.log.error(error, 'Failed to search active visits');
+      return reply.status(500).send({ error: 'Internal server error' });
+    }
+  });
+
+  /**
+   * POST /v1/visits/:visitId/final-extension - Create final 2-hour extension
+   * 
+   * After a customer has used 12 hours (two 6-hour blocks), allow only one additional
+   * extension of 2 hours for $20, same for any rental type.
+   * 
+   * Requirements:
+   * - Visit must have exactly 2 blocks (12 hours)
+   * - No previous final extension
+   * - Flat fee $20 (manual Square confirmation)
+   * - Does NOT require signature (informational only)
+   * - Requires step-up re-auth
+   */
+  fastify.post('/v1/visits/:visitId/final-extension', {
+    preHandler: [requireReauth],
+  }, async (
+    request: FastifyRequest<{
+      Params: { visitId: string };
+      Body: {
+        rentalType: 'STANDARD' | 'DOUBLE' | 'SPECIAL' | 'LOCKER' | 'GYM_LOCKER';
+        roomId?: string;
+        lockerId?: string;
+      };
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { visitId } = request.params;
+    const { rentalType, roomId, lockerId } = request.body;
+
+    try {
+      const result = await serializableTransaction(async (client) => {
+        // 1. Get visit and verify it's active
+        const visitResult = await client.query<VisitRow>(
+          `SELECT id, customer_id, started_at, ended_at FROM visits WHERE id = $1 FOR UPDATE`,
+          [visitId]
+        );
+
+        if (visitResult.rows.length === 0) {
+          throw { statusCode: 404, message: 'Visit not found' };
+        }
+
+        const visit = visitResult.rows[0]!;
+        if (visit.ended_at) {
+          throw { statusCode: 400, message: 'Visit has already ended' };
+        }
+
+        // 2. Get all blocks for this visit
+        const blocksResult = await client.query<CheckinBlockRow>(
+          `SELECT id, visit_id, block_type, starts_at, ends_at, rental_type, room_id, locker_id
+           FROM checkin_blocks WHERE visit_id = $1 ORDER BY ends_at DESC`,
+          [visit.id]
+        );
+
+        const blocks = blocksResult.rows;
+
+        // 3. Verify exactly 2 blocks exist (12 hours)
+        if (blocks.length !== 2) {
+          throw {
+            statusCode: 400,
+            message: `Final extension requires exactly 2 blocks (current: ${blocks.length}). Visit must have completed two 6-hour blocks first.`,
+          };
+        }
+
+        // 4. Verify no previous final extension
+        const hasFinalExtension = blocks.some(block => block.block_type === 'FINAL2H');
+        if (hasFinalExtension) {
+          throw { statusCode: 400, message: 'Final extension has already been applied to this visit' };
+        }
+
+        // 5. Verify both blocks are INITIAL or RENEWAL (not FINAL2H)
+        const invalidBlocks = blocks.filter(block => block.block_type === 'FINAL2H');
+        if (invalidBlocks.length > 0) {
+          throw { statusCode: 400, message: 'Visit contains invalid block types' };
+        }
+
+        // 6. Calculate total hours - should be 12 hours
+        const totalHours = calculateTotalHours(blocks);
+        if (totalHours !== 12) {
+          throw {
+            statusCode: 400,
+            message: `Final extension requires exactly 12 hours (current: ${totalHours} hours). Visit must have completed two 6-hour blocks first.`,
+          };
+        }
+
+        // 7. Verify 2-hour extension won't exceed 14-hour maximum
+        if (totalHours + 2 > 14) {
+          throw { statusCode: 400, message: 'Final extension would exceed 14-hour maximum' };
+        }
+
+        // 8. Get latest block end time
+        const latestBlockEnd = getLatestBlockEnd(blocks);
+        if (!latestBlockEnd) {
+          throw { statusCode: 400, message: 'Cannot determine extension start time' };
+        }
+
+        // 9. Handle room/locker assignment if requested
+        let assignedRoomId: string | null = null;
+        let assignedLockerId: string | null = null;
+
+        if (roomId) {
+          const roomResult = await client.query<RoomRow>(
+            `SELECT id, number, status, assigned_to FROM rooms WHERE id = $1 FOR UPDATE`,
+            [roomId]
+          );
+
+          if (roomResult.rows.length === 0) {
+            throw { statusCode: 404, message: 'Room not found' };
+          }
+
+          const room = roomResult.rows[0]!;
+          if (room.status !== 'CLEAN') {
+            throw { statusCode: 400, message: `Room ${room.number} is not available (status: ${room.status})` };
+          }
+
+          if (room.assigned_to && room.assigned_to !== visit.customer_id) {
+            throw { statusCode: 409, message: `Room ${room.number} is already assigned` };
+          }
+
+          if (!room.assigned_to) {
+            await client.query(
+              `UPDATE rooms SET assigned_to = $1, updated_at = NOW() WHERE id = $2`,
+              [visit.customer_id, roomId]
+            );
+          }
+
+          assignedRoomId = roomId;
+        }
+
+        if (lockerId) {
+          const lockerResult = await client.query<LockerRow>(
+            `SELECT id, number, status, assigned_to FROM lockers WHERE id = $1 FOR UPDATE`,
+            [lockerId]
+          );
+
+          if (lockerResult.rows.length === 0) {
+            throw { statusCode: 404, message: 'Locker not found' };
+          }
+
+          const locker = lockerResult.rows[0]!;
+          if (locker.assigned_to && locker.assigned_to !== visit.customer_id) {
+            throw { statusCode: 409, message: `Locker ${locker.number} is already assigned` };
+          }
+
+          if (!locker.assigned_to) {
+            await client.query(
+              `UPDATE lockers SET assigned_to = $1, updated_at = NOW() WHERE id = $2`,
+              [visit.customer_id, lockerId]
+            );
+          }
+
+          assignedLockerId = lockerId;
+        }
+
+        // 10. Create final 2-hour extension block
+        const extensionStartsAt = latestBlockEnd;
+        const extensionEndsAt = new Date(extensionStartsAt.getTime() + 2 * 60 * 60 * 1000); // 2 hours
+
+        const blockResult = await client.query<CheckinBlockRow>(
+          `INSERT INTO checkin_blocks (visit_id, block_type, starts_at, ends_at, rental_type, room_id, locker_id, agreement_signed)
+           VALUES ($1, 'FINAL2H', $2, $3, $4, $5, $6, true)
+           RETURNING id, visit_id, block_type, starts_at, ends_at, rental_type, room_id, locker_id, session_id, agreement_signed, created_at, updated_at`,
+          [visit.id, extensionStartsAt, extensionEndsAt, rentalType, assignedRoomId, assignedLockerId]
+        );
+
+        const block = blockResult.rows[0]!;
+
+        // 11. Create payment intent for $20 flat fee
+        const intentResult = await client.query<{
+          id: string;
+          amount: number | string;
+        }>(
+          `INSERT INTO payment_intents (amount, status, quote_json)
+           VALUES ($1, 'DUE', $2)
+           RETURNING id, amount`,
+          [
+            20.00,
+            JSON.stringify({
+              type: 'FINAL_EXTENSION',
+              visitId: visit.id,
+              blockId: block.id,
+              hours: 2,
+              amount: 20.00,
+            }),
+          ]
+        );
+
+        const paymentIntent = intentResult.rows[0]!;
+
+        // 12. Log final extension started
+        await client.query(
+          `INSERT INTO audit_log 
+           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
+           VALUES ($1, $2, 'staff', 'FINAL_EXTENSION_STARTED', 'visit', $3, $4, $5)`,
+          [
+            request.staff.staffId,
+            request.staff.staffId,
+            visitId,
+            JSON.stringify({
+              totalHours: totalHours,
+              blockCount: blocks.length,
+            }),
+            JSON.stringify({
+              blockId: block.id,
+              blockType: 'FINAL2H',
+              extensionHours: 2,
+              newEndsAt: extensionEndsAt.toISOString(),
+              paymentIntentId: paymentIntent.id,
+              rentalType,
+            }),
+          ]
+        );
+
+        return {
+          visit: {
+            id: visit.id,
+            customerId: visit.customer_id,
+            startedAt: visit.started_at,
+            endedAt: visit.ended_at,
+            createdAt: visit.created_at,
+            updatedAt: new Date(),
+          },
+          block: {
+            id: block.id,
+            visitId: block.visit_id,
+            blockType: block.block_type,
+            startsAt: block.starts_at,
+            endsAt: block.ends_at,
+            rentalType: block.rental_type,
+            roomId: block.room_id,
+            lockerId: block.locker_id,
+            sessionId: block.session_id,
+            agreementSigned: block.agreement_signed,
+            createdAt: block.created_at,
+            updatedAt: block.updated_at,
+          },
+          paymentIntentId: paymentIntent.id,
+          amount: typeof paymentIntent.amount === 'string' ? parseFloat(paymentIntent.amount) : paymentIntent.amount,
+        };
+      });
+
+      return reply.status(201).send(result);
+    } catch (error: unknown) {
+      if (error && typeof error === 'object' && 'statusCode' in error) {
+        const err = error as { statusCode: number; message: string };
+        return reply.status(err.statusCode).send({ error: err.message });
+      }
+      fastify.log.error(error, 'Failed to create final extension');
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });

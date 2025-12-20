@@ -1,111 +1,139 @@
 # Codex Agent Instructions
 
-This repository contains a multi-application system for managing club check-ins,
-room inventory, cleaning workflows, and operational metrics.
+This repository contains a multi-application system for managing club check-ins, renewals, upgrades, room/locker inventory, cleaning workflows, checkout verification, and operational reporting.
 
-Codex must follow the rules below strictly.
+All agent work MUST adhere to:
+- `SPEC.md` (source of truth for business rules + product behavior)
+- `openapi.yaml` (API contract target)
+- `db/schema.sql` (canonical DB target)
+
+If implementation conflicts with these files, the agent MUST either:
+1) fix the implementation to match the specs, or
+2) propose a spec change with a clear justification and explicit diffs.
 
 ---
 
 ## Project Architecture
 
-### Applications
-- apps/customer-kiosk
-  - Tablet-based kiosk UI
-  - Locked single-app experience
-  - Displays customer name, membership number, room options
-  - Receives realtime inventory updates
-  - Handles agreement signing and rental selection
+### Applications (Monorepo)
 
-- apps/employee-register
-  - Employee-facing tablet app
-  - Runs alongside Square POS
-  - Creates sessions and assigns rooms/lockers
-  - Displays live inventory and countdowns
-  - Handles check-in processing, renewals, and checkout verification
+- `apps/customer-kiosk`
+  - Customer-facing tablet UI at each check-in window
+  - Idle state: Club Dallas logo only
+  - During a lane session: shows customer name and membership number (if present)
+  - Customer selects rental preference: Locker / Standard / Double / Special
+  - Optional Gym Locker option appears only for grandfathered membership-number ranges
+  - Handles waitlist intent (desired type when unavailable) and backup selection
+  - Shows upgrade disclaimer only when the user elects an upgrade/waitlist path
+  - Shows the club agreement contract (placeholder text for now), captures signature, submits to server
+  - Real-time updates via WebSockets
 
-- apps/cleaning-station-kiosk
-  - Staff-facing tablet for cleaning workflow
-  - Batch scanning of QR or NFC room key tags
-  - Updates room status (DIRTY → CLEANING → CLEAN)
-  - Handles mixed-status scans with resolution UI
-  - Supports override transitions with audit logging
+- `apps/employee-register`
+  - Employee-facing tablet per register lane (2 lanes)
+  - Works alongside Square POS (Square runs on separate iPads)
+  - Creates and manages lane sessions, assigns rooms/lockers, triggers customer kiosk state
+  - Has a mode toggle: CHECKIN vs RENEWAL vs (optional) CHECKOUT-ASSIST
+  - Displays organized inventory lists:
+    - Collapsible sections by tier: Special, Double, Standard
+    - Lockers shown as a collapsible grid (001–108)
+  - Auto-expands the customer-selected tier and sorts rooms by:
+    1) available/clean first
+    2) near-expiration next
+    3) newest occupied last
+  - Must confirm assignment before committing (server-authoritative + transactional locks)
+  - Supports checkout claim/verification notifications coming from checkout kiosks
+  - Authentication required at shift start; remains signed in until user signs out
 
-- apps/checkout-kiosk
-  - Customer-facing tablet for self-service checkout
-  - QR code scanning of room keys
-  - Checklist for items returned (TV remote, etc.)
-  - Displays late fees and checkout completion status
-  - WebSocket integration for real-time updates
+- `apps/cleaning-station-kiosk`
+  - Staff-facing tablet mounted near key hooks (dirty/clean)
+  - Camera/QR scanning is NOT required in the primary workflow
+  - After staff auth (WebAuthn fingerprint or PIN), show two live lists:
+    - DIRTY rooms (eligible to begin cleaning)
+    - CLEANING rooms (eligible to finish cleaning)
+  - Staff selects one or multiple rooms from ONLY ONE list at a time
+    - Selecting in one column disables the other column (prevents mixed-status batch)
+  - Primary action button becomes:
+    - "Begin Cleaning" for DIRTY selection
+    - "Finish Cleaning" for CLEANING selection
+  - After action completes, kiosk returns to lock screen (requires re-auth)
+  - All transitions validated server-side; overrides must be logged and excluded from metrics
 
-- apps/office-dashboard
-  - Web app for office PC
-  - Global view of rooms, lockers, waitlists, and staff activity
-  - Used for overrides and administration
-  - Metrics and analytics dashboards
+- `apps/checkout-kiosk`
+  - Customer-facing tablet kiosk used inside the club for self-service checkout initiation
+  - Idle state: Club Dallas logo only
+  - On start: instructs customer to scan locker/room key tag (front camera visible)
+  - After scan: shows checklist (locker: key+towel; room: key+sheets+remote if assigned)
+  - Includes notice: staff must verify items; towels/sheets can go in laundry bin; keys/remotes must be handed to staff
+  - Customer submits checklist, which triggers a notification on employee register tablets
+  - First employee to claim the notification owns the checkout verification
+  - Late fee and ban logic applied server-side and displayed to employee + customer
+  - After verification and (if required) payment is marked paid, kiosk shows completion message then returns to idle after ~10s
+
+- `apps/office-dashboard`
+  - Office PC web app (admin + managers)
+  - Admin tools:
+    - Create/update staff, set roles, set/reset PINs
+    - Manage staff passkeys (WebAuthn) and revoke credentials
+  - Admin-only metrics view:
+    - Occupied/unoccupied counts
+    - Rooms expiring soon and overdue (overdue at top, red, most expired first)
+    - Cleaning metrics overall and by staff / shift
+  - Audit logs searchable and exportable
+  - System configuration values visible and editable (where applicable)
 
 ### Backend
-- services/api
-  - Server-authoritative REST API
-  - WebSocket realtime updates
-  - Postgres database
-  - All state transitions are validated server-side
 
-### Shared Code
-- packages/shared
-  - Enums, schemas, validators
-  - Room status state machine
-  - Transition guards
+- `services/api`
+  - Server-authoritative REST API
+  - WebSocket realtime updates for inventory + lane sessions + checkout notifications
+  - Postgres database
+  - Transactional locking on assignments and status transitions
+
+### Shared Packages
+
+- `packages/shared`
+  - Canonical enums, Zod schemas, transition guards, pricing helpers
+  - Room tier classification and mapping rules
+  - Shared event types for WebSockets
+
+- (optional) `packages/ui`
+  - Shared UI components and styling rules
+  - Black/white theme aligned to Club Dallas branding
 
 ---
 
 ## Core Rules (Must Not Be Violated)
 
-1. **The server is the single source of truth**
-   - Clients never assume inventory or state
-   - All decisions are confirmed by the API
+1. **Server is the single source of truth**
+   - Clients never assume inventory, assignment validity, eligibility, or pricing
+   - All critical decisions are confirmed by the API
 
-2. **Room status transitions are enforced**
-   - Normal flow: DIRTY → CLEANING → CLEAN
+2. **Concurrency must be safe**
+   - Room/locker assignments must be transactional with row locks
+   - Prevent double booking when two lanes attempt to take the last unit
+
+3. **Room status transitions are enforced**
+   - Normal flow: DIRTY → CLEANING → CLEAN → OCCUPIED → DIRTY (at checkout)
    - Skipping steps requires explicit override
-   - Overrides must be logged and audited
+   - Overrides must be logged with staff identity and reason
 
-3. **Overrides exclude metrics**
-   - Any room updated via override must be flagged
-   - Excluded rooms must not affect performance metrics or competitions
-
-4. **Concurrency must be safe**
-   - Room reservations and cleaning updates must be transactional
-   - No double booking
-   - Use row locking or equivalent mechanisms
+4. **Overrides and anomalies exclude metrics**
+   - Any transition performed via override is flagged and excluded from performance metrics
+   - Anomalous events (e.g., impossible durations) are excluded from stats as well
 
 5. **Realtime is push-based**
-   - Inventory changes are broadcast via WebSockets
-   - No polling-based UI refreshes
+   - WebSockets broadcast server events; do not rely on polling for correctness
 
----
+6. **Authentication is mandatory**
+   - Employee apps require staff auth (WebAuthn preferred, PIN fallback)
+   - Employee Register: one login per shift, stays logged in until sign-out
+   - Cleaning Station: must re-auth for each begin/finish batch (returns to lock screen)
 
-## Cleaning Station Logic
-
-- Batch scanning of QR or NFC key tags is supported
-- The primary action button is auto-determined by scanned room statuses
-- Mixed-status scans require resolution UI
-- Resolution UI:
-  - Shows per-room sliders: DIRTY / CLEANING / CLEAN
-  - Only adjacent transitions allowed without override
-  - Override requires confirmation and reason
-
----
-
-## Metrics & Analytics
-
-Track, but do not manipulate:
-- Dirty → cleaning response time
-- Cleaning duration
-- Rooms cleaned per shift
-- Batch cleaning allocation
-
-Do not include overridden or anomalous records in metrics.
+7. **Square is external**
+   - Square POS runs on separate iPads
+   - This system computes quotes and creates payment intents, but payment is taken in Square
+   - Staff manually marks payment intents as paid after collecting payment in Square
+   - Never assume payment succeeded without explicit "mark paid"
 
 ---
 
@@ -113,40 +141,43 @@ Do not include overridden or anomalous records in metrics.
 
 - TypeScript everywhere
 - Strict typing enabled
-- Zod or equivalent for request validation
-- OpenAPI documentation for REST endpoints
-- Deterministic, testable logic for state transitions
+- Zod validation for all request bodies
+- Deterministic, testable business logic (pricing, eligibility, transitions)
+- OpenAPI contract should remain aligned with actual endpoints
+- Add tests for every bug fix and every core business rule
 
 ---
 
 ## Commands
 
-Use these commands when working in the repo:
+From repo root:
 
-- Install dependencies:
-  pnpm install
+- Install:
+  `pnpm install`
 
-- Start development:
-  pnpm dev
+- Start:
+  `pnpm dev`
 
-- Run tests:
-  pnpm test
+- Tests:
+  `pnpm test`
 
 - Lint:
-  pnpm lint
+  `pnpm lint`
 
 - Typecheck:
-  pnpm typecheck
+  `pnpm typecheck`
 
 ---
 
-## What Codex Should Ask Before Major Changes
+## What the Agent Must Check Before Major Changes
 
-- Does this affect room state transitions?
-- Does this introduce a new override path?
-- Does this change metrics calculations?
+- Does this affect pricing rules, membership fee rules, youth rules, or time windows?
+- Does this affect room tier mapping (Standard/Double/Special) or room numbering?
+- Does this affect checkout late fee / ban logic?
+- Does this affect concurrency or locking?
+- Does this affect WebAuthn/PIN authentication requirements?
 
-If yes, Codex must explain the impact before implementing.
+If yes, explain impact and add/adjust tests.
 
 ---
 

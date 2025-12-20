@@ -16,3 +16,4 @@ CREATE INDEX idx_late_checkout_events_occupancy ON late_checkout_events(occupanc
 CREATE INDEX idx_late_checkout_events_request ON late_checkout_events(checkout_request_id) WHERE checkout_request_id IS NOT NULL;
 CREATE INDEX idx_late_checkout_events_created ON late_checkout_events(created_at);
 
+

@@ -26,3 +26,4 @@ ALTER TABLE members
   ADD COLUMN IF NOT EXISTS membership_valid_until DATE,
   ADD COLUMN IF NOT EXISTS banned_until TIMESTAMPTZ;
 
+

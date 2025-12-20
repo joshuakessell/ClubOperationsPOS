@@ -68,7 +68,7 @@ function isGymLockerEligible(membershipNumber: string | null | undefined): boole
  * Determine allowed rentals based on membership eligibility.
  */
 function getAllowedRentals(membershipNumber: string | null | undefined): string[] {
-  const allowed: string[] = ['LOCKER', 'STANDARD', 'DELUXE'];
+  const allowed: string[] = ['LOCKER', 'STANDARD', 'DOUBLE'];
   
   if (isGymLockerEligible(membershipNumber)) {
     allowed.push('GYM_LOCKER');
@@ -245,5 +245,6 @@ export async function laneRoutes(fastify: FastifyInstance): Promise<void> {
     }
   });
 }
+
 
 

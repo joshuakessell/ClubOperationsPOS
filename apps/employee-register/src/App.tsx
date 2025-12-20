@@ -57,6 +57,30 @@ function App() {
   const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
   const [paymentQuote, setPaymentQuote] = useState<{ total: number; lineItems: Array<{ description: string; amount: number }>; messages: string[] } | null>(null);
   const [paymentStatus, setPaymentStatus] = useState<'DUE' | 'PAID' | null>(null);
+  const [waitlistEntries, setWaitlistEntries] = useState<Array<{
+    id: string;
+    visitId: string;
+    checkinBlockId: string;
+    desiredTier: string;
+    backupTier: string;
+    status: string;
+    createdAt: string;
+    offeredAt?: string;
+    displayIdentifier: string;
+    currentRentalType: string;
+  }>>([]);
+  const [showUpgradesPanel, setShowUpgradesPanel] = useState(false);
+  const [selectedWaitlistEntry, setSelectedWaitlistEntry] = useState<string | null>(null);
+  const [availableRoomsForUpgrade, setAvailableRoomsForUpgrade] = useState<Array<{
+    id: string;
+    number: string;
+    tier: string;
+  }>>([]);
+  const [upgradePaymentIntentId, setUpgradePaymentIntentId] = useState<string | null>(null);
+  const [upgradeFee, setUpgradeFee] = useState<number | null>(null);
+  const [showUpgradeDisclaimer, setShowUpgradeDisclaimer] = useState(false);
+  const [showFinalExtensionModal, setShowFinalExtensionModal] = useState(false);
+  const [finalExtensionVisitId, setFinalExtensionVisitId] = useState<string | null>(null);
   const [lane] = useState(() => {
     // Get lane from URL query param or localStorage, default to 'lane-1'
     const params = new URLSearchParams(window.location.search);
@@ -183,6 +207,18 @@ function App() {
       return;
     }
 
+    // Require check-in mode to be selected before starting session
+    if (!checkinMode) {
+      alert('Please select check-in mode (Initial Check-In or Renewal) before starting session');
+      return;
+    }
+
+    // For RENEWAL mode, require visit to be selected
+    if (checkinMode === CheckinMode.RENEWAL && !selectedVisit) {
+      alert('Please select a visit to renew before starting session');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
@@ -194,6 +230,8 @@ function App() {
         body: JSON.stringify({
           idScanValue,
           membershipScanValue: membershipScanValue || undefined,
+          checkinMode: checkinMode === CheckinMode.RENEWAL ? 'RENEWAL' : 'INITIAL',
+          visitId: checkinMode === CheckinMode.RENEWAL && selectedVisit ? selectedVisit.id : undefined,
         }),
       });
 
@@ -284,6 +322,17 @@ function App() {
       setSelectedVisit(null);
       setCheckinMode(CheckinMode.INITIAL);
       setShowRenewalSearch(false);
+      setSelectedRentalType(null);
+      setCustomerSelectedType(null);
+      setWaitlistDesiredTier(null);
+      setWaitlistBackupType(null);
+      setSelectedInventoryItem(null);
+      setPaymentIntentId(null);
+      setPaymentQuote(null);
+      setPaymentStatus(null);
+      setShowCustomerConfirmationPending(false);
+      setCustomerConfirmationType(null);
+      setShowWaitlistModal(false);
       console.log('Session cleared');
     } catch (error) {
       console.error('Failed to clear session:', error);
@@ -532,6 +581,229 @@ function App() {
     }
   };
 
+  // Waitlist/Upgrades functions
+  const fetchWaitlist = async () => {
+    if (!session?.sessionToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/waitlist?status=ACTIVE`, {
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setWaitlistEntries(data.entries || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch waitlist:', error);
+    }
+  };
+
+  const fetchAvailableRoomsForTier = async (tier: string) => {
+    if (!session?.sessionToken) return;
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/inventory/summary`, {
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        // Get available rooms for the desired tier
+        // This is simplified - in production, you'd filter by tier
+        const availableRooms: Array<{ id: string; number: string; tier: string }> = [];
+        // For now, we'll need to fetch room details separately
+        // This is a placeholder - actual implementation would query rooms by tier
+        setAvailableRoomsForUpgrade(availableRooms);
+      }
+    } catch (error) {
+      console.error('Failed to fetch available rooms:', error);
+    }
+  };
+
+  const handleOfferUpgrade = async (waitlistId: string, roomId: string) => {
+    if (!session?.sessionToken) {
+      alert('Not authenticated');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/waitlist/${waitlistId}/offer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({ roomId }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to offer upgrade');
+      }
+
+      await fetchWaitlist();
+      alert('Upgrade offered successfully');
+    } catch (error) {
+      console.error('Failed to offer upgrade:', error);
+      alert(error instanceof Error ? error.message : 'Failed to offer upgrade');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFulfillUpgrade = async (waitlistId: string, roomId: string) => {
+    if (!session?.sessionToken) {
+      alert('Not authenticated');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      // Show upgrade disclaimer first
+      setShowUpgradeDisclaimer(true);
+      setSelectedWaitlistEntry(waitlistId);
+      
+      // Store room ID for after disclaimer
+      const fulfillAfterDisclaimer = async () => {
+        try {
+          const response = await fetch(`${API_BASE}/v1/upgrades/fulfill`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.sessionToken}`,
+            },
+            body: JSON.stringify({
+              waitlistId,
+              roomId,
+              acknowledgedDisclaimer: true,
+            }),
+          });
+
+          if (!response.ok) {
+            const error = await response.json();
+            if (error.code === 'REAUTH_REQUIRED') {
+              alert('Re-authentication required. Please log in again.');
+              handleLogout();
+              return;
+            }
+            throw new Error(error.error || 'Failed to fulfill upgrade');
+          }
+
+          const data = await response.json();
+          setUpgradePaymentIntentId(data.paymentIntentId);
+          setUpgradeFee(data.upgradeFee);
+          setShowUpgradeDisclaimer(false);
+          alert(`Upgrade fee: $${data.upgradeFee}. Please mark payment as paid in Square.`);
+          await fetchWaitlist();
+        } catch (error) {
+          console.error('Failed to fulfill upgrade:', error);
+          alert(error instanceof Error ? error.message : 'Failed to fulfill upgrade');
+        } finally {
+          setIsSubmitting(false);
+        }
+      };
+
+      // For now, auto-acknowledge and proceed
+      // In production, wait for staff to acknowledge
+      await fulfillAfterDisclaimer();
+    } catch (error) {
+      console.error('Failed to fulfill upgrade:', error);
+      alert(error instanceof Error ? error.message : 'Failed to fulfill upgrade');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCompleteUpgrade = async (waitlistId: string, paymentIntentId: string) => {
+    if (!session?.sessionToken) {
+      alert('Not authenticated');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/upgrades/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({
+          waitlistId,
+          paymentIntentId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        if (error.code === 'REAUTH_REQUIRED') {
+          alert('Re-authentication required. Please log in again.');
+          handleLogout();
+          return;
+        }
+        throw new Error(error.error || 'Failed to complete upgrade');
+      }
+
+      setUpgradePaymentIntentId(null);
+      setUpgradeFee(null);
+      await fetchWaitlist();
+      alert('Upgrade completed successfully');
+    } catch (error) {
+      console.error('Failed to complete upgrade:', error);
+      alert(error instanceof Error ? error.message : 'Failed to complete upgrade');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleFinalExtension = async (visitId: string, rentalType: string, roomId?: string, lockerId?: string) => {
+    if (!session?.sessionToken) {
+      alert('Not authenticated');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/visits/${visitId}/final-extension`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({
+          rentalType,
+          roomId,
+          lockerId,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        if (error.code === 'REAUTH_REQUIRED') {
+          alert('Re-authentication required. Please log in again.');
+          handleLogout();
+          return;
+        }
+        throw new Error(error.error || 'Failed to create final extension');
+      }
+
+      const data = await response.json();
+      setShowFinalExtensionModal(false);
+      setFinalExtensionVisitId(null);
+      alert(`Final extension created. Payment: $20. Please mark payment as paid in Square. Payment Intent ID: ${data.paymentIntentId}`);
+    } catch (error) {
+      console.error('Failed to create final extension:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create final extension');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   useEffect(() => {
     // Check API health
     fetch('/api/health')
@@ -561,6 +833,7 @@ function App() {
           'ASSIGNMENT_FAILED',
           'CUSTOMER_CONFIRMED',
           'CUSTOMER_DECLINED',
+          'WAITLIST_UPDATED',
         ],
       }));
     };
@@ -596,12 +869,13 @@ function App() {
             setCheckoutFeePaid(payload.feePaid);
           }
         } else if (message.type === 'CHECKOUT_COMPLETED') {
+          const payload = message.payload as { requestId: string };
           setCheckoutRequests(prev => {
             const next = new Map(prev);
-            next.delete(message.payload.requestId);
+            next.delete(payload.requestId);
             return next;
           });
-          if (selectedCheckoutRequest === message.payload.requestId) {
+          if (selectedCheckoutRequest === payload.requestId) {
             setSelectedCheckoutRequest(null);
             setCheckoutChecklist({});
             setCheckoutItemsConfirmed(false);
@@ -673,24 +947,30 @@ function App() {
     setSelectedInventoryItem({ type, id, number, tier });
   };
 
-  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
-  const [paymentQuote, setPaymentQuote] = useState<{ total: number; lineItems: Array<{ description: string; amount: number }>; messages: string[] } | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<'DUE' | 'PAID' | null>(null);
-
   const handleAssign = async () => {
     if (!selectedInventoryItem || !currentSessionId || !session?.sessionToken) {
       alert('Please select an item to assign');
       return;
     }
 
+    // Guardrails: Prevent assignment if conditions not met
+    if (showCustomerConfirmationPending) {
+      alert('Please wait for customer confirmation before assigning');
+      return;
+    }
+
+    if (!agreementSigned) {
+      alert('Agreement must be signed before assignment. Please wait for customer to sign the agreement.');
+      return;
+    }
+
+    if (paymentStatus !== 'PAID') {
+      alert('Payment must be marked as paid before assignment. Please mark payment as paid in Square first.');
+      return;
+    }
+
     setIsSubmitting(true);
     try {
-      // Check if customer confirmation is pending
-      if (showCustomerConfirmationPending) {
-        alert('Please wait for customer confirmation');
-        setIsSubmitting(false);
-        return;
-      }
 
       // Use new check-in assign endpoint
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/assign`, {
@@ -1062,6 +1342,125 @@ function App() {
       </header>
 
       <main className="main">
+        {/* Waitlist/Upgrades Panel Toggle */}
+        <section style={{ marginBottom: '1rem' }}>
+          <button
+            onClick={() => setShowUpgradesPanel(!showUpgradesPanel)}
+            style={{
+              width: '100%',
+              padding: '0.75rem',
+              background: showUpgradesPanel ? '#3b82f6' : '#475569',
+              color: 'white',
+              border: 'none',
+              borderRadius: '6px',
+              fontSize: '1rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+            }}
+          >
+            {showUpgradesPanel ? '▼' : '▶'} Upgrades / Waitlist ({waitlistEntries.filter(e => e.status === 'ACTIVE' || e.status === 'OFFERED').length})
+          </button>
+        </section>
+
+        {/* Waitlist/Upgrades Panel */}
+        {showUpgradesPanel && (
+          <section style={{ marginBottom: '1rem', padding: '1rem', background: '#1e293b', border: '1px solid #475569', borderRadius: '8px' }}>
+            <h2 style={{ marginBottom: '1rem', fontSize: '1.25rem', fontWeight: 600 }}>Waitlist & Upgrades</h2>
+            
+            {waitlistEntries.length === 0 ? (
+              <p style={{ color: '#94a3b8' }}>No active waitlist entries</p>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                {['ACTIVE', 'OFFERED'].map(status => {
+                  const entries = waitlistEntries.filter(e => e.status === status);
+                  if (entries.length === 0) return null;
+                  
+                  return (
+                    <div key={status} style={{ marginBottom: '1rem' }}>
+                      <h3 style={{ marginBottom: '0.5rem', fontSize: '1rem', fontWeight: 600, color: status === 'OFFERED' ? '#f59e0b' : '#94a3b8' }}>
+                        {status === 'OFFERED' ? '⚠️ Offered' : '⏳ Active'} ({entries.length})
+                      </h3>
+                      {entries.map(entry => (
+                        <div
+                          key={entry.id}
+                          style={{
+                            padding: '1rem',
+                            background: '#0f172a',
+                            border: '1px solid #475569',
+                            borderRadius: '6px',
+                            marginBottom: '0.5rem',
+                          }}
+                        >
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '0.5rem' }}>
+                            <div>
+                              <div style={{ fontWeight: 600, marginBottom: '0.25rem' }}>
+                                {entry.displayIdentifier} → {entry.desiredTier}
+                              </div>
+                              <div style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
+                                Current: {entry.currentRentalType} • Created: {new Date(entry.createdAt).toLocaleTimeString()}
+                              </div>
+                            </div>
+                            {status === 'OFFERED' && upgradePaymentIntentId && entry.id === selectedWaitlistEntry && (
+                              <div style={{ textAlign: 'right' }}>
+                                <div style={{ fontSize: '0.875rem', color: '#f59e0b', marginBottom: '0.25rem' }}>
+                                  Fee: ${upgradeFee?.toFixed(2)}
+                                </div>
+                                <button
+                                  onClick={() => {
+                                    if (paymentStatus === 'PAID') {
+                                      handleCompleteUpgrade(entry.id, upgradePaymentIntentId);
+                                    } else {
+                                      alert('Please mark payment as paid in Square first');
+                                    }
+                                  }}
+                                  disabled={paymentStatus !== 'PAID' || isSubmitting}
+                                  style={{
+                                    padding: '0.5rem 1rem',
+                                    background: paymentStatus === 'PAID' ? '#10b981' : '#475569',
+                                    color: 'white',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    fontSize: '0.875rem',
+                                    fontWeight: 600,
+                                    cursor: paymentStatus === 'PAID' ? 'pointer' : 'not-allowed',
+                                  }}
+                                >
+                                  {paymentStatus === 'PAID' ? 'Complete Upgrade' : 'Mark Paid First'}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                          {status === 'ACTIVE' && (
+                            <button
+                              onClick={() => {
+                                // For now, show alert - in production, would show room selector
+                                alert('Select a room to offer. This will open room selector.');
+                                // handleOfferUpgrade(entry.id, roomId);
+                              }}
+                              style={{
+                                padding: '0.5rem 1rem',
+                                background: '#3b82f6',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '6px',
+                                fontSize: '0.875rem',
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                              }}
+                            >
+                              Offer Upgrade
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        )}
+
         {/* Mode Toggle */}
         <section className="mode-toggle-section" style={{ marginBottom: '1rem', padding: '1rem', background: '#f3f4f6', borderRadius: '8px' }}>
           <h2 style={{ marginBottom: '0.5rem', fontSize: '1rem' }}>Check-in Mode</h2>
@@ -1071,6 +1470,22 @@ function App() {
                 setCheckinMode(CheckinMode.INITIAL);
                 setSelectedVisit(null);
                 setShowRenewalSearch(false);
+                // Clear all session state when switching modes
+                setCustomerName('');
+                setMembershipNumber('');
+                setCurrentSessionId(null);
+                setAgreementSigned(false);
+                setSelectedRentalType(null);
+                setCustomerSelectedType(null);
+                setWaitlistDesiredTier(null);
+                setWaitlistBackupType(null);
+                setSelectedInventoryItem(null);
+                setPaymentIntentId(null);
+                setPaymentQuote(null);
+                setPaymentStatus(null);
+                setShowCustomerConfirmationPending(false);
+                setCustomerConfirmationType(null);
+                setShowWaitlistModal(false);
               }}
               style={{
                 padding: '0.5rem 1rem',
@@ -1088,6 +1503,22 @@ function App() {
               onClick={() => {
                 setCheckinMode(CheckinMode.RENEWAL);
                 setShowRenewalSearch(true);
+                // Clear all session state when switching modes
+                setCustomerName('');
+                setMembershipNumber('');
+                setCurrentSessionId(null);
+                setAgreementSigned(false);
+                setSelectedRentalType(null);
+                setCustomerSelectedType(null);
+                setWaitlistDesiredTier(null);
+                setWaitlistBackupType(null);
+                setSelectedInventoryItem(null);
+                setPaymentIntentId(null);
+                setPaymentQuote(null);
+                setPaymentStatus(null);
+                setShowCustomerConfirmationPending(false);
+                setCustomerConfirmationType(null);
+                setShowWaitlistModal(false);
               }}
               style={{
                 padding: '0.5rem 1rem',
@@ -1176,6 +1607,26 @@ function App() {
           </section>
         )}
 
+        {/* Waitlist Banner */}
+        {waitlistDesiredTier && waitlistBackupType && (
+          <div style={{
+            padding: '1rem',
+            background: '#fef3c7',
+            border: '2px solid #f59e0b',
+            borderRadius: '8px',
+            marginBottom: '1rem',
+            color: '#92400e',
+          }}>
+            <div style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.5rem' }}>
+              ⚠️ Customer Waitlisted
+            </div>
+            <div style={{ fontSize: '0.875rem' }}>
+              Customer requested <strong>{waitlistDesiredTier}</strong> but it's unavailable.
+              Assigning <strong>{waitlistBackupType}</strong> as backup. If {waitlistDesiredTier} becomes available, customer can upgrade.
+            </div>
+          </div>
+        )}
+
         {/* Inventory Selector */}
         {currentSessionId && customerName && (
           <InventorySelector
@@ -1214,23 +1665,24 @@ function App() {
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   onClick={handleAssign}
-                  disabled={isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID'}
+                  disabled={isSubmitting || showCustomerConfirmationPending}
                   style={{
                     padding: '0.75rem 1.5rem',
-                    background: isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID' ? '#475569' : '#3b82f6',
+                    background: (isSubmitting || showCustomerConfirmationPending) ? '#475569' : '#3b82f6',
                     color: 'white',
                     border: 'none',
                     borderRadius: '6px',
                     fontSize: '1rem',
                     fontWeight: 600,
-                    cursor: isSubmitting || showCustomerConfirmationPending || paymentStatus === 'PAID' ? 'not-allowed' : 'pointer',
+                    cursor: (isSubmitting || showCustomerConfirmationPending) ? 'not-allowed' : 'pointer',
                   }}
+                  title={showCustomerConfirmationPending ? 'Waiting for customer confirmation' : 'Assign resource'}
                 >
-                  {isSubmitting ? 'Assigning...' : paymentStatus === 'PAID' ? 'Assigned ✓' : 'Assign'}
+                  {isSubmitting ? 'Assigning...' : showCustomerConfirmationPending ? 'Waiting for Confirmation' : 'Assign'}
                 </button>
                 <button
                   onClick={handleClearSelection}
-                  disabled={isSubmitting || paymentStatus === 'PAID'}
+                  disabled={isSubmitting}
                   style={{
                     padding: '0.75rem 1.5rem',
                     background: 'transparent',

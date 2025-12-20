@@ -13,6 +13,8 @@ export { cleaningRoutes } from './cleaning.js';
 export { adminRoutes } from './admin.js';
 export { agreementRoutes } from './agreements.js';
 export { upgradeRoutes } from './upgrades.js';
+export { waitlistRoutes } from './waitlist.js';
+export { metricsRoutes } from './metrics.js';
 export { visitRoutes } from './visits.js';
 export { checkoutRoutes } from './checkout.js';
 export { checkinRoutes } from './checkin.js';

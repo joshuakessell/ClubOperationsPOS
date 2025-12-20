@@ -275,7 +275,7 @@ describe('Agreement and Upgrade Flows', () => {
         url: '/v1/upgrades/waitlist',
         payload: {
           sessionId: session.id,
-          desiredRoomType: 'DELUXE',
+          desiredRoomType: 'DOUBLE',
           acknowledgedDisclaimer: true,
         },
       });
@@ -291,7 +291,7 @@ describe('Agreement and Upgrade Flows', () => {
       expect(auditResult.rows.length).toBe(1);
       const newValue = JSON.parse(auditResult.rows[0].new_value);
       expect(newValue.action).toBe('JOIN_WAITLIST');
-      expect(newValue.desiredRoomType).toBe('DELUXE');
+      expect(newValue.desiredRoomType).toBe('DOUBLE');
     }));
 
     it('should log upgrade disclaimer when accepting upgrade', runIfDbAvailable(async () => {
@@ -299,7 +299,7 @@ describe('Agreement and Upgrade Flows', () => {
       const upgradeRoomId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
       await pool.query(
         `INSERT INTO rooms (id, number, type, status, floor)
-         VALUES ($1, 'TEST-201', 'DELUXE', 'CLEAN', 2)`,
+         VALUES ($1, 'TEST-201', 'DOUBLE', 'CLEAN', 2)`,
         [upgradeRoomId]
       );
 
@@ -381,7 +381,7 @@ describe('Agreement and Upgrade Flows', () => {
       const upgradeRoomId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
       await pool.query(
         `INSERT INTO rooms (id, number, type, status, floor)
-         VALUES ($1, 'TEST-301', 'VIP', 'CLEAN', 3)`,
+         VALUES ($1, 'TEST-301', 'SPECIAL', 'CLEAN', 3)`,
         [upgradeRoomId]
       );
 
@@ -427,5 +427,6 @@ describe('Agreement and Upgrade Flows', () => {
     }));
   });
 });
+
 
 

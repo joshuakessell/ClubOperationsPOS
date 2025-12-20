@@ -60,7 +60,8 @@ export type WebSocketEventType =
   | 'ASSIGNMENT_FAILED'
   | 'CUSTOMER_CONFIRMATION_REQUIRED'
   | 'CUSTOMER_CONFIRMED'
-  | 'CUSTOMER_DECLINED';
+  | 'CUSTOMER_DECLINED'
+  | 'WAITLIST_UPDATED';
 
 /**
  * Base WebSocket event structure.
@@ -102,6 +103,7 @@ export interface SessionUpdatedPayload {
   mode?: CheckinMode; // INITIAL or RENEWAL
   blockEndsAt?: string; // ISO timestamp of when current block ends
   visitId?: string; // Visit ID if this is part of a visit
+  status?: string; // Lane session status (IDLE, ACTIVE, AWAITING_ASSIGNMENT, AWAITING_PAYMENT, AWAITING_SIGNATURE, COMPLETED, CANCELLED)
 }
 
 /**
@@ -290,5 +292,18 @@ export interface CustomerConfirmedPayload {
 export interface CustomerDeclinedPayload {
   sessionId: string;
   requestedType: string;
+}
+
+/**
+ * Waitlist updated WebSocket event payload.
+ * Sent when waitlist entry is created, updated, or completed.
+ */
+export interface WaitlistUpdatedPayload {
+  waitlistId: string;
+  status: 'ACTIVE' | 'OFFERED' | 'COMPLETED' | 'CANCELLED';
+  visitId?: string;
+  desiredTier?: string;
+  roomId?: string;
+  roomNumber?: string;
 }
 

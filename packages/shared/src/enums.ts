@@ -14,8 +14,8 @@ export enum RoomStatus {
  */
 export enum RoomType {
   STANDARD = 'STANDARD',
-  DELUXE = 'DELUXE',
-  VIP = 'VIP',
+  DOUBLE = 'DOUBLE',
+  SPECIAL = 'SPECIAL',
   LOCKER = 'LOCKER',
 }
 

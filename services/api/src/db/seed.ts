@@ -18,17 +18,17 @@ const seedRooms: RoomSeed[] = [
   // DIRTY rooms
   { number: '101', type: RoomType.STANDARD, status: RoomStatus.DIRTY, floor: 1, tagCode: 'ROOM-101' },
   { number: '102', type: RoomType.STANDARD, status: RoomStatus.DIRTY, floor: 1, tagCode: 'ROOM-102' },
-  { number: '201', type: RoomType.DELUXE, status: RoomStatus.DIRTY, floor: 2, tagCode: 'ROOM-201' },
+  { number: '201', type: RoomType.SPECIAL, status: RoomStatus.DIRTY, floor: 2, tagCode: 'ROOM-201' },
   
   // CLEANING rooms
   { number: '103', type: RoomType.STANDARD, status: RoomStatus.CLEANING, floor: 1, tagCode: 'ROOM-103' },
-  { number: '202', type: RoomType.DELUXE, status: RoomStatus.CLEANING, floor: 2, tagCode: 'ROOM-202' },
+  { number: '202', type: RoomType.DOUBLE, status: RoomStatus.CLEANING, floor: 2, tagCode: 'ROOM-202' },
   
   // CLEAN rooms
   { number: '104', type: RoomType.STANDARD, status: RoomStatus.CLEAN, floor: 1, tagCode: 'ROOM-104' },
   { number: '105', type: RoomType.STANDARD, status: RoomStatus.CLEAN, floor: 1, tagCode: 'ROOM-105' },
-  { number: '203', type: RoomType.DELUXE, status: RoomStatus.CLEAN, floor: 2, tagCode: 'ROOM-203' },
-  { number: '301', type: RoomType.VIP, status: RoomStatus.CLEAN, floor: 3, tagCode: 'ROOM-301' },
+  { number: '203', type: RoomType.DOUBLE, status: RoomStatus.CLEAN, floor: 2, tagCode: 'ROOM-203' },
+  { number: '301', type: RoomType.SPECIAL, status: RoomStatus.CLEAN, floor: 3, tagCode: 'ROOM-301' },
   { number: 'L01', type: RoomType.LOCKER, status: RoomStatus.CLEAN, floor: 0, tagCode: 'LOCKER-01' },
 ];
 

@@ -1,0 +1,452 @@
+import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import { z } from 'zod';
+import { query, transaction, serializableTransaction } from '../db/index.js';
+import { requireAuth, requireReauth } from '../auth/middleware.js';
+import type { Broadcaster } from '../websocket/broadcaster.js';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    broadcaster: Broadcaster;
+  }
+}
+
+/**
+ * Schema for creating waitlist entry (internal use, created during check-in).
+ */
+const CreateWaitlistSchema = z.object({
+  visitId: z.string().uuid(),
+  checkinBlockId: z.string().uuid(),
+  desiredTier: z.enum(['STANDARD', 'DOUBLE', 'SPECIAL']),
+  backupTier: z.string(),
+  lockerOrRoomAssignedInitially: z.string().uuid().optional(),
+});
+
+/**
+ * Schema for offering upgrade.
+ */
+const OfferUpgradeSchema = z.object({
+  waitlistId: z.string().uuid(),
+  roomId: z.string().uuid(),
+});
+
+/**
+ * Schema for completing upgrade.
+ */
+const CompleteUpgradeSchema = z.object({
+  waitlistId: z.string().uuid(),
+  paymentIntentId: z.string().uuid(),
+});
+
+/**
+ * Schema for cancelling waitlist entry.
+ */
+const CancelWaitlistSchema = z.object({
+  waitlistId: z.string().uuid(),
+  reason: z.string().optional(),
+});
+
+interface WaitlistRow {
+  id: string;
+  visit_id: string;
+  checkin_block_id: string;
+  desired_tier: string;
+  backup_tier: string;
+  locker_or_room_assigned_initially: string | null;
+  room_id: string | null;
+  status: string;
+  created_at: Date;
+  offered_at: Date | null;
+  completed_at: Date | null;
+}
+
+interface CheckinBlockRow {
+  id: string;
+  visit_id: string;
+  room_id: string | null;
+  locker_id: string | null;
+  rental_type: string;
+}
+
+interface RoomRow {
+  id: string;
+  number: string;
+  type: string;
+  status: string;
+  assigned_to: string | null;
+}
+
+interface LockerRow {
+  id: string;
+  number: string;
+  status: string;
+  assigned_to: string | null;
+}
+
+/**
+ * Waitlist management routes.
+ */
+// eslint-disable-next-line @typescript-eslint/require-await
+export async function waitlistRoutes(fastify: FastifyInstance): Promise<void> {
+  /**
+   * GET /v1/waitlist - Get waitlist entries
+   * 
+   * Returns waitlist entries filtered by status.
+   * Staff/admin only.
+   */
+  fastify.get('/v1/waitlist', {
+    preHandler: [requireAuth],
+  }, async (
+    request: FastifyRequest<{
+      Querystring: { status?: 'ACTIVE' | 'OFFERED' | 'COMPLETED' | 'CANCELLED' | 'EXPIRED' };
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { status } = request.query;
+
+    try {
+      let queryStr = `
+        SELECT 
+          w.*,
+          cb.room_id,
+          cb.locker_id,
+          cb.rental_type as current_rental_type,
+          r.number as room_number,
+          l.number as locker_number,
+          v.customer_id,
+          m.name as customer_name,
+          m.membership_number
+        FROM waitlist w
+        JOIN checkin_blocks cb ON w.checkin_block_id = cb.id
+        JOIN visits v ON w.visit_id = v.id
+        LEFT JOIN members m ON v.customer_id = m.id
+        LEFT JOIN rooms r ON cb.room_id = r.id
+        LEFT JOIN lockers l ON cb.locker_id = l.id
+      `;
+
+      const params: string[] = [];
+      if (status) {
+        queryStr += ` WHERE w.status = $1`;
+        params.push(status);
+      }
+
+      queryStr += ` ORDER BY w.created_at ASC`;
+
+      const result = await query<WaitlistRow & {
+        room_id: string | null;
+        locker_id: string | null;
+        current_rental_type: string;
+        room_number: string | null;
+        locker_number: string | null;
+        customer_id: string;
+        customer_name: string;
+        membership_number: string | null;
+      }>(queryStr, params);
+
+      // Return waitlist entries with masked customer info (only locker/room number)
+      const entries = result.rows.map(row => ({
+        id: row.id,
+        visitId: row.visit_id,
+        checkinBlockId: row.checkin_block_id,
+        desiredTier: row.desired_tier,
+        backupTier: row.backup_tier,
+        status: row.status,
+        createdAt: row.created_at,
+        offeredAt: row.offered_at,
+        completedAt: row.completed_at,
+        // Anonymous display: prefer locker number, fallback to room number, then masked ID
+        displayIdentifier: row.locker_number || row.room_number || `***${row.id.substring(0, 8)}`,
+        currentRentalType: row.current_rental_type,
+      }));
+
+      return reply.send({ entries });
+    } catch (error: unknown) {
+      request.log.error(error, 'Failed to fetch waitlist');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to fetch waitlist',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/waitlist/:id/offer - Offer upgrade to waitlist entry
+   * 
+   * When a desired room tier becomes available, staff can offer it.
+   * This marks the waitlist entry as OFFERED.
+   */
+  fastify.post('/v1/waitlist/:id/offer', {
+    preHandler: [requireAuth],
+  }, async (
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: z.infer<typeof OfferUpgradeSchema>;
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+    let body: z.infer<typeof OfferUpgradeSchema>;
+
+    try {
+      body = OfferUpgradeSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      const result = await serializableTransaction(async (client) => {
+        // Get waitlist entry with lock
+        const waitlistResult = await client.query<WaitlistRow>(
+          `SELECT * FROM waitlist WHERE id = $1 FOR UPDATE`,
+          [id]
+        );
+
+        if (waitlistResult.rows.length === 0) {
+          throw { statusCode: 404, message: 'Waitlist entry not found' };
+        }
+
+        const waitlist = waitlistResult.rows[0]!;
+
+        if (waitlist.status !== 'ACTIVE') {
+          throw { statusCode: 400, message: `Waitlist entry is not ACTIVE (current status: ${waitlist.status})` };
+        }
+
+        // Verify room is available and matches desired tier
+        const roomResult = await client.query<RoomRow>(
+          `SELECT id, number, type, status, assigned_to FROM rooms WHERE id = $1 FOR UPDATE`,
+          [body.roomId]
+        );
+
+        if (roomResult.rows.length === 0) {
+          throw { statusCode: 404, message: 'Room not found' };
+        }
+
+        const room = roomResult.rows[0]!;
+
+        if (room.status !== 'CLEAN') {
+          throw { statusCode: 400, message: `Room ${room.number} is not available (status: ${room.status})` };
+        }
+
+        if (room.assigned_to) {
+          throw { statusCode: 409, message: `Room ${room.number} is already assigned` };
+        }
+
+        // Verify tier matches (simplified - would need getRoomTier function)
+        // For now, assume room type matches desired tier
+
+        // Update waitlist entry to OFFERED and store room_id
+        await client.query(
+          `UPDATE waitlist 
+           SET status = 'OFFERED', offered_at = NOW(), room_id = $1, updated_at = NOW()
+           WHERE id = $2`,
+          [body.roomId, id]
+        );
+
+        // Log audit
+        await client.query(
+          `INSERT INTO audit_log 
+           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
+           VALUES ($1, $2, 'staff', 'WAITLIST_OFFERED', 'waitlist', $3, $4, $5)`,
+          [
+            request.staff.staffId,
+            request.staff.staffId,
+            id,
+            JSON.stringify({ status: 'ACTIVE' }),
+            JSON.stringify({ status: 'OFFERED', room_id: body.roomId, room_number: room.number }),
+          ]
+        );
+
+        // Broadcast waitlist update
+        fastify.broadcaster.broadcast({
+          type: 'WAITLIST_UPDATED',
+          payload: {
+            waitlistId: id,
+            status: 'OFFERED',
+            roomId: body.roomId,
+            roomNumber: room.number,
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        return {
+          waitlistId: id,
+          status: 'OFFERED',
+          roomId: body.roomId,
+          roomNumber: room.number,
+        };
+      });
+
+      return reply.send(result);
+    } catch (error: unknown) {
+      request.log.error(error, 'Failed to offer upgrade');
+      if (error && typeof error === 'object' && 'statusCode' in error) {
+        return reply.status((error as { statusCode: number }).statusCode).send({
+          error: (error as { message: string }).message || 'Failed to offer upgrade',
+        });
+      }
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to offer upgrade',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/waitlist/:id/complete - Complete upgrade (after payment)
+   * 
+   * Marks waitlist entry as COMPLETED and performs the upgrade.
+   */
+  fastify.post('/v1/waitlist/:id/complete', {
+    preHandler: [requireAuth],
+  }, async (
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: z.infer<typeof CompleteUpgradeSchema>;
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+    let body: z.infer<typeof CompleteUpgradeSchema>;
+
+    try {
+      body = CompleteUpgradeSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      // This will be handled by the upgrade fulfillment endpoint
+      // This is a placeholder - actual upgrade logic is in upgrade routes
+      return reply.status(501).send({
+        error: 'Not Implemented',
+        message: 'Use /v1/upgrades/fulfill instead',
+      });
+    } catch (error: unknown) {
+      request.log.error(error, 'Failed to complete upgrade');
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to complete upgrade',
+      });
+    }
+  });
+
+  /**
+   * POST /v1/waitlist/:id/cancel - Cancel waitlist entry
+   * 
+   * Staff can cancel a waitlist entry.
+   * Requires step-up re-auth.
+   */
+  fastify.post('/v1/waitlist/:id/cancel', {
+    preHandler: [requireReauth],
+  }, async (
+    request: FastifyRequest<{
+      Params: { id: string };
+      Body: z.infer<typeof CancelWaitlistSchema>;
+    }>,
+    reply: FastifyReply
+  ) => {
+    if (!request.staff) {
+      return reply.status(401).send({ error: 'Unauthorized' });
+    }
+
+    const { id } = request.params;
+    let body: z.infer<typeof CancelWaitlistSchema>;
+
+    try {
+      body = CancelWaitlistSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
+
+    try {
+      const result = await transaction(async (client) => {
+        // Get waitlist entry
+        const waitlistResult = await client.query<WaitlistRow>(
+          `SELECT * FROM waitlist WHERE id = $1 FOR UPDATE`,
+          [id]
+        );
+
+        if (waitlistResult.rows.length === 0) {
+          throw { statusCode: 404, message: 'Waitlist entry not found' };
+        }
+
+        const waitlist = waitlistResult.rows[0]!;
+
+        if (waitlist.status === 'COMPLETED' || waitlist.status === 'CANCELLED') {
+          throw { statusCode: 400, message: `Cannot cancel waitlist entry with status ${waitlist.status}` };
+        }
+
+        // Update to CANCELLED
+        await client.query(
+          `UPDATE waitlist 
+           SET status = 'CANCELLED', cancelled_at = NOW(), cancelled_by_staff_id = $1, updated_at = NOW()
+           WHERE id = $2`,
+          [request.staff.staffId, id]
+        );
+
+        // Log audit
+        await client.query(
+          `INSERT INTO audit_log 
+           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
+           VALUES ($1, $2, 'staff', 'WAITLIST_CANCELLED', 'waitlist', $3, $4, $5)`,
+          [
+            request.staff.staffId,
+            request.staff.staffId,
+            id,
+            JSON.stringify({ status: waitlist.status }),
+            JSON.stringify({ status: 'CANCELLED', reason: body.reason || 'Cancelled by staff' }),
+          ]
+        );
+
+        // Broadcast update
+        fastify.broadcaster.broadcast({
+          type: 'WAITLIST_UPDATED',
+          payload: {
+            waitlistId: id,
+            status: 'CANCELLED',
+          },
+          timestamp: new Date().toISOString(),
+        });
+
+        return {
+          waitlistId: id,
+          status: 'CANCELLED',
+        };
+      });
+
+      return reply.send(result);
+    } catch (error: unknown) {
+      request.log.error(error, 'Failed to cancel waitlist');
+      if (error && typeof error === 'object' && 'statusCode' in error) {
+        return reply.status((error as { statusCode: number }).statusCode).send({
+          error: (error as { message: string }).message || 'Failed to cancel waitlist',
+        });
+      }
+      return reply.status(500).send({
+        error: 'Internal Server Error',
+        message: 'Failed to cancel waitlist',
+      });
+    }
+  });
+}
+

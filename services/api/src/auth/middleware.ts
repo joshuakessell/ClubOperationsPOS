@@ -107,11 +107,81 @@ export async function requireAdmin(
 }
 
 /**
+ * Step-up re-authentication middleware.
+ * Requires re-auth within 2 minutes for sensitive actions.
+ * 
+ * Sensitive actions include:
+ * - Completing an upgrade (after payment)
+ * - Marking upgrade paid
+ * - Issuing the final 2-hour extension
+ * - Cancelling waitlist entries
+ */
+export async function requireReauth(
+  request: FastifyRequest,
+  reply: FastifyReply
+): Promise<void> {
+  // First ensure basic auth
+  await requireAuth(request, reply);
+  
+  if (!request.staff) {
+    return; // requireAuth already sent error response
+  }
+
+  const authHeader = request.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return reply.status(401).send({
+      error: 'Unauthorized',
+      message: 'Missing authorization header',
+    });
+  }
+
+  const token = authHeader.substring(7);
+
+  try {
+    // Check if session was created within last 2 minutes (step-up re-auth window)
+    const sessionResult = await query<{
+      created_at: string;
+    }>(
+      `SELECT created_at FROM staff_sessions WHERE session_token = $1 AND revoked_at IS NULL`,
+      [token]
+    );
+
+    if (sessionResult.rows.length === 0) {
+      return reply.status(401).send({
+        error: 'Unauthorized',
+        message: 'Invalid session token',
+      });
+    }
+
+    const session = sessionResult.rows[0]!;
+    const createdAt = new Date(session.created_at);
+    const now = new Date();
+    const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+
+    // Require re-auth if session is older than 2 minutes
+    if (minutesSinceCreation > 2) {
+      return reply.status(403).send({
+        error: 'Re-authentication required',
+        message: 'This action requires re-authentication. Please log in again.',
+        code: 'REAUTH_REQUIRED',
+      });
+    }
+  } catch (error) {
+    request.log.error(error, 'Error checking re-auth');
+    return reply.status(500).send({
+      error: 'Internal Server Error',
+      message: 'Failed to validate re-authentication',
+    });
+  }
+}
+
+/**
  * Register authentication middleware as a Fastify hook.
  */
 export function registerAuthMiddleware(fastify: FastifyInstance): void {
   // This will be used as a preHandler on specific routes
   // No global hook needed - we'll apply it per-route
 }
+
 
 

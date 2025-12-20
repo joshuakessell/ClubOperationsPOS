@@ -12,7 +12,8 @@
     "doctor": "node scripts/doctor.js",
     "typecheck": "pnpm -r typecheck",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "spec:check": "node scripts/spec-compliance.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",

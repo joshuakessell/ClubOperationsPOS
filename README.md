@@ -142,6 +142,50 @@ Fastify-based REST API server with WebSocket support:
 
 See [AGENTS.md](./AGENTS.md) for complete coding guidelines.
 
+## 📋 Specifications and Documentation
+
+**SPEC.md is the canonical source of truth** for business rules and product behavior. All implementation must align with SPEC.md.
+
+### Key Specification Files
+
+- **SPEC.md** - Technical specification and business rules (canonical)
+- **AGENTS.md** - Agent coding guidelines and project architecture
+- **openapi.yaml** - API contract (should match implemented endpoints)
+- **db/schema.sql** - Database schema snapshot (should match current migrations)
+
+### Regenerating Schema Documentation
+
+If migrations have changed and you need to update `db/schema.sql`:
+
+```bash
+# Option 1: Use pg_dump (if database is running)
+cd services/api
+pnpm db:start
+pg_dump -h localhost -p 5433 -U clubops -d club_operations --schema-only > ../../db/schema.sql
+
+# Option 2: Manually consolidate from migrations
+# Review all files in services/api/migrations/ and create consolidated schema
+```
+
+If API endpoints have changed and you need to update `openapi.yaml`:
+
+- Review all route files in `services/api/src/routes/`
+- Update openapi.yaml to match actual endpoint paths, methods, and schemas
+- Ensure security requirements (auth/admin) are documented correctly
+
+### SPEC Compliance Check
+
+Run the compliance check to ensure codebase aligns with SPEC.md:
+
+```bash
+pnpm spec:check
+```
+
+This validates:
+- Room tier enums match SPEC.md (STANDARD, DOUBLE, SPECIAL)
+- No forbidden tier strings exist (VIP, DELUXE, etc.)
+- Room tier values are correct
+
 ## 🧪 Testing
 
 ```bash

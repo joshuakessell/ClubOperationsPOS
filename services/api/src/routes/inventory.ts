@@ -42,7 +42,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    * GET /v1/inventory/summary - Get inventory summary by status and type
    * 
    * Returns counts of rooms and lockers grouped by status (CLEAN, CLEANING, DIRTY)
-   * and by type (STANDARD, DELUXE, VIP).
+   * and by type (STANDARD, DOUBLE, SPECIAL).
    */
   fastify.get('/v1/inventory/summary', async (_request, reply: FastifyReply) => {
     try {
@@ -66,8 +66,8 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       // Build byType inventory
       const byType: Record<string, { clean: number; cleaning: number; dirty: number; total: number }> = {
         STANDARD: { clean: 0, cleaning: 0, dirty: 0, total: 0 },
-        DELUXE: { clean: 0, cleaning: 0, dirty: 0, total: 0 },
-        VIP: { clean: 0, cleaning: 0, dirty: 0, total: 0 },
+        DOUBLE: { clean: 0, cleaning: 0, dirty: 0, total: 0 },
+        SPECIAL: { clean: 0, cleaning: 0, dirty: 0, total: 0 },
       };
 
       let overallClean = 0;

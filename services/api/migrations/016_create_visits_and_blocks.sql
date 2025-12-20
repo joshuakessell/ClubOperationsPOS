@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS checkin_blocks (
   block_type block_type NOT NULL,
   starts_at TIMESTAMPTZ NOT NULL,
   ends_at TIMESTAMPTZ NOT NULL,
-  rental_type VARCHAR(50) NOT NULL, -- 'STANDARD', 'DELUXE', 'VIP', 'LOCKER', 'GYM_LOCKER'
+  rental_type VARCHAR(50) NOT NULL, -- 'STANDARD', 'DOUBLE', 'SPECIAL', 'LOCKER', 'GYM_LOCKER'
   room_id UUID REFERENCES rooms(id) ON DELETE SET NULL,
   locker_id UUID REFERENCES lockers(id) ON DELETE SET NULL,
   session_id UUID REFERENCES sessions(id) ON DELETE SET NULL, -- Link to existing session for backward compatibility

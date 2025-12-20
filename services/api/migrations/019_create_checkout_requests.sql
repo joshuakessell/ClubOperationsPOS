@@ -32,3 +32,4 @@ CREATE INDEX idx_checkout_requests_claimed ON checkout_requests(claimed_by_staff
 CREATE INDEX idx_checkout_requests_active ON checkout_requests(status) WHERE status IN ('REQUESTED', 'CLAIMED');
 CREATE INDEX idx_checkout_requests_claim_expires ON checkout_requests(claim_expires_at) WHERE claim_expires_at IS NOT NULL;
 
+

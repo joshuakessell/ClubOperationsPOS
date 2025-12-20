@@ -1,0 +1,815 @@
+openapi: 3.0.3
+info:
+  title: Club Operations POS API
+  version: 1.0.0
+  description: |
+    Server-authoritative REST API for managing club check-ins, room/locker assignments,
+    cleaning workflows, checkout verification, and operational reporting.
+    
+    All endpoints are versioned under `/v1`.
+    Request bodies are validated with Zod schemas.
+    
+    Authentication:
+    - Staff endpoints require Bearer token (session token from PIN or WebAuthn login)
+    - Admin endpoints require ADMIN role in addition to authentication
+    - Customer-facing endpoints (agreement signing, checkout kiosk) do not require auth
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+
+tags:
+  - name: Health
+    description: Health check endpoints
+  - name: Authentication
+    description: Staff authentication (PIN and WebAuthn)
+  - name: Check-in
+    description: Lane session management and check-in flow
+  - name: Inventory
+    description: Room and locker availability
+  - name: Cleaning
+    description: Room status transitions for cleaning workflow
+  - name: Checkout
+    description: Customer checkout initiation and staff verification
+  - name: Agreements
+    description: Agreement management and signatures
+  - name: Upgrades
+    description: Waitlist and upgrade processing
+  - name: Visits
+    description: Visit and renewal management
+  - name: Admin
+    description: Admin-only operations (staff management, metrics)
+  - name: Metrics
+    description: Operational metrics and analytics
+  - name: Keys
+    description: Key tag resolution
+
+paths:
+  /v1/health:
+    get:
+      tags: [Health]
+      summary: Health check
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  uptime:
+                    type: number
+                    example: 12345
+
+  /v1/auth/login-pin:
+    post:
+      tags: [Authentication]
+      summary: Staff login with PIN
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staffLookup, deviceId, pin]
+              properties:
+                staffLookup:
+                  type: string
+                  description: Staff ID or name
+                deviceId:
+                  type: string
+                pin:
+                  type: string
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionToken:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+                  staff:
+                    $ref: '#/components/schemas/Staff'
+        '401':
+          description: Invalid credentials
+
+  /v1/auth/webauthn/registration/options:
+    post:
+      tags: [Authentication]
+      summary: Generate WebAuthn registration options
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staffId, deviceId]
+              properties:
+                staffId:
+                  type: string
+                  format: uuid
+                deviceId:
+                  type: string
+      responses:
+        '200':
+          description: Registration options
+
+  /v1/auth/webauthn/registration/verify:
+    post:
+      tags: [Authentication]
+      summary: Verify WebAuthn registration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staffId, deviceId, credentialResponse]
+              properties:
+                staffId:
+                  type: string
+                  format: uuid
+                deviceId:
+                  type: string
+                credentialResponse:
+                  type: object
+      responses:
+        '200':
+          description: Registration verified
+
+  /v1/auth/webauthn/authentication/options:
+    post:
+      tags: [Authentication]
+      summary: Generate WebAuthn authentication options
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [staffLookup, deviceId]
+              properties:
+                staffLookup:
+                  type: string
+                deviceId:
+                  type: string
+      responses:
+        '200':
+          description: Authentication options
+
+  /v1/auth/webauthn/authentication/verify:
+    post:
+      tags: [Authentication]
+      summary: Verify WebAuthn authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [deviceId, credentialResponse]
+              properties:
+                deviceId:
+                  type: string
+                credentialResponse:
+                  type: object
+      responses:
+        '200':
+          description: Authentication verified
+
+  /v1/checkin/lane/{laneId}/start:
+    post:
+      tags: [Check-in]
+      summary: Start lane session with ID/membership scan
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idScanValue]
+              properties:
+                idScanValue:
+                  type: string
+                membershipScanValue:
+                  type: string
+                checkinMode:
+                  type: string
+                  enum: [INITIAL, RENEWAL]
+                visitId:
+                  type: string
+                  format: uuid
+      responses:
+        '200':
+          description: Lane session created/updated
+        '401':
+          description: Unauthorized
+
+  /v1/checkin/lane/{laneId}/select-rental:
+    post:
+      tags: [Check-in]
+      summary: Customer selects rental preference
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rentalType]
+              properties:
+                rentalType:
+                  type: string
+                  enum: [LOCKER, STANDARD, DOUBLE, SPECIAL, GYM_LOCKER]
+      responses:
+        '200':
+          description: Rental selection recorded
+
+  /v1/checkin/lane/{laneId}/assign:
+    post:
+      tags: [Check-in]
+      summary: Assign room/locker with transactional locking
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [resourceId, resourceType]
+              properties:
+                resourceId:
+                  type: string
+                  format: uuid
+                resourceType:
+                  type: string
+                  enum: [room, locker]
+      responses:
+        '200':
+          description: Assignment successful
+        '409':
+          description: Resource already assigned
+
+  /v1/checkin/lane/{laneId}/create-payment-intent:
+    post:
+      tags: [Check-in]
+      summary: Create payment intent from price quote
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Payment intent created
+
+  /v1/payments/{id}/mark-paid:
+    post:
+      tags: [Check-in]
+      summary: Mark payment intent as paid (after Square payment)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Payment marked as paid
+
+  /v1/checkin/lane/{laneId}/sign-agreement:
+    post:
+      tags: [Check-in]
+      summary: Store agreement signature
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [signaturePngBase64, agreed]
+              properties:
+                signaturePngBase64:
+                  type: string
+                signatureStrokesJson:
+                  type: object
+                agreed:
+                  type: boolean
+      responses:
+        '200':
+          description: Signature stored
+
+  /v1/checkin/lane/{laneId}/customer-confirm:
+    post:
+      tags: [Check-in]
+      summary: Customer confirms cross-type assignment
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmed]
+              properties:
+                confirmed:
+                  type: boolean
+      responses:
+        '200':
+          description: Confirmation recorded
+
+  /v1/checkin/lane-sessions:
+    get:
+      tags: [Check-in]
+      summary: Get active lane sessions for office dashboard
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of active lane sessions
+
+  /v1/inventory/summary:
+    get:
+      tags: [Inventory]
+      summary: Get inventory summary by status and type
+      responses:
+        '200':
+          description: Inventory summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InventorySummary'
+
+  /v1/cleaning/batch:
+    post:
+      tags: [Cleaning]
+      summary: Batch update room statuses (DIRTY→CLEANING or CLEANING→CLEAN)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [scanned]
+              properties:
+                scanned:
+                  type: array
+                  items:
+                    type: object
+                    required: [roomId, fromStatus, toStatus]
+                    properties:
+                      roomId:
+                        type: string
+                        format: uuid
+                      fromStatus:
+                        type: string
+                        enum: [DIRTY, CLEANING, CLEAN]
+                      toStatus:
+                        type: string
+                        enum: [DIRTY, CLEANING, CLEAN]
+                      override:
+                        type: boolean
+                        default: false
+                      overrideReason:
+                        type: string
+      responses:
+        '200':
+          description: Batch update completed
+
+  /v1/checkout/resolve-key:
+    post:
+      tags: [Checkout]
+      summary: Resolve key tag for checkout
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token, kioskDeviceId]
+              properties:
+                token:
+                  type: string
+                kioskDeviceId:
+                  type: string
+      responses:
+        '200':
+          description: Key resolved
+
+  /v1/checkout/request:
+    post:
+      tags: [Checkout]
+      summary: Create checkout request
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [occupancyId, kioskDeviceId, checklist]
+              properties:
+                occupancyId:
+                  type: string
+                  format: uuid
+                kioskDeviceId:
+                  type: string
+                checklist:
+                  type: object
+                  properties:
+                    lockerKey:
+                      type: boolean
+                    towel:
+                      type: boolean
+                    roomKey:
+                      type: boolean
+                    bedSheets:
+                      type: boolean
+                    tvRemote:
+                      type: boolean
+      responses:
+        '200':
+          description: Checkout request created
+
+  /v1/checkout/requests/{id}/claim:
+    post:
+      tags: [Checkout]
+      summary: Claim checkout request for verification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Request claimed
+
+  /v1/checkout/requests/{id}/complete:
+    post:
+      tags: [Checkout]
+      summary: Complete checkout verification
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                note:
+                  type: string
+      responses:
+        '200':
+          description: Checkout completed
+
+  /v1/agreements/active:
+    get:
+      tags: [Agreements]
+      summary: Get active agreement
+      responses:
+        '200':
+          description: Active agreement
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Agreement'
+
+  /v1/upgrades/waitlist:
+    post:
+      tags: [Upgrades]
+      summary: Join waitlist for upgrade
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, desiredRoomType, acknowledgedDisclaimer]
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                desiredRoomType:
+                  type: string
+                  enum: [STANDARD, DOUBLE, SPECIAL]
+                acknowledgedDisclaimer:
+                  type: boolean
+      responses:
+        '200':
+          description: Waitlist entry created
+
+  /v1/visits:
+    post:
+      tags: [Visits]
+      summary: Create initial visit
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customerId, rentalType]
+              properties:
+                customerId:
+                  type: string
+                  format: uuid
+                rentalType:
+                  type: string
+                  enum: [STANDARD, DOUBLE, SPECIAL, LOCKER, GYM_LOCKER]
+                roomId:
+                  type: string
+                  format: uuid
+                lockerId:
+                  type: string
+                  format: uuid
+                lane:
+                  type: string
+      responses:
+        '200':
+          description: Visit created
+
+  /v1/visits/{id}/renew:
+    post:
+      tags: [Visits]
+      summary: Renew visit (add 6-hour block)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rentalType]
+              properties:
+                rentalType:
+                  type: string
+                  enum: [STANDARD, DOUBLE, SPECIAL, LOCKER, GYM_LOCKER]
+                roomId:
+                  type: string
+                  format: uuid
+                lockerId:
+                  type: string
+                  format: uuid
+                lane:
+                  type: string
+      responses:
+        '200':
+          description: Visit renewed
+
+  /v1/admin/staff:
+    get:
+      tags: [Admin]
+      summary: List all staff
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of staff members
+        '403':
+          description: Admin access required
+
+    post:
+      tags: [Admin]
+      summary: Create staff member
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, role]
+              properties:
+                name:
+                  type: string
+                role:
+                  type: string
+                  enum: [STAFF, ADMIN]
+                pin:
+                  type: string
+      responses:
+        '200':
+          description: Staff created
+        '403':
+          description: Admin access required
+
+  /v1/admin/staff/{id}/reset-pin:
+    post:
+      tags: [Admin]
+      summary: Reset staff PIN
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pin]
+              properties:
+                pin:
+                  type: string
+      responses:
+        '200':
+          description: PIN reset
+        '403':
+          description: Admin access required
+
+  /v1/metrics/upgrades:
+    get:
+      tags: [Metrics]
+      summary: Get upgrade metrics
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Upgrade metrics
+
+  /v1/keys/resolve:
+    post:
+      tags: [Keys]
+      summary: Resolve key tag to room information
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token:
+                  type: string
+      responses:
+        '200':
+          description: Room information
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Session token from PIN or WebAuthn login
+
+  schemas:
+    Staff:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        role:
+          type: string
+          enum: [STAFF, ADMIN]
+        active:
+          type: boolean
+
+    Room:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        type:
+          type: string
+          enum: [STANDARD, DOUBLE, SPECIAL, LOCKER]
+        status:
+          type: string
+          enum: [DIRTY, CLEANING, CLEAN, OCCUPIED]
+        floor:
+          type: integer
+
+    Locker:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        number:
+          type: string
+        status:
+          type: string
+
+    InventorySummary:
+      type: object
+      properties:
+        byType:
+          type: object
+          additionalProperties:
+            type: object
+            properties:
+              clean:
+                type: integer
+              cleaning:
+                type: integer
+              dirty:
+                type: integer
+              total:
+                type: integer
+        lockers:
+          type: object
+          properties:
+            clean:
+              type: integer
+            total:
+              type: integer
+
+    Agreement:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        version:
+          type: string
+        title:
+          type: string
+        bodyText:
+          type: string
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+

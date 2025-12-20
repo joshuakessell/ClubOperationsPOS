@@ -47,7 +47,7 @@ pnpm seed
 This creates:
 - 10 rooms with various statuses (DIRTY, CLEANING, CLEAN)
 - Key tags with QR scan tokens (e.g., `ROOM-101`, `ROOM-102`, etc.)
-- Mix of room types (STANDARD, DELUXE, VIP, LOCKER)
+- Mix of room types (STANDARD, DOUBLE, SPECIAL, LOCKER)
 
 **Scan tokens for testing:**
 - `ROOM-101`, `ROOM-102`, `ROOM-201` → DIRTY rooms
@@ -124,7 +124,7 @@ The following tables are created by migrations:
 ### Enums
 
 - `room_status`: DIRTY, CLEANING, CLEAN
-- `room_type`: STANDARD, DELUXE, VIP, LOCKER
+- `room_type`: STANDARD, DOUBLE, SPECIAL, LOCKER
 - `session_status`: ACTIVE, COMPLETED, CANCELLED
 - `key_tag_type`: QR, NFC
 - `audit_action`: CREATE, UPDATE, DELETE, STATUS_CHANGE, ASSIGN, RELEASE, OVERRIDE, CHECK_IN, CHECK_OUT

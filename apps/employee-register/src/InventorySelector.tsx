@@ -4,7 +4,7 @@ import { RoomStatus, RoomType } from '@club-ops/shared';
 interface DetailedRoom {
   id: string;
   number: string;
-  tier: string; // STANDARD, DELUXE, VIP
+  tier: string; // STANDARD, DOUBLE, SPECIAL
   status: RoomStatus;
   floor: number;
   lastStatusChange: string;
@@ -31,7 +31,7 @@ interface DetailedInventory {
 }
 
 interface InventorySelectorProps {
-  customerSelectedType: string | null; // LOCKER, STANDARD, DELUXE, VIP
+  customerSelectedType: string | null; // LOCKER, STANDARD, DOUBLE, SPECIAL
   waitlistDesiredTier?: string | null;
   waitlistBackupType?: string | null;
   onSelect: (type: 'room' | 'locker', id: string, number: string, tier: string) => void;
@@ -43,8 +43,8 @@ interface InventorySelectorProps {
 
 // Map room types to display names
 const ROOM_TYPE_LABELS: Record<string, string> = {
-  VIP: 'Special Rooms',
-  DELUXE: 'Double Rooms',
+  SPECIAL: 'Special Rooms',
+  DOUBLE: 'Double Rooms',
   STANDARD: 'Standard Rooms',
   LOCKER: 'Lockers',
 };
@@ -329,11 +329,11 @@ export function InventorySelector({
   // Group rooms by tier (must be before conditional returns to follow React hooks rules)
   const roomsByTier = useMemo(() => {
     if (!inventory) {
-      return { VIP: [], DELUXE: [], STANDARD: [] };
+      return { SPECIAL: [], DOUBLE: [], STANDARD: [] };
     }
     const grouped: Record<string, DetailedRoom[]> = {
-      VIP: [],
-      DELUXE: [],
+      SPECIAL: [],
+      DOUBLE: [],
       STANDARD: [],
     };
 

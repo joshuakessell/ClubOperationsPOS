@@ -15,6 +15,8 @@ import {
   adminRoutes,
   agreementRoutes,
   upgradeRoutes,
+  waitlistRoutes,
+  metricsRoutes,
   visitRoutes,
   checkoutRoutes,
   checkinRoutes
@@ -85,6 +87,8 @@ async function main() {
   await fastify.register(adminRoutes);
   await fastify.register(agreementRoutes);
   await fastify.register(upgradeRoutes);
+  await fastify.register(waitlistRoutes);
+  await fastify.register(metricsRoutes);
   await fastify.register(visitRoutes);
   await fastify.register(checkoutRoutes);
   await fastify.register(checkinRoutes);
