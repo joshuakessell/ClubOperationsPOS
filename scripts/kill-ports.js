@@ -12,7 +12,7 @@ const execAsync = promisify(exec);
 const isWindows = process.platform === 'win32';
 
 const PORTS = [3001, 5173, 5174, 5175, 5176, 5177];
-const POSTGRES_PORT = 5432;
+const POSTGRES_PORT = 5433;
 
 async function killPortWindows(port) {
   try {

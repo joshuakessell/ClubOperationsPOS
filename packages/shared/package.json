@@ -15,9 +15,9 @@
     "build": "tsc",
     "dev": "tsc --watch",
     "pretest": "pnpm build",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "eslint src --ext .ts",
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
+    "lint": "pnpm exec eslint src --ext .ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

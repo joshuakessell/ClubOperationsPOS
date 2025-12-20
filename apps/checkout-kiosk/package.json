@@ -7,9 +7,9 @@
     "dev": "vite --port 5177 --strictPort",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "lint": "eslint src --ext .ts,.tsx",
+    "test": "pnpm exec vitest run",
+    "test:watch": "pnpm exec vitest",
+    "lint": "pnpm exec eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
