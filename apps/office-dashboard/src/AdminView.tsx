@@ -68,7 +68,8 @@ export function AdminView({ session }: AdminViewProps) {
   const [selectedStaffId, setSelectedStaffId] = useState<string>('');
   const [dateFrom, setDateFrom] = useState<string>(() => {
     const d = new Date();
-    d.setHours(d.getHours() - 24, 0, 0, 0);
+    d.setHours(0, 0, 0, 0);
+    d.setTime(d.getTime() - 24 * 60 * 60 * 1000); // Subtract 24 hours
     return d.toISOString().slice(0, 16);
   });
   const [dateTo, setDateTo] = useState<string>(() => {

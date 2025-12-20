@@ -414,8 +414,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         `SELECT challenge FROM webauthn_challenges
          WHERE staff_id = $1
            AND device_id = $2
-           AND purpose = 'reauth'
-           AND consumed_at IS NULL
+           AND type = 'reauth'
            AND expires_at > NOW()
          ORDER BY created_at DESC
          LIMIT 1`,
