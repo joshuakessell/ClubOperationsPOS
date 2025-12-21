@@ -1,9 +1,61 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { checkoutRoutes } from '../src/routes/checkout.js';
 import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
 import { RoomStatus } from '@club-ops/shared';
+
+// Mock auth middleware to allow test requests
+// For checkout tests, we'll validate real tokens when provided
+vi.mock('../src/auth/middleware.js', async () => {
+  const { query } = await import('../src/db/index.js');
+  return {
+    requireAuth: async (request: any, reply: any) => {
+      const authHeader = request.headers.authorization || request.headers.Authorization;
+      if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // For tests without auth header, use default staff
+        request.staff = { staffId: 'test-staff', role: 'STAFF' };
+        return;
+      }
+      
+      const token = authHeader.substring(7);
+      // Validate token against database
+      try {
+        const sessionResult = await query<{ staff_id: string; name: string; role: string }>(
+          `SELECT s.staff_id, st.name, st.role
+           FROM staff_sessions s
+           JOIN staff st ON s.staff_id = st.id
+           WHERE s.session_token = $1 AND s.revoked_at IS NULL AND st.active = true`,
+          [token]
+        );
+        
+        if (sessionResult.rows.length > 0) {
+          const session = sessionResult.rows[0]!;
+          request.staff = {
+            staffId: session.staff_id,
+            name: session.name,
+            role: session.role as 'STAFF' | 'ADMIN',
+          };
+          return;
+        }
+      } catch (error) {
+        // Fall through to default
+      }
+      
+      // Default for tests
+      request.staff = { staffId: 'test-staff', role: 'STAFF' };
+    },
+    requireAdmin: async (_request: any, _reply: any) => {
+      // No-op for tests
+    },
+    requireReauth: async (request: any, _reply: any) => {
+      request.staff = { staffId: 'test-staff', role: 'STAFF' };
+    },
+    requireReauthForAdmin: async (request: any, _reply: any) => {
+      request.staff = { staffId: 'test-staff', role: 'ADMIN' };
+    },
+  };
+});
 
 // Augment FastifyInstance with broadcaster
 declare module 'fastify' {
@@ -81,10 +133,10 @@ describe('Checkout Flow', () => {
     );
     testStaffToken = sessionToken;
 
-    // Create a visit and block
+    // Create a visit and block - ensure visit is active (ended_at IS NULL)
     const visitResult = await pool.query(
-      `INSERT INTO visits (customer_id, started_at)
-       VALUES ($1, NOW() - INTERVAL '7 hours')
+      `INSERT INTO visits (customer_id, started_at, ended_at)
+       VALUES ($1, NOW() - INTERVAL '7 hours', NULL)
        RETURNING id`,
       [testMemberId]
     );
@@ -120,9 +172,13 @@ describe('Checkout Flow', () => {
   });
 
   beforeEach(async () => {
+    // Ensure visit is active for each test
+    await pool.query('UPDATE visits SET ended_at = NULL WHERE id = $1', [testVisitId]);
+    
     fastify = Fastify();
     const broadcaster = createBroadcaster();
     fastify.decorate('broadcaster', broadcaster);
+    // Register routes (auth is mocked via vi.mock)
     await fastify.register(checkoutRoutes);
     await fastify.ready();
   });
@@ -133,7 +189,8 @@ describe('Checkout Flow', () => {
 
   describe('Late fee calculations', () => {
     it('should calculate $0 fee for < 30 minutes late', async () => {
-      // Create a block that ended 15 minutes ago
+      // Delete old block and create a new one that ended 15 minutes ago
+      await pool.query('DELETE FROM checkin_blocks WHERE id = $1', [testBlockId]);
       const blockResult = await pool.query(
         `INSERT INTO checkin_blocks (visit_id, block_type, starts_at, ends_at, rental_type, room_id)
          VALUES ($1, 'INITIAL', NOW() - INTERVAL '6 hours 15 minutes', NOW() - INTERVAL '15 minutes', 'STANDARD', $2)
@@ -141,10 +198,15 @@ describe('Checkout Flow', () => {
         [testVisitId, testRoomId]
       );
       const blockId = blockResult.rows[0]!.id;
+      // Update testBlockId for subsequent tests
+      testBlockId = blockId;
 
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/checkout/resolve-key',
+        headers: {
+          'Authorization': `Bearer ${testStaffToken}`,
+        },
         payload: {
           token: 'TEST-KEY-001',
           kioskDeviceId: 'test-kiosk',
@@ -170,6 +232,9 @@ describe('Checkout Flow', () => {
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/checkout/resolve-key',
+        headers: {
+          'Authorization': `Bearer ${testStaffToken}`,
+        },
         payload: {
           token: 'TEST-KEY-001',
           kioskDeviceId: 'test-kiosk',
@@ -193,6 +258,9 @@ describe('Checkout Flow', () => {
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/checkout/resolve-key',
+        headers: {
+          'Authorization': `Bearer ${testStaffToken}`,
+        },
         payload: {
           token: 'TEST-KEY-001',
           kioskDeviceId: 'test-kiosk',
@@ -216,6 +284,9 @@ describe('Checkout Flow', () => {
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/checkout/resolve-key',
+        headers: {
+          'Authorization': `Bearer ${testStaffToken}`,
+        },
         payload: {
           token: 'TEST-KEY-001',
           kioskDeviceId: 'test-kiosk',
@@ -269,6 +340,7 @@ describe('Checkout Flow', () => {
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/checkout/request',
+        // Note: checkout/request is customer-facing and may not require auth
         payload: {
           occupancyId: testBlockId,
           kioskDeviceId: 'test-kiosk',
@@ -291,7 +363,8 @@ describe('Checkout Flow', () => {
       );
       expect(requestResult.rows.length).toBe(1);
       expect(requestResult.rows[0]!.late_minutes).toBeGreaterThanOrEqual(30);
-      expect(requestResult.rows[0]!.late_fee_amount).toBe(15);
+      // late_fee_amount is DECIMAL in DB, returned as string, so parse it
+      expect(parseFloat(requestResult.rows[0]!.late_fee_amount as string)).toBe(15);
 
       // Clean up
       await pool.query('DELETE FROM checkout_requests WHERE id = $1', [data.requestId]);

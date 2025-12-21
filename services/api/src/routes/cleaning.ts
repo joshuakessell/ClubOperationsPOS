@@ -257,30 +257,26 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
           if (isOverrideTransition) {
             await client.query(
               `INSERT INTO audit_log 
-               (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value, override_reason)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+               (staff_id, action, entity_type, entity_id, old_value, new_value, metadata)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
               [
                 staffId,
-                staffId,
-                'staff',
-                'OVERRIDE',
+                'ROOM_STATUS_CHANGE',
                 'room',
                 scanned.roomId,
                 JSON.stringify({ status: scanned.fromStatus }),
                 JSON.stringify({ status: scanned.toStatus }),
-                scanned.overrideReason,
+                JSON.stringify({ override: true, overrideReason: scanned.overrideReason }),
               ]
             );
           } else {
             await client.query(
               `INSERT INTO audit_log 
-               (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+               (staff_id, action, entity_type, entity_id, old_value, new_value)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
               [
                 staffId,
-                staffId,
-                'staff',
-                'STATUS_CHANGE',
+                'ROOM_STATUS_CHANGE',
                 'room',
                 scanned.roomId,
                 JSON.stringify({ status: scanned.fromStatus }),

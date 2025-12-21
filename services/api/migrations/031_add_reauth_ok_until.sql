@@ -7,3 +7,4 @@ CREATE INDEX IF NOT EXISTS idx_staff_sessions_reauth_ok
 ON staff_sessions(session_token, reauth_ok_until) 
 WHERE revoked_at IS NULL AND reauth_ok_until IS NOT NULL;
 
+

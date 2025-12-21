@@ -255,10 +255,9 @@ export async function waitlistRoutes(fastify: FastifyInstance): Promise<void> {
         // Log audit
         await client.query(
           `INSERT INTO audit_log 
-           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-           VALUES ($1, $2, 'staff', 'WAITLIST_OFFERED', 'waitlist', $3, $4, $5)`,
+           (staff_id, action, entity_type, entity_id, old_value, new_value)
+           VALUES ($1, 'WAITLIST_OFFERED', 'waitlist', $2, $3, $4)`,
           [
-            request.staff.staffId,
             request.staff.staffId,
             id,
             JSON.stringify({ status: 'ACTIVE' }),
@@ -407,10 +406,9 @@ export async function waitlistRoutes(fastify: FastifyInstance): Promise<void> {
         // Log audit
         await client.query(
           `INSERT INTO audit_log 
-           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-           VALUES ($1, $2, 'staff', 'WAITLIST_CANCELLED', 'waitlist', $3, $4, $5)`,
+           (staff_id, action, entity_type, entity_id, old_value, new_value)
+           VALUES ($1, 'WAITLIST_CANCELLED', 'waitlist', $2, $3, $4)`,
           [
-            request.staff.staffId,
             request.staff.staffId,
             id,
             JSON.stringify({ status: waitlist.status }),

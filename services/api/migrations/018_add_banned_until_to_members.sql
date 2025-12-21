@@ -6,3 +6,4 @@ ALTER TABLE members
 CREATE INDEX IF NOT EXISTS idx_members_banned_until ON members(banned_until) WHERE banned_until IS NOT NULL;
 
 
+

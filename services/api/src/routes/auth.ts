@@ -87,18 +87,20 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         const sessionToken = generateSessionToken();
         const expiresAt = getSessionExpiry();
 
-        // Create session
-        await client.query(
+        // Create session and get the session ID
+        const sessionResult = await client.query<{ id: string }>(
           `INSERT INTO staff_sessions (staff_id, device_id, device_type, session_token, expires_at)
-           VALUES ($1, $2, 'tablet', $3, $4)`,
+           VALUES ($1, $2, 'tablet', $3, $4)
+           RETURNING id`,
           [staff.id, body.deviceId, sessionToken, expiresAt]
         );
+        const sessionId = sessionResult.rows[0]!.id;
 
-        // Log audit action
+        // Log audit action (use session UUID id, not the token string)
         await client.query(
           `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
            VALUES ($1, 'STAFF_LOGIN_PIN', 'staff_session', $2)`,
-          [staff.id, sessionToken]
+          [staff.id, sessionId]
         );
 
         return {
@@ -118,10 +120,13 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
 
       return reply.send(result);
     } catch (error) {
-      request.log.error(error, 'Login error');
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      request.log.error({ error: errorMessage, stack: errorStack }, 'Login error');
       return reply.status(500).send({
         error: 'Internal Server Error',
         message: 'Failed to process login',
+        details: process.env.NODE_ENV === 'test' ? errorMessage : undefined,
       });
     }
   });
@@ -147,14 +152,15 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
     const token = authHeader.substring(7);
 
     try {
-      // Get staff ID before revoking
-      const sessionResult = await query<{ staff_id: string }>(
-        `SELECT staff_id FROM staff_sessions WHERE session_token = $1 AND revoked_at IS NULL`,
+      // Get staff ID and session ID before revoking
+      const sessionResult = await query<{ staff_id: string; id: string }>(
+        `SELECT staff_id, id FROM staff_sessions WHERE session_token = $1 AND revoked_at IS NULL`,
         [token]
       );
 
       if (sessionResult.rows.length > 0) {
         const staffId = sessionResult.rows[0]!.staff_id;
+        const sessionId = sessionResult.rows[0]!.id;
 
         await query(
           `UPDATE staff_sessions
@@ -164,11 +170,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           [token]
         );
 
-        // Log audit action
+        // Log audit action (use session UUID id, not the token string)
         await query(
           `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
            VALUES ($1, 'STAFF_LOGOUT', 'staff_session', $2)`,
-          [staffId, token]
+          [staffId, sessionId]
         );
       }
 
@@ -269,6 +275,21 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         });
       }
 
+      // Get session ID first
+      const sessionResult = await query<{ id: string }>(
+        `SELECT id FROM staff_sessions WHERE session_token = $1 AND revoked_at IS NULL`,
+        [token]
+      );
+
+      if (sessionResult.rows.length === 0) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Session not found',
+        });
+      }
+
+      const sessionId = sessionResult.rows[0]!.id;
+
       // Set reauth_ok_until to 5 minutes from now
       const reauthOkUntil = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -280,11 +301,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         [reauthOkUntil, token]
       );
 
-      // Log audit action
+      // Log audit action (use session UUID id, not the token string)
       await query(
         `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
          VALUES ($1, 'STAFF_REAUTH_PIN', 'staff_session', $2)`,
-        [request.staff.staffId, token]
+        [request.staff.staffId, sessionId]
       );
 
       return reply.send({
@@ -465,6 +486,21 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         );
       }
 
+      // Get session ID first
+      const sessionResult = await query<{ id: string }>(
+        `SELECT id FROM staff_sessions WHERE session_token = $1 AND revoked_at IS NULL`,
+        [token]
+      );
+
+      if (sessionResult.rows.length === 0) {
+        return reply.status(401).send({
+          error: 'Unauthorized',
+          message: 'Session not found',
+        });
+      }
+
+      const sessionId = sessionResult.rows[0]!.id;
+
       // Set reauth_ok_until to 5 minutes from now
       const reauthOkUntil = new Date(Date.now() + 5 * 60 * 1000);
 
@@ -476,11 +512,11 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         [reauthOkUntil, token]
       );
 
-      // Log audit action
+      // Log audit action (use session UUID id, not the token string)
       await query(
         `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
          VALUES ($1, 'STAFF_REAUTH_WEBAUTHN', 'staff_session', $2)`,
-        [request.staff.staffId, token]
+        [request.staff.staffId, sessionId]
       );
 
       return reply.send({

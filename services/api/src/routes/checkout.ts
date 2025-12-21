@@ -275,7 +275,8 @@ export async function checkoutRoutes(fastify: FastifyInstance): Promise<void> {
 
       // 5. Calculate lateness
       const now = new Date();
-      const scheduledCheckoutAt = block.ends_at;
+      // Ensure ends_at is a Date object (PostgreSQL returns it as a Date, but be safe)
+      const scheduledCheckoutAt = block.ends_at instanceof Date ? block.ends_at : new Date(block.ends_at);
       const lateMinutes = Math.max(0, Math.floor((now.getTime() - scheduledCheckoutAt.getTime()) / (1000 * 60)));
       const { feeAmount, banApplied } = calculateLateFee(lateMinutes);
 
@@ -299,8 +300,13 @@ export async function checkoutRoutes(fastify: FastifyInstance): Promise<void> {
 
       return reply.send(result);
     } catch (error) {
-      fastify.log.error(error, 'Failed to resolve checkout key');
-      return reply.status(500).send({ error: 'Internal server error' });
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorStack = error instanceof Error ? error.stack : undefined;
+      fastify.log.error({ error: errorMessage, stack: errorStack }, 'Failed to resolve checkout key');
+      return reply.status(500).send({ 
+        error: 'Internal server error',
+        details: process.env.NODE_ENV === 'test' ? errorMessage : undefined,
+      });
     }
   });
 
@@ -502,10 +508,10 @@ export async function checkoutRoutes(fastify: FastifyInstance): Promise<void> {
     request: FastifyRequest<{ Params: { requestId: string } }>,
     reply: FastifyReply
   ) => {
-    const staffId = (request as unknown as { staffId: string }).staffId;
-    if (!staffId) {
+    if (!request.staff) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
+    const staffId = request.staff.staffId;
 
     try {
       const result = await serializableTransaction(async (client) => {
@@ -615,10 +621,10 @@ export async function checkoutRoutes(fastify: FastifyInstance): Promise<void> {
     }>,
     reply: FastifyReply
   ) => {
-    const staffId = (request as unknown as { staffId: string }).staffId;
-    if (!staffId) {
+    if (!request.staff) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
+    const staffId = request.staff.staffId;
 
     let body: MarkFeePaidInput;
     try {
@@ -706,10 +712,10 @@ export async function checkoutRoutes(fastify: FastifyInstance): Promise<void> {
     request: FastifyRequest<{ Params: { requestId: string } }>,
     reply: FastifyReply
   ) => {
-    const staffId = (request as unknown as { staffId: string }).staffId;
-    if (!staffId) {
+    if (!request.staff) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
+    const staffId = request.staff.staffId;
 
     try {
       const result = await transaction(async (client) => {
@@ -788,10 +794,10 @@ export async function checkoutRoutes(fastify: FastifyInstance): Promise<void> {
     request: FastifyRequest<{ Params: { requestId: string } }>,
     reply: FastifyReply
   ) => {
-    const staffId = (request as unknown as { staffId: string }).staffId;
-    if (!staffId) {
+    if (!request.staff) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
+    const staffId = request.staff.staffId;
 
     try {
       const result = await serializableTransaction(async (client) => {

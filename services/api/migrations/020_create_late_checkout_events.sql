@@ -17,3 +17,4 @@ CREATE INDEX idx_late_checkout_events_request ON late_checkout_events(checkout_r
 CREATE INDEX idx_late_checkout_events_created ON late_checkout_events(created_at);
 
 
+

@@ -155,11 +155,10 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
 
         // 2. Log disclaimer acknowledgment to audit_log
         await client.query(
-          `INSERT INTO audit_log (user_id, user_role, action, entity_type, entity_id, new_value)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
+          `INSERT INTO audit_log (staff_id, action, entity_type, entity_id, new_value)
+           VALUES ($1, $2, $3, $4, $5)`,
           [
             request.staff!.staffId,
-            'staff',
             'UPGRADE_DISCLAIMER',
             'session',
             session.id,
@@ -289,11 +288,10 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
 
         // 6. Log disclaimer acknowledgment to audit_log
         await client.query(
-          `INSERT INTO audit_log (user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+          `INSERT INTO audit_log (staff_id, action, entity_type, entity_id, old_value, new_value)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
           [
             request.staff!.staffId,
-            'staff',
             'UPGRADE_DISCLAIMER',
             'session',
             session.id,
@@ -480,10 +478,9 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
         // 6. Log upgrade started
         await client.query(
           `INSERT INTO audit_log 
-           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-           VALUES ($1, $2, 'staff', 'UPGRADE_STARTED', 'waitlist', $3, $4, $5)`,
+           (staff_id, action, entity_type, entity_id, old_value, new_value)
+           VALUES ($1, 'UPGRADE_STARTED', 'waitlist', $2, $3, $4)`,
           [
-            request.staff.staffId,
             request.staff.staffId,
             waitlistId,
             JSON.stringify({
@@ -690,10 +687,9 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
         // 9. Log upgrade completed
         await client.query(
           `INSERT INTO audit_log 
-           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-           VALUES ($1, $2, 'staff', 'UPGRADE_COMPLETED', 'waitlist', $3, $4, $5)`,
+           (staff_id, action, entity_type, entity_id, old_value, new_value)
+           VALUES ($1, 'UPGRADE_COMPLETED', 'waitlist', $2, $3, $4)`,
           [
-            request.staff.staffId,
             request.staff.staffId,
             waitlistId,
             JSON.stringify({

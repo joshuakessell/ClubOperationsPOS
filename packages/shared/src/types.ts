@@ -1,4 +1,4 @@
-import { RoomStatus, RoomType, BlockType, CheckinMode } from './enums';
+import { RoomStatus, RoomType, BlockType, CheckinMode, RentalType } from './enums';
 
 /**
  * Represents a room in the club.
@@ -10,7 +10,7 @@ export interface Room {
   status: RoomStatus;
   floor: number;
   lastStatusChange: Date;
-  assignedTo?: string;
+  assignedToCustomerId?: string;
   overrideFlag: boolean;
 }
 
@@ -21,7 +21,7 @@ export interface Locker {
   id: string;
   number: string;
   status: RoomStatus;
-  assignedTo?: string;
+  assignedToCustomerId?: string;
 }
 
 /**
@@ -127,7 +127,7 @@ export interface CheckinBlock {
   blockType: BlockType;
   startsAt: Date;
   endsAt: Date;
-  rentalType: string;
+  rentalType: RentalType;
   roomId?: string;
   lockerId?: string;
   sessionId?: string;
@@ -177,7 +177,7 @@ export interface ResolvedCheckoutKey {
   customerId: string;
   customerName: string;
   membershipNumber?: string;
-  rentalType: string;
+  rentalType: RentalType;
   roomId?: string;
   roomNumber?: string;
   lockerId?: string;
@@ -197,7 +197,7 @@ export interface CheckoutRequestSummary {
   customerId: string;
   customerName: string;
   membershipNumber?: string;
-  rentalType: string;
+  rentalType: RentalType;
   roomNumber?: string;
   lockerNumber?: string;
   scheduledCheckoutAt: Date;
@@ -251,7 +251,7 @@ export interface AssignmentCreatedPayload {
   lockerId?: string;
   roomNumber?: string;
   lockerNumber?: string;
-  rentalType: string;
+  rentalType: RentalType;
 }
 
 /**

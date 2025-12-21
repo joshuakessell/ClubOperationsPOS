@@ -21,7 +21,7 @@ export const RoomSchema = z.object({
   status: RoomStatusSchema,
   floor: z.number().int().positive(),
   lastStatusChange: z.coerce.date(),
-  assignedTo: z.string().optional(),
+  assignedToCustomerId: z.string().uuid().optional(),
   overrideFlag: z.boolean(),
 });
 

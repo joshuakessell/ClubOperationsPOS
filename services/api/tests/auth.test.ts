@@ -26,6 +26,42 @@ describe('Auth Tests', () => {
     // Initialize test database once
     try {
       await initializeDatabase();
+      
+      // Ensure audit action enum has required values (in case migrations haven't run)
+      // Note: ALTER TYPE ADD VALUE cannot be run in transaction and IF NOT EXISTS doesn't work
+      // So we check if it exists first using a DO block
+      try {
+        await query(`
+          DO $$ 
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_enum 
+              WHERE enumlabel = 'STAFF_REAUTH_PIN' 
+              AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')
+            ) THEN
+              ALTER TYPE audit_action ADD VALUE 'STAFF_REAUTH_PIN';
+            END IF;
+          END $$;
+        `);
+      } catch (error) {
+        // Ignore errors (value might already exist or enum might not exist)
+      }
+      try {
+        await query(`
+          DO $$ 
+          BEGIN
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_enum 
+              WHERE enumlabel = 'STAFF_REAUTH_WEBAUTHN' 
+              AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')
+            ) THEN
+              ALTER TYPE audit_action ADD VALUE 'STAFF_REAUTH_WEBAUTHN';
+            END IF;
+          END $$;
+        `);
+      } catch (error) {
+        // Ignore errors (value might already exist or enum might not exist)
+      }
     } catch (error) {
       // Database might already be initialized
       console.warn('Database initialization warning:', error);
@@ -161,13 +197,19 @@ describe('Auth Tests', () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
 
-      // Check audit log
+      // Check audit log - entity_id is the session UUID, not the token
+      const sessionResult = await query<{ id: string }>(
+        `SELECT id FROM staff_sessions WHERE session_token = $1`,
+        [body.sessionToken]
+      );
+      const sessionId = sessionResult.rows[0]!.id;
+      
       const auditResult = await query(
         `SELECT * FROM audit_log 
          WHERE staff_id = $1 
          AND action = 'STAFF_LOGIN_PIN'
          AND entity_id = $2`,
-        [staffStaffId, body.sessionToken]
+        [staffStaffId, sessionId]
       );
       expect(auditResult.rows.length).toBe(1);
     });

@@ -423,21 +423,23 @@ export async function webauthnRoutes(fastify: FastifyInstance): Promise<void> {
 
       const staff = staffResult.rows[0]!;
 
-      // Create session
+      // Create session and get the session ID
       const sessionToken = generateSessionToken();
       const expiresAt = getSessionExpiry();
 
-      await query(
+      const sessionResult = await query<{ id: string }>(
         `INSERT INTO staff_sessions (staff_id, device_id, device_type, session_token, expires_at)
-         VALUES ($1, $2, $3, $4, $5)`,
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING id`,
         [staff.id, body.deviceId, 'tablet', sessionToken, expiresAt]
       );
+      const sessionId = sessionResult.rows[0]!.id;
 
-      // Log audit action
+      // Log audit action (use session UUID id, not the token string)
       await query(
         `INSERT INTO audit_log (staff_id, action, entity_type, entity_id)
          VALUES ($1, 'STAFF_LOGIN_WEBAUTHN', 'staff_session', $2)`,
-        [staff.id, sessionToken]
+        [staff.id, sessionId]
       );
 
       return reply.send({

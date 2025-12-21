@@ -6,3 +6,4 @@ ALTER TABLE agreement_signatures
 CREATE INDEX IF NOT EXISTS idx_agreement_signatures_checkin_block ON agreement_signatures(checkin_block_id) WHERE checkin_block_id IS NOT NULL;
 
 
+

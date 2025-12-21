@@ -33,3 +33,4 @@ CREATE INDEX idx_checkout_requests_active ON checkout_requests(status) WHERE sta
 CREATE INDEX idx_checkout_requests_claim_expires ON checkout_requests(claim_expires_at) WHERE claim_expires_at IS NOT NULL;
 
 
+

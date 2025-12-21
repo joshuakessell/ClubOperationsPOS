@@ -12,6 +12,7 @@ CREATE TYPE room_status AS ENUM ('DIRTY', 'CLEANING', 'CLEAN', 'OCCUPIED');
 
 -- Room type enum (from migration 002, updated in 030)
 -- Note: DELUXE and VIP values remain in enum but should not be used (migrated to DOUBLE/SPECIAL)
+-- Migration 034 adds CHECK constraint to prevent new DELUXE/VIP assignments
 CREATE TYPE room_type AS ENUM ('STANDARD', 'DELUXE', 'VIP', 'LOCKER', 'DOUBLE', 'SPECIAL');
 
 -- Staff role enum (from migration 010)
@@ -66,6 +67,16 @@ CREATE TYPE audit_action AS ENUM (
   'STAFF_LOGIN_PIN',
   'STAFF_LOGIN_WEBAUTHN',
   'STAFF_LOGOUT',
+  'STAFF_REAUTH_PIN',
+  'STAFF_REAUTH_WEBAUTHN',
+  'STAFF_WEBAUTHN_ENROLLED',
+  'STAFF_WEBAUTHN_REVOKED',
+  'STAFF_PIN_RESET',
+  'STAFF_CREATED',
+  'STAFF_UPDATED',
+  'STAFF_ACTIVATED',
+  'STAFF_DEACTIVATED',
+  'STAFF_REAUTH_REQUIRED',
   'CLEANING_BATCH_STARTED',
   'CLEANING_BATCH_COMPLETED',
   'OVERRIDE',
@@ -73,7 +84,13 @@ CREATE TYPE audit_action AS ENUM (
   'WAITLIST_CREATED',
   'WAITLIST_OFFERED',
   'WAITLIST_COMPLETED',
-  'WAITLIST_CANCELLED'
+  'WAITLIST_CANCELLED',
+  'UPGRADE_STARTED',
+  'UPGRADE_PAID',
+  'UPGRADE_COMPLETED',
+  'FINAL_EXTENSION_STARTED',
+  'FINAL_EXTENSION_PAID',
+  'FINAL_EXTENSION_COMPLETED'
 );
 
 -- ============================================================================
@@ -81,6 +98,9 @@ CREATE TYPE audit_action AS ENUM (
 -- ============================================================================
 
 -- Members table (from migration 001, updated in 024)
+-- LEGACY: This table is deprecated. All operational workflows should use customers(id) instead of members(id).
+-- Foreign key dependencies have been migrated to customers. This table is kept temporarily for data validation
+-- and will be removed in a future migration.
 CREATE TABLE IF NOT EXISTS members (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   membership_number VARCHAR(50) UNIQUE NOT NULL,
@@ -104,7 +124,7 @@ CREATE TABLE IF NOT EXISTS rooms (
   status room_status NOT NULL DEFAULT 'CLEAN',
   floor INTEGER NOT NULL DEFAULT 1,
   last_status_change TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  assigned_to UUID REFERENCES members(id) ON DELETE SET NULL,
+  assigned_to_customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
   override_flag BOOLEAN NOT NULL DEFAULT false,
   version INTEGER NOT NULL DEFAULT 1,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -116,7 +136,7 @@ CREATE TABLE IF NOT EXISTS lockers (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   number VARCHAR(20) UNIQUE NOT NULL,
   status room_status NOT NULL DEFAULT 'CLEAN',
-  assigned_to UUID REFERENCES members(id) ON DELETE SET NULL,
+  assigned_to_customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -124,7 +144,7 @@ CREATE TABLE IF NOT EXISTS lockers (
 -- Sessions table (from migration 004, updated in 009, 014)
 CREATE TABLE IF NOT EXISTS sessions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  member_id UUID NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
   room_id UUID REFERENCES rooms(id) ON DELETE SET NULL,
   locker_id UUID REFERENCES lockers(id) ON DELETE SET NULL,
   checkin_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -277,7 +297,7 @@ CREATE TABLE IF NOT EXISTS customers (
 -- Visits table (from migration 016)
 CREATE TABLE IF NOT EXISTS visits (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  customer_id UUID NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
   started_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   ended_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -291,7 +311,7 @@ CREATE TABLE IF NOT EXISTS checkin_blocks (
   block_type block_type NOT NULL,
   starts_at TIMESTAMPTZ NOT NULL,
   ends_at TIMESTAMPTZ NOT NULL,
-  rental_type VARCHAR(50) NOT NULL, -- 'STANDARD', 'DOUBLE', 'SPECIAL', 'LOCKER', 'GYM_LOCKER'
+  rental_type rental_type NOT NULL, -- Constrained to rental_type enum (migration 034)
   room_id UUID REFERENCES rooms(id) ON DELETE SET NULL,
   locker_id UUID REFERENCES lockers(id) ON DELETE SET NULL,
   session_id UUID REFERENCES sessions(id) ON DELETE SET NULL,
@@ -318,7 +338,7 @@ CREATE TABLE IF NOT EXISTS lane_sessions (
   lane_id VARCHAR(50) NOT NULL,
   status lane_session_status NOT NULL DEFAULT 'IDLE',
   staff_id UUID REFERENCES staff(id) ON DELETE SET NULL,
-  customer_id UUID REFERENCES members(id) ON DELETE SET NULL,
+  customer_id UUID REFERENCES customers(id) ON DELETE SET NULL,
   customer_display_name VARCHAR(255),
   membership_number VARCHAR(50),
   desired_rental_type rental_type,
@@ -369,7 +389,7 @@ CREATE TABLE IF NOT EXISTS waitlist (
 CREATE TABLE IF NOT EXISTS checkout_requests (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   occupancy_id UUID NOT NULL, -- References checkin_blocks.id
-  customer_id UUID NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
   key_tag_id UUID REFERENCES key_tags(id) ON DELETE SET NULL,
   kiosk_device_id VARCHAR(255) NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -392,7 +412,7 @@ CREATE TABLE IF NOT EXISTS late_checkout_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   checkout_request_id UUID REFERENCES checkout_requests(id) ON DELETE SET NULL,
   occupancy_id UUID NOT NULL,
-  customer_id UUID NOT NULL REFERENCES members(id) ON DELETE RESTRICT,
+  customer_id UUID NOT NULL REFERENCES customers(id) ON DELETE RESTRICT,
   late_minutes INTEGER NOT NULL,
   fee_amount DECIMAL(10, 2) NOT NULL,
   ban_applied BOOLEAN NOT NULL DEFAULT false,
@@ -426,11 +446,11 @@ CREATE INDEX IF NOT EXISTS idx_members_banned_until ON members(banned_until) WHE
 CREATE INDEX IF NOT EXISTS idx_rooms_status ON rooms(status);
 CREATE INDEX IF NOT EXISTS idx_rooms_type ON rooms(type);
 CREATE INDEX IF NOT EXISTS idx_rooms_floor ON rooms(floor);
-CREATE INDEX IF NOT EXISTS idx_rooms_assigned ON rooms(assigned_to) WHERE assigned_to IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_rooms_assigned_customer ON rooms(assigned_to_customer_id) WHERE assigned_to_customer_id IS NOT NULL;
 
 -- Lockers indexes
 CREATE INDEX IF NOT EXISTS idx_lockers_status ON lockers(status);
-CREATE INDEX IF NOT EXISTS idx_lockers_assigned ON lockers(assigned_to) WHERE assigned_to IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_lockers_assigned_customer ON lockers(assigned_to_customer_id) WHERE assigned_to_customer_id IS NOT NULL;
 
 -- Sessions indexes
 CREATE INDEX IF NOT EXISTS idx_sessions_lane ON sessions(lane) WHERE lane IS NOT NULL;

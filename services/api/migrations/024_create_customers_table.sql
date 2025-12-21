@@ -27,3 +27,4 @@ ALTER TABLE members
   ADD COLUMN IF NOT EXISTS banned_until TIMESTAMPTZ;
 
 
+

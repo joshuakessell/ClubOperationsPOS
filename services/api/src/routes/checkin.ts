@@ -562,10 +562,9 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
           // Log audit
           await client.query(
             `INSERT INTO audit_log 
-             (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-             VALUES ($1, $2, 'staff', 'ASSIGN', 'room', $3, $4, $5)`,
+             (staff_id, action, entity_type, entity_id, old_value, new_value)
+             VALUES ($1, 'ROOM_ASSIGNED', 'room', $2, $3, $4)`,
             [
-              request.staff.staffId,
               request.staff.staffId,
               resourceId,
               JSON.stringify({ assigned_to: null }),
@@ -638,10 +637,9 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
           // Log audit
           await client.query(
             `INSERT INTO audit_log 
-             (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-             VALUES ($1, $2, 'staff', 'ASSIGN', 'locker', $3, $4, $5)`,
+             (staff_id, action, entity_type, entity_id, old_value, new_value)
+             VALUES ($1, 'ROOM_ASSIGNED', 'locker', $2, $3, $4)`,
             [
-              request.staff.staffId,
               request.staff.staffId,
               resourceId,
               JSON.stringify({ assigned_to: null }),
@@ -883,10 +881,9 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
           // For now, log that upgrade payment is ready
           await client.query(
             `INSERT INTO audit_log 
-             (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-             VALUES ($1, $2, 'staff', 'UPGRADE_PAID', 'payment_intent', $3, $4, $5)`,
+             (staff_id, action, entity_type, entity_id, old_value, new_value)
+             VALUES ($1, 'UPGRADE_PAID', 'payment_intent', $2, $3, $4)`,
             [
-              request.staff.staffId,
               request.staff.staffId,
               id,
               JSON.stringify({ status: 'DUE' }),
@@ -899,10 +896,9 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
         else if (paymentType === 'FINAL_EXTENSION' && quote.visitId && quote.blockId) {
           await client.query(
             `INSERT INTO audit_log 
-             (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-             VALUES ($1, $2, 'staff', 'FINAL_EXTENSION_PAID', 'payment_intent', $3, $4, $5)`,
+             (staff_id, action, entity_type, entity_id, old_value, new_value)
+             VALUES ($1, 'FINAL_EXTENSION_PAID', 'payment_intent', $2, $3, $4)`,
             [
-              request.staff.staffId,
               request.staff.staffId,
               id,
               JSON.stringify({ status: 'DUE' }),
@@ -913,10 +909,9 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
           // Mark final extension as completed
           await client.query(
             `INSERT INTO audit_log 
-             (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-             VALUES ($1, $2, 'staff', 'FINAL_EXTENSION_COMPLETED', 'visit', $3, $4, $5)`,
+             (staff_id, action, entity_type, entity_id, old_value, new_value)
+             VALUES ($1, 'FINAL_EXTENSION_COMPLETED', 'visit', $2, $3, $4)`,
             [
-              request.staff.staffId,
               request.staff.staffId,
               quote.visitId,
               JSON.stringify({ paymentIntentId: id, status: 'DUE' }),
@@ -1324,10 +1319,9 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
     if (staffId && staffId !== 'system' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(staffId)) {
       await client.query(
         `INSERT INTO audit_log 
-         (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-         VALUES ($1, $2, 'staff', 'CHECK_IN', 'visit', $3, $4, $5)`,
+         (staff_id, action, entity_type, entity_id, old_value, new_value)
+         VALUES ($1, 'SESSION_CREATED', 'visit', $2, $3, $4)`,
         [
-          staffId,
           staffId,
           visitId,
           JSON.stringify({}),
@@ -1364,10 +1358,9 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
       if (staffId && staffId !== 'system' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(staffId)) {
         await client.query(
           `INSERT INTO audit_log 
-           (staff_id, user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
-           VALUES ($1, $2, 'staff', 'WAITLIST_CREATED', 'waitlist', $3, $4, $5)`,
+           (staff_id, action, entity_type, entity_id, old_value, new_value)
+           VALUES ($1, 'WAITLIST_CREATED', 'waitlist', $2, $3, $4)`,
           [
-            staffId,
             staffId,
             waitlistId,
             JSON.stringify({}),

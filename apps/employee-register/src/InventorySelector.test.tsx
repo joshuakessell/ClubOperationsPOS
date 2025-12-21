@@ -1,10 +1,21 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { InventorySelector } from './InventorySelector';
-import { RoomStatus } from '@club-ops/shared';
 
 // Mock fetch
 global.fetch = vi.fn();
+
+// Mock WebSocket
+global.WebSocket = vi.fn(() => ({
+  send: vi.fn(),
+  close: vi.fn(),
+  addEventListener: vi.fn(),
+  removeEventListener: vi.fn(),
+  onopen: null,
+  onmessage: null,
+  onerror: null,
+  onclose: null,
+})) as any;
 
 describe('InventorySelector', () => {
   const mockProps = {
@@ -18,42 +29,33 @@ describe('InventorySelector', () => {
     sessionToken: 'test-token',
   };
 
-  const mockInventory = {
-    rooms: [
-      {
-        id: 'room-1',
-        number: '101',
-        tier: 'STANDARD',
-        status: RoomStatus.CLEAN,
-        floor: 1,
-        lastStatusChange: new Date().toISOString(),
-        assignedTo: undefined,
-        assignedMemberName: undefined,
-        overrideFlag: false,
+  // Mock API response format from /api/v1/inventory/rooms-by-tier
+  const mockApiResponse = {
+    rooms: {
+      STANDARD: {
+        available: [
+          { id: 'room-1', number: '101', status: 'CLEAN' },
+        ],
+        expiringSoon: [],
+        recentlyReserved: [],
       },
-      {
-        id: 'room-2',
-        number: '102',
-        tier: 'STANDARD',
-        status: RoomStatus.CLEAN,
-        floor: 1,
-        lastStatusChange: new Date().toISOString(),
-        assignedTo: 'member-1',
-        assignedMemberName: 'John Doe',
-        overrideFlag: false,
-        checkinAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(), // 2 hours ago
-        checkoutAt: new Date(Date.now() + 4 * 60 * 60 * 1000).toISOString(), // 4 hours from now
+      DOUBLE: {
+        available: [],
+        expiringSoon: [],
+        recentlyReserved: [],
       },
-    ],
-    lockers: [
-      {
-        id: 'locker-1',
-        number: '001',
-        status: RoomStatus.CLEAN,
-        assignedTo: undefined,
-        assignedMemberName: undefined,
+      SPECIAL: {
+        available: [],
+        expiringSoon: [],
+        recentlyReserved: [],
       },
-    ],
+    },
+    lockers: {
+      available: [
+        { id: 'locker-1', number: '001' },
+      ],
+      assigned: [],
+    },
   };
 
   beforeEach(() => {
@@ -63,7 +65,7 @@ describe('InventorySelector', () => {
   it('should render loading state initially', () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockInventory,
+      json: async () => mockApiResponse,
     });
 
     render(<InventorySelector {...mockProps} />);
@@ -73,7 +75,7 @@ describe('InventorySelector', () => {
   it('should group and sort rooms correctly', async () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockInventory,
+      json: async () => mockApiResponse,
     });
 
     render(<InventorySelector {...mockProps} customerSelectedType="STANDARD" />);
@@ -88,7 +90,7 @@ describe('InventorySelector', () => {
   it('should auto-expand section when customer selects type', async () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockInventory,
+      json: async () => mockApiResponse,
     });
 
     render(<InventorySelector {...mockProps} customerSelectedType="STANDARD" />);
@@ -102,7 +104,7 @@ describe('InventorySelector', () => {
   it('should auto-select first available item', async () => {
     (global.fetch as any).mockResolvedValueOnce({
       ok: true,
-      json: async () => mockInventory,
+      json: async () => mockApiResponse,
     });
 
     const onSelect = vi.fn();

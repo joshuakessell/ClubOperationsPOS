@@ -1,5 +1,5 @@
 // Enums
-export { RoomStatus, RoomType, BlockType, CheckinMode } from './enums';
+export { RoomStatus, RoomType, BlockType, CheckinMode, RentalType } from './enums';
 
 // Transition validation
 export { isAdjacentTransition, validateTransition, type TransitionResult } from './transitions';

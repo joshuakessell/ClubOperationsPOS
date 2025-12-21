@@ -36,3 +36,14 @@ export enum CheckinMode {
   RENEWAL = 'RENEWAL',
 }
 
+/**
+ * Rental type for check-in blocks.
+ */
+export enum RentalType {
+  LOCKER = 'LOCKER',
+  STANDARD = 'STANDARD',
+  DOUBLE = 'DOUBLE',
+  SPECIAL = 'SPECIAL',
+  GYM_LOCKER = 'GYM_LOCKER',
+}
+

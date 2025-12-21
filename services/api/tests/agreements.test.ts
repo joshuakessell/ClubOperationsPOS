@@ -1,16 +1,26 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { agreementRoutes } from '../src/routes/agreements.js';
 import { sessionRoutes } from '../src/routes/sessions.js';
 import { upgradeRoutes } from '../src/routes/upgrades.js';
 import { createBroadcaster } from '../src/websocket/broadcaster.js';
-import { requireAuth } from '../src/auth/middleware.js';
 
 // Mock auth middleware to allow test requests
-const mockRequireAuth = async (request: any, reply: any) => {
-  request.staff = { staffId: 'test-staff', role: 'STAFF' };
-};
+vi.mock('../src/auth/middleware.js', () => ({
+  requireAuth: async (request: any, _reply: any) => {
+    request.staff = { staffId: 'test-staff', role: 'STAFF' };
+  },
+  requireAdmin: async (_request: any, _reply: any) => {
+    // No-op for tests
+  },
+  requireReauth: async (request: any, _reply: any) => {
+    request.staff = { staffId: 'test-staff', role: 'STAFF' };
+  },
+  requireReauthForAdmin: async (request: any, _reply: any) => {
+    request.staff = { staffId: 'test-staff', role: 'ADMIN' };
+  },
+}));
 
 describe('Agreement and Upgrade Flows', () => {
   let fastify: FastifyInstance;
@@ -45,12 +55,9 @@ describe('Agreement and Upgrade Flows', () => {
     const broadcaster = createBroadcaster();
     fastify.decorate('broadcaster', broadcaster);
 
-    // Register routes with mocked auth
-    await fastify.register(async (f) => {
-      f.addHook('preHandler', mockRequireAuth);
-      await f.register(agreementRoutes);
-      await f.register(upgradeRoutes);
-    });
+    // Register routes (auth is mocked via vi.mock)
+    await fastify.register(agreementRoutes);
+    await fastify.register(upgradeRoutes);
     await fastify.register(sessionRoutes);
     await fastify.ready();
   });
@@ -63,32 +70,39 @@ describe('Agreement and Upgrade Flows', () => {
   beforeEach(async () => {
     if (!dbAvailable) return;
 
-    // Clean up test data
+    // Clean up test data - delete in order to respect foreign key constraints
+    // Delete child records first
     await pool.query('DELETE FROM agreement_signatures WHERE checkin_id IN (SELECT id FROM sessions WHERE member_id = $1)', [testMemberId]);
-    await pool.query('DELETE FROM audit_log WHERE user_id = $1', ['test-staff']);
+    await pool.query('DELETE FROM checkin_blocks WHERE visit_id IN (SELECT id FROM visits WHERE customer_id = $1)', [testMemberId]);
+    await pool.query('DELETE FROM charges WHERE visit_id IN (SELECT id FROM visits WHERE customer_id = $1)', [testMemberId]);
     await pool.query('DELETE FROM sessions WHERE member_id = $1', [testMemberId]);
-    await pool.query('DELETE FROM rooms WHERE id = $1', [testRoomId]);
+    await pool.query('DELETE FROM visits WHERE customer_id = $1', [testMemberId]);
+    // Note: audit_log cleanup not needed - staff_id can be NULL and tests use mocked staff IDs
+    await pool.query('DELETE FROM rooms WHERE id = $1 OR number = $2', [testRoomId, 'TEST-101']);
     await pool.query('DELETE FROM agreements WHERE id = $1', [testAgreementId]);
-    await pool.query('DELETE FROM members WHERE id = $1', [testMemberId]);
+    await pool.query('DELETE FROM members WHERE id = $1 OR membership_number = $2', [testMemberId, 'TEST-001']);
 
-    // Insert test member
+    // Insert test member with ON CONFLICT handling
     await pool.query(
       `INSERT INTO members (id, name, membership_number, is_active)
-       VALUES ($1, 'Test Member', 'TEST-001', true)`,
+       VALUES ($1, 'Test Member', 'TEST-001', true)
+       ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, membership_number = EXCLUDED.membership_number, is_active = EXCLUDED.is_active`,
       [testMemberId]
     );
 
-    // Insert test room
+    // Insert test room with ON CONFLICT handling (handle number conflicts)
     await pool.query(
       `INSERT INTO rooms (id, number, type, status, floor)
-       VALUES ($1, 'TEST-101', 'STANDARD', 'CLEAN', 1)`,
+       VALUES ($1, 'TEST-101', 'STANDARD', 'CLEAN', 1)
+       ON CONFLICT (number) DO UPDATE SET id = EXCLUDED.id, type = EXCLUDED.type, status = EXCLUDED.status, floor = EXCLUDED.floor`,
       [testRoomId]
     );
 
-    // Insert active agreement
+    // Insert active agreement with ON CONFLICT handling
     await pool.query(
       `INSERT INTO agreements (id, version, title, body_text, active)
-       VALUES ($1, 'placeholder-v1', 'Club Agreement', '', true)`,
+       VALUES ($1, 'placeholder-v1', 'Club Agreement', '', true)
+       ON CONFLICT (id) DO UPDATE SET version = EXCLUDED.version, title = EXCLUDED.title, body_text = EXCLUDED.body_text, active = EXCLUDED.active`,
       [testAgreementId]
     );
   });
@@ -295,11 +309,13 @@ describe('Agreement and Upgrade Flows', () => {
     }));
 
     it('should log upgrade disclaimer when accepting upgrade', runIfDbAvailable(async () => {
-      // Create second room for upgrade
+      // Create second room for upgrade (clean up first, then insert)
       const upgradeRoomId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+      await pool.query('DELETE FROM rooms WHERE id = $1 OR number = $2', [upgradeRoomId, 'TEST-201']);
       await pool.query(
         `INSERT INTO rooms (id, number, type, status, floor)
-         VALUES ($1, 'TEST-201', 'DOUBLE', 'CLEAN', 2)`,
+         VALUES ($1, 'TEST-201', 'DOUBLE', 'CLEAN', 2)
+         ON CONFLICT (number) DO UPDATE SET id = EXCLUDED.id, type = EXCLUDED.type, status = EXCLUDED.status, floor = EXCLUDED.floor`,
         [upgradeRoomId]
       );
 
@@ -379,9 +395,11 @@ describe('Agreement and Upgrade Flows', () => {
   describe('Checkout Time on Upgrade', () => {
     it('should not change checkout_at on upgrade', runIfDbAvailable(async () => {
       const upgradeRoomId = 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee';
+      await pool.query('DELETE FROM rooms WHERE id = $1 OR number = $2', [upgradeRoomId, 'TEST-301']);
       await pool.query(
         `INSERT INTO rooms (id, number, type, status, floor)
-         VALUES ($1, 'TEST-301', 'SPECIAL', 'CLEAN', 3)`,
+         VALUES ($1, 'TEST-301', 'SPECIAL', 'CLEAN', 3)
+         ON CONFLICT (number) DO UPDATE SET id = EXCLUDED.id, type = EXCLUDED.type, status = EXCLUDED.status, floor = EXCLUDED.floor`,
         [upgradeRoomId]
       );
 
