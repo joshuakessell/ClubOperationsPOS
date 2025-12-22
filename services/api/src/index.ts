@@ -19,10 +19,12 @@ import {
   metricsRoutes,
   visitRoutes,
   checkoutRoutes,
-  checkinRoutes
+  checkinRoutes,
+  registerRoutes
 } from './routes/index.js';
 import { createBroadcaster, type Broadcaster } from './websocket/broadcaster.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
+import { cleanupAbandonedRegisterSessions } from './routes/registers.js';
 
 const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
@@ -64,6 +66,18 @@ async function main() {
   // Decorate fastify with broadcaster for access in routes
   fastify.decorate('broadcaster', broadcaster);
 
+  // Set up periodic cleanup for abandoned register sessions (every 30 seconds)
+  const cleanupInterval = setInterval(async () => {
+    try {
+      const cleaned = await cleanupAbandonedRegisterSessions();
+      if (cleaned > 0) {
+        fastify.log.info(`Cleaned up ${cleaned} abandoned register session(s)`);
+      }
+    } catch (error) {
+      fastify.log.error(error, 'Error during register session cleanup');
+    }
+  }, 30000); // 30 seconds
+
   // Initialize database connection (unless skipped for testing)
   if (!SKIP_DB) {
     try {
@@ -92,6 +106,7 @@ async function main() {
   await fastify.register(visitRoutes);
   await fastify.register(checkoutRoutes);
   await fastify.register(checkinRoutes);
+  await fastify.register(registerRoutes);
 
   // WebSocket endpoint
   fastify.get('/ws', { websocket: true }, (connection, req) => {
@@ -142,6 +157,7 @@ async function main() {
   // Graceful shutdown
   const shutdown = async () => {
     fastify.log.info('Shutting down...');
+    clearInterval(cleanupInterval);
     await fastify.close();
     if (!SKIP_DB) {
       await closeDatabase();

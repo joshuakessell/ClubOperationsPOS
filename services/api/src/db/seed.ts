@@ -83,7 +83,7 @@ async function seed() {
     
     const staffUsers = [
       {
-        name: 'John Staff',
+        name: 'John Erikson',
         role: 'STAFF',
         qrToken: 'STAFF-001',
         pin: '1234',

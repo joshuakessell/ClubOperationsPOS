@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
+import { BrowserMultiFormatReader, NotFoundException, type Result, type Exception } from '@zxing/library';
 import type { IdScanPayload } from '@club-ops/shared';
 
 interface IdScannerProps {
@@ -117,11 +117,15 @@ export function IdScanner({ isOpen, onClose, onScan, onManualEntry }: IdScannerP
 
         // Get rear camera (environment facing)
         const devices = await reader.listVideoInputDevices();
-        const rearCamera = devices.find(device => 
+        const rearCamera = devices.find((device: MediaDeviceInfo) => 
           device.label.toLowerCase().includes('back') || 
           device.label.toLowerCase().includes('rear') ||
           device.label.toLowerCase().includes('environment')
         ) || devices[0]; // Fallback to first device
+
+        if (!rearCamera) {
+          throw new Error('No camera device found');
+        }
 
         const video = videoRef.current;
         if (!video) {
@@ -144,7 +148,7 @@ export function IdScanner({ isOpen, onClose, onScan, onManualEntry }: IdScannerP
         // Continuously decode
         const decodeContinuously = async () => {
           try {
-            const result = await reader.decodeFromVideoDevice(rearCamera.deviceId, video, (result, err) => {
+            await reader.decodeFromVideoDevice(rearCamera.deviceId, video, (result: Result | null, err: Exception | undefined) => {
               if (result) {
                 const text = result.getText();
                 
@@ -253,7 +257,7 @@ export function IdScanner({ isOpen, onClose, onScan, onManualEntry }: IdScannerP
                 <strong>ID Number:</strong> {scannedData.idNumber}
               </div>
             )}
-            {scannedData.issuer || scannedData.jurisdiction ? (
+            {(scannedData.issuer || scannedData.jurisdiction) && (
               <div style={{ marginBottom: '0.5rem' }}>
                 <strong>Issuer:</strong> {scannedData.issuer || scannedData.jurisdiction}
               </div>

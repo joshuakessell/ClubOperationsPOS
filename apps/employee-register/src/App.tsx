@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload, type SelectionProposedPayload, type SelectionLockedPayload, type SelectionAcknowledgedPayload } from '@club-ops/shared';
-import { LockScreen, type StaffSession } from './LockScreen';
+import { RegisterSignIn } from './RegisterSignIn';
 import { InventorySelector } from './InventorySelector';
 import { IdScanner } from './IdScanner';
 import type { IdScanPayload } from '@club-ops/shared';
@@ -96,7 +96,11 @@ function App() {
   });
 
   const deviceId = useState(() => {
-    // Generate or retrieve device ID
+    // Get device ID from environment variable or localStorage
+    const envDeviceId = import.meta.env.VITE_DEVICE_ID;
+    if (envDeviceId) {
+      return envDeviceId;
+    }
     let id = localStorage.getItem('device_id');
     if (!id) {
       id = `device-${crypto.randomUUID()}`;
@@ -105,36 +109,58 @@ function App() {
     return id;
   })[0];
 
-  const handleLogin = (newSession: StaffSession) => {
-    setSession(newSession);
-    localStorage.setItem('staff_session', JSON.stringify(newSession));
-  };
+  const [registerSession, setRegisterSession] = useState<{
+    employeeId: string;
+    employeeName: string;
+    registerNumber: number;
+    deviceId: string;
+  } | null>(null);
 
-  const handleLogout = async () => {
-    if (session?.sessionToken) {
+  // Load staff session from localStorage (created after register sign-in)
+  useEffect(() => {
+    const stored = localStorage.getItem('staff_session');
+    if (stored) {
       try {
-        await fetch(`${API_BASE}/v1/auth/logout`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${session.sessionToken}`,
-          },
-        });
-      } catch (error) {
-        console.error('Logout error:', error);
+        const staffSession = JSON.parse(stored);
+        setSession(staffSession);
+      } catch {
+        setSession(null);
       }
     }
-    setSession(null);
-    localStorage.removeItem('staff_session');
+  }, []);
+
+  const handleRegisterSignIn = (session: {
+    employeeId: string;
+    employeeName: string;
+    registerNumber: number;
+    deviceId: string;
+  }) => {
+    setRegisterSession(session);
   };
 
-  // Show lock screen if not authenticated
+  // Show register sign-in if not signed into a register
+  if (!registerSession) {
+    return (
+      <RegisterSignIn
+        deviceId={deviceId}
+        onSignedIn={handleRegisterSignIn}
+      >
+        <div /> {/* Empty children for now */}
+      </RegisterSignIn>
+    );
+  }
+
+  // Show lock screen if no staff session (shouldn't happen, but safety check)
   if (!session) {
     return (
-      <LockScreen
-        onLogin={handleLogin}
-        deviceType="tablet"
+      <RegisterSignIn
         deviceId={deviceId}
-      />
+        onSignedIn={handleRegisterSignIn}
+      >
+        <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}>
+          Loading...
+        </div>
+      </RegisterSignIn>
     );
   }
 
@@ -1297,7 +1323,11 @@ function App() {
   };
 
   return (
-    <div className="container">
+    <RegisterSignIn
+      deviceId={deviceId}
+      onSignedIn={handleRegisterSignIn}
+    >
+      <div className="container" style={{ marginTop: '60px', padding: '1.5rem' }}>
       {/* Checkout Request Notifications */}
       {checkoutRequests.size > 0 && !selectedCheckoutRequest && (
         <div style={{

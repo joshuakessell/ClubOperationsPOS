@@ -38,11 +38,23 @@ This system manages club operations including member check-ins, room assignments
 
 ### Employee Register (`apps/employee-register`)
 
-**Deprecated**: See "Counter Check-in Flow v1" section below for the current specification.
+**Purpose**: Staff-facing tablet application for register sign-in and check-in session management.
 
-**Purpose**: Staff-facing tablet application for session management.
+**Register Sign-In Flow**:
+- Maximum of two active register sessions (Register 1 and Register 2)
+- Each tablet has a manually assigned `deviceId` (constant or environment variable, fallback in localStorage)
+- Sign-in flow:
+  1. **Select Employee**: Modal lists all available employees (excludes employees already signed into any register)
+  2. **Enter PIN**: 4-digit numeric PIN input, server-only verification
+  3. **Register Assignment**: 
+     - If no registers occupied: Show "Register 1" and "Register 2" buttons
+     - If one register occupied: Automatically assign remaining register, show confirmation
+  4. **Confirm**: Server locks employeeId + deviceId + registerNumber
+- Signed-in state: Club Dallas logo with 50% black overlay, top bar with employee name and register number, right-side slide-in menu with "Sign Out"
+- Heartbeat loop (90 seconds TTL) to release abandoned sessions
+- Sign out releases register session on server
 
-**Features**:
+**Check-in Features** (see "Counter Check-in Flow v1" below):
 - Barcode scanner input capture for ID and membership scans
 - Member lookup and check-in processing
 - Room assignment with real-time availability
@@ -51,13 +63,15 @@ This system manages club operations including member check-ins, room assignments
 - Integration with Square POS (external)
 
 **Technical Requirements**:
+- Landscape-only layout optimized for Android tablets
+- Material UI Dark theme (black-and-white)
+- Modal-based sign-in flow with shake animation on PIN failure
+- Right-side slide-in menu
+- Heartbeat loop while signed in
 - Split-screen compatible (runs alongside Square)
 - Captures barcode scanner input (keyboard wedge mode)
-- Sends ID scans to `/sessions/scan-id` endpoint
-- Sends membership scans to `/sessions/scan-membership` endpoint
-- Batch operations for efficiency
-- Quick-action shortcuts for common tasks
-- Real-time inventory synchronization
+- Sends ID scans to `/v1/checkin/lane/:laneId/scan-id` endpoint
+- Real-time inventory synchronization via WebSocket
 
 ---
 

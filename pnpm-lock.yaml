@@ -188,6 +188,9 @@ importers:
       '@club-ops/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@zxing/library':
+        specifier: ^0.21.0
+        version: 0.21.3
       react:
         specifier: ^18.2.0
         version: 18.3.1

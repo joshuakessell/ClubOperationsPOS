@@ -18,3 +18,4 @@ export { metricsRoutes } from './metrics.js';
 export { visitRoutes } from './visits.js';
 export { checkoutRoutes } from './checkout.js';
 export { checkinRoutes } from './checkin.js';
+export { registerRoutes } from './registers.js';
