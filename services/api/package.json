@@ -26,6 +26,7 @@
     "@fastify/cors": "^8.5.0",
     "@fastify/websocket": "^8.3.1",
     "@simplewebauthn/server": "^9.0.0",
+    "@zxing/library": "^0.21.0",
     "bcrypt": "^5.1.1",
     "fastify": "^4.25.0",
     "pg": "^8.11.3",
@@ -44,4 +45,3 @@
     "vitest": "^1.1.0"
   }
 }
-

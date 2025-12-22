@@ -333,6 +333,9 @@ importers:
       '@simplewebauthn/server':
         specifier: ^9.0.0
         version: 9.0.3
+      '@zxing/library':
+        specifier: ^0.21.0
+        version: 0.21.3
       bcrypt:
         specifier: ^5.1.1
         version: 5.1.1

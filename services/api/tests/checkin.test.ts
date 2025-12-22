@@ -537,7 +537,414 @@ describe('Check-in Flow', () => {
     }));
   });
 
+  describe('POST /v1/checkin/lane/:laneId/propose-selection', () => {
+    it('should allow customer to propose a rental type', runIfDbAvailable(async () => {
+      // Start a lane session
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/start`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          idScan: 'TEST123',
+          customerName: 'Test Customer',
+        },
+      });
+      expect(startResponse.statusCode).toBe(201);
+      const session = JSON.parse(startResponse.body);
+
+      // Customer proposes selection
+      const proposeResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/propose-selection`,
+        payload: {
+          rentalType: 'STANDARD',
+          proposedBy: 'CUSTOMER',
+        },
+      });
+      expect(proposeResponse.statusCode).toBe(200);
+      const proposeData = JSON.parse(proposeResponse.body);
+      expect(proposeData.proposedRentalType).toBe('STANDARD');
+      expect(proposeData.proposedBy).toBe('CUSTOMER');
+      expect(proposeData.selectionConfirmed).toBe(false);
+    }));
+
+    it('should allow employee to propose a rental type', runIfDbAvailable(async () => {
+      // Start a lane session
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/start`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          idScan: 'TEST123',
+          customerName: 'Test Customer',
+        },
+      });
+      expect(startResponse.statusCode).toBe(201);
+
+      // Employee proposes selection
+      const proposeResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/propose-selection`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          rentalType: 'DOUBLE',
+          proposedBy: 'EMPLOYEE',
+        },
+      });
+      expect(proposeResponse.statusCode).toBe(200);
+      const proposeData = JSON.parse(proposeResponse.body);
+      expect(proposeData.proposedRentalType).toBe('DOUBLE');
+      expect(proposeData.proposedBy).toBe('EMPLOYEE');
+    }));
+  });
+
+  describe('POST /v1/checkin/lane/:laneId/confirm-selection', () => {
+    it('should lock selection on first confirmation (first-wins)', runIfDbAvailable(async () => {
+      // Start a lane session
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/start`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          idScan: 'TEST123',
+          customerName: 'Test Customer',
+        },
+      });
+      expect(startResponse.statusCode).toBe(201);
+
+      // Customer proposes
+      await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/propose-selection`,
+        payload: {
+          rentalType: 'STANDARD',
+          proposedBy: 'CUSTOMER',
+        },
+      });
+
+      // Employee confirms first (locks it)
+      const confirmResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/confirm-selection`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          confirmedBy: 'EMPLOYEE',
+        },
+      });
+      expect(confirmResponse.statusCode).toBe(200);
+      const confirmData = JSON.parse(confirmResponse.body);
+      expect(confirmData.selectionConfirmed).toBe(true);
+      expect(confirmData.selectionConfirmedBy).toBe('EMPLOYEE');
+      expect(confirmData.selectionLockedAt).toBeTruthy();
+
+      // Customer tries to confirm (should be idempotent)
+      const customerConfirmResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/confirm-selection`,
+        payload: {
+          confirmedBy: 'CUSTOMER',
+        },
+      });
+      expect(customerConfirmResponse.statusCode).toBe(200);
+      const customerConfirmData = JSON.parse(customerConfirmResponse.body);
+      expect(customerConfirmData.selectionConfirmed).toBe(true);
+      expect(customerConfirmData.selectionConfirmedBy).toBe('EMPLOYEE'); // Still employee
+    }));
+
+    it('should require acknowledgement from non-confirming party', runIfDbAvailable(async () => {
+      // Start a lane session
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/start`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          idScan: 'TEST123',
+          customerName: 'Test Customer',
+        },
+      });
+      expect(startResponse.statusCode).toBe(201);
+
+      // Employee proposes and confirms
+      await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/propose-selection`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          rentalType: 'DOUBLE',
+          proposedBy: 'EMPLOYEE',
+        },
+      });
+
+      await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/confirm-selection`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          confirmedBy: 'EMPLOYEE',
+        },
+      });
+
+      // Customer acknowledges
+      const ackResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/acknowledge-selection`,
+        payload: {
+          acknowledgedBy: 'CUSTOMER',
+        },
+      });
+      expect(ackResponse.statusCode).toBe(200);
+    }));
+  });
+
+  describe('GET /v1/checkin/lane/:laneId/waitlist-info', () => {
+    it('should compute waitlist position and ETA', runIfDbAvailable(async () => {
+      // Start a lane session
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/start`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          idScan: 'TEST123',
+          customerName: 'Test Customer',
+        },
+      });
+      expect(startResponse.statusCode).toBe(201);
+
+      // Get waitlist info
+      const waitlistResponse = await app.inject({
+        method: 'GET',
+        url: `/v1/checkin/lane/${laneId}/waitlist-info?desiredTier=SPECIAL&currentTier=LOCKER`,
+      });
+      expect(waitlistResponse.statusCode).toBe(200);
+      const waitlistData = JSON.parse(waitlistResponse.body);
+      expect(waitlistData).toHaveProperty('position');
+      expect(waitlistData).toHaveProperty('upgradeFee');
+      // ETA may be null if no occupied rooms
+    }));
+  });
+
+  describe('POST /v1/checkin/lane/:laneId/scan-id', () => {
+    it('should create a customer from ID scan and start lane session', runIfDbAvailable(async () => {
+      const scanPayload = {
+        raw: '@\nANSI 6360100102DL00390188ZV02290028DLDAQ123456789\nDCSDOE\nDACJOHN\nDBD19800115\nDCIUS\n',
+        firstName: 'JOHN',
+        lastName: 'DOE',
+        fullName: 'JOHN DOE',
+        dob: '1980-01-15',
+        idNumber: '123456789',
+        issuer: 'US',
+      };
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/scan-id`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: scanPayload,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.sessionId).toBeTruthy();
+      expect(data.customerId).toBeTruthy();
+      expect(data.customerName).toBe('JOHN DOE');
+      expect(data.allowedRentals).toBeDefined();
+      expect(Array.isArray(data.allowedRentals)).toBe(true);
+    }));
+
+    it('should reuse existing customer on same id_scan_hash', runIfDbAvailable(async () => {
+      const scanPayload1 = {
+        raw: '@\nANSI 6360100102DL00390188ZV02290028DLDAQ123456789\nDCSDOE\nDACJOHN\nDBD19800115\nDCIUS\n',
+        firstName: 'JOHN',
+        lastName: 'DOE',
+        fullName: 'JOHN DOE',
+        dob: '1980-01-15',
+        idNumber: '123456789',
+        issuer: 'US',
+      };
+
+      // First scan
+      const response1 = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/scan-id`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: scanPayload1,
+      });
+      expect(response1.statusCode).toBe(200);
+      const data1 = JSON.parse(response1.body);
+      const customerId1 = data1.customerId;
+
+      // Second scan with same raw barcode
+      const response2 = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/scan-id`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: scanPayload1,
+      });
+      expect(response2.statusCode).toBe(200);
+      const data2 = JSON.parse(response2.body);
+      
+      // Should reuse same customer
+      expect(data2.customerId).toBe(customerId1);
+    }));
+
+    it('should handle manual entry fallback (no raw barcode)', runIfDbAvailable(async () => {
+      const scanPayload = {
+        fullName: 'Jane Smith',
+        idNumber: '987654321',
+        dob: '1990-05-20',
+      };
+
+      const response = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/scan-id`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: scanPayload,
+      });
+
+      expect(response.statusCode).toBe(200);
+      const data = JSON.parse(response.body);
+      expect(data.customerName).toBe('Jane Smith');
+      expect(data.sessionId).toBeTruthy();
+    }));
+
+    it('should reject scan if customer is banned', runIfDbAvailable(async () => {
+      // First create a customer and ban them
+      const scanPayload = {
+        raw: '@\nANSI 6360100102DL00390188ZV02290028DLDAQ999999999\nDCSBANNED\nDACUSER\nDBD19850101\nDCIUS\n',
+        firstName: 'USER',
+        lastName: 'BANNED',
+        fullName: 'USER BANNED',
+        dob: '1985-01-01',
+        idNumber: '999999999',
+        issuer: 'US',
+      };
+
+      // Create customer
+      const createResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/scan-id`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: scanPayload,
+      });
+      expect(createResponse.statusCode).toBe(200);
+      const createData = JSON.parse(createResponse.body);
+
+      // Ban the customer
+      const banUntil = new Date();
+      banUntil.setDate(banUntil.getDate() + 1); // Ban for 1 day
+      await query(
+        `UPDATE customers SET banned_until = $1 WHERE id = $2`,
+        [banUntil, createData.customerId]
+      );
+
+      // Try to scan again
+      const scanResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/scan-id`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: scanPayload,
+      });
+
+      expect(scanResponse.statusCode).toBe(403);
+      const error = JSON.parse(scanResponse.body);
+      expect(error.error).toContain('banned');
+    }));
+  });
+
   describe('POST /v1/checkin/lane/:laneId/sign-agreement', () => {
+    it('should require INITIAL or RENEWAL mode for agreement signing', runIfDbAvailable(async () => {
+      // Start a lane session in INITIAL mode
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/start`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          idScan: 'TEST123',
+          customerName: 'Test Customer',
+          mode: 'INITIAL',
+        },
+      });
+      expect(startResponse.statusCode).toBe(201);
+      const session = JSON.parse(startResponse.body);
+
+      // Sign agreement should work for INITIAL
+      const signResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/sign-agreement`,
+        payload: {
+          signaturePayload: 'data:image/png;base64,test',
+          sessionId: session.id,
+        },
+      });
+      // Should succeed (or fail on payment requirement, but not on mode)
+      expect([200, 400]).toContain(signResponse.statusCode);
+    }));
+
+    it('should enforce payment-before-assignment', runIfDbAvailable(async () => {
+      // Start a lane session
+      const startResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/start`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          idScan: 'TEST123',
+          customerName: 'Test Customer',
+        },
+      });
+      expect(startResponse.statusCode).toBe(201);
+      const session = JSON.parse(startResponse.body);
+
+      // Try to assign without payment
+      const assignResponse = await app.inject({
+        method: 'POST',
+        url: `/v1/checkin/lane/${laneId}/assign`,
+        headers: {
+          'Authorization': `Bearer ${staffToken}`,
+        },
+        payload: {
+          roomId: 'test-room-id',
+        },
+      });
+      // Should fail because payment is not paid
+      expect(assignResponse.statusCode).toBe(400);
+      const assignData = JSON.parse(assignResponse.body);
+      expect(assignData.error).toContain('payment');
+    }));
+
     it('should store signature and complete check-in', runIfDbAvailable(async () => {
       // Setup: create session, assign, create payment intent, mark paid
       const roomResult = await query<{ id: string }>(

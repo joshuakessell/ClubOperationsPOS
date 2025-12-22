@@ -1,4 +1,4 @@
-import { RoomStatus, RoomType, BlockType, CheckinMode, RentalType } from './enums';
+import { RoomStatus, RoomType } from './enums';
 
 /**
  * Represents a room in the club.
@@ -10,7 +10,7 @@ export interface Room {
   status: RoomStatus;
   floor: number;
   lastStatusChange: Date;
-  assignedToCustomerId?: string;
+  assignedTo?: string;
   overrideFlag: boolean;
 }
 
@@ -21,7 +21,7 @@ export interface Locker {
   id: string;
   number: string;
   status: RoomStatus;
-  assignedToCustomerId?: string;
+  assignedTo?: string;
 }
 
 /**
@@ -52,15 +52,19 @@ export type WebSocketEventType =
   | 'ROOM_ASSIGNED'
   | 'ROOM_RELEASED'
   | 'SESSION_UPDATED'
-  | 'CHECKOUT_REQUESTED'
-  | 'CHECKOUT_CLAIMED'
-  | 'CHECKOUT_UPDATED'
-  | 'CHECKOUT_COMPLETED'
+  | 'SELECTION_PROPOSED'
+  | 'SELECTION_LOCKED'
+  | 'SELECTION_ACKNOWLEDGED'
+  | 'WAITLIST_CREATED'
   | 'ASSIGNMENT_CREATED'
   | 'ASSIGNMENT_FAILED'
   | 'CUSTOMER_CONFIRMATION_REQUIRED'
   | 'CUSTOMER_CONFIRMED'
   | 'CUSTOMER_DECLINED'
+  | 'CHECKOUT_REQUESTED'
+  | 'CHECKOUT_CLAIMED'
+  | 'CHECKOUT_UPDATED'
+  | 'CHECKOUT_COMPLETED'
   | 'WAITLIST_UPDATED';
 
 /**
@@ -100,163 +104,70 @@ export interface SessionUpdatedPayload {
   customerName: string;
   membershipNumber?: string;
   allowedRentals: string[];
-  mode?: CheckinMode; // INITIAL or RENEWAL
-  blockEndsAt?: string; // ISO timestamp of when current block ends
-  visitId?: string; // Visit ID if this is part of a visit
-  status?: string; // Lane session status (IDLE, ACTIVE, AWAITING_ASSIGNMENT, AWAITING_PAYMENT, AWAITING_SIGNATURE, COMPLETED, CANCELLED)
+  mode?: 'INITIAL' | 'RENEWAL';
+  blockEndsAt?: string;
+  visitId?: string;
+  status?: string;
+  proposedRentalType?: string;
+  proposedBy?: 'CUSTOMER' | 'EMPLOYEE';
+  selectionConfirmed?: boolean;
+  selectionConfirmedBy?: 'CUSTOMER' | 'EMPLOYEE';
 }
 
 /**
- * Represents a visit (overall stay) that can contain multiple time blocks.
+ * Selection proposed event payload.
  */
-export interface Visit {
-  id: string;
-  customerId: string;
-  startedAt: Date;
-  endedAt?: Date;
-  createdAt: Date;
-  updatedAt: Date;
+export interface SelectionProposedPayload {
+  sessionId: string;
+  rentalType: string;
+  proposedBy: 'CUSTOMER' | 'EMPLOYEE';
 }
 
 /**
- * Represents a check-in block within a visit.
+ * Selection locked event payload.
  */
-export interface CheckinBlock {
-  id: string;
-  visitId: string;
-  blockType: BlockType;
-  startsAt: Date;
-  endsAt: Date;
-  rentalType: RentalType;
-  roomId?: string;
-  lockerId?: string;
-  sessionId?: string;
-  agreementSigned: boolean;
-  hasTvRemote?: boolean; // Whether TV remote was provided for this stay
-  createdAt: Date;
-  updatedAt: Date;
+export interface SelectionLockedPayload {
+  sessionId: string;
+  rentalType: string;
+  confirmedBy: 'CUSTOMER' | 'EMPLOYEE';
+  lockedAt: string;
 }
 
 /**
- * Active visit search result with computed fields.
+ * Selection acknowledged event payload.
  */
-export interface ActiveVisit {
-  id: string;
-  customerId: string;
-  customerName: string;
-  membershipNumber?: string;
-  startedAt: Date;
-  currentCheckoutAt: Date; // When the current block ends
-  totalHoursIfRenewed: number; // Total hours if renewal is added
-  canFinalExtend: boolean; // Whether final 2-hour extension is possible
-  blocks: CheckinBlock[];
+export interface SelectionAcknowledgedPayload {
+  sessionId: string;
+  acknowledgedBy: 'CUSTOMER' | 'EMPLOYEE';
 }
 
 /**
- * Checkout request status.
- * Matches SCHEMA_OVERVIEW.md canonical definition.
+ * Waitlist created event payload.
  */
-export type CheckoutRequestStatus = 'SUBMITTED' | 'CLAIMED' | 'VERIFIED' | 'CANCELLED';
-
-/**
- * Customer checklist items for checkout.
- */
-export interface CheckoutChecklist {
-  lockerKey?: boolean;
-  towel?: boolean;
-  roomKey?: boolean;
-  bedSheets?: boolean;
-  tvRemote?: boolean;
+export interface WaitlistCreatedPayload {
+  sessionId: string;
+  waitlistId: string;
+  desiredType: string;
+  backupType: string;
+  position: number;
+  estimatedReadyAt?: string;
+  upgradeFee?: number;
 }
 
 /**
- * Resolved key information for checkout.
- */
-export interface ResolvedCheckoutKey {
-  keyTagId: string;
-  occupancyId: string; // checkin_block.id
-  customerId: string;
-  customerName: string;
-  membershipNumber?: string;
-  rentalType: RentalType;
-  roomId?: string;
-  roomNumber?: string;
-  lockerId?: string;
-  lockerNumber?: string;
-  scheduledCheckoutAt: Date;
-  hasTvRemote: boolean;
-  lateMinutes: number;
-  lateFeeAmount: number;
-  banApplied: boolean;
-}
-
-/**
- * Checkout request summary for notifications.
- */
-export interface CheckoutRequestSummary {
-  requestId: string;
-  customerId: string;
-  customerName: string;
-  membershipNumber?: string;
-  rentalType: RentalType;
-  roomNumber?: string;
-  lockerNumber?: string;
-  scheduledCheckoutAt: Date;
-  currentTime: Date;
-  lateMinutes: number;
-  lateFeeAmount: number;
-  banApplied: boolean;
-}
-
-/**
- * Checkout requested WebSocket event payload.
- */
-export interface CheckoutRequestedPayload {
-  request: CheckoutRequestSummary;
-}
-
-/**
- * Checkout claimed WebSocket event payload.
- */
-export interface CheckoutClaimedPayload {
-  requestId: string;
-  staffId: string;
-  staffName: string;
-}
-
-/**
- * Checkout updated WebSocket event payload.
- */
-export interface CheckoutUpdatedPayload {
-  requestId: string;
-  itemsConfirmed: boolean;
-  feePaid: boolean;
-}
-
-/**
- * Checkout completed WebSocket event payload.
- */
-export interface CheckoutCompletedPayload {
-  requestId: string;
-  kioskDeviceId: string;
-  success: boolean;
-  message?: string;
-}
-
-/**
- * Assignment created WebSocket event payload.
+ * Assignment created event payload.
  */
 export interface AssignmentCreatedPayload {
   sessionId: string;
   roomId?: string;
-  lockerId?: string;
   roomNumber?: string;
+  lockerId?: string;
   lockerNumber?: string;
-  rentalType: RentalType;
+  rentalType: string;
 }
 
 /**
- * Assignment failed WebSocket event payload.
+ * Assignment failed event payload.
  */
 export interface AssignmentFailedPayload {
   sessionId: string;
@@ -266,8 +177,7 @@ export interface AssignmentFailedPayload {
 }
 
 /**
- * Customer confirmation required WebSocket event payload.
- * Sent to customer kiosk when employee selects different type than customer requested.
+ * Customer confirmation required event payload.
  */
 export interface CustomerConfirmationRequiredPayload {
   sessionId: string;
@@ -277,8 +187,7 @@ export interface CustomerConfirmationRequiredPayload {
 }
 
 /**
- * Customer confirmed WebSocket event payload.
- * Sent when customer accepts the different selection.
+ * Customer confirmed event payload.
  */
 export interface CustomerConfirmedPayload {
   sessionId: string;
@@ -287,24 +196,84 @@ export interface CustomerConfirmedPayload {
 }
 
 /**
- * Customer declined WebSocket event payload.
- * Sent when customer rejects the different selection.
+ * Customer declined event payload.
  */
 export interface CustomerDeclinedPayload {
   sessionId: string;
   requestedType: string;
 }
 
-/**
- * Waitlist updated WebSocket event payload.
- * Sent when waitlist entry is created, updated, or completed.
- */
-export interface WaitlistUpdatedPayload {
-  waitlistId: string;
-  status: 'ACTIVE' | 'OFFERED' | 'COMPLETED' | 'CANCELLED';
-  visitId?: string;
-  desiredTier?: string;
+// Additional types for visits, checkouts, etc.
+export interface Visit {
+  id: string;
+  customerId: string;
+  startedAt: Date;
+  endedAt?: Date;
+}
+
+export interface CheckinBlock {
+  id: string;
+  visitId: string;
+  blockType: 'INITIAL' | 'RENEWAL' | 'FINAL_EXTENSION';
+  startsAt: Date;
+  endsAt: Date;
+  rentalType: string;
   roomId?: string;
+  lockerId?: string;
+}
+
+export interface ActiveVisit {
+  id: string;
+  customerName: string;
+  membershipNumber?: string;
+  currentCheckoutAt: Date;
+}
+
+export type CheckoutRequestStatus = 'SUBMITTED' | 'CLAIMED' | 'VERIFIED' | 'CANCELLED';
+
+export interface CheckoutChecklist {
+  key?: boolean;
+  towel?: boolean;
+  sheets?: boolean;
+  remote?: boolean;
+}
+
+export interface ResolvedCheckoutKey {
+  type: 'room' | 'locker';
+  id: string;
+  number: string;
+}
+
+export interface CheckoutRequestSummary {
+  requestId: string;
+  customerName: string;
+  membershipNumber?: string;
+  rentalType: string;
   roomNumber?: string;
+  lockerNumber?: string;
+  scheduledCheckoutAt: Date;
+  currentTime: Date;
+  lateMinutes: number;
+  lateFeeAmount: number;
+  banApplied: boolean;
+}
+
+export interface CheckoutRequestedPayload {
+  request: CheckoutRequestSummary;
+}
+
+export interface CheckoutClaimedPayload {
+  requestId: string;
+  claimedBy: string;
+}
+
+export interface CheckoutUpdatedPayload {
+  requestId: string;
+  itemsConfirmed: boolean;
+  feePaid: boolean;
+}
+
+export interface CheckoutCompletedPayload {
+  requestId: string;
 }
 

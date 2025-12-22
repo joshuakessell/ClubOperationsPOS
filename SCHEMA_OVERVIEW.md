@@ -45,13 +45,17 @@ Devices identify the source of actions (register tablet, cleaning station, check
 
 ### Customers and memberships
 Customers are created/updated by ID scans and optionally membership card scans.
-- `customers`
-- `memberships` (membership_number, validity, ban flags)
+- `customers` (canonical customer identity table)
+  - ID scan is initiated on employee-register via rear camera PDF417 barcode scanning
+  - The decoded barcode is parsed into customer fields (name, DOB, ID number, issuer)
+  - Server computes `id_scan_hash` (SHA-256 of normalized raw barcode) and upserts customer
+  - Membership remains optional metadata, added later via membership card scan
+- `memberships` (membership_number, validity, ban flags) - optional metadata on customers
 - optional `membership_number_ranges` for gym-locker eligibility rules
 
 **Relationships**
 - customer 1→N visits
-- customer 0..1 memberships (or 1→N if supporting multiple membership types)
+- customer 0..1 memberships (membership is optional metadata on customers)
 
 ### Visits and time blocks
 A visit represents a customer’s presence in the club; blocks are timed entitlements.
@@ -66,12 +70,18 @@ A visit represents a customer’s presence in the club; blocks are timed entitle
 ### Lane sessions (check-in orchestration)
 Lane sessions represent the in-progress workflow across:
 - employee register tablet (scans + assignment)
+  - ID scan is initiated via rear camera PDF417 barcode scanning
+  - Scanned ID is sent to `POST /v1/checkin/lane/:laneId/scan-id` endpoint
+  - Server upserts customer based on `id_scan_hash` and updates lane session
 - customer kiosk (selection + signature)
 
 - `lane_sessions` (status, lane_id, mode CHECKIN/RENEWAL, customer reference, current selection state)
+  - Two-sided selection state: `proposed_rental_type`, `proposed_by` ('CUSTOMER'/'EMPLOYEE'), `selection_confirmed` (boolean), `selection_confirmed_by`, `selection_locked_at`
+  - Waitlist fields: `waitlist_desired_type`, `backup_rental_type`
+  - Disclaimers: `disclaimers_ack_json` (stores upgrade disclaimer acknowledgements, no signature)
 
 **Relationships**
-- lane_session → customer (required once started)
+- lane_session → customer (required once started via ID scan)
 - lane_session → visit/block (once completed/assigned)
 
 ### Inventory: rooms and lockers
@@ -86,14 +96,14 @@ Lane sessions represent the in-progress workflow across:
 
 ### Agreements and disclaimers
 Contracts are signed per block. Upgrade disclaimers are acknowledgements only.
-- `agreements` (versioned text)
-- `agreement_signatures` (signature capture, stored per checkin_block)
-- `disclaimer_acknowledgements` (upgrade/renewal acknowledgements)
+- `agreements` (versioned text, placeholder body allowed)
+- `agreement_signatures` (signature capture, stored per checkin_block for INITIAL/RENEWAL only)
+- Upgrade disclaimer acknowledgements stored in `lane_sessions.disclaimers_ack_json` (ack only, no signature)
 
 **Relationships**
 - agreement 1→N agreement_signatures
-- agreement_signature → checkin_block (required)
-- acknowledgements → lane_session or visit (depending on flow)
+- agreement_signature → checkin_block (required, only for INITIAL/RENEWAL block types)
+- upgrade disclaimer acknowledgements → lane_session (via disclaimers_ack_json JSONB field)
 
 ### Checkout workflow
 Customer initiates via checkout kiosk; employee claims and verifies.
@@ -108,12 +118,14 @@ Customer initiates via checkout kiosk; employee claims and verifies.
 ### Payments and Square-adjacent reconciliation
 Square runs externally; this system tracks what should be paid and whether staff confirmed payment.
 - `payment_intents` (purpose: CHECKIN/RENEWAL/LATE_FEE/UPGRADE/MEMBERSHIP_FEE/FINAL_EXTENSION_2H)
+  - Note: purpose is conceptual unless DB has a purpose column; do not invent columns
 - optional `square_event_log` if webhooks/imports are added later
 
 **Relationships**
 - payment_intent → visit (required)
 - payment_intent → checkin_block (optional depending on purpose)
 - payment_intent → staff (marked_paid_by)
+- payment_intent → lane_session (via lane_session_id)
 
 ### Audit log (mandatory)
 Audit log is the backbone for traceability.

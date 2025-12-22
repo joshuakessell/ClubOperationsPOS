@@ -221,6 +221,80 @@ paths:
         '401':
           description: Unauthorized
 
+  /v1/checkin/lane/{laneId}/scan-id:
+    post:
+      tags: [Check-in]
+      summary: Scan ID (PDF417 barcode) to identify customer and start/update lane session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                raw:
+                  type: string
+                  description: Raw PDF417 barcode string (recommended if available)
+                firstName:
+                  type: string
+                lastName:
+                  type: string
+                fullName:
+                  type: string
+                  description: Full name if first/last not available separately
+                dob:
+                  type: string
+                  format: date
+                  description: Date of birth in ISO YYYY-MM-DD format
+                idNumber:
+                  type: string
+                  description: ID number/license number
+                issuer:
+                  type: string
+                  description: Issuing jurisdiction/state
+                jurisdiction:
+                  type: string
+                  description: Alternative field name for issuer
+              required: []
+              description: At least one identifier (raw, fullName, firstName+lastName, or idNumber) must be provided
+      responses:
+        '200':
+          description: ID scanned, customer upserted, lane session updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId:
+                    type: string
+                    format: uuid
+                  customerId:
+                    type: string
+                    format: uuid
+                  customerName:
+                    type: string
+                  allowedRentals:
+                    type: array
+                    items:
+                      type: string
+                  mode:
+                    type: string
+                    enum: [INITIAL, RENEWAL]
+        '400':
+          description: Invalid input or unable to determine customer name
+        '401':
+          description: Unauthorized
+        '403':
+          description: Customer is banned
+
   /v1/checkin/lane/{laneId}/select-rental:
     post:
       tags: [Check-in]
@@ -245,6 +319,142 @@ paths:
       responses:
         '200':
           description: Rental selection recorded
+
+  /v1/checkin/lane/{laneId}/propose-selection:
+    post:
+      tags: [Check-in]
+      summary: Propose a rental type selection (customer or employee)
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [rentalType, proposedBy]
+              properties:
+                rentalType:
+                  type: string
+                  enum: [LOCKER, STANDARD, DOUBLE, SPECIAL, GYM_LOCKER]
+                proposedBy:
+                  type: string
+                  enum: [CUSTOMER, EMPLOYEE]
+                waitlistDesiredType:
+                  type: string
+                  enum: [LOCKER, STANDARD, DOUBLE, SPECIAL, GYM_LOCKER]
+                backupRentalType:
+                  type: string
+                  enum: [LOCKER, STANDARD, DOUBLE, SPECIAL, GYM_LOCKER]
+      responses:
+        '200':
+          description: Selection proposed
+        '400':
+          description: Invalid input or session not found
+        '401':
+          description: Unauthorized (for employee proposals)
+
+  /v1/checkin/lane/{laneId}/confirm-selection:
+    post:
+      tags: [Check-in]
+      summary: Confirm the proposed selection (first confirmation locks it)
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [confirmedBy]
+              properties:
+                confirmedBy:
+                  type: string
+                  enum: [CUSTOMER, EMPLOYEE]
+      responses:
+        '200':
+          description: Selection confirmed and locked
+        '400':
+          description: Invalid input or session not found
+        '401':
+          description: Unauthorized (for employee confirmations)
+
+  /v1/checkin/lane/{laneId}/acknowledge-selection:
+    post:
+      tags: [Check-in]
+      summary: Acknowledge a locked selection (required for the other side to proceed)
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [acknowledgedBy]
+              properties:
+                acknowledgedBy:
+                  type: string
+                  enum: [CUSTOMER, EMPLOYEE]
+      responses:
+        '200':
+          description: Selection acknowledged
+        '400':
+          description: Invalid input or session not found
+        '401':
+          description: Unauthorized (for employee acknowledgements)
+
+  /v1/checkin/lane/{laneId}/waitlist-info:
+    get:
+      tags: [Check-in]
+      summary: Get waitlist position, ETA, and upgrade fee for a desired tier
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: desiredTier
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [LOCKER, STANDARD, DOUBLE, SPECIAL, GYM_LOCKER]
+        - name: currentTier
+          in: query
+          schema:
+            type: string
+            enum: [LOCKER, STANDARD, DOUBLE, SPECIAL, GYM_LOCKER]
+      responses:
+        '200':
+          description: Waitlist information
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  position:
+                    type: integer
+                  estimatedReadyAt:
+                    type: string
+                    format: date-time
+                    nullable: true
+                  upgradeFee:
+                    type: number
+        '400':
+          description: Invalid input or session not found
 
   /v1/checkin/lane/{laneId}/assign:
     post:

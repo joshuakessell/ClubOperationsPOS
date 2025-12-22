@@ -197,19 +197,13 @@ describe('Auth Tests', () => {
       expect(response.statusCode).toBe(200);
       const body = JSON.parse(response.body);
 
-      // Check audit log - entity_id is the session UUID, not the token
-      const sessionResult = await query<{ id: string }>(
-        `SELECT id FROM staff_sessions WHERE session_token = $1`,
-        [body.sessionToken]
-      );
-      const sessionId = sessionResult.rows[0]!.id;
-      
+      // Check audit log
       const auditResult = await query(
         `SELECT * FROM audit_log 
          WHERE staff_id = $1 
          AND action = 'STAFF_LOGIN_PIN'
          AND entity_id = $2`,
-        [staffStaffId, sessionId]
+        [staffStaffId, body.sessionToken]
       );
       expect(auditResult.rows.length).toBe(1);
     });

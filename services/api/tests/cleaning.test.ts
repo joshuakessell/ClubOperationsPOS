@@ -1,27 +1,9 @@
-import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { cleaningRoutes } from '../src/routes/cleaning.js';
 import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
 import { RoomStatus, validateTransition } from '@club-ops/shared';
-
-// Mock auth middleware to allow test requests
-// Use a mutable object so the mock can access the updated value
-const mockStaffConfig = { staffId: '00000000-0000-0000-0000-000000000000' };
-vi.mock('../src/auth/middleware.js', () => ({
-  requireAuth: async (request: any, _reply: any) => {
-    request.staff = { staffId: mockStaffConfig.staffId, role: 'STAFF' };
-  },
-  requireAdmin: async (_request: any, _reply: any) => {
-    // No-op for tests
-  },
-  requireReauth: async (request: any, _reply: any) => {
-    request.staff = { staffId: mockStaffConfig.staffId, role: 'STAFF' };
-  },
-  requireReauthForAdmin: async (request: any, _reply: any) => {
-    request.staff = { staffId: mockStaffConfig.staffId, role: 'ADMIN' };
-  },
-}));
 
 // Augment FastifyInstance with broadcaster
 declare module 'fastify' {
@@ -99,7 +81,6 @@ describe('Cleaning Batch Endpoint', () => {
   let dbAvailable = false;
 
   // Test data IDs
-  let testStaffId: string;
   const testRoomIds = {
     dirty: '11111111-1111-1111-1111-111111111111',
     cleaning: '22222222-2222-2222-2222-222222222222',
@@ -132,25 +113,6 @@ describe('Cleaning Batch Endpoint', () => {
       return;
     }
 
-    // Create test staff for cleaning operations
-    // First try to get existing staff
-    const existingStaff = await pool.query<{ id: string }>(
-      `SELECT id FROM staff WHERE name = 'Test Cleaning Staff' LIMIT 1`
-    );
-    if (existingStaff.rows.length > 0) {
-      testStaffId = existingStaff.rows[0]!.id;
-    } else {
-      // Create new staff
-      const staffResult = await pool.query<{ id: string }>(
-        `INSERT INTO staff (name, role, active)
-         VALUES ('Test Cleaning Staff', 'STAFF', true)
-         RETURNING id`
-      );
-      testStaffId = staffResult.rows[0]!.id;
-    }
-    // Update the mock to use the real staff ID
-    mockStaffConfig.staffId = testStaffId;
-
     // Create Fastify instance
     fastify = Fastify();
 
@@ -164,26 +126,12 @@ describe('Cleaning Batch Endpoint', () => {
     } as Broadcaster;
 
     fastify.decorate('broadcaster', mockBroadcaster);
-    // Register routes (auth is mocked via vi.mock)
     await fastify.register(cleaningRoutes);
     await fastify.ready();
   });
 
   afterAll(async () => {
-    if (dbAvailable) {
-      // Clean up test staff (must delete dependent records first)
-      if (testStaffId) {
-        // Delete cleaning_events that reference this staff
-        await pool.query('DELETE FROM cleaning_events WHERE staff_id = $1', [testStaffId]);
-        // Delete cleaning_batches that reference this staff
-        await pool.query('DELETE FROM cleaning_batches WHERE staff_id = $1', [testStaffId]);
-        // Delete audit_log entries that reference this staff
-        await pool.query('DELETE FROM audit_log WHERE staff_id = $1', [testStaffId]);
-        // Now safe to delete staff
-        await pool.query('DELETE FROM staff WHERE id = $1', [testStaffId]);
-      }
-      if (fastify) await fastify.close();
-    }
+    if (dbAvailable && fastify) await fastify.close();
     if (pool) await pool.end();
   });
 
@@ -193,30 +141,21 @@ describe('Cleaning Batch Endpoint', () => {
     // Clear test data and reset
     broadcastedEvents = [];
 
-    // Clean up test rooms (delete by both id and number to handle unique constraints)
+    // Clean up test rooms
     await pool.query('DELETE FROM cleaning_batch_rooms WHERE room_id = ANY($1)', [
       Object.values(testRoomIds),
     ]);
-    // Clean up cleaning batches and audit logs for test staff (if testStaffId is set)
-    if (testStaffId) {
-      await pool.query('DELETE FROM cleaning_batches WHERE staff_id = $1', [testStaffId]);
-      await pool.query('DELETE FROM audit_log WHERE staff_id = $1', [testStaffId]);
-    }
-    await pool.query('DELETE FROM rooms WHERE id = ANY($1) OR number IN ($2, $3, $4)', [
-      Object.values(testRoomIds),
-      'TEST-101',
-      'TEST-102',
-      'TEST-103',
-    ]);
+    await pool.query('DELETE FROM cleaning_batches WHERE staff_id = $1', ['test-staff']);
+    await pool.query('DELETE FROM audit_log WHERE user_id = $1', ['test-staff']);
+    await pool.query('DELETE FROM rooms WHERE id = ANY($1)', [Object.values(testRoomIds)]);
 
-    // Insert test rooms with known statuses (with ON CONFLICT handling on number)
+    // Insert test rooms with known statuses
     await pool.query(`
       INSERT INTO rooms (id, number, type, status, floor)
       VALUES 
         ($1, 'TEST-101', 'STANDARD', 'DIRTY', 1),
         ($2, 'TEST-102', 'STANDARD', 'CLEANING', 1),
         ($3, 'TEST-103', 'STANDARD', 'CLEAN', 1)
-      ON CONFLICT (number) DO UPDATE SET id = EXCLUDED.id, type = EXCLUDED.type, status = EXCLUDED.status, floor = EXCLUDED.floor
     `, [testRoomIds.dirty, testRoomIds.cleaning, testRoomIds.clean]);
   });
 
@@ -229,46 +168,16 @@ describe('Cleaning Batch Endpoint', () => {
     await testFn();
   };
 
-  // Helper to build cleaning batch payload
-  const buildCleaningPayload = (roomId: string, fromStatus: string, toStatus: string, override = false, overrideReason?: string) => {
-    return {
-      deviceId: 'test-device',
-      scanned: [{
-        token: `token-${roomId}`,
-        roomId,
-        fromStatus,
-        toStatus,
-        override,
-        overrideReason,
-      }],
-    };
-  };
-
-  // Helper to build batch payload for multiple rooms
-  const buildBatchPayload = (rooms: Array<{ roomId: string; fromStatus: string; toStatus: string; override?: boolean; overrideReason?: string }>) => {
-    return {
-      deviceId: 'test-device',
-      scanned: rooms.map((r, i) => ({
-        token: `token-${r.roomId}-${i}`,
-        roomId: r.roomId,
-        fromStatus: r.fromStatus,
-        toStatus: r.toStatus,
-        override: r.override || false,
-        overrideReason: r.overrideReason,
-      })),
-    };
-  };
-
   describe('Valid transitions', () => {
     it('should transition DIRTY → CLEANING', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.dirty]);
-      const currentStatus = roomResult.rows[0]?.status || 'DIRTY';
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildCleaningPayload(testRoomIds.dirty, currentStatus, 'CLEANING'),
+        payload: {
+          roomIds: [testRoomIds.dirty],
+          targetStatus: 'CLEANING',
+          staffId: 'test-staff',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -285,14 +194,14 @@ describe('Cleaning Batch Endpoint', () => {
     }));
 
     it('should transition CLEANING → CLEAN', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.cleaning]);
-      const currentStatus = roomResult.rows[0]?.status || 'CLEANING';
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildCleaningPayload(testRoomIds.cleaning, currentStatus, 'CLEAN'),
+        payload: {
+          roomIds: [testRoomIds.cleaning],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -306,17 +215,14 @@ describe('Cleaning Batch Endpoint', () => {
       // First update dirty room to cleaning
       await pool.query('UPDATE rooms SET status = $1 WHERE id = $2', ['CLEANING', testRoomIds.dirty]);
 
-      // Get current statuses
-      const dirtyResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.dirty]);
-      const cleaningResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.cleaning]);
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildBatchPayload([
-          { roomId: testRoomIds.dirty, fromStatus: dirtyResult.rows[0]?.status || 'CLEANING', toStatus: 'CLEAN' },
-          { roomId: testRoomIds.cleaning, fromStatus: cleaningResult.rows[0]?.status || 'CLEANING', toStatus: 'CLEAN' },
-        ]),
+        payload: {
+          roomIds: [testRoomIds.dirty, testRoomIds.cleaning],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -328,14 +234,14 @@ describe('Cleaning Batch Endpoint', () => {
 
   describe('Invalid transitions (without override)', () => {
     it('should reject DIRTY → CLEAN without override', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.dirty]);
-      const currentStatus = roomResult.rows[0]?.status || 'DIRTY';
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildCleaningPayload(testRoomIds.dirty, currentStatus, 'CLEAN', false),
+        payload: {
+          roomIds: [testRoomIds.dirty],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+        },
       });
 
       expect(response.statusCode).toBe(400);
@@ -353,14 +259,16 @@ describe('Cleaning Batch Endpoint', () => {
 
   describe('Override transitions', () => {
     it('should allow DIRTY → CLEAN with override and reason', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.dirty]);
-      const currentStatus = roomResult.rows[0]?.status || 'DIRTY';
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildCleaningPayload(testRoomIds.dirty, currentStatus, 'CLEAN', true, 'Manager inspection confirmed room is clean'),
+        payload: {
+          roomIds: [testRoomIds.dirty],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+          override: true,
+          overrideReason: 'Manager inspection confirmed room is clean',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -377,25 +285,24 @@ describe('Cleaning Batch Endpoint', () => {
 
       // Verify audit log entry
       const auditResult = await pool.query(
-        `SELECT action, metadata FROM audit_log 
-         WHERE entity_id = $1 AND action = 'ROOM_STATUS_CHANGE'`,
+        `SELECT action, override_reason FROM audit_log 
+         WHERE entity_id = $1 AND action = 'OVERRIDE'`,
         [testRoomIds.dirty]
       );
       expect(auditResult.rows.length).toBe(1);
-      const metadata = auditResult.rows[0].metadata as { override?: boolean; overrideReason?: string };
-      expect(metadata.override).toBe(true);
-      expect(metadata.overrideReason).toBe('Manager inspection confirmed room is clean');
+      expect(auditResult.rows[0].override_reason).toBe('Manager inspection confirmed room is clean');
     }));
 
     it('should reject override without reason', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.dirty]);
-      const currentStatus = roomResult.rows[0]?.status || 'DIRTY';
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildCleaningPayload(testRoomIds.dirty, currentStatus, 'CLEAN', true),
+        payload: {
+          roomIds: [testRoomIds.dirty],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+          override: true,
+        },
       });
 
       expect(response.statusCode).toBe(400);
@@ -406,19 +313,14 @@ describe('Cleaning Batch Endpoint', () => {
 
   describe('Mixed status batch operations', () => {
     it('should handle partial failures in batch', runIfDbAvailable(async () => {
-      // Get current statuses
-      const dirtyResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.dirty]);
-      const cleaningResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.cleaning]);
-      const cleanResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.clean]);
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildBatchPayload([
-          { roomId: testRoomIds.dirty, fromStatus: dirtyResult.rows[0]?.status || 'DIRTY', toStatus: 'CLEAN' },
-          { roomId: testRoomIds.cleaning, fromStatus: cleaningResult.rows[0]?.status || 'CLEANING', toStatus: 'CLEAN' },
-          { roomId: testRoomIds.clean, fromStatus: cleanResult.rows[0]?.status || 'CLEAN', toStatus: 'CLEAN' },
-        ]),
+        payload: {
+          roomIds: [testRoomIds.dirty, testRoomIds.cleaning, testRoomIds.clean],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+        },
       });
 
       expect(response.statusCode).toBe(200);
@@ -443,8 +345,9 @@ describe('Cleaning Batch Endpoint', () => {
         method: 'POST',
         url: '/v1/cleaning/batch',
         payload: {
-          deviceId: 'test-device',
-          scanned: [],
+          roomIds: [],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
         },
       });
 
@@ -456,13 +359,9 @@ describe('Cleaning Batch Endpoint', () => {
         method: 'POST',
         url: '/v1/cleaning/batch',
         payload: {
-          deviceId: 'test-device',
-          scanned: [{
-            token: 'token-invalid',
-            roomId: 'not-a-uuid',
-            fromStatus: 'DIRTY',
-            toStatus: 'CLEAN',
-          }],
+          roomIds: ['not-a-uuid'],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
         },
       });
 
@@ -470,21 +369,13 @@ describe('Cleaning Batch Endpoint', () => {
     }));
 
     it('should reject invalid target status', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.dirty]);
-      const currentStatus = roomResult.rows[0]?.status || 'DIRTY';
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
         payload: {
-          deviceId: 'test-device',
-          scanned: [{
-            token: `token-${testRoomIds.dirty}`,
-            roomId: testRoomIds.dirty,
-            fromStatus: currentStatus,
-            toStatus: 'INVALID_STATUS' as any,
-          }],
+          roomIds: [testRoomIds.dirty],
+          targetStatus: 'INVALID_STATUS',
+          staffId: 'test-staff',
         },
       });
 
@@ -497,13 +388,9 @@ describe('Cleaning Batch Endpoint', () => {
         method: 'POST',
         url: '/v1/cleaning/batch',
         payload: {
-          deviceId: 'test-device',
-          scanned: [{
-            token: 'token-nonexistent',
-            roomId: nonExistentId,
-            fromStatus: 'DIRTY',
-            toStatus: 'CLEANING',
-          }],
+          roomIds: [nonExistentId],
+          targetStatus: 'CLEANING',
+          staffId: 'test-staff',
         },
       });
 
@@ -516,33 +403,33 @@ describe('Cleaning Batch Endpoint', () => {
 
   describe('Cleaning batch records', () => {
     it('should create cleaning batch record', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.cleaning]);
-      const currentStatus = roomResult.rows[0]?.status || 'CLEANING';
-      
       await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildCleaningPayload(testRoomIds.cleaning, currentStatus, 'CLEAN'),
+        payload: {
+          roomIds: [testRoomIds.cleaning],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+        },
       });
 
       const result = await pool.query(
         'SELECT * FROM cleaning_batches WHERE staff_id = $1',
-        [testStaffId]
+        ['test-staff']
       );
       expect(result.rows.length).toBe(1);
       expect(result.rows[0].room_count).toBe(1);
     }));
 
     it('should create cleaning_batch_rooms records', runIfDbAvailable(async () => {
-      // Get current room status from DB
-      const roomResult = await pool.query('SELECT status FROM rooms WHERE id = $1', [testRoomIds.cleaning]);
-      const currentStatus = roomResult.rows[0]?.status || 'CLEANING';
-      
       const response = await fastify.inject({
         method: 'POST',
         url: '/v1/cleaning/batch',
-        payload: buildCleaningPayload(testRoomIds.cleaning, currentStatus, 'CLEAN'),
+        payload: {
+          roomIds: [testRoomIds.cleaning],
+          targetStatus: 'CLEAN',
+          staffId: 'test-staff',
+        },
       });
 
       const body = JSON.parse(response.body);

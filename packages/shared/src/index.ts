@@ -31,6 +31,10 @@ export type {
   CustomerConfirmationRequiredPayload,
   CustomerConfirmedPayload,
   CustomerDeclinedPayload,
+  SelectionProposedPayload,
+  SelectionLockedPayload,
+  SelectionAcknowledgedPayload,
+  WaitlistCreatedPayload,
 } from './types';
 
 // Zod schemas
@@ -41,9 +45,11 @@ export {
   RoomStatusUpdateSchema,
   InventorySummarySchema,
   BatchStatusUpdateSchema,
+  IdScanPayloadSchema,
   type RoomInput,
   type RoomStatusUpdateInput,
   type InventorySummaryInput,
   type BatchStatusUpdateInput,
+  type IdScanPayload,
 } from './schemas';
 

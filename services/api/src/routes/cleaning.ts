@@ -8,30 +8,19 @@ import {
 } from '@club-ops/shared';
 import type { Broadcaster } from '../websocket/broadcaster.js';
 import { broadcastInventoryUpdate } from './sessions.js';
-import { requireAuth } from '../auth/middleware.js';
-
-/**
- * Schema for a single scanned room transition.
- */
-const ScannedRoomSchema = z.object({
-  token: z.string().min(1),
-  roomId: z.string().uuid(),
-  fromStatus: RoomStatusSchema,
-  toStatus: RoomStatusSchema,
-  override: z.boolean().optional().default(false),
-  overrideReason: z.string().optional(),
-});
 
 /**
  * Schema for batch cleaning operations.
  */
 const CleaningBatchSchema = z.object({
-  deviceId: z.string().min(1),
-  scanned: z.array(ScannedRoomSchema).min(1).max(50),
+  roomIds: z.array(z.string().uuid()).min(1).max(50),
+  targetStatus: RoomStatusSchema,
+  staffId: z.string().min(1),
+  override: z.boolean().default(false),
+  overrideReason: z.string().optional(),
 });
 
 type CleaningBatchInput = z.infer<typeof CleaningBatchSchema>;
-type ScannedRoom = z.infer<typeof ScannedRoomSchema>;
 
 interface RoomRow {
   id: string;
@@ -62,10 +51,10 @@ declare module 'fastify' {
 // eslint-disable-next-line @typescript-eslint/require-await
 export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
   /**
-   * POST /v1/cleaning/batch - Batch update room statuses from scanned tokens
+   * POST /v1/cleaning/batch - Batch update room statuses
    * 
-   * Updates multiple rooms based on scanned tokens, enforcing transition rules
-   * from the shared package. Records cleaning_events and audit_log entries.
+   * Updates multiple rooms to a target status, enforcing transition rules
+   * from the shared package. Invalid transitions require override flag.
    * 
    * Transition rules:
    * - DIRTY → CLEANING (start cleaning)
@@ -75,18 +64,10 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
    * - CLEAN → CLEANING (re-clean)
    * - DIRTY → CLEAN (requires override)
    */
-  fastify.post('/v1/cleaning/batch', {
-    preHandler: [requireAuth],
-  }, async (
+  fastify.post('/v1/cleaning/batch', async (
     request: FastifyRequest<{ Body: CleaningBatchInput }>,
     reply: FastifyReply
   ) => {
-    if (!request.staff) {
-      return reply.status(401).send({
-        error: 'Unauthorized',
-      });
-    }
-
     let body: CleaningBatchInput;
 
     try {
@@ -98,18 +79,12 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
 
-    // Validate override reasons
-    for (const scanned of body.scanned) {
-      if (scanned.override && !scanned.overrideReason) {
-        return reply.status(400).send({
-          error: 'Override requires a reason',
-          token: scanned.token,
-        });
-      }
+    // Override requires a reason
+    if (body.override && !body.overrideReason) {
+      return reply.status(400).send({
+        error: 'Override requires a reason',
+      });
     }
-
-    const staffId = request.staff.staffId;
-    const deviceId = body.deviceId;
 
     try {
       const result = await transaction(async (client) => {
@@ -118,24 +93,23 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
           `INSERT INTO cleaning_batches (staff_id, room_count)
            VALUES ($1, $2)
            RETURNING id`,
-          [staffId, body.scanned.length]
+          [body.staffId, body.roomIds.length]
         );
         const batchId = batchResult.rows[0]!.id;
 
-        // 2. Get unique room IDs and fetch rooms with row locks
-        const roomIds = [...new Set(body.scanned.map(s => s.roomId))];
+        // 2. Fetch all rooms with row locks
         const roomResult = await client.query<RoomRow>(
           `SELECT id, number, status, override_flag
            FROM rooms
            WHERE id = ANY($1)
            FOR UPDATE`,
-          [roomIds]
+          [body.roomIds]
         );
 
         // Create a map for quick lookup
         const roomMap = new Map(roomResult.rows.map(r => [r.id, r]));
 
-        // Track results for each scanned room
+        // Track results for each room
         const results: BatchResultRoom[] = [];
         const successfulTransitions: Array<{
           roomId: string;
@@ -144,66 +118,56 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
           newStatus: RoomStatus;
         }> = [];
 
-        // 3. Process each scanned room
-        for (const scanned of body.scanned) {
-          const room = roomMap.get(scanned.roomId);
+        // 3. Process each room
+        for (const roomId of body.roomIds) {
+          const room = roomMap.get(roomId);
 
           if (!room) {
             results.push({
-              roomId: scanned.roomId,
+              roomId,
               roomNumber: 'UNKNOWN',
-              previousStatus: scanned.fromStatus,
-              newStatus: scanned.toStatus,
+              previousStatus: RoomStatus.DIRTY,
+              newStatus: body.targetStatus,
               success: false,
               error: 'Room not found',
             });
             continue;
           }
 
-          // Verify the fromStatus matches current room status
-          const currentStatus = room.status as RoomStatus;
-          if (currentStatus !== scanned.fromStatus) {
-            results.push({
-              roomId: scanned.roomId,
-              roomNumber: room.number,
-              previousStatus: scanned.fromStatus,
-              newStatus: scanned.toStatus,
-              success: false,
-              error: `Room status mismatch: expected ${scanned.fromStatus}, found ${currentStatus}`,
-            });
-            continue;
-          }
+          const fromStatus = room.status as RoomStatus;
+          const toStatus = body.targetStatus;
 
           // Validate the transition using shared package
-          const validation = validateTransition(scanned.fromStatus, scanned.toStatus, scanned.override);
+          const validation = validateTransition(fromStatus, toStatus, body.override);
 
           if (!validation.ok) {
             results.push({
-              roomId: scanned.roomId,
+              roomId,
               roomNumber: room.number,
-              previousStatus: scanned.fromStatus,
-              newStatus: scanned.toStatus,
+              previousStatus: fromStatus,
+              newStatus: toStatus,
               success: false,
-              error: `Invalid transition from ${scanned.fromStatus} to ${scanned.toStatus}`,
+              error: `Invalid transition from ${fromStatus} to ${toStatus}`,
               requiresOverride: validation.needsOverride,
             });
             continue;
           }
 
           // Skip if status is unchanged
-          if (scanned.fromStatus === scanned.toStatus) {
+          if (fromStatus === toStatus) {
             results.push({
-              roomId: scanned.roomId,
+              roomId,
               roomNumber: room.number,
-              previousStatus: scanned.fromStatus,
-              newStatus: scanned.toStatus,
+              previousStatus: fromStatus,
+              newStatus: toStatus,
               success: true,
             });
             continue;
           }
 
           // Determine if this transition should set override flag
-          const isOverrideTransition = scanned.override && validation.ok;
+          // (non-adjacent transitions that were allowed via override)
+          const isOverrideTransition = body.override && validation.ok;
 
           // 4. Update the room status
           await client.query(
@@ -213,97 +177,77 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
                  override_flag = CASE WHEN $2 THEN true ELSE override_flag END,
                  updated_at = NOW()
              WHERE id = $3`,
-            [scanned.toStatus, isOverrideTransition, scanned.roomId]
+            [toStatus, isOverrideTransition, roomId]
           );
 
-          // 5. Record cleaning event
-          const now = new Date();
-          const startedAt = scanned.fromStatus === RoomStatus.DIRTY ? now : null;
-          const completedAt = scanned.toStatus === RoomStatus.CLEAN ? now : null;
-
-          await client.query(
-            `INSERT INTO cleaning_events 
-             (room_id, staff_id, started_at, completed_at, from_status, to_status, override_flag, override_reason, device_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-            [
-              scanned.roomId,
-              staffId,
-              startedAt,
-              completedAt,
-              scanned.fromStatus,
-              scanned.toStatus,
-              isOverrideTransition,
-              isOverrideTransition ? scanned.overrideReason : null,
-              deviceId,
-            ]
-          );
-
-          // 6. Record in cleaning_batch_rooms
+          // 5. Record in cleaning_batch_rooms
           await client.query(
             `INSERT INTO cleaning_batch_rooms 
              (batch_id, room_id, status_from, status_to, override_flag, override_reason)
              VALUES ($1, $2, $3, $4, $5, $6)`,
             [
               batchId,
-              scanned.roomId,
-              scanned.fromStatus,
-              scanned.toStatus,
+              roomId,
+              fromStatus,
+              toStatus,
               isOverrideTransition,
-              isOverrideTransition ? scanned.overrideReason : null,
+              isOverrideTransition ? body.overrideReason : null,
             ]
           );
 
-          // 7. Log to audit log
+          // 6. Log to audit log if override was used
           if (isOverrideTransition) {
             await client.query(
               `INSERT INTO audit_log 
-               (staff_id, action, entity_type, entity_id, old_value, new_value, metadata)
-               VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7::jsonb)`,
+               (user_id, user_role, action, entity_type, entity_id, previous_value, new_value, override_reason)
+               VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
               [
-                staffId,
-                'ROOM_STATUS_CHANGE',
+                body.staffId,
+                'staff',
+                'OVERRIDE',
                 'room',
-                scanned.roomId,
-                JSON.stringify({ status: scanned.fromStatus }),
-                JSON.stringify({ status: scanned.toStatus }),
-                JSON.stringify({ override: true, overrideReason: scanned.overrideReason }),
+                roomId,
+                JSON.stringify({ status: fromStatus }),
+                JSON.stringify({ status: toStatus }),
+                body.overrideReason,
               ]
             );
           } else {
             await client.query(
               `INSERT INTO audit_log 
-               (staff_id, action, entity_type, entity_id, old_value, new_value)
-               VALUES ($1, $2, $3, $4, $5::jsonb, $6::jsonb)`,
+               (user_id, user_role, action, entity_type, entity_id, previous_value, new_value)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
               [
-                staffId,
-                'ROOM_STATUS_CHANGE',
+                body.staffId,
+                'staff',
+                'STATUS_CHANGE',
                 'room',
-                scanned.roomId,
-                JSON.stringify({ status: scanned.fromStatus }),
-                JSON.stringify({ status: scanned.toStatus }),
+                roomId,
+                JSON.stringify({ status: fromStatus }),
+                JSON.stringify({ status: toStatus }),
               ]
             );
           }
 
           results.push({
-            roomId: scanned.roomId,
+            roomId,
             roomNumber: room.number,
-            previousStatus: scanned.fromStatus,
-            newStatus: scanned.toStatus,
+            previousStatus: fromStatus,
+            newStatus: toStatus,
             success: true,
           });
 
           successfulTransitions.push({
-            roomId: scanned.roomId,
+            roomId,
             roomNumber: room.number,
-            previousStatus: scanned.fromStatus,
-            newStatus: scanned.toStatus,
+            previousStatus: fromStatus,
+            newStatus: toStatus,
           });
         }
 
-        // 8. Update batch completion if all rooms processed
+        // 7. Update batch completion if all rooms processed
         const successCount = results.filter(r => r.success).length;
-        if (successCount === body.scanned.length) {
+        if (successCount === body.roomIds.length) {
           await client.query(
             `UPDATE cleaning_batches
              SET completed_at = NOW(), room_count = $1, updated_at = NOW()
@@ -321,21 +265,17 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
 
       // Broadcast WebSocket events for successful transitions
       if (fastify.broadcaster && result.successfulTransitions.length > 0) {
-        // Create a map of scanned items to get override info
-        const scannedMap = new Map(body.scanned.map(s => [s.roomId, s]));
-
         // Broadcast individual room status changes
         for (const transition of result.successfulTransitions) {
-          const scanned = scannedMap.get(transition.roomId);
           fastify.broadcaster.broadcast({
             type: 'ROOM_STATUS_CHANGED',
             payload: {
               roomId: transition.roomId,
               previousStatus: transition.previousStatus,
               newStatus: transition.newStatus,
-              changedBy: staffId,
-              override: scanned?.override || false,
-              reason: scanned?.overrideReason,
+              changedBy: body.staffId,
+              override: body.override,
+              reason: body.overrideReason,
             },
             timestamp: new Date().toISOString(),
           });
@@ -360,13 +300,8 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
       });
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      const errorStack = error instanceof Error ? error.stack : undefined;
-      fastify.log.error({ error: errorMessage, stack: errorStack }, 'Failed to process cleaning batch');
-      return reply.status(500).send({
-        error: 'Internal server error',
-        details: process.env.NODE_ENV === 'test' ? errorMessage : undefined,
-      });
+      fastify.log.error(error, 'Failed to process cleaning batch');
+      return reply.status(500).send({ error: 'Internal server error' });
     }
   });
 

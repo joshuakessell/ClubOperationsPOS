@@ -1,7 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
-import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload } from '@club-ops/shared';
+import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload, type SelectionProposedPayload, type SelectionLockedPayload, type SelectionAcknowledgedPayload } from '@club-ops/shared';
 import { LockScreen, type StaffSession } from './LockScreen';
 import { InventorySelector } from './InventorySelector';
+import { IdScanner } from './IdScanner';
+import type { IdScanPayload } from '@club-ops/shared';
 
 interface HealthStatus {
   status: string;
@@ -30,6 +32,7 @@ function App() {
   const [scanBuffer, setScanBuffer] = useState('');
   const scanTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [manualEntry, setManualEntry] = useState(false);
+  const [showIdScanner, setShowIdScanner] = useState(false);
   const [customerName, setCustomerName] = useState('');
   const [membershipNumber, setMembershipNumber] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,6 +54,11 @@ function App() {
   const [waitlistDesiredTier, setWaitlistDesiredTier] = useState<string | null>(null);
   const [waitlistBackupType, setWaitlistBackupType] = useState<string | null>(null);
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<{ type: 'room' | 'locker'; id: string; number: string; tier: string } | null>(null);
+  const [proposedRentalType, setProposedRentalType] = useState<string | null>(null);
+  const [proposedBy, setProposedBy] = useState<'CUSTOMER' | 'EMPLOYEE' | null>(null);
+  const [selectionConfirmed, setSelectionConfirmed] = useState(false);
+  const [selectionConfirmedBy, setSelectionConfirmedBy] = useState<'CUSTOMER' | 'EMPLOYEE' | null>(null);
+  const [selectionAcknowledged, setSelectionAcknowledged] = useState(false);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [showCustomerConfirmationPending, setShowCustomerConfirmationPending] = useState(false);
   const [customerConfirmationType, setCustomerConfirmationType] = useState<{ requested: string; selected: string; number: string } | null>(null);
@@ -201,6 +209,67 @@ function App() {
     }
   };
 
+  const handleIdScan = async (payload: IdScanPayload) => {
+    if (!session?.sessionToken) {
+      alert('Not authenticated');
+      return;
+    }
+
+    // Require check-in mode to be selected before starting session
+    if (!checkinMode) {
+      alert('Please select check-in mode (Initial Check-In or Renewal) before scanning ID');
+      return;
+    }
+
+    // For RENEWAL mode, require visit to be selected
+    if (checkinMode === CheckinMode.RENEWAL && !selectedVisit) {
+      alert('Please select a visit to renew before scanning ID');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/scan-id`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to scan ID');
+      }
+
+      const data = await response.json();
+      console.log('ID scanned, session updated:', data);
+      
+      // Update local state
+      if (data.customerName) setCustomerName(data.customerName);
+      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
+      if (data.sessionId) setCurrentSessionId(data.sessionId);
+      
+      // Close scanner
+      setShowIdScanner(false);
+    } catch (error) {
+      console.error('Failed to scan ID:', error);
+      alert(error instanceof Error ? error.message : 'Failed to scan ID');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleManualIdEntry = async (name: string, idNumber?: string, dob?: string) => {
+    const payload: IdScanPayload = {
+      fullName: name,
+      idNumber: idNumber || undefined,
+      dob: dob || undefined,
+    };
+    await handleIdScan(payload);
+  };
+
   const startLaneSession = async (idScanValue: string, membershipScanValue?: string | null) => {
     if (!session?.sessionToken) {
       alert('Not authenticated');
@@ -271,7 +340,8 @@ function App() {
       alert('Please enter customer name');
       return;
     }
-    await updateLaneSession(customerName.trim(), membershipNumber.trim() || null);
+    // Use scan-id endpoint for manual entry too (with minimal payload)
+    await handleManualIdEntry(customerName.trim());
   };
 
   const fetchAgreementStatus = async (sessionId: string) => {
@@ -834,6 +904,9 @@ function App() {
           'CUSTOMER_CONFIRMED',
           'CUSTOMER_DECLINED',
           'WAITLIST_UPDATED',
+          'SELECTION_PROPOSED',
+          'SELECTION_LOCKED',
+          'SELECTION_ACKNOWLEDGED',
         ],
       }));
     };
@@ -883,8 +956,42 @@ function App() {
           }
         } else if (message.type === 'SESSION_UPDATED') {
           const payload = message.payload as SessionUpdatedPayload;
-          // Track customer selection if available in payload
-          // For now, we'll need to add this to the payload structure
+          // Update selection state
+          if (payload.proposedRentalType) {
+            setProposedRentalType(payload.proposedRentalType);
+            setProposedBy(payload.proposedBy || null);
+          }
+          if (payload.selectionConfirmed !== undefined) {
+            setSelectionConfirmed(payload.selectionConfirmed);
+            setSelectionConfirmedBy(payload.selectionConfirmedBy || null);
+            if (payload.selectionConfirmed) {
+              setCustomerSelectedType(payload.proposedRentalType || null);
+            }
+          }
+        } else if (message.type === 'SELECTION_PROPOSED') {
+          const payload = message.payload as SelectionProposedPayload;
+          if (payload.sessionId === currentSessionId) {
+            setProposedRentalType(payload.rentalType);
+            setProposedBy(payload.proposedBy);
+          }
+        } else if (message.type === 'SELECTION_LOCKED') {
+          const payload = message.payload as SelectionLockedPayload;
+          if (payload.sessionId === currentSessionId) {
+            setSelectionConfirmed(true);
+            setSelectionConfirmedBy(payload.confirmedBy);
+            setCustomerSelectedType(payload.rentalType);
+            // If employee didn't confirm, show acknowledgement prompt
+            if (payload.confirmedBy === 'CUSTOMER') {
+              setSelectionAcknowledged(false);
+            } else {
+              setSelectionAcknowledged(true);
+            }
+          }
+        } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
+          const payload = message.payload as SelectionAcknowledgedPayload;
+          if (payload.sessionId === currentSessionId) {
+            setSelectionAcknowledged(true);
+          }
         } else if (message.type === 'INVENTORY_UPDATED' || message.type === 'ROOM_STATUS_CHANGED') {
           // Refresh inventory will be handled by InventorySelector component
         } else if (message.type === 'ASSIGNMENT_CREATED') {
@@ -929,6 +1036,12 @@ function App() {
   }, [selectedCheckoutRequest, lane]);
 
   const handleInventorySelect = (type: 'room' | 'locker', id: string, number: string, tier: string) => {
+    // If selection is locked and not acknowledged, don't allow selection change
+    if (selectionConfirmed && !selectionAcknowledged) {
+      alert('Please acknowledge the locked selection before changing selection.');
+      return;
+    }
+
     // Check if employee selected different type than customer requested
     if (customerSelectedType && tier !== customerSelectedType) {
       // Require customer confirmation
@@ -945,6 +1058,107 @@ function App() {
     }
     
     setSelectedInventoryItem({ type, id, number, tier });
+  };
+
+  const handleProposeSelection = async (rentalType: string) => {
+    if (!currentSessionId || !session?.sessionToken) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({
+          rentalType,
+          proposedBy: 'EMPLOYEE',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to propose selection');
+      }
+
+      setProposedRentalType(rentalType);
+      setProposedBy('EMPLOYEE');
+    } catch (error) {
+      console.error('Failed to propose selection:', error);
+      alert(error instanceof Error ? error.message : 'Failed to propose selection. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmSelection = async () => {
+    if (!currentSessionId || !session?.sessionToken || !proposedRentalType) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/confirm-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({
+          confirmedBy: 'EMPLOYEE',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to confirm selection');
+      }
+
+      setSelectionConfirmed(true);
+      setSelectionConfirmedBy('EMPLOYEE');
+      setSelectionAcknowledged(true);
+      setCustomerSelectedType(proposedRentalType);
+    } catch (error) {
+      console.error('Failed to confirm selection:', error);
+      alert(error instanceof Error ? error.message : 'Failed to confirm selection. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAcknowledgeSelection = async () => {
+    if (!currentSessionId || !session?.sessionToken) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/acknowledge-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.sessionToken}`,
+        },
+        body: JSON.stringify({
+          acknowledgedBy: 'EMPLOYEE',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to acknowledge selection');
+      }
+
+      setSelectionAcknowledged(true);
+    } catch (error) {
+      console.error('Failed to acknowledge selection:', error);
+      alert(error instanceof Error ? error.message : 'Failed to acknowledge selection. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleAssign = async () => {
@@ -1519,6 +1733,11 @@ function App() {
                 setShowCustomerConfirmationPending(false);
                 setCustomerConfirmationType(null);
                 setShowWaitlistModal(false);
+                setProposedRentalType(null);
+                setProposedBy(null);
+                setSelectionConfirmed(false);
+                setSelectionConfirmedBy(null);
+                setSelectionAcknowledged(false);
               }}
               style={{
                 padding: '0.5rem 1rem',
@@ -1624,6 +1843,106 @@ function App() {
               Customer requested <strong>{waitlistDesiredTier}</strong> but it's unavailable.
               Assigning <strong>{waitlistBackupType}</strong> as backup. If {waitlistDesiredTier} becomes available, customer can upgrade.
             </div>
+          </div>
+        )}
+
+        {/* Selection State Display */}
+        {currentSessionId && customerName && (proposedRentalType || selectionConfirmed) && (
+          <div style={{ 
+            padding: '1rem', 
+            marginBottom: '1rem', 
+            background: selectionConfirmed ? '#10b981' : '#3b82f6', 
+            borderRadius: '8px',
+            color: 'white',
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+              {selectionConfirmed 
+                ? `✓ Selection Locked: ${proposedRentalType} (by ${selectionConfirmedBy === 'CUSTOMER' ? 'Customer' : 'You'})`
+                : `Proposed: ${proposedRentalType} (by ${proposedBy === 'CUSTOMER' ? 'Customer' : 'You'})`}
+            </div>
+            {!selectionConfirmed && proposedBy === 'EMPLOYEE' && (
+              <button
+                onClick={handleConfirmSelection}
+                disabled={isSubmitting}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: 'white',
+                  color: '#3b82f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isSubmitting ? 'Confirming...' : 'Confirm Selection'}
+              </button>
+            )}
+            {!selectionConfirmed && proposedBy === 'CUSTOMER' && (
+              <button
+                onClick={handleConfirmSelection}
+                disabled={isSubmitting}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: 'white',
+                  color: '#3b82f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isSubmitting ? 'Confirming...' : 'Confirm Customer Selection'}
+              </button>
+            )}
+            {selectionConfirmed && selectionConfirmedBy === 'CUSTOMER' && !selectionAcknowledged && (
+              <div>
+                <p style={{ marginBottom: '0.5rem' }}>Customer has locked this selection. Please acknowledge to continue.</p>
+                <button
+                  onClick={handleAcknowledgeSelection}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'white',
+                    color: '#3b82f6',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isSubmitting ? 'Acknowledging...' : 'Acknowledge'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Quick Selection Buttons */}
+        {currentSessionId && customerName && !selectionConfirmed && (
+          <div style={{ 
+            display: 'flex', 
+            gap: '0.5rem', 
+            marginBottom: '1rem',
+            flexWrap: 'wrap',
+          }}>
+            {['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'].map(rental => (
+              <button
+                key={rental}
+                onClick={() => handleProposeSelection(rental)}
+                disabled={isSubmitting || (proposedRentalType === rental)}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: proposedRentalType === rental ? '#3b82f6' : '#475569',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                Propose {rental}
+              </button>
+            ))}
           </div>
         )}
 
@@ -1761,14 +2080,15 @@ function App() {
           <h2>Lane Session</h2>
           <div className="action-buttons">
             <button 
-              className={`action-btn ${scanMode === 'id' ? 'active' : ''}`}
+              className={`action-btn ${showIdScanner ? 'active' : ''}`}
               onClick={() => {
-                setScanMode(scanMode === 'id' ? null : 'id');
+                setShowIdScanner(true);
+                setScanMode(null);
                 setManualEntry(false);
               }}
             >
               <span className="btn-icon">🆔</span>
-              {scanMode === 'id' ? 'Scanning ID...' : 'Scan ID'}
+              SCAN ID
             </button>
             <button 
               className={`action-btn ${scanMode === 'membership' ? 'active' : ''}`}
@@ -2056,6 +2376,17 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* ID Scanner Modal */}
+      <IdScanner
+        isOpen={showIdScanner}
+        onClose={() => setShowIdScanner(false)}
+        onScan={handleIdScan}
+        onManualEntry={() => {
+          setShowIdScanner(false);
+          setManualEntry(true);
+        }}
+      />
     </div>
   );
 }

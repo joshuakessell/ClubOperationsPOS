@@ -14,6 +14,10 @@ import type {
   CustomerDeclinedPayload,
   AssignmentCreatedPayload,
   AssignmentFailedPayload,
+  SelectionProposedPayload,
+  SelectionLockedPayload,
+  SelectionAcknowledgedPayload,
+  WaitlistCreatedPayload,
 } from '@club-ops/shared';
 
 /**
@@ -50,7 +54,11 @@ export type WebSocketPayload =
   | CustomerConfirmedPayload
   | CustomerDeclinedPayload
   | AssignmentCreatedPayload
-  | AssignmentFailedPayload;
+  | AssignmentFailedPayload
+  | SelectionProposedPayload
+  | SelectionLockedPayload
+  | SelectionAcknowledgedPayload
+  | WaitlistCreatedPayload;
 
 /**
  * Client metadata for lane-scoped broadcasts.
@@ -268,3 +276,6 @@ export function createBroadcaster(): Broadcaster {
     },
   };
 }
+
+// Note: Selection and waitlist events are broadcast via broadcastToLane
+// using the generic broadcastToLane method, so no specific methods needed here

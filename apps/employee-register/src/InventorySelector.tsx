@@ -49,23 +49,51 @@ const ROOM_TYPE_LABELS: Record<string, string> = {
   LOCKER: 'Lockers',
 };
 
-// Group rooms by availability status
-type RoomGroup = 'available' | 'expiring' | 'recent';
+// Group rooms by availability status (standard view ordering)
+type RoomGroup = 'upgradeRequest' | 'available' | 'cleaning' | 'dirty' | 'expiring' | 'occupied';
 
 interface GroupedRoom {
   room: DetailedRoom;
   group: RoomGroup;
   minutesRemaining?: number;
+  isWaitlistMatch?: boolean; // True if room matches pending waitlist upgrade
 }
 
-function groupRooms(rooms: DetailedRoom[]): GroupedRoom[] {
+function groupRooms(
+  rooms: DetailedRoom[], 
+  waitlistEntries: Array<{ desiredTier: string; status: string }> = []
+): GroupedRoom[] {
   const now = new Date();
   const thirtyMinutesFromNow = new Date(now.getTime() + 30 * 60 * 1000);
 
+  // Create set of tiers with active waitlist entries
+  const waitlistTiers = new Set(
+    waitlistEntries
+      .filter(e => e.status === 'ACTIVE' || e.status === 'OFFERED')
+      .map(e => e.desiredTier)
+  );
+
   return rooms.map(room => {
+    const isWaitlistMatch = waitlistTiers.has(room.tier) && room.status === RoomStatus.CLEAN && !room.assignedTo;
+
+    // Upgrade request: room matches waitlist tier and is available
+    if (isWaitlistMatch) {
+      return { room, group: 'upgradeRequest' as RoomGroup, isWaitlistMatch: true };
+    }
+
     // Available: CLEAN status and not assigned
     if (room.status === RoomStatus.CLEAN && !room.assignedTo) {
       return { room, group: 'available' as RoomGroup };
+    }
+
+    // Cleaning: CLEANING status
+    if (room.status === RoomStatus.CLEANING) {
+      return { room, group: 'cleaning' as RoomGroup };
+    }
+
+    // Dirty: DIRTY status
+    if (room.status === RoomStatus.DIRTY) {
+      return { room, group: 'dirty' as RoomGroup };
     }
 
     // Expiring Soon: Occupied and checkout within 30 minutes
@@ -77,9 +105,9 @@ function groupRooms(rooms: DetailedRoom[]): GroupedRoom[] {
       }
     }
 
-    // Recently Reserved: Other occupied rooms
-    if (room.assignedTo && room.checkinAt) {
-      return { room, group: 'recent' as RoomGroup };
+    // Occupied: Other occupied rooms
+    if (room.assignedTo || room.status === RoomStatus.OCCUPIED) {
+      return { room, group: 'occupied' as RoomGroup };
     }
 
     // Default to available for other cases
@@ -89,11 +117,14 @@ function groupRooms(rooms: DetailedRoom[]): GroupedRoom[] {
 
 function sortGroupedRooms(grouped: GroupedRoom[]): GroupedRoom[] {
   return grouped.sort((a, b) => {
-    // Group order: available, expiring, recent
+    // Group order: upgradeRequest, available, cleaning, dirty, expiring, occupied
     const groupOrder: Record<RoomGroup, number> = {
-      available: 0,
-      expiring: 1,
-      recent: 2,
+      upgradeRequest: 0,
+      available: 1,
+      cleaning: 2,
+      dirty: 3,
+      expiring: 4,
+      occupied: 5,
     };
 
     if (groupOrder[a.group] !== groupOrder[b.group]) {
@@ -101,7 +132,12 @@ function sortGroupedRooms(grouped: GroupedRoom[]): GroupedRoom[] {
     }
 
     // Within available: sort by room number ascending
-    if (a.group === 'available') {
+    if (a.group === 'available' || a.group === 'upgradeRequest') {
+      return parseInt(a.room.number) - parseInt(b.room.number);
+    }
+
+    // Within cleaning/dirty: sort by room number ascending
+    if (a.group === 'cleaning' || a.group === 'dirty') {
       return parseInt(a.room.number) - parseInt(b.room.number);
     }
 
@@ -111,10 +147,10 @@ function sortGroupedRooms(grouped: GroupedRoom[]): GroupedRoom[] {
       return new Date(a.room.checkoutAt).getTime() - new Date(b.room.checkoutAt).getTime();
     }
 
-    // Within recent: sort by checkin_at descending (most recent at bottom)
-    if (a.group === 'recent') {
-      if (!a.room.checkinAt || !b.room.checkinAt) return 0;
-      return new Date(b.room.checkinAt).getTime() - new Date(a.room.checkinAt).getTime();
+    // Within occupied: sort by checkout_at ascending (most expired first)
+    if (a.group === 'occupied') {
+      if (!a.room.checkoutAt || !b.room.checkoutAt) return 0;
+      return new Date(a.room.checkoutAt).getTime() - new Date(b.room.checkoutAt).getTime();
     }
 
     return 0;
@@ -136,6 +172,7 @@ export function InventorySelector({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [waitlistEntries, setWaitlistEntries] = useState<Array<{ desiredTier: string; status: string }>>([]);
 
   const API_BASE = '/api';
 
@@ -183,8 +220,8 @@ export function InventorySelector({
     async function fetchInventory() {
       try {
         setLoading(true);
-        // Use new rooms-by-tier endpoint for better tier mapping
-        const response = await fetch(`${API_BASE}/v1/inventory/rooms-by-tier`, {
+        // Use detailed inventory endpoint to get all statuses
+        const response = await fetch(`${API_BASE}/v1/inventory/detailed`, {
           headers: {
             'Authorization': `Bearer ${sessionToken}`,
           },
@@ -196,73 +233,38 @@ export function InventorySelector({
 
         const data = await response.json();
         if (mounted) {
-          // Transform rooms-by-tier response to DetailedInventory format
-          const rooms: DetailedRoom[] = [];
-          if (data.rooms) {
-            Object.entries(data.rooms).forEach(([tier, tierData]: [string, any]) => {
-              // Add available rooms
-              (tierData.available || []).forEach((room: any) => {
-                rooms.push({
-                  id: room.id,
-                  number: room.number,
-                  tier: tier,
-                  status: RoomStatus.CLEAN,
-                  floor: 1, // Default
-                  lastStatusChange: new Date().toISOString(),
-                  assignedTo: undefined,
-                  overrideFlag: false,
-                });
-              });
-              // Add expiring soon rooms
-              (tierData.expiringSoon || []).forEach((room: any) => {
-                rooms.push({
-                  id: room.id,
-                  number: room.number,
-                  tier: tier,
-                  status: RoomStatus.CLEAN, // Will be OCCUPIED in actual data
-                  floor: 1,
-                  lastStatusChange: new Date().toISOString(),
-                  assignedTo: 'occupied',
-                  checkoutAt: room.checkoutAt,
-                  overrideFlag: false,
-                });
-              });
-              // Add recently reserved rooms
-              (tierData.recentlyReserved || []).forEach((room: any) => {
-                rooms.push({
-                  id: room.id,
-                  number: room.number,
-                  tier: tier,
-                  status: RoomStatus.CLEAN,
-                  floor: 1,
-                  lastStatusChange: new Date().toISOString(),
-                  assignedTo: 'occupied',
-                  checkoutAt: room.checkoutAt,
-                  overrideFlag: false,
-                });
-              });
-            });
-          }
+          // Transform detailed inventory response
+          // Map room tier from type field using getRoomTier function
+          const getRoomTier = (roomNumber: string): 'SPECIAL' | 'DOUBLE' | 'STANDARD' => {
+            const num = parseInt(roomNumber, 10);
+            if (num === 201 || num === 232 || num === 256) return 'SPECIAL';
+            if (num === 216 || num === 218 || num === 232 || num === 252 || num === 256 || num === 262 || num === 225) return 'DOUBLE';
+            return 'STANDARD';
+          };
+
+          const rooms: DetailedRoom[] = (data.rooms || []).map((room: any) => ({
+            id: room.id,
+            number: room.number,
+            tier: getRoomTier(room.number), // Compute tier from room number
+            status: room.status as RoomStatus,
+            floor: room.floor || 1,
+            lastStatusChange: room.lastStatusChange || new Date().toISOString(),
+            assignedTo: room.assignedTo,
+            assignedMemberName: room.assignedMemberName,
+            overrideFlag: room.overrideFlag || false,
+            checkinAt: room.checkinAt,
+            checkoutAt: room.checkoutAt,
+          }));
           
-          const lockers: DetailedLocker[] = [];
-          if (data.lockers) {
-            (data.lockers.available || []).forEach((locker: any) => {
-              lockers.push({
-                id: locker.id,
-                number: locker.number,
-                status: RoomStatus.CLEAN,
-                assignedTo: undefined,
-              });
-            });
-            (data.lockers.assigned || []).forEach((locker: any) => {
-              lockers.push({
-                id: locker.id,
-                number: locker.number,
-                status: RoomStatus.CLEAN,
-                assignedTo: 'occupied',
-              });
-            });
-          }
+          const lockers: DetailedLocker[] = (data.lockers || []).map((locker: any) => ({
+            id: locker.id,
+            number: locker.number,
+            status: locker.status as RoomStatus,
+            assignedTo: locker.assignedTo,
+            assignedMemberName: locker.assignedMemberName,
+            checkinAt: locker.checkinAt,
+            checkoutAt: locker.checkoutAt,
+          }));
           
           setInventory({ rooms, lockers });
           setError(null);
@@ -307,9 +309,9 @@ export function InventorySelector({
       }
     } else {
       const roomsOfType = inventory.rooms.filter(r => r.tier === sectionToUse);
-      const grouped = groupRooms(roomsOfType);
+      const grouped = groupRooms(roomsOfType, waitlistEntries);
       const sorted = sortGroupedRooms(grouped);
-      const firstAvailableRoom = sorted.find(g => g.group === 'available');
+      const firstAvailableRoom = sorted.find(g => g.group === 'available' || g.group === 'upgradeRequest');
       
       if (firstAvailableRoom) {
         firstAvailable = {
@@ -390,6 +392,7 @@ export function InventorySelector({
         onToggle={() => toggleSection('SPECIAL')}
         onSelectRoom={(room) => onSelect('room', room.id, room.number, 'SPECIAL')}
         selectedItem={selectedItem}
+        waitlistEntries={waitlistEntries}
       />
 
       {/* Double Rooms */}
@@ -400,6 +403,7 @@ export function InventorySelector({
         onToggle={() => toggleSection('DOUBLE')}
         onSelectRoom={(room) => onSelect('room', room.id, room.number, 'DOUBLE')}
         selectedItem={selectedItem}
+        waitlistEntries={waitlistEntries}
       />
 
       {/* Standard Rooms */}
@@ -410,6 +414,7 @@ export function InventorySelector({
         onToggle={() => toggleSection('STANDARD')}
         onSelectRoom={(room) => onSelect('room', room.id, room.number, 'STANDARD')}
         selectedItem={selectedItem}
+        waitlistEntries={waitlistEntries}
       />
 
       {/* Lockers */}
@@ -440,15 +445,19 @@ function InventorySection({
   onToggle,
   onSelectRoom,
   selectedItem,
-}: InventorySectionProps) {
+  waitlistEntries = [],
+}: InventorySectionProps & { waitlistEntries?: Array<{ desiredTier: string; status: string }> }) {
   const grouped = useMemo(() => {
-    const groupedRooms = groupRooms(rooms);
+    const groupedRooms = groupRooms(rooms, waitlistEntries);
     return sortGroupedRooms(groupedRooms);
-  }, [rooms]);
+  }, [rooms, waitlistEntries]);
 
+  const upgradeRequests = grouped.filter(g => g.group === 'upgradeRequest');
   const available = grouped.filter(g => g.group === 'available');
+  const cleaning = grouped.filter(g => g.group === 'cleaning');
+  const dirty = grouped.filter(g => g.group === 'dirty');
   const expiring = grouped.filter(g => g.group === 'expiring');
-  const recent = grouped.filter(g => g.group === 'recent');
+  const occupied = grouped.filter(g => g.group === 'occupied');
 
   return (
     <div style={{ marginBottom: '1rem' }}>
@@ -475,18 +484,44 @@ function InventorySection({
 
       {isExpanded && (
         <div style={{ marginTop: '0.5rem', padding: '0.5rem', background: '#0f172a', borderRadius: '6px' }}>
+          {/* Upgrade Requests (Waitlist) */}
+          {upgradeRequests.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ 
+                fontSize: '0.875rem', 
+                fontWeight: 600, 
+                color: '#f59e0b', 
+                marginBottom: '0.5rem',
+                paddingBottom: '0.25rem',
+                borderBottom: '1px solid #334155',
+              }}>
+                ⚠️ Upgrade Requests (Waitlist)
+              </div>
+              {upgradeRequests.map(({ room, isWaitlistMatch }) => (
+                <RoomItem
+                  key={room.id}
+                  room={room}
+                  isSelectable={true}
+                  isSelected={selectedItem?.type === 'room' && selectedItem.id === room.id}
+                  onClick={() => onSelectRoom(room)}
+                  isWaitlistMatch={isWaitlistMatch}
+                />
+              ))}
+            </div>
+          )}
+
           {/* Available Now */}
           {available.length > 0 && (
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ 
                 fontSize: '0.875rem', 
                 fontWeight: 600, 
-                color: '#94a3b8', 
+                color: '#10b981', 
                 marginBottom: '0.5rem',
                 paddingBottom: '0.25rem',
                 borderBottom: '1px solid #334155',
               }}>
-                A) Available Now
+                ✓ Available Now
               </div>
               {available.map(({ room }) => (
                 <RoomItem
@@ -500,8 +535,8 @@ function InventorySection({
             </div>
           )}
 
-          {/* Expiring Soon */}
-          {expiring.length > 0 && (
+          {/* Cleaning */}
+          {cleaning.length > 0 && (
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ 
                 fontSize: '0.875rem', 
@@ -511,7 +546,55 @@ function InventorySection({
                 paddingBottom: '0.25rem',
                 borderBottom: '1px solid #334155',
               }}>
-                B) Expiring Soon
+                🧹 Cleaning
+              </div>
+              {cleaning.map(({ room }) => (
+                <RoomItem
+                  key={room.id}
+                  room={room}
+                  isSelectable={false}
+                  isSelected={false}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Dirty */}
+          {dirty.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ 
+                fontSize: '0.875rem', 
+                fontWeight: 600, 
+                color: '#ef4444', 
+                marginBottom: '0.5rem',
+                paddingBottom: '0.25rem',
+                borderBottom: '1px solid #334155',
+              }}>
+                🗑️ Dirty
+              </div>
+              {dirty.map(({ room }) => (
+                <RoomItem
+                  key={room.id}
+                  room={room}
+                  isSelectable={false}
+                  isSelected={false}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Expiring Soon */}
+          {expiring.length > 0 && (
+            <div style={{ marginBottom: '1rem' }}>
+              <div style={{ 
+                fontSize: '0.875rem', 
+                fontWeight: 600, 
+                color: '#f59e0b', 
+                marginBottom: '0.5rem',
+                paddingBottom: '0.25rem',
+                borderBottom: '1px solid #334155',
+              }}>
+                ⏰ Expiring Soon
               </div>
               {expiring.map(({ room, minutesRemaining }) => (
                 <RoomItem
@@ -525,8 +608,8 @@ function InventorySection({
             </div>
           )}
 
-          {/* Recently Reserved */}
-          {recent.length > 0 && (
+          {/* Occupied */}
+          {occupied.length > 0 && (
             <div style={{ marginBottom: '1rem' }}>
               <div style={{ 
                 fontSize: '0.875rem', 
@@ -536,9 +619,9 @@ function InventorySection({
                 paddingBottom: '0.25rem',
                 borderBottom: '1px solid #334155',
               }}>
-                C) Recently Reserved
+                🔒 Occupied (sorted by expiration)
               </div>
-              {recent.map(({ room }) => (
+              {occupied.map(({ room }) => (
                 <RoomItem
                   key={room.id}
                   room={room}
@@ -549,7 +632,7 @@ function InventorySection({
             </div>
           )}
 
-          {available.length === 0 && expiring.length === 0 && recent.length === 0 && (
+          {upgradeRequests.length === 0 && available.length === 0 && cleaning.length === 0 && dirty.length === 0 && expiring.length === 0 && occupied.length === 0 && (
             <div style={{ padding: '1rem', textAlign: 'center', color: '#94a3b8' }}>
               No rooms in this category
             </div>
@@ -566,9 +649,10 @@ interface RoomItemProps {
   isSelected: boolean;
   onClick?: () => void;
   minutesRemaining?: number;
+  isWaitlistMatch?: boolean;
 }
 
-function RoomItem({ room, isSelectable, isSelected, onClick, minutesRemaining }: RoomItemProps) {
+function RoomItem({ room, isSelectable, isSelected, onClick, minutesRemaining, isWaitlistMatch }: RoomItemProps) {
   const isOccupied = !!room.assignedTo;
 
   return (
@@ -578,7 +662,11 @@ function RoomItem({ room, isSelectable, isSelected, onClick, minutesRemaining }:
         padding: '0.75rem',
         marginBottom: '0.5rem',
         background: isSelected ? '#3b82f6' : isOccupied ? '#1e293b' : '#0f172a',
-        border: isSelected ? '2px solid #60a5fa' : '1px solid #475569',
+        border: isWaitlistMatch 
+          ? '2px solid #f59e0b' 
+          : isSelected 
+            ? '2px solid #60a5fa' 
+            : '1px solid #475569',
         borderRadius: '6px',
         cursor: isSelectable ? 'pointer' : 'default',
         opacity: isOccupied ? 0.6 : 1,

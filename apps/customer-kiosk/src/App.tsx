@@ -5,6 +5,9 @@ import type {
   CustomerConfirmationRequiredPayload,
   AssignmentCreatedPayload,
   InventoryUpdatedPayload,
+  SelectionProposedPayload,
+  SelectionLockedPayload,
+  SelectionAcknowledgedPayload,
 } from '@club-ops/shared';
 import { CheckinMode } from '@club-ops/shared';
 import logoImage from './assets/the-clubs-logo.png';
@@ -77,6 +80,15 @@ function App() {
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [waitlistDesiredType, setWaitlistDesiredType] = useState<string | null>(null);
   const [waitlistBackupType, setWaitlistBackupType] = useState<string | null>(null);
+  const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
+  const [waitlistETA, setWaitlistETA] = useState<string | null>(null);
+  const [waitlistUpgradeFee, setWaitlistUpgradeFee] = useState<number | null>(null);
+  const [proposedRentalType, setProposedRentalType] = useState<string | null>(null);
+  const [proposedBy, setProposedBy] = useState<'CUSTOMER' | 'EMPLOYEE' | null>(null);
+  const [selectionConfirmed, setSelectionConfirmed] = useState(false);
+  const [selectionConfirmedBy, setSelectionConfirmedBy] = useState<'CUSTOMER' | 'EMPLOYEE' | null>(null);
+  const [selectionAcknowledged, setSelectionAcknowledged] = useState(false);
+  const [upgradeDisclaimerAcknowledged, setUpgradeDisclaimerAcknowledged] = useState(false);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
   const isDrawingRef = useRef(false);
   const idleTimeoutRef = useRef<number | null>(null);
@@ -114,7 +126,16 @@ function App() {
       // Subscribe to relevant events
       ws.send(JSON.stringify({
         type: 'subscribe',
-        events: ['SESSION_UPDATED', 'CUSTOMER_CONFIRMATION_REQUIRED', 'ASSIGNMENT_CREATED', 'INVENTORY_UPDATED'],
+        events: [
+          'SESSION_UPDATED', 
+          'SELECTION_PROPOSED',
+          'SELECTION_LOCKED',
+          'SELECTION_ACKNOWLEDGED',
+          'CUSTOMER_CONFIRMATION_REQUIRED', 
+          'ASSIGNMENT_CREATED', 
+          'INVENTORY_UPDATED',
+          'WAITLIST_CREATED',
+        ],
       }));
     };
 
@@ -146,6 +167,15 @@ function App() {
           if (payload.customerName) {
             setView('selection');
           }
+          // Update selection state
+          if (payload.proposedRentalType) {
+            setProposedRentalType(payload.proposedRentalType);
+            setProposedBy(payload.proposedBy || null);
+          }
+          if (payload.selectionConfirmed !== undefined) {
+            setSelectionConfirmed(payload.selectionConfirmed);
+            setSelectionConfirmedBy(payload.selectionConfirmedBy || null);
+          }
           // Handle completion status
           if ((payload as any).status === 'COMPLETED') {
             setView('complete');
@@ -173,8 +203,38 @@ function App() {
               setShowWaitlistModal(false);
               setWaitlistDesiredType(null);
               setWaitlistBackupType(null);
+              setProposedRentalType(null);
+              setProposedBy(null);
+              setSelectionConfirmed(false);
+              setSelectionConfirmedBy(null);
+              setSelectionAcknowledged(false);
+              setUpgradeDisclaimerAcknowledged(false);
               idleTimeoutRef.current = null;
             }, 5000);
+          }
+        } else if (message.type === 'SELECTION_PROPOSED') {
+          const payload = message.payload as SelectionProposedPayload;
+          if (payload.sessionId === session.sessionId) {
+            setProposedRentalType(payload.rentalType);
+            setProposedBy(payload.proposedBy);
+          }
+        } else if (message.type === 'SELECTION_LOCKED') {
+          const payload = message.payload as SelectionLockedPayload;
+          if (payload.sessionId === session.sessionId) {
+            setSelectionConfirmed(true);
+            setSelectionConfirmedBy(payload.confirmedBy);
+            setSelectedRental(payload.rentalType);
+            // If customer didn't confirm, show acknowledgement prompt
+            if (payload.confirmedBy === 'EMPLOYEE') {
+              setSelectionAcknowledged(false);
+            } else {
+              setSelectionAcknowledged(true);
+            }
+          }
+        } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
+          const payload = message.payload as SelectionAcknowledgedPayload;
+          if (payload.sessionId === session.sessionId) {
+            setSelectionAcknowledged(true);
           }
         } else if (message.type === 'CUSTOMER_CONFIRMATION_REQUIRED') {
           const payload = message.payload as CustomerConfirmationRequiredPayload;
@@ -239,30 +299,122 @@ function App() {
     // If unavailable, show waitlist modal
     if (availableCount === 0) {
       setWaitlistDesiredType(rental);
+      // Fetch waitlist info (position, ETA, upgrade fee)
+      try {
+        const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/waitlist-info?desiredTier=${rental}&currentTier=${selectedRental || 'LOCKER'}`);
+        if (response.ok) {
+          const data = await response.json();
+          setWaitlistPosition(data.position);
+          setWaitlistETA(data.estimatedReadyAt);
+          setWaitlistUpgradeFee(data.upgradeFee);
+        }
+      } catch (error) {
+        console.error('Failed to fetch waitlist info:', error);
+      }
       setShowWaitlistModal(true);
       return;
     }
 
-    setSelectedRental(rental);
     setIsSubmitting(true);
 
     try {
-      // Call the select-rental endpoint (requires staff auth, so this is a placeholder)
-      // In production, the employee register would call this on behalf of the customer
-      // For now, we'll proceed to agreement screen
-      
+      // Propose selection (customer proposes)
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rentalType: rental,
+          proposedBy: 'CUSTOMER',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to propose selection');
+      }
+
+      const data = await response.json();
+      setProposedRentalType(rental);
+      setProposedBy('CUSTOMER');
+      setIsSubmitting(false);
+    } catch (error) {
+      console.error('Failed to propose selection:', error);
+      alert(error instanceof Error ? error.message : 'Failed to process selection. Please try again.');
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleConfirmSelection = async () => {
+    if (!session.sessionId || !proposedRentalType) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/confirm-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          confirmedBy: 'CUSTOMER',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to confirm selection');
+      }
+
+      setSelectedRental(proposedRentalType);
+      setSelectionConfirmed(true);
+      setSelectionConfirmedBy('CUSTOMER');
+      setSelectionAcknowledged(true);
+
       // If renewal mode, show renewal disclaimer before agreement
       if (checkinMode === CheckinMode.RENEWAL) {
-        setIsSubmitting(false);
         setShowRenewalDisclaimer(true);
       } else {
-        // Show agreement screen after selection
-        setIsSubmitting(false);
+        // Show agreement screen after selection confirmed
         setView('agreement');
       }
     } catch (error) {
-      console.error('Failed to process rental selection:', error);
-      alert('Failed to process selection. Please try again.');
+      console.error('Failed to confirm selection:', error);
+      alert(error instanceof Error ? error.message : 'Failed to confirm selection. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleAcknowledgeSelection = async () => {
+    if (!session.sessionId) {
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/acknowledge-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          acknowledgedBy: 'CUSTOMER',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to acknowledge selection');
+      }
+
+      setSelectionAcknowledged(true);
+    } catch (error) {
+      console.error('Failed to acknowledge selection:', error);
+      alert(error instanceof Error ? error.message : 'Failed to acknowledge selection. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
   };
@@ -281,13 +433,60 @@ function App() {
     if (!session.sessionId || !upgradeAction) return;
 
     // Upgrade disclaimer is informational only - no signature required
-    // Just acknowledge and close the modal
-    // The actual upgrade processing happens on the employee register side
-    setShowUpgradeDisclaimer(false);
-    setUpgradeAction(null);
+    // Store acknowledgement and propose backup selection
+    try {
+      const backupType = waitlistBackupType || selectedRental || 'LOCKER';
+      
+      // Propose the backup rental type with waitlist info
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rentalType: backupType,
+          proposedBy: 'CUSTOMER',
+          waitlistDesiredType: waitlistDesiredType || undefined,
+          backupRentalType: backupType,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to process waitlist selection');
+      }
+
+      setUpgradeDisclaimerAcknowledged(true);
+      setShowUpgradeDisclaimer(false);
+      setUpgradeAction(null);
+      setProposedRentalType(backupType);
+      setProposedBy('CUSTOMER');
+      
+      // After acknowledging upgrade disclaimer, customer should confirm the backup selection
+      // Then proceed to agreement if INITIAL/RENEWAL
+    } catch (error) {
+      console.error('Failed to acknowledge upgrade disclaimer:', error);
+      alert(error instanceof Error ? error.message : 'Failed to process. Please try again.');
+    }
+  };
+
+  const handleWaitlistBackupSelection = async (rental: string) => {
+    if (!session.sessionId || !waitlistDesiredType) {
+      return;
+    }
+
+    const availableCount = inventory?.rooms[rental] || (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : 0) || 0;
+    if (availableCount === 0) {
+      alert('This rental type is not available. Please select an available option.');
+      return;
+    }
+
+    setWaitlistBackupType(rental);
+    setShowWaitlistModal(false);
     
-    // After acknowledging upgrade disclaimer, do NOT proceed to agreement
-    // Upgrades don't require agreement signing - that's only for initial check-ins and renewals
+    // Show upgrade disclaimer modal
+    setUpgradeAction('waitlist');
+    setShowUpgradeDisclaimer(true);
   };
 
   // Cleanup timeout on unmount
@@ -435,8 +634,15 @@ function App() {
     );
   }
 
-  // Agreement signing view
+  // Agreement signing view (only for INITIAL/RENEWAL)
   if (view === 'agreement') {
+    // Only show agreement for INITIAL/RENEWAL
+    if (checkinMode !== CheckinMode.INITIAL && checkinMode !== CheckinMode.RENEWAL) {
+      // For upgrades, skip agreement and go to complete
+      setView('complete');
+      return null;
+    }
+
     return (
       <div className="active-container">
         <img src={logoImage} alt="Club Dallas" className="logo-header" />
@@ -533,19 +739,78 @@ function App() {
           )}
         </div>
 
+        {/* Selection State Display */}
+        {proposedRentalType && (
+          <div style={{ 
+            padding: '1rem', 
+            marginBottom: '1rem', 
+            background: selectionConfirmed ? '#10b981' : '#3b82f6', 
+            borderRadius: '8px',
+            color: 'white',
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+              {selectionConfirmed 
+                ? `✓ Selection Locked: ${getRentalDisplayName(proposedRentalType)} (by ${selectionConfirmedBy === 'CUSTOMER' ? 'You' : 'Staff'})`
+                : `Proposed: ${getRentalDisplayName(proposedRentalType)} (by ${proposedBy === 'CUSTOMER' ? 'You' : 'Staff'})`}
+            </div>
+            {!selectionConfirmed && proposedBy === 'CUSTOMER' && (
+              <button
+                onClick={handleConfirmSelection}
+                disabled={isSubmitting}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: 'white',
+                  color: '#3b82f6',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {isSubmitting ? 'Confirming...' : 'Confirm Selection'}
+              </button>
+            )}
+            {selectionConfirmed && selectionConfirmedBy === 'EMPLOYEE' && !selectionAcknowledged && (
+              <div>
+                <p style={{ marginBottom: '0.5rem' }}>Staff has locked this selection. Please acknowledge to continue.</p>
+                <button
+                  onClick={handleAcknowledgeSelection}
+                  disabled={isSubmitting}
+                  style={{
+                    padding: '0.5rem 1rem',
+                    background: 'white',
+                    color: '#3b82f6',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 600,
+                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
+                  }}
+                >
+                  {isSubmitting ? 'Acknowledging...' : 'Acknowledge'}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Rental Options - disabled if selection is locked and not acknowledged */}
         <div className="package-options">
           {session.allowedRentals.length > 0 ? (
             session.allowedRentals.map((rental) => {
               const availableCount = inventory?.rooms[rental] || (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : 0) || 0;
               const showWarning = availableCount > 0 && availableCount < 3;
               const isUnavailable = availableCount === 0;
+              const isDisabled = selectionConfirmed && !selectionAcknowledged;
               
               return (
                 <div key={rental}>
                   <div
                     className="package-option"
-                    onClick={() => handleRentalSelection(rental)}
-                    style={{ opacity: 1, cursor: 'pointer' }}
+                    onClick={() => !isDisabled && handleRentalSelection(rental)}
+                    style={{ 
+                      opacity: isDisabled ? 0.5 : 1, 
+                      cursor: isDisabled ? 'not-allowed' : 'pointer' 
+                    }}
                   >
                     <div className="package-name">{getRentalDisplayName(rental)}</div>
                     {showWarning && (
@@ -556,6 +821,11 @@ function App() {
                     {isUnavailable && (
                       <div style={{ fontSize: '0.875rem', color: '#ef4444', marginTop: '0.5rem', fontWeight: 600 }}>
                         Currently unavailable - Tap to join waitlist
+                      </div>
+                    )}
+                    {proposedRentalType === rental && (
+                      <div style={{ fontSize: '0.875rem', color: '#3b82f6', marginTop: '0.5rem', fontWeight: 600 }}>
+                        {selectionConfirmed ? '✓ Selected' : 'Proposed'}
                       </div>
                     )}
                   </div>
@@ -689,8 +959,24 @@ function App() {
               <p>
                 <strong>{getRentalDisplayName(waitlistDesiredType)}</strong> is currently unavailable.
               </p>
-              <p>To join the waitlist, please select a backup rental that is available now.</p>
-              <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '1rem' }}>
+              {waitlistPosition !== null && (
+                <div style={{ marginTop: '1rem', padding: '0.75rem', background: '#1e293b', borderRadius: '6px' }}>
+                  <p style={{ fontWeight: 600, marginBottom: '0.5rem' }}>Waitlist Information:</p>
+                  <p>Position: <strong>#{waitlistPosition}</strong></p>
+                  {waitlistETA ? (
+                    <p>Estimated Ready: <strong>{new Date(waitlistETA).toLocaleString()}</strong></p>
+                  ) : (
+                    <p>Estimated Ready: <strong>Unknown</strong></p>
+                  )}
+                  {waitlistUpgradeFee !== null && waitlistUpgradeFee > 0 && (
+                    <p style={{ color: '#f59e0b', marginTop: '0.5rem' }}>
+                      Upgrade Fee: <strong>${waitlistUpgradeFee.toFixed(2)}</strong>
+                    </p>
+                  )}
+                </div>
+              )}
+              <p style={{ marginTop: '1rem' }}>To join the waitlist, please select a backup rental that is available now.</p>
+              <p style={{ fontSize: '0.875rem', color: '#94a3b8', marginTop: '0.5rem' }}>
                 You will be charged for the backup rental. If an upgrade becomes available, you may accept it (upgrade fees apply).
               </p>
             </div>
