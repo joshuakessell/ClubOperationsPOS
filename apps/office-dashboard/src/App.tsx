@@ -4,6 +4,8 @@ import { RoomStatus, RoomType, type DetailedInventory, type WebSocketEvent, type
 import { LockScreen, type StaffSession } from './LockScreen';
 import { AdminView } from './AdminView';
 import { StaffManagement } from './StaffManagement';
+import { RegistersView } from './RegistersView';
+import { DevicesView } from './DevicesView';
 
 interface HealthStatus {
   status: string;
@@ -104,6 +106,8 @@ function App() {
     <Routes>
       <Route path="/admin" element={isAdmin ? <AdminView session={session} /> : <NotAuthorizedView />} />
       <Route path="/admin/staff" element={isAdmin ? <StaffManagement session={session} /> : <NotAuthorizedView />} />
+      <Route path="/admin/registers" element={isAdmin ? <RegistersView session={session} /> : <NotAuthorizedView />} />
+      <Route path="/admin/devices" element={isAdmin ? <DevicesView session={session} /> : <NotAuthorizedView />} />
       <Route path="/" element={<DashboardContent session={session} />} />
     </Routes>
   );
@@ -201,10 +205,10 @@ function DashboardContent({ session }: { session: StaffSession }) {
       console.log('WebSocket connected');
       setWsConnected(true);
       
-      // Subscribe to inventory updates and session updates
+      // Subscribe to inventory updates, session updates, and register session updates
       ws.send(JSON.stringify({
         type: 'subscribe',
-        events: ['INVENTORY_UPDATED', 'ROOM_STATUS_CHANGED', 'SESSION_UPDATED'],
+        events: ['INVENTORY_UPDATED', 'ROOM_STATUS_CHANGED', 'SESSION_UPDATED', 'REGISTER_SESSION_UPDATED'],
       }));
     };
 
@@ -261,7 +265,10 @@ function DashboardContent({ session }: { session: StaffSession }) {
       }
     };
 
-    return () => ws.close();
+    return () => {
+      wsConnection.close();
+      setWs(null);
+    };
   }, []);
 
   return (
@@ -306,6 +313,18 @@ function DashboardContent({ session }: { session: StaffSession }) {
                 onClick={() => navigate('/admin/staff')}
               >
                 👤 Staff Management
+              </button>
+              <button
+                className={`nav-item ${location.pathname === '/admin/registers' ? 'active' : ''}`}
+                onClick={() => navigate('/admin/registers')}
+              >
+                🖥️ Registers
+              </button>
+              <button
+                className={`nav-item ${location.pathname === '/admin/devices' ? 'active' : ''}`}
+                onClick={() => navigate('/admin/devices')}
+              >
+                📱 Devices
               </button>
               <button
                 className={`nav-item ${location.pathname === '/admin' ? 'active' : ''}`}

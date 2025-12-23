@@ -35,6 +35,7 @@ export type {
   SelectionLockedPayload,
   SelectionAcknowledgedPayload,
   WaitlistCreatedPayload,
+  RegisterSessionUpdatedPayload,
 } from './types';
 
 // Zod schemas

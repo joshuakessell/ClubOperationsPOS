@@ -69,7 +69,7 @@ async function main() {
   // Set up periodic cleanup for abandoned register sessions (every 30 seconds)
   const cleanupInterval = setInterval(async () => {
     try {
-      const cleaned = await cleanupAbandonedRegisterSessions();
+      const cleaned = await cleanupAbandonedRegisterSessions(fastify);
       if (cleaned > 0) {
         fastify.log.info(`Cleaned up ${cleaned} abandoned register session(s)`);
       }

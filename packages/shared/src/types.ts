@@ -65,7 +65,8 @@ export type WebSocketEventType =
   | 'CHECKOUT_CLAIMED'
   | 'CHECKOUT_UPDATED'
   | 'CHECKOUT_COMPLETED'
-  | 'WAITLIST_UPDATED';
+  | 'WAITLIST_UPDATED'
+  | 'REGISTER_SESSION_UPDATED';
 
 /**
  * Base WebSocket event structure.
@@ -275,5 +276,24 @@ export interface CheckoutUpdatedPayload {
 
 export interface CheckoutCompletedPayload {
   requestId: string;
+}
+
+/**
+ * Register session updated event payload.
+ * Emitted when a register session is created, signed out, force signed out, or expires.
+ */
+export interface RegisterSessionUpdatedPayload {
+  registerNumber: 1 | 2;
+  active: boolean;
+  sessionId: string | null;
+  employee: {
+    id: string;
+    displayName: string;
+    role: string;
+  } | null;
+  deviceId: string | null;
+  createdAt: string | null;
+  lastHeartbeatAt: string | null;
+  reason: 'CONFIRMED' | 'SIGNED_OUT' | 'FORCED_SIGN_OUT' | 'TTL_EXPIRED';
 }
 

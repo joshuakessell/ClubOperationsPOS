@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { SignInModal } from './SignInModal';
+import type { WebSocketEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
 
 const API_BASE = '/api';
 
@@ -22,16 +23,52 @@ export function RegisterSignIn({ deviceId, onSignedIn, children }: RegisterSignI
   const [registerSession, setRegisterSession] = useState<RegisterSession | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [heartbeatInterval, setHeartbeatInterval] = useState<NodeJS.Timeout | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Check for existing register session on mount
   useEffect(() => {
     checkRegisterStatus();
   }, []);
 
-  const checkRegisterStatus = async () => {
+  // Set up WebSocket subscription for register session updates
+  useEffect(() => {
+    if (!registerSession) return;
+
+    const ws = new WebSocket(`ws://${window.location.hostname}:3001/ws`);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        events: ['REGISTER_SESSION_UPDATED'],
+      }));
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message: WebSocketEvent = JSON.parse(event.data);
+        if (message.type === 'REGISTER_SESSION_UPDATED') {
+          const payload = message.payload as RegisterSessionUpdatedPayload;
+          // If this event targets our device and session is no longer active, sign out
+          if (payload.deviceId === deviceId && !payload.active) {
+            handleSessionInvalidated();
+          }
+        }
+      } catch (error) {
+        console.error('Failed to parse WebSocket message:', error);
+      }
+    };
+
+    return () => {
+      ws.close();
+      wsRef.current = null;
+    };
+  }, [registerSession, deviceId]);
+
+  const checkRegisterStatus = async (): Promise<boolean> => {
     try {
       const response = await fetch(`${API_BASE}/v1/registers/status?deviceId=${encodeURIComponent(deviceId)}`);
-      if (!response.ok) return;
+      if (!response.ok) return false;
       
       const data = await response.json();
       if (data.signedIn) {
@@ -48,10 +85,35 @@ export function RegisterSignIn({ deviceId, onSignedIn, children }: RegisterSignI
           registerNumber: data.registerNumber,
           deviceId,
         });
+        return true;
       }
+      return false;
     } catch (error) {
       console.error('Failed to check register status:', error);
+      return false;
     }
+  };
+
+  const handleSessionInvalidated = () => {
+    // Clear heartbeat interval
+    if (heartbeatInterval) {
+      clearInterval(heartbeatInterval);
+      setHeartbeatInterval(null);
+    }
+
+    // Close WebSocket
+    if (wsRef.current) {
+      wsRef.current.close();
+      wsRef.current = null;
+    }
+
+    // Clear register session state
+    setRegisterSession(null);
+
+    // Clear staff session from localStorage
+    localStorage.removeItem('staff_session');
+
+    // Return to splash (component will re-render showing sign-in modal)
   };
 
   const startHeartbeat = () => {
@@ -63,16 +125,29 @@ export function RegisterSignIn({ deviceId, onSignedIn, children }: RegisterSignI
     // Send heartbeat every 60 seconds (90 second TTL on server)
     const interval = setInterval(async () => {
       try {
-        await fetch(`${API_BASE}/v1/registers/heartbeat`, {
+        const response = await fetch(`${API_BASE}/v1/registers/heartbeat`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ deviceId }),
         });
+
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({}));
+          // If 404 or DEVICE_DISABLED, session is invalid
+          if (response.status === 404 || error.code === 'DEVICE_DISABLED') {
+            handleSessionInvalidated();
+            return;
+          }
+          throw new Error('Heartbeat failed');
+        }
       } catch (error) {
         console.error('Heartbeat failed:', error);
         // If heartbeat fails, session may have been cleaned up
         // Check status again
-        checkRegisterStatus();
+        const stillActive = await checkRegisterStatus();
+        if (!stillActive) {
+          handleSessionInvalidated();
+        }
       }
     }, 60000);
 

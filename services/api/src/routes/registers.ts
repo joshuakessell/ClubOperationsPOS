@@ -10,6 +10,7 @@ import { requireAuth } from '../auth/middleware.js';
 const VerifyPinSchema = z.object({
   employeeId: z.string().uuid(),
   pin: z.string().min(1),
+  deviceId: z.string().min(1),
 });
 
 type VerifyPinInput = z.infer<typeof VerifyPinSchema>;
@@ -64,10 +65,29 @@ interface RegisterSessionRow {
 }
 
 /**
+ * Helper function to check if a device is enabled.
+ * Throws error if device not found or disabled.
+ */
+async function checkDeviceEnabled(deviceId: string): Promise<void> {
+  const result = await query<{ enabled: boolean }>(
+    `SELECT enabled FROM devices WHERE device_id = $1`,
+    [deviceId]
+  );
+
+  if (result.rows.length === 0) {
+    throw new Error('DEVICE_DISABLED');
+  }
+
+  if (!result.rows[0]!.enabled) {
+    throw new Error('DEVICE_DISABLED');
+  }
+}
+
+/**
  * Register management routes.
  * Handles employee sign-in, register assignment, heartbeat, and sign-out.
  */
-export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
+export async function registerRoutes(fastify: FastifyInstance & { broadcaster: any }): Promise<void> {
   /**
    * GET /v1/employees/available
    * 
@@ -137,6 +157,20 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     try {
+      // Check device is enabled
+      try {
+        await checkDeviceEnabled(body.deviceId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Device check failed';
+        if (message === 'DEVICE_DISABLED') {
+          return reply.status(403).send({
+            error: 'Device not allowed',
+            code: 'DEVICE_DISABLED',
+            message: 'This device is not enabled for register use',
+          });
+        }
+        throw err;
+      }
       const result = await query<EmployeeRow>(
         `SELECT id, name, role, pin_hash, active
          FROM staff
@@ -204,6 +238,21 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     try {
+      // Check device is enabled
+      try {
+        await checkDeviceEnabled(body.deviceId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Device check failed';
+        if (message === 'DEVICE_DISABLED') {
+          return reply.status(403).send({
+            error: 'Device not allowed',
+            code: 'DEVICE_DISABLED',
+            message: 'This device is not enabled for register use',
+          });
+        }
+        throw err;
+      }
+
       const result = await transaction(async (client) => {
         // Check if employee is already signed in
         const existingSession = await client.query<RegisterSessionRow>(
@@ -293,6 +342,21 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     try {
+      // Check device is enabled
+      try {
+        await checkDeviceEnabled(body.deviceId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Device check failed';
+        if (message === 'DEVICE_DISABLED') {
+          return reply.status(403).send({
+            error: 'Device not allowed',
+            code: 'DEVICE_DISABLED',
+            message: 'This device is not enabled for register use',
+          });
+        }
+        throw err;
+      }
+
       const result = await transaction(async (client) => {
         // Double-check constraints before inserting
         const existingEmployee = await client.query<RegisterSessionRow>(
@@ -353,6 +417,24 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
           [body.employeeId, session.id]
         );
 
+        // Broadcast REGISTER_SESSION_UPDATED event
+        const payload = {
+          registerNumber: session.register_number as 1 | 2,
+          active: true,
+          sessionId: session.id,
+          employee: {
+            id: employee.id,
+            displayName: employee.name,
+            role: employee.role,
+          },
+          deviceId: session.device_id,
+          createdAt: session.created_at.toISOString(),
+          lastHeartbeatAt: session.last_heartbeat.toISOString(),
+          reason: 'CONFIRMED' as const,
+        };
+
+        fastify.broadcaster.broadcastRegisterSessionUpdated(payload);
+
         return {
           sessionId: session.id,
           employee: {
@@ -398,6 +480,21 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
     }
 
     try {
+      // Check device is enabled
+      try {
+        await checkDeviceEnabled(body.deviceId);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Device check failed';
+        if (message === 'DEVICE_DISABLED') {
+          return reply.status(403).send({
+            error: 'Device not allowed',
+            code: 'DEVICE_DISABLED',
+            message: 'This device is not enabled for register use',
+          });
+        }
+        throw err;
+      }
+
       const result = await query<RegisterSessionRow>(
         `UPDATE register_sessions
          SET last_heartbeat = NOW()
@@ -490,6 +587,20 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
           [request.staff!.staffId, session.id]
         );
 
+        // Broadcast REGISTER_SESSION_UPDATED event
+        const payload = {
+          registerNumber: session.register_number as 1 | 2,
+          active: false,
+          sessionId: null,
+          employee: null,
+          deviceId: null,
+          createdAt: null,
+          lastHeartbeatAt: null,
+          reason: 'SIGNED_OUT' as const,
+        };
+
+        fastify.broadcaster.broadcastRegisterSessionUpdated(payload);
+
         return {
           success: true,
           sessionId: session.id,
@@ -571,15 +682,50 @@ export async function registerRoutes(fastify: FastifyInstance): Promise<void> {
 /**
  * Clean up abandoned register sessions (no heartbeat for > 90 seconds).
  * Should be called periodically (e.g., every 30 seconds).
+ * Broadcasts REGISTER_SESSION_UPDATED events for expired sessions.
  */
-export async function cleanupAbandonedRegisterSessions(): Promise<number> {
+export async function cleanupAbandonedRegisterSessions(fastify?: FastifyInstance & { broadcaster: any }): Promise<number> {
   try {
+    // Get sessions that will be expired
+    const expiredSessions = await query<{
+      id: string;
+      register_number: number;
+    }>(
+      `SELECT id, register_number
+       FROM register_sessions
+       WHERE signed_out_at IS NULL
+       AND last_heartbeat < NOW() - INTERVAL '90 seconds'`
+    );
+
+    if (expiredSessions.rows.length === 0) {
+      return 0;
+    }
+
+    // Sign them out
     const result = await query(
       `UPDATE register_sessions
        SET signed_out_at = NOW()
        WHERE signed_out_at IS NULL
        AND last_heartbeat < NOW() - INTERVAL '90 seconds'`
     );
+
+    // Broadcast events if broadcaster available
+    if (fastify?.broadcaster) {
+      for (const session of expiredSessions.rows) {
+        const payload = {
+          registerNumber: session.register_number as 1 | 2,
+          active: false,
+          sessionId: null,
+          employee: null,
+          deviceId: null,
+          createdAt: null,
+          lastHeartbeatAt: null,
+          reason: 'TTL_EXPIRED' as const,
+        };
+        fastify.broadcaster.broadcastRegisterSessionUpdated(payload);
+      }
+    }
+
     return result.rowCount || 0;
   } catch (error) {
     console.error('Failed to cleanup abandoned register sessions:', error);

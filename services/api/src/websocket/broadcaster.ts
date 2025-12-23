@@ -18,6 +18,7 @@ import type {
   SelectionLockedPayload,
   SelectionAcknowledgedPayload,
   WaitlistCreatedPayload,
+  RegisterSessionUpdatedPayload,
 } from '@club-ops/shared';
 
 /**
@@ -58,7 +59,8 @@ export type WebSocketPayload =
   | SelectionProposedPayload
   | SelectionLockedPayload
   | SelectionAcknowledgedPayload
-  | WaitlistCreatedPayload;
+  | WaitlistCreatedPayload
+  | RegisterSessionUpdatedPayload;
 
 /**
  * Client metadata for lane-scoped broadcasts.
@@ -91,6 +93,7 @@ export interface Broadcaster {
   broadcastCustomerDeclined(payload: CustomerDeclinedPayload, lane: string): void;
   broadcastAssignmentCreated(payload: AssignmentCreatedPayload, lane: string): void;
   broadcastAssignmentFailed(payload: AssignmentFailedPayload, lane: string): void;
+  broadcastRegisterSessionUpdated(payload: RegisterSessionUpdatedPayload): void;
   getClientCount(): number;
 }
 
@@ -269,6 +272,14 @@ export function createBroadcaster(): Broadcaster {
      */
     broadcastAssignmentFailed(payload: AssignmentFailedPayload, lane: string) {
       broadcastToLane(createEvent('ASSIGNMENT_FAILED', payload), lane);
+    },
+
+    /**
+     * Broadcast a register session updated event globally.
+     * Called when a register session is created, signed out, force signed out, or expires.
+     */
+    broadcastRegisterSessionUpdated(payload: RegisterSessionUpdatedPayload) {
+      broadcast(createEvent('REGISTER_SESSION_UPDATED', payload));
     },
 
     getClientCount() {
