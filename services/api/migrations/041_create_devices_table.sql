@@ -13,3 +13,4 @@ CREATE INDEX IF NOT EXISTS idx_devices_enabled
 ON devices(enabled) 
 WHERE enabled = true;
 
+

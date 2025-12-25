@@ -269,3 +269,4 @@ When force sign-out occurs:
   - Return to splash screen (RegisterSignIn component)
 - Heartbeat loop checks for 404/DEVICE_DISABLED errors and handles same way
 
+

@@ -19,3 +19,4 @@ UPDATE lane_sessions
 SET selection_confirmed = false 
 WHERE selection_confirmed IS NULL;
 
+
