@@ -1,29 +1,5 @@
 import { useState, useEffect } from 'react';
-import { 
-  Box, 
-  Container, 
-  Typography, 
-  Button, 
-  TextField, 
-  Card, 
-  CardContent, 
-  Avatar, 
-  CircularProgress,
-  Alert,
-  Fade,
-  Paper,
-  Stack
-} from '@mui/material';
-import { 
-  Person, 
-  Lock, 
-  Login as LoginIcon,
-  BusinessCenter,
-  Schedule,
-  Assessment
-} from '@mui/icons-material';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
+import './LockScreen.css';
 
 const API_BASE = '/api';
 
@@ -40,66 +16,6 @@ interface LockScreenProps {
   deviceId: string;
 }
 
-// Modern enterprise theme
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#1976d2',
-      light: '#42a5f5',
-      dark: '#1565c0',
-    },
-    secondary: {
-      main: '#9c27b0',
-    },
-    background: {
-      default: '#f5f7fa',
-      paper: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h4: {
-      fontWeight: 600,
-      letterSpacing: '-0.02em',
-    },
-    h5: {
-      fontWeight: 600,
-      letterSpacing: '-0.01em',
-    },
-    button: {
-      textTransform: 'none',
-      fontWeight: 600,
-    },
-  },
-  shape: {
-    borderRadius: 12,
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          padding: '10px 24px',
-          fontSize: '0.9375rem',
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-          transition: 'all 0.2s ease-in-out',
-          '&:hover': {
-            boxShadow: '0 4px 16px rgba(0,0,0,0.12)',
-            transform: 'translateY(-2px)',
-          },
-        },
-      },
-    },
-  },
-});
-
 // Employee definitions
 interface Employee {
   id: string;
@@ -107,7 +23,6 @@ interface Employee {
   role: 'STAFF' | 'ADMIN';
   accessLevel: 'limited' | 'full';
   description: string;
-  icon: React.ReactNode;
 }
 
 export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
@@ -133,7 +48,6 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
             description: staff.role === 'ADMIN' 
               ? 'Full Access - Auditing, Reports & Schedule Management'
               : 'Register Employee - View Schedule Only',
-            icon: staff.role === 'ADMIN' ? <Assessment /> : <Schedule />,
           }));
           setEmployees(staffList);
         } else {
@@ -215,213 +129,115 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
   };
 
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <Box
-        sx={{
-          minHeight: '100vh',
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: 3,
-        }}
-      >
-        <Container maxWidth="sm">
-          <Fade in timeout={500}>
-            <Paper
-              elevation={24}
-              sx={{
-                borderRadius: 4,
-                overflow: 'hidden',
-                background: 'white',
-              }}
-            >
-              {!selectedEmployee ? (
-                <Box sx={{ p: 4 }}>
-                  {/* Header */}
-                  <Box sx={{ textAlign: 'center', mb: 4 }}>
-                    <Box
-                      sx={{
-                        width: 64,
-                        height: 64,
-                        borderRadius: '50%',
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        margin: '0 auto 16px',
-                        boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)',
-                      }}
-                    >
-                      <BusinessCenter sx={{ fontSize: 32, color: 'white' }} />
-                    </Box>
-                    <Typography variant="h4" sx={{ mb: 1, color: '#1a1a1a', fontWeight: 700 }}>
-                      Club Operations
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      Select your account to continue
-                    </Typography>
-                  </Box>
+    <div className="lock-screen-container">
+      <div className="lock-screen-background">
+        <div className="lock-screen-card">
+          {!selectedEmployee ? (
+            <div className="lock-screen-content">
+              {/* Header */}
+              <div className="lock-screen-header">
+                <div className="logo-circle-large">
+                  <span className="logo-text-large">CD</span>
+                </div>
+                <h1 className="lock-screen-title">Club Dallas</h1>
+                <p className="lock-screen-subtitle">Select your account to continue</p>
+              </div>
 
-                  {/* Employee Selection */}
-                  {isLoadingEmployees ? (
-                    <Box sx={{ textAlign: 'center', py: 4 }}>
-                      <CircularProgress />
-                      <Typography variant="body2" sx={{ mt: 2, color: 'text.secondary' }}>
-                        Loading staff...
-                      </Typography>
-                    </Box>
-                  ) : employees.length === 0 ? (
-                    <Alert severity="error">
-                      No active staff members found. Please contact an administrator.
-                    </Alert>
-                  ) : (
-                    <Stack spacing={2}>
-                      {employees.map((employee) => (
-                      <Card
-                        key={employee.id}
-                        sx={{
-                          cursor: 'pointer',
-                          border: '2px solid transparent',
-                          '&:hover': {
-                            borderColor: 'primary.main',
-                          },
-                        }}
-                        onClick={() => handleEmployeeSelect(employee)}
-                      >
-                        <CardContent>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <Avatar
-                              sx={{
-                                bgcolor: employee.role === 'ADMIN' 
-                                  ? 'primary.main' 
-                                  : 'secondary.main',
-                                width: 48,
-                                height: 48,
-                              }}
-                            >
-                              {employee.icon}
-                            </Avatar>
-                            <Box sx={{ flex: 1 }}>
-                              <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                                {employee.name}
-                              </Typography>
-                              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                                {employee.description}
-                              </Typography>
-                            </Box>
-                            <LoginIcon sx={{ color: 'text.secondary' }} />
-                          </Box>
-                        </CardContent>
-                      </Card>
-                      ))}
-                    </Stack>
-                  )}
-                </Box>
+              {/* Employee Selection */}
+              {isLoadingEmployees ? (
+                <div className="loading-container">
+                  <div className="spinner-large"></div>
+                  <p>Loading staff...</p>
+                </div>
+              ) : employees.length === 0 ? (
+                <div className="error-message">
+                  No active staff members found. Please contact an administrator.
+                </div>
               ) : (
-                <Box sx={{ p: 4 }}>
-                  {/* Back Button */}
-                  <Button
-                    startIcon={<Person />}
-                    onClick={handleBack}
-                    sx={{ mb: 3, color: 'text.secondary' }}
-                  >
-                    Back to Employee Selection
-                  </Button>
-
-                  {/* Selected Employee Info */}
-                  <Box sx={{ textAlign: 'center', mb: 4 }}>
-                    <Avatar
-                      sx={{
-                        bgcolor: selectedEmployee.role === 'ADMIN' 
-                          ? 'primary.main' 
-                          : 'secondary.main',
-                        width: 80,
-                        height: 80,
-                        margin: '0 auto 16px',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                      }}
+                <div className="employee-list">
+                  {employees.map((employee) => (
+                    <div
+                      key={employee.id}
+                      className="employee-card"
+                      onClick={() => handleEmployeeSelect(employee)}
                     >
-                      {selectedEmployee.icon}
-                    </Avatar>
-                    <Typography variant="h5" sx={{ mb: 1, fontWeight: 600 }}>
-                      {selectedEmployee.name}
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                      {selectedEmployee.description}
-                    </Typography>
-                  </Box>
-
-                  {/* PIN Entry Form */}
-                  <form onSubmit={handlePinSubmit}>
-                    <Stack spacing={3}>
-                      {error && (
-                        <Alert severity="error" onClose={() => setError(null)}>
-                          {error}
-                        </Alert>
-                      )}
-
-                      <TextField
-                        fullWidth
-                        type="password"
-                        label="Enter PIN"
-                        value={pin}
-                        onChange={(e) => {
-                          // Only allow numeric input
-                          const value = e.target.value.replace(/\D/g, '');
-                          setPin(value);
-                        }}
-                        disabled={isLoading}
-                        autoFocus
-                        inputProps={{
-                          maxLength: 10,
-                          inputMode: 'numeric',
-                          pattern: '[0-9]*',
-                        }}
-                        InputProps={{
-                          startAdornment: (
-                            <Lock sx={{ mr: 1, color: 'text.secondary' }} />
-                          ),
-                        }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                          },
-                          '& input': {
-                            textAlign: 'center',
-                            fontSize: '1.5rem',
-                            letterSpacing: '0.5rem',
-                            fontFamily: 'monospace',
-                          },
-                        }}
-                      />
-
-                      <Button
-                        type="submit"
-                        fullWidth
-                        variant="contained"
-                        size="large"
-                        disabled={isLoading || !pin.trim()}
-                        startIcon={isLoading ? <CircularProgress size={20} /> : <LoginIcon />}
-                        sx={{
-                          py: 1.5,
-                          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                          '&:hover': {
-                            background: 'linear-gradient(135deg, #5568d3 0%, #6a4190 100%)',
-                          },
-                        }}
-                      >
-                        {isLoading ? 'Signing In...' : 'Sign In'}
-                      </Button>
-                    </Stack>
-                  </form>
-                </Box>
+                      <div className={`employee-avatar ${employee.role.toLowerCase()}`}>
+                        {employee.role === 'ADMIN' ? '👔' : '👤'}
+                      </div>
+                      <div className="employee-details">
+                        <h3 className="employee-name">{employee.name}</h3>
+                        <p className="employee-description">{employee.description}</p>
+                      </div>
+                      <div className="employee-arrow">→</div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </Paper>
-          </Fade>
-        </Container>
-      </Box>
-    </ThemeProvider>
+            </div>
+          ) : (
+            <div className="lock-screen-content">
+              {/* Back Button */}
+              <button className="back-button" onClick={handleBack}>
+                ← Back to Employee Selection
+              </button>
+
+              {/* Selected Employee Info */}
+              <div className="selected-employee-header">
+                <div className={`employee-avatar-large ${selectedEmployee.role.toLowerCase()}`}>
+                  {selectedEmployee.role === 'ADMIN' ? '👔' : '👤'}
+                </div>
+                <h2 className="selected-employee-name">{selectedEmployee.name}</h2>
+                <p className="selected-employee-description">{selectedEmployee.description}</p>
+              </div>
+
+              {/* PIN Entry Form */}
+              <form onSubmit={handlePinSubmit} className="pin-form">
+                {error && (
+                  <div className="error-message" onClick={() => setError(null)}>
+                    {error}
+                  </div>
+                )}
+
+                <div className="pin-input-container">
+                  <input
+                    type="password"
+                    className="pin-input"
+                    value={pin}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, '');
+                      setPin(value);
+                    }}
+                    disabled={isLoading}
+                    autoFocus
+                    maxLength={10}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    placeholder="Enter PIN"
+                  />
+                </div>
+
+                {/* Progress Bar */}
+                {isLoading && (
+                  <div className="progress-bar-container">
+                    <div className="progress-bar">
+                      <div className="progress-bar-fill"></div>
+                    </div>
+                    <p className="progress-text">Signing in...</p>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  className="sign-in-button"
+                  disabled={isLoading || !pin.trim()}
+                >
+                  {isLoading ? 'Signing In...' : 'Sign In'}
+                </button>
+              </form>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
   );
 }
