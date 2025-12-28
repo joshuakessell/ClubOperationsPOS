@@ -51,6 +51,19 @@ interface StaffMember {
   role: string;
 }
 
+interface SquareSummary {
+  from: string;
+  to: string;
+  lastUpdated: string;
+  totals: {
+    totalAmount: number;
+    cashAmount: number;
+    cardAmount: number;
+    refundedAmount: number;
+    countPayments: number;
+  };
+}
+
 interface AdminViewProps {
   session: StaffSession;
 }
@@ -79,6 +92,9 @@ export function AdminView({ session }: AdminViewProps) {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [wsConnected, setWsConnected] = useState(false);
+  const [squareSummary, setSquareSummary] = useState<SquareSummary | null>(null);
+  const [squareError, setSquareError] = useState<string | null>(null);
+  const [squareLoading, setSquareLoading] = useState(false);
 
   const loadOperationsData = async () => {
     if (!session.sessionToken) return;
@@ -100,7 +116,34 @@ export function AdminView({ session }: AdminViewProps) {
       const expData = await expRes.json();
       setExpirations(expData.expirations || []);
     }
+
+    await loadSquareSummary(headers);
   };
+
+  async function loadSquareSummary(headersOverride?: HeadersInit) {
+    if (!session.sessionToken) return;
+    setSquareLoading(true);
+    setSquareError(null);
+    try {
+      const headers = headersOverride || { 'Authorization': `Bearer ${session.sessionToken}` };
+      const res = await fetch(`${API_BASE}/v1/admin/square/summary`, { headers });
+      if (res.status === 501) {
+        setSquareError('SQUARE_NOT_CONFIGURED');
+        setSquareSummary(null);
+        return;
+      }
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to load Square summary');
+      }
+      const data = await res.json();
+      setSquareSummary(data);
+    } catch (error) {
+      setSquareError(error instanceof Error ? error.message : 'Failed to load Square summary');
+    } finally {
+      setSquareLoading(false);
+    }
+  }
 
   const loadData = async () => {
     if (!session.sessionToken) return;
@@ -269,6 +312,20 @@ export function AdminView({ session }: AdminViewProps) {
           >
             Staff Management
           </button>
+            <button 
+              onClick={() => navigate('/admin/messages')} 
+              style={{
+                padding: '0.75rem 1.5rem',
+                background: '#374151',
+                border: 'none',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                cursor: 'pointer',
+                fontSize: '1rem',
+              }}
+            >
+              Messages
+            </button>
           <button 
             onClick={() => navigate('/')} 
             style={{
@@ -351,6 +408,54 @@ export function AdminView({ session }: AdminViewProps) {
                 <div style={{ fontSize: '0.875rem', color: '#9ca3af', marginTop: '0.5rem' }}>Lockers Available</div>
               </div>
             </div>
+          </section>
+
+          <section style={{ marginBottom: '2rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.5rem', fontWeight: 600 }}>Square Summary</h2>
+              <button
+                onClick={() => loadSquareSummary()}
+                style={{
+                  padding: '0.65rem 1rem',
+                  background: '#374151',
+                  color: '#f9fafb',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                }}
+              >
+                Refresh
+              </button>
+            </div>
+            {squareError === 'SQUARE_NOT_CONFIGURED' ? (
+              <div style={{ padding: '1rem', background: '#1f2937', borderRadius: '8px', color: '#9ca3af' }}>
+                Square integration not configured.
+              </div>
+            ) : (
+              <div style={{ background: '#1f2937', padding: '1.25rem', borderRadius: '8px', border: '1px solid #374151' }}>
+                {squareLoading && <div style={{ color: '#9ca3af', marginBottom: '0.5rem' }}>Loading...</div>}
+                {squareError && squareError !== 'SQUARE_NOT_CONFIGURED' && (
+                  <div style={{ color: '#f87171', marginBottom: '0.5rem' }}>{squareError}</div>
+                )}
+                {squareSummary && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+                    <SquareStat label="Total" value={squareSummary.totals.totalAmount} />
+                    <SquareStat label="Cash" value={squareSummary.totals.cashAmount} />
+                    <SquareStat label="Card" value={squareSummary.totals.cardAmount} />
+                    <SquareStat label="Refunded" value={squareSummary.totals.refundedAmount} negative />
+                    <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', border: '1px solid #1f2937' }}>
+                      <div style={{ fontSize: '0.9rem', color: '#9ca3af' }}>Payments</div>
+                      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: '#f9fafb' }}>{squareSummary.totals.countPayments}</div>
+                    </div>
+                  </div>
+                )}
+                {squareSummary && (
+                  <div style={{ color: '#9ca3af', marginTop: '0.75rem', fontSize: '0.85rem' }}>
+                    Range: {new Date(squareSummary.from).toLocaleString()} – {new Date(squareSummary.to).toLocaleString()} • Updated {new Date(squareSummary.lastUpdated).toLocaleTimeString()}
+                  </div>
+                )}
+              </div>
+            )}
           </section>
 
           {/* Rooms Nearing or Past Expiration */}
@@ -581,6 +686,17 @@ export function AdminView({ session }: AdminViewProps) {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+function SquareStat({ label, value, negative = false }: { label: string; value: number; negative?: boolean }) {
+  return (
+    <div style={{ background: '#0f172a', padding: '1rem', borderRadius: '8px', border: '1px solid #1f2937' }}>
+      <div style={{ fontSize: '0.9rem', color: '#9ca3af' }}>{label}</div>
+      <div style={{ fontSize: '1.4rem', fontWeight: 700, color: negative ? '#f87171' : '#f9fafb' }}>
+        ${ (value / 100).toFixed(2) }
+      </div>
     </div>
   );
 }

@@ -26,8 +26,23 @@ interface Shift {
   notes: string | null;
 }
 
+interface OpenShiftSummary {
+  id: string;
+  startsAt: string;
+  endsAt: string;
+  shiftCode: 'A' | 'B' | 'C';
+  role: string | null;
+  status: string;
+  createdAt: string;
+  createdByName?: string | null;
+  claimedByName?: string | null;
+  claimedAt?: string | null;
+  offerCount?: number;
+}
+
 interface ShiftsViewProps {
   session: StaffSession;
+  limitedAccess: boolean;
 }
 
 const SHIFT_LABELS: Record<'A' | 'B' | 'C', string> = {
@@ -36,7 +51,7 @@ const SHIFT_LABELS: Record<'A' | 'B' | 'C', string> = {
   C: 'Shift C (3:45 PM–12:00 AM)',
 };
 
-export function ShiftsView({ session }: ShiftsViewProps) {
+export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
   const navigate = useNavigate();
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
@@ -54,6 +69,16 @@ export function ShiftsView({ session }: ShiftsViewProps) {
   const [employees, setEmployees] = useState<Array<{ id: string; name: string }>>([]);
   const [selectedShift, setSelectedShift] = useState<Shift | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [openShifts, setOpenShifts] = useState<OpenShiftSummary[]>([]);
+  const [openShiftLoading, setOpenShiftLoading] = useState(false);
+  const [openShiftForm, setOpenShiftForm] = useState({
+    startsAt: '',
+    endsAt: '',
+    shiftCode: 'A' as 'A' | 'B' | 'C',
+    role: '',
+    notifySms: false,
+    targetRole: '',
+  });
 
   useEffect(() => {
     fetchEmployees();
@@ -72,6 +97,12 @@ export function ShiftsView({ session }: ShiftsViewProps) {
   useEffect(() => {
     fetchShifts();
   }, [dateFrom, dateTo, employeeFilter, limitedAccess]);
+
+  useEffect(() => {
+    if (!limitedAccess) {
+      fetchOpenShifts();
+    }
+  }, [limitedAccess]);
 
   const fetchEmployees = async () => {
     try {
@@ -137,6 +168,82 @@ export function ShiftsView({ session }: ShiftsViewProps) {
     });
   };
 
+  const fetchOpenShifts = async () => {
+    if (limitedAccess) return;
+    setOpenShiftLoading(true);
+    try {
+      const response = await fetch(`${API_BASE}/v1/admin/open-shifts`, {
+        headers: { 'Authorization': `Bearer ${session.sessionToken}` },
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setOpenShifts(data.shifts || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch open shifts:', error);
+    } finally {
+      setOpenShiftLoading(false);
+    }
+  };
+
+  const createOpenShift = async () => {
+    setOpenShiftLoading(true);
+    try {
+      const payload = {
+        starts_at: new Date(openShiftForm.startsAt).toISOString(),
+        ends_at: new Date(openShiftForm.endsAt).toISOString(),
+        shift_code: openShiftForm.shiftCode,
+        role: openShiftForm.role || undefined,
+        notifySms: openShiftForm.notifySms,
+        targetRole: openShiftForm.targetRole || undefined,
+      };
+      const response = await fetch(`${API_BASE}/v1/admin/open-shifts`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to create open shift');
+      }
+      setOpenShiftForm({
+        startsAt: '',
+        endsAt: '',
+        shiftCode: 'A',
+        role: '',
+        notifySms: false,
+        targetRole: '',
+      });
+      await fetchOpenShifts();
+      alert('Open shift created');
+    } catch (error) {
+      console.error('Failed to create open shift:', error);
+      alert(error instanceof Error ? error.message : 'Failed to create open shift');
+    } finally {
+      setOpenShiftLoading(false);
+    }
+  };
+
+  const cancelOpenShift = async (id: string) => {
+    try {
+      const response = await fetch(`${API_BASE}/v1/admin/open-shifts/${id}/cancel`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${session.sessionToken}` },
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to cancel open shift');
+      }
+      await fetchOpenShifts();
+    } catch (error) {
+      console.error('Failed to cancel open shift:', error);
+      alert(error instanceof Error ? error.message : 'Failed to cancel');
+    }
+  };
+
   const getComplianceBadge = (shift: Shift) => {
     if (shift.flags.noShow) {
       return { text: 'No Show', color: '#ef4444' };
@@ -185,6 +292,191 @@ export function ShiftsView({ session }: ShiftsViewProps) {
           ← Back to Dashboard
         </button>
       </div>
+
+      {!limitedAccess && (
+        <div style={{ marginBottom: '2rem', background: '#0f172a', border: '1px solid #1f2937', borderRadius: '10px', padding: '1rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Open Shifts</h2>
+            <button
+              onClick={fetchOpenShifts}
+              style={{ padding: '0.5rem 1rem', background: '#1f2937', color: '#f9fafb', border: 'none', borderRadius: '6px', cursor: 'pointer' }}
+            >
+              Refresh
+            </button>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.9rem' }}>Starts At</label>
+              <input
+                type="datetime-local"
+                value={openShiftForm.startsAt}
+                onChange={(e) => setOpenShiftForm(f => ({ ...f, startsAt: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem',
+                  background: '#111827',
+                  border: '1px solid #1f2937',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.9rem' }}>Ends At</label>
+              <input
+                type="datetime-local"
+                value={openShiftForm.endsAt}
+                onChange={(e) => setOpenShiftForm(f => ({ ...f, endsAt: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem',
+                  background: '#111827',
+                  border: '1px solid #1f2937',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.9rem' }}>Shift Code</label>
+              <select
+                value={openShiftForm.shiftCode}
+                onChange={(e) => setOpenShiftForm(f => ({ ...f, shiftCode: e.target.value as 'A' | 'B' | 'C' }))}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem',
+                  background: '#111827',
+                  border: '1px solid #1f2937',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                }}
+              >
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.9rem' }}>Role (optional)</label>
+              <input
+                type="text"
+                value={openShiftForm.role}
+                onChange={(e) => setOpenShiftForm(f => ({ ...f, role: e.target.value }))}
+                placeholder="Front Desk"
+                style={{
+                  width: '100%',
+                  padding: '0.6rem',
+                  background: '#111827',
+                  border: '1px solid #1f2937',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                }}
+              />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '0.35rem', fontSize: '0.9rem' }}>Target Role (optional)</label>
+              <select
+                value={openShiftForm.targetRole}
+                onChange={(e) => setOpenShiftForm(f => ({ ...f, targetRole: e.target.value }))}
+                style={{
+                  width: '100%',
+                  padding: '0.6rem',
+                  background: '#111827',
+                  border: '1px solid #1f2937',
+                  borderRadius: '6px',
+                  color: '#f9fafb',
+                }}
+              >
+                <option value="">Any</option>
+                <option value="STAFF">STAFF</option>
+                <option value="ADMIN">ADMIN</option>
+              </select>
+            </div>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem' }}>
+              <input
+                type="checkbox"
+                checked={openShiftForm.notifySms}
+                onChange={(e) => setOpenShiftForm(f => ({ ...f, notifySms: e.target.checked }))}
+              />
+              <span>Send SMS to opted-in staff</span>
+            </label>
+          </div>
+          <button
+            onClick={createOpenShift}
+            disabled={openShiftLoading || !openShiftForm.startsAt || !openShiftForm.endsAt}
+            style={{
+              padding: '0.75rem 1.25rem',
+              background: openShiftLoading ? '#6b7280' : '#10b981',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '8px',
+              fontWeight: 700,
+              cursor: openShiftLoading ? 'not-allowed' : 'pointer',
+              marginBottom: '1rem',
+            }}
+          >
+            {openShiftLoading ? 'Saving...' : 'Create Open Shift'}
+          </button>
+
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr style={{ borderBottom: '1px solid #1f2937' }}>
+                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Shift</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Role</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Window</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Status</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Offers</th>
+                  <th style={{ padding: '0.75rem', textAlign: 'left' }}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {openShifts.length === 0 ? (
+                  <tr>
+                    <td colSpan={6} style={{ padding: '0.75rem', color: '#9ca3af' }}>
+                      {openShiftLoading ? 'Loading...' : 'No open shifts posted'}
+                    </td>
+                  </tr>
+                ) : openShifts.map(os => (
+                  <tr key={os.id} style={{ borderBottom: '1px solid #1f2937' }}>
+                    <td style={{ padding: '0.75rem' }}>
+                      <div style={{ fontWeight: 600 }}>{os.shiftCode}</div>
+                      <div style={{ fontSize: '0.85rem', color: '#9ca3af' }}>Created {new Date(os.createdAt).toLocaleString()}</div>
+                    </td>
+                    <td style={{ padding: '0.75rem' }}>{os.role || '—'}</td>
+                    <td style={{ padding: '0.75rem', fontSize: '0.9rem' }}>
+                      {formatDate(os.startsAt)} {formatTime(os.startsAt)} – {formatDate(os.endsAt)} {formatTime(os.endsAt)}
+                    </td>
+                    <td style={{ padding: '0.75rem' }}>{os.status}</td>
+                    <td style={{ padding: '0.75rem' }}>{os.offerCount ?? 0}</td>
+                    <td style={{ padding: '0.75rem' }}>
+                      {os.status === 'OPEN' ? (
+                        <button
+                          onClick={() => cancelOpenShift(os.id)}
+                          style={{
+                            padding: '0.5rem 0.9rem',
+                            background: '#ef4444',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                          }}
+                        >
+                          Cancel
+                        </button>
+                      ) : (
+                        <span style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
+                          {os.claimedByName ? `Claimed by ${os.claimedByName}` : 'Closed'}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div style={{ 

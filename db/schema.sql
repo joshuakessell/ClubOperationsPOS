@@ -624,9 +624,14 @@ CREATE TABLE public.staff (
     qr_token_hash character varying(255),
     pin_hash character varying(255),
     active boolean DEFAULT true NOT NULL,
+    phone_e164 text,
+    sms_opt_in boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
+
+ALTER TABLE public.staff
+    ADD CONSTRAINT staff_phone_e164_format CHECK ((phone_e164 IS NULL) OR (phone_e164 ~ '^\+[1-9]\d{1,14}$'));
 
 
 --
@@ -816,6 +821,138 @@ ALTER TABLE ONLY public.customers
 
 ALTER TABLE ONLY public.key_tags
     ADD CONSTRAINT key_tags_pkey PRIMARY KEY (id);
+
+-- Internal messaging tables
+CREATE TABLE IF NOT EXISTS public.internal_messages (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    title text NOT NULL,
+    body text NOT NULL,
+    severity text NOT NULL CHECK (severity IN ('INFO','WARNING','URGENT')),
+    target_type text NOT NULL CHECK (target_type IN ('ALL','ROLE','STAFF','DEVICE')),
+    target_role public.staff_role,
+    target_staff_id uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    target_device_id text,
+    created_by uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    expires_at timestamptz,
+    pinned boolean NOT NULL DEFAULT false
+);
+
+CREATE TABLE IF NOT EXISTS public.internal_message_acks (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    message_id uuid NOT NULL REFERENCES public.internal_messages(id) ON DELETE CASCADE,
+    staff_id uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    device_id text,
+    acknowledged_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_internal_messages_target_type ON public.internal_messages(target_type);
+CREATE INDEX IF NOT EXISTS idx_internal_messages_expires_at ON public.internal_messages(expires_at);
+CREATE INDEX IF NOT EXISTS idx_internal_message_acks_message ON public.internal_message_acks(message_id);
+CREATE UNIQUE INDEX IF NOT EXISTS internal_message_acks_staff_unique ON public.internal_message_acks(message_id, staff_id) WHERE staff_id IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS internal_message_acks_device_unique ON public.internal_message_acks(message_id, device_id) WHERE device_id IS NOT NULL;
+
+-- Shift scheduling/timeclock (from migrations 043/044)
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'shift_status') THEN
+    CREATE TYPE public.shift_status AS ENUM ('SCHEDULED','UPDATED','CANCELED');
+  END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS public.employee_shifts (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
+    starts_at timestamptz NOT NULL,
+    ends_at timestamptz NOT NULL,
+    shift_code text NOT NULL CHECK (shift_code IN ('A','B','C')),
+    role text,
+    status public.shift_status NOT NULL DEFAULT 'SCHEDULED',
+    notes text,
+    created_by uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    updated_by uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_employee_shifts_employee ON public.employee_shifts(employee_id);
+CREATE INDEX IF NOT EXISTS idx_employee_shifts_dates ON public.employee_shifts(starts_at, ends_at);
+CREATE INDEX IF NOT EXISTS idx_employee_shifts_status ON public.employee_shifts(status);
+
+CREATE TABLE IF NOT EXISTS public.timeclock_sessions (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    employee_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
+    shift_id uuid REFERENCES public.employee_shifts(id) ON DELETE SET NULL,
+    clock_in_at timestamptz NOT NULL,
+    clock_out_at timestamptz,
+    source text NOT NULL CHECK (source IN ('EMPLOYEE_REGISTER','OFFICE_DASHBOARD')),
+    created_by uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    notes text,
+    created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_timeclock_sessions_employee_open ON public.timeclock_sessions(employee_id) WHERE clock_out_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_timeclock_sessions_employee ON public.timeclock_sessions(employee_id);
+CREATE INDEX IF NOT EXISTS idx_timeclock_sessions_shift ON public.timeclock_sessions(shift_id) WHERE shift_id IS NOT NULL;
+
+-- Open shifts
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'open_shift_status') THEN
+    CREATE TYPE public.open_shift_status AS ENUM ('OPEN','CLAIMED','CANCELED','EXPIRED');
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'open_shift_offer_status') THEN
+    CREATE TYPE public.open_shift_offer_status AS ENUM ('SENT','CLAIMED','EXPIRED','CANCELED');
+  END IF;
+END$$;
+
+CREATE TABLE IF NOT EXISTS public.open_shifts (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    starts_at timestamptz NOT NULL,
+    ends_at timestamptz NOT NULL,
+    shift_code text NOT NULL CHECK (shift_code IN ('A','B','C')),
+    role text,
+    status public.open_shift_status NOT NULL DEFAULT 'OPEN',
+    created_by uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    created_at timestamptz NOT NULL DEFAULT now(),
+    claimed_by uuid REFERENCES public.staff(id) ON DELETE SET NULL,
+    claimed_at timestamptz
+);
+
+CREATE TABLE IF NOT EXISTS public.open_shift_offers (
+    id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+    open_shift_id uuid NOT NULL REFERENCES public.open_shifts(id) ON DELETE CASCADE,
+    staff_id uuid NOT NULL REFERENCES public.staff(id) ON DELETE CASCADE,
+    token_hash text NOT NULL UNIQUE,
+    sent_at timestamptz NOT NULL DEFAULT now(),
+    claimed_at timestamptz,
+    status public.open_shift_offer_status NOT NULL DEFAULT 'SENT'
+);
+
+CREATE INDEX IF NOT EXISTS staff_phone_e164_unique ON public.staff(phone_e164) WHERE phone_e164 IS NOT NULL;
+
+-- Ensure audit_action enum includes latest values
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'MESSAGE_CREATED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')) THEN
+    ALTER TYPE audit_action ADD VALUE 'MESSAGE_CREATED';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'MESSAGE_ACKNOWLEDGED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')) THEN
+    ALTER TYPE audit_action ADD VALUE 'MESSAGE_ACKNOWLEDGED';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'OPEN_SHIFT_CREATED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')) THEN
+    ALTER TYPE audit_action ADD VALUE 'OPEN_SHIFT_CREATED';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'OPEN_SHIFT_OFFER_SENT' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')) THEN
+    ALTER TYPE audit_action ADD VALUE 'OPEN_SHIFT_OFFER_SENT';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'OPEN_SHIFT_CLAIMED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')) THEN
+    ALTER TYPE audit_action ADD VALUE 'OPEN_SHIFT_CLAIMED';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'OPEN_SHIFT_CANCELED' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'audit_action')) THEN
+    ALTER TYPE audit_action ADD VALUE 'OPEN_SHIFT_CANCELED';
+  END IF;
+END$$;
 
 
 --

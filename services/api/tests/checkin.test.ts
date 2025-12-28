@@ -14,7 +14,9 @@ declare module 'fastify' {
   }
 }
 
-describe('Check-in Flow', () => {
+const describeCheckin = process.env.SKIP_DB === 'true' ? describe.skip : describe;
+
+describeCheckin('Check-in Flow', () => {
   let app: FastifyInstance;
   let staffToken: string;
   let staffId: string;

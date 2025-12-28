@@ -22,3 +22,6 @@ export { registerRoutes } from './registers.js';
 export { shiftsRoutes } from './shifts.js';
 export { timeclockRoutes } from './timeclock.js';
 export { documentsRoutes } from './documents.js';
+export { messagesRoutes } from './messages.js';
+export { squareRoutes } from './square.js';
+export { openShiftsRoutes } from './openShifts.js';

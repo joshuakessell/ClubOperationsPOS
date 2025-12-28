@@ -517,6 +517,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         active: boolean;
         created_at: Date;
         last_login: Date | null;
+        phone_e164: string | null;
+        sms_opt_in: boolean;
       }>(
         `SELECT 
           s.id,
@@ -524,7 +526,9 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
           s.role,
           s.active,
           s.created_at,
-          MAX(ss.created_at) as last_login
+          MAX(ss.created_at) as last_login,
+          s.phone_e164,
+          s.sms_opt_in
          FROM staff s
          LEFT JOIN staff_sessions ss ON s.id = ss.staff_id
          WHERE ${whereClause}
@@ -540,6 +544,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
           active: row.active,
           createdAt: row.created_at.toISOString(),
           lastLogin: row.last_login?.toISOString() || null,
+          phoneE164: row.phone_e164,
+          smsOptIn: row.sms_opt_in,
         })),
       });
     } catch (error) {
@@ -560,6 +566,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         role: 'STAFF' | 'ADMIN';
         pin: string;
         active?: boolean;
+        phone_e164?: string | null;
+        sms_opt_in?: boolean;
       };
     }>,
     reply: FastifyReply
@@ -573,6 +581,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       role: z.enum(['STAFF', 'ADMIN']),
       pin: z.string().regex(/^\d{4,6}$/, 'PIN must be 4-6 digits'),
       active: z.boolean().optional().default(true),
+      phone_e164: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Must be E.164').optional().nullable(),
+      sms_opt_in: z.boolean().optional().default(false),
     });
 
     let body;
@@ -590,10 +600,10 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       const pinHash = await hashPin(body.pin);
 
       const result = await query<{ id: string }>(
-        `INSERT INTO staff (name, role, pin_hash, active)
-         VALUES ($1, $2, $3, $4)
+        `INSERT INTO staff (name, role, pin_hash, active, phone_e164, sms_opt_in)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id`,
-        [body.name, body.role, pinHash, body.active]
+        [body.name, body.role, pinHash, body.active, body.phone_e164 ?? null, body.sms_opt_in ?? false]
       );
 
       const staffId = result.rows[0]!.id;
@@ -605,7 +615,7 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         [
           request.staff.staffId,
           staffId,
-          JSON.stringify({ name: body.name, role: body.role, active: body.active }),
+          JSON.stringify({ name: body.name, role: body.role, active: body.active, phone_e164: body.phone_e164 ?? null, sms_opt_in: body.sms_opt_in ?? false }),
         ]
       );
 
@@ -614,6 +624,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         name: body.name,
         role: body.role,
         active: body.active,
+        phoneE164: body.phone_e164 ?? null,
+        smsOptIn: body.sms_opt_in ?? false,
       });
     } catch (error) {
       request.log.error(error, 'Failed to create staff');
@@ -633,6 +645,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         name?: string;
         role?: 'STAFF' | 'ADMIN';
         active?: boolean;
+        phone_e164?: string | null;
+        sms_opt_in?: boolean;
       };
     }>,
     reply: FastifyReply
@@ -645,6 +659,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
       name: z.string().min(1).optional(),
       role: z.enum(['STAFF', 'ADMIN']).optional(),
       active: z.boolean().optional(),
+      phone_e164: z.string().regex(/^\+[1-9]\d{1,14}$/, 'Must be E.164').optional().nullable(),
+      sms_opt_in: z.boolean().optional(),
     });
 
     let body;
@@ -680,6 +696,18 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         paramIndex++;
       }
 
+      if (body.phone_e164 !== undefined) {
+        updates.push(`phone_e164 = $${paramIndex}`);
+        params.push(body.phone_e164);
+        paramIndex++;
+      }
+
+      if (body.sms_opt_in !== undefined) {
+        updates.push(`sms_opt_in = $${paramIndex}`);
+        params.push(body.sms_opt_in);
+        paramIndex++;
+      }
+
       if (updates.length === 0) {
         return reply.status(400).send({ error: 'No fields to update' });
       }
@@ -691,11 +719,13 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
         name: string;
         role: string;
         active: boolean;
+        phone_e164: string | null;
+        sms_opt_in: boolean;
       }>(
         `UPDATE staff
          SET ${updates.join(', ')}, updated_at = NOW()
          WHERE id = $${paramIndex}
-         RETURNING id, name, role, active`,
+         RETURNING id, name, role, active, phone_e164, sms_opt_in`,
         params
       );
 

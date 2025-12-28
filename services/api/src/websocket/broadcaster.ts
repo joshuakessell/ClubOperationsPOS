@@ -19,6 +19,7 @@ import type {
   SelectionAcknowledgedPayload,
   WaitlistCreatedPayload,
   RegisterSessionUpdatedPayload,
+  InternalMessageCreatedPayload,
 } from '@club-ops/shared';
 
 /**
@@ -60,7 +61,8 @@ export type WebSocketPayload =
   | SelectionLockedPayload
   | SelectionAcknowledgedPayload
   | WaitlistCreatedPayload
-  | RegisterSessionUpdatedPayload;
+  | RegisterSessionUpdatedPayload
+  | InternalMessageCreatedPayload;
 
 /**
  * Client metadata for lane-scoped broadcasts.

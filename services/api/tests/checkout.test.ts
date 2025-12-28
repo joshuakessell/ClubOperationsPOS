@@ -64,7 +64,9 @@ declare module 'fastify' {
   }
 }
 
-describe('Checkout Flow', () => {
+const describeCheckout = process.env.SKIP_DB === 'true' ? describe.skip : describe;
+
+describeCheckout('Checkout Flow', () => {
   let fastify: FastifyInstance;
   let pool: pg.Pool;
   let testCustomerId: string;

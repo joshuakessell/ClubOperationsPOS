@@ -930,6 +930,228 @@ paths:
         '200':
           description: Room information
 
+  /v1/messages:
+    get:
+      tags: [Admin]
+      summary: Get active internal messages for current staff/device
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: header
+          name: x-device-id
+          schema:
+            type: string
+          required: false
+      responses:
+        '200':
+          description: List of messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message:
+                          $ref: '#/components/schemas/InternalMessage'
+                        acknowledged:
+                          type: boolean
+                        acknowledgedAt:
+                          type: string
+                          format: date-time
+
+  /v1/messages/{id}/ack:
+    post:
+      tags: [Admin]
+      summary: Acknowledge a message
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Acknowledged
+
+  /v1/admin/messages:
+    get:
+      tags: [Admin]
+      summary: List recent internal messages with ack counts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  messages:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        message:
+                          $ref: '#/components/schemas/InternalMessage'
+                        ackCount:
+                          type: integer
+                        createdByName:
+                          type: string
+    post:
+      tags: [Admin]
+      summary: Create an internal message
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/InternalMessageInput'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InternalMessage'
+
+  /v1/admin/square/summary:
+    get:
+      tags: [Admin]
+      summary: Get Square payment summary
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: from
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: to
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SquareSummary'
+        '501':
+          description: Not configured
+
+  /v1/admin/open-shifts:
+    get:
+      tags: [Admin]
+      summary: List open shifts
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Open shifts
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shifts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/OpenShift'
+    post:
+      tags: [Admin]
+      summary: Create an open shift and optionally send SMS offers
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [starts_at, ends_at, shift_code]
+              properties:
+                starts_at:
+                  type: string
+                  format: date-time
+                ends_at:
+                  type: string
+                  format: date-time
+                shift_code:
+                  type: string
+                  enum: [A, B, C]
+                role:
+                  type: string
+                notifySms:
+                  type: boolean
+                targetRole:
+                  type: string
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shiftId:
+                    type: string
+                  offerCount:
+                    type: integer
+
+  /v1/admin/open-shifts/{id}/cancel:
+    post:
+      tags: [Admin]
+      summary: Cancel an open shift
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Canceled
+
+  /v1/open-shifts/offers/{token}:
+    get:
+      tags: [Admin]
+      summary: Get open shift offer details by token
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Offer details
+    post:
+      tags: [Admin]
+      summary: Claim an open shift offer (public)
+      parameters:
+        - in: path
+          name: token
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Claimed
+
 components:
   securitySchemes:
     bearerAuth:
@@ -1020,6 +1242,118 @@ components:
         active:
           type: boolean
         createdAt:
+          type: string
+          format: date-time
+
+    InternalMessage:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        body:
+          type: string
+        severity:
+          type: string
+          enum: [INFO, WARNING, URGENT]
+        targetType:
+          type: string
+          enum: [ALL, ROLE, STAFF, DEVICE]
+        targetRole:
+          type: string
+        targetStaffId:
+          type: string
+        targetDeviceId:
+          type: string
+        createdBy:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        expiresAt:
+          type: string
+          format: date-time
+        pinned:
+          type: boolean
+
+    InternalMessageInput:
+      type: object
+      required: [title, body, severity, target_type]
+      properties:
+        title:
+          type: string
+        body:
+          type: string
+        severity:
+          type: string
+          enum: [INFO, WARNING, URGENT]
+        target_type:
+          type: string
+          enum: [ALL, ROLE, STAFF, DEVICE]
+        target_role:
+          type: string
+        target_staff_id:
+          type: string
+        target_device_id:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        pinned:
+          type: boolean
+
+    SquareSummary:
+      type: object
+      properties:
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        lastUpdated:
+          type: string
+          format: date-time
+        totals:
+          type: object
+          properties:
+            totalAmount:
+              type: integer
+            cashAmount:
+              type: integer
+            cardAmount:
+              type: integer
+            refundedAmount:
+              type: integer
+            countPayments:
+              type: integer
+
+    OpenShift:
+      type: object
+      properties:
+        id:
+          type: string
+        startsAt:
+          type: string
+          format: date-time
+        endsAt:
+          type: string
+          format: date-time
+        shiftCode:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        createdByName:
+          type: string
+        claimedByName:
+          type: string
+        claimedAt:
           type: string
           format: date-time
 

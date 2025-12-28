@@ -492,6 +492,24 @@ All state-changing operations logged:
 
 ---
 
+## Internal Messaging
+- Admins can compose internal messages with severity (`INFO`, `WARNING`, `URGENT`) and target (`ALL`, `ROLE`, `STAFF`, `DEVICE`).
+- Messages deliver to employee-register and cleaning-station in real time via WebSocket (`INTERNAL_MESSAGE_CREATED`) and persist via `/v1/messages`.
+- Acknowledgements are per staff/device, idempotent, and audit logged.
+- Admins can view history with acknowledgement counts in the office dashboard.
+
+## Square Reporting
+- Read-only view of Square payments; no capture in this system.
+- `/v1/admin/square/summary` returns totals (cents) and counts; office dashboard shows a summary card.
+- If Square env vars are missing, backend returns `SQUARE_NOT_CONFIGURED` and UI shows a non-blocking notice.
+
+## Open Shifts & SMS Claim Flow
+- Admins can post open shifts (start/end, shift code, optional role) and optionally SMS all opted-in staff with valid E.164 numbers.
+- SMS includes claim link `/claim-shift/:token`; first claim wins with transactional locking and creates an `employee_shifts` row.
+- Admins can list/cancel open shifts from Shifts view; claims and offers are audit logged.
+
+---
+
 ## Development Roadmap
 
 ### Phase 1 (Current)

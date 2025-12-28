@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload, type SelectionProposedPayload, type SelectionLockedPayload, type SelectionAcknowledgedPayload } from '@club-ops/shared';
+import { RoomStatus, RoomType, CheckinMode, type ActiveVisit, type CheckoutRequestSummary, type CheckoutChecklist, type WebSocketEvent, type CheckoutRequestedPayload, type CheckoutClaimedPayload, type CheckoutUpdatedPayload, type SessionUpdatedPayload, type AssignmentCreatedPayload, type AssignmentFailedPayload, type CustomerConfirmedPayload, type CustomerDeclinedPayload, type SelectionProposedPayload, type SelectionLockedPayload, type SelectionAcknowledgedPayload, type InternalMessage, type InternalMessageCreatedPayload } from '@club-ops/shared';
 import { RegisterSignIn } from './RegisterSignIn';
 import { InventorySelector } from './InventorySelector';
 import { IdScanner } from './IdScanner';
@@ -115,6 +115,10 @@ function App() {
     registerNumber: number;
     deviceId: string;
   } | null>(null);
+  const [messages, setMessages] = useState<Array<{ message: InternalMessage; acknowledged: boolean; acknowledgedAt: string | null }>>([]);
+  const [showMessagesPanel, setShowMessagesPanel] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [messageToast, setMessageToast] = useState<string | null>(null);
 
   // Load staff session from localStorage (created after register sign-in)
   useEffect(() => {
@@ -128,6 +132,54 @@ function App() {
       }
     }
   }, []);
+
+  useEffect(() => {
+    if (session?.sessionToken) {
+      refreshMessages();
+    }
+  }, [session?.sessionToken]);
+
+  useEffect(() => {
+    if (messageToast) {
+      const timer = setTimeout(() => setMessageToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [messageToast]);
+
+  const refreshMessages = async () => {
+    if (!session?.sessionToken) return;
+    try {
+      const res = await fetch(`${API_BASE}/v1/messages`, {
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+          'x-device-id': deviceId,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+        setUnreadMessages((data.messages || []).filter((m: any) => !m.acknowledged).length);
+      }
+    } catch (error) {
+      console.error('Failed to load messages:', error);
+    }
+  };
+
+  const acknowledgeMessage = async (id: string) => {
+    if (!session?.sessionToken) return;
+    try {
+      await fetch(`${API_BASE}/v1/messages/${id}/ack`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+          'x-device-id': deviceId,
+        },
+      });
+      await refreshMessages();
+    } catch (error) {
+      console.error('Failed to acknowledge message:', error);
+    }
+  };
 
   const handleRegisterSignIn = (session: {
     employeeId: string;
@@ -933,6 +985,7 @@ function App() {
           'SELECTION_PROPOSED',
           'SELECTION_LOCKED',
           'SELECTION_ACKNOWLEDGED',
+              'INTERNAL_MESSAGE_CREATED',
         ],
       }));
     };
@@ -954,6 +1007,10 @@ function App() {
             next.set(payload.request.requestId, payload.request);
             return next;
           });
+        } else if (message.type === 'INTERNAL_MESSAGE_CREATED') {
+          const payload = message.payload as InternalMessageCreatedPayload;
+          setMessageToast(`New message: ${payload.message.title}`);
+          refreshMessages();
         } else if (message.type === 'CHECKOUT_CLAIMED') {
           const payload = message.payload as CheckoutClaimedPayload;
           setCheckoutRequests(prev => {
@@ -1567,6 +1624,21 @@ function App() {
           </span>
           <span className="badge badge-info">Lane: {lane}</span>
           <span className="badge badge-info">{session.name} ({session.role})</span>
+          <button
+            onClick={() => setShowMessagesPanel(true)}
+            style={{
+              padding: '0.375rem 0.75rem',
+              background: '#1e293b',
+              border: '1px solid #3b82f6',
+              borderRadius: '9999px',
+              color: '#f9fafb',
+              fontSize: '0.75rem',
+              fontWeight: 700,
+              cursor: 'pointer',
+            }}
+          >
+            Messages {unreadMessages > 0 ? `(${unreadMessages})` : ''}
+          </button>
           <button
             onClick={handleLogout}
             style={{
@@ -2228,6 +2300,131 @@ function App() {
       <footer className="footer">
         <p>Employee-facing tablet • Runs alongside Square POS</p>
       </footer>
+
+      {showMessagesPanel && (
+        <div
+          style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: 'rgba(0,0,0,0.6)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            zIndex: 3000,
+          }}
+          onClick={() => setShowMessagesPanel(false)}
+        >
+          <div
+            style={{
+              background: '#0f172a',
+              border: '1px solid #1f2937',
+              borderRadius: '12px',
+              maxWidth: '600px',
+              width: '90%',
+              maxHeight: '80vh',
+              overflowY: 'auto',
+              padding: '1rem',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Messages</h2>
+              <button
+                onClick={() => setShowMessagesPanel(false)}
+                style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: '1.25rem', cursor: 'pointer' }}
+              >
+                ×
+              </button>
+            </div>
+            <div style={{ marginBottom: '0.75rem' }}>
+              <button
+                onClick={refreshMessages}
+                style={{
+                  padding: '0.5rem 1rem',
+                  background: '#1e3a8a',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                }}
+              >
+                Refresh
+              </button>
+            </div>
+            {messages.length === 0 ? (
+              <div style={{ color: '#9ca3af' }}>No messages</div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+                {messages.map(({ message, acknowledged }) => (
+                  <div key={message.id} style={{ border: '1px solid #1f2937', borderRadius: '8px', padding: '0.75rem', background: message.pinned ? '#1f2937' : '#111827' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                      <div style={{ fontWeight: 700 }}>{message.title}</div>
+                      <span style={{
+                        padding: '0.25rem 0.5rem',
+                        borderRadius: '6px',
+                        background: message.severity === 'URGENT' ? '#f87171' : message.severity === 'WARNING' ? '#fbbf24' : '#60a5fa',
+                        color: '#0b1221',
+                        fontWeight: 700,
+                        fontSize: '0.8rem',
+                      }}>
+                        {message.severity}
+                      </span>
+                    </div>
+                    <div style={{ color: '#e5e7eb', marginBottom: '0.5rem' }}>{message.body}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>
+                        Sent {new Date(message.createdAt).toLocaleString()}
+                        {message.expiresAt && ` • Expires ${new Date(message.expiresAt).toLocaleString()}`}
+                      </span>
+                      {!acknowledged ? (
+                        <button
+                          onClick={() => acknowledgeMessage(message.id)}
+                          style={{
+                            padding: '0.4rem 0.75rem',
+                            background: '#10b981',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            cursor: 'pointer',
+                            fontWeight: 700,
+                          }}
+                        >
+                          Acknowledge
+                        </button>
+                      ) : (
+                        <span style={{ color: '#22c55e', fontWeight: 700, fontSize: '0.9rem' }}>Acknowledged</span>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {messageToast && (
+        <div
+          style={{
+            position: 'fixed',
+            top: '1rem',
+            right: '1rem',
+            background: '#111827',
+            color: '#f9fafb',
+            padding: '0.75rem 1rem',
+            borderRadius: '8px',
+            border: '1px solid #3b82f6',
+            boxShadow: '0 8px 16px rgba(0,0,0,0.25)',
+            zIndex: 2500,
+          }}
+        >
+          {messageToast}
+        </div>
+      )}
 
       {/* Waitlist Modal */}
       {showWaitlistModal && waitlistDesiredTier && waitlistBackupType && (

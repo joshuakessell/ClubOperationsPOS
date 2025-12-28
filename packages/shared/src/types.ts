@@ -66,7 +66,9 @@ export type WebSocketEventType =
   | 'CHECKOUT_UPDATED'
   | 'CHECKOUT_COMPLETED'
   | 'WAITLIST_UPDATED'
-  | 'REGISTER_SESSION_UPDATED';
+  | 'REGISTER_SESSION_UPDATED'
+  | 'INTERNAL_MESSAGE_CREATED'
+  | 'INTERNAL_MESSAGE_UPDATED';
 
 /**
  * Base WebSocket event structure.
@@ -307,5 +309,31 @@ export interface RegisterSessionUpdatedPayload {
   createdAt: string | null;
   lastHeartbeatAt: string | null;
   reason: 'CONFIRMED' | 'SIGNED_OUT' | 'FORCED_SIGN_OUT' | 'TTL_EXPIRED' | 'DEVICE_DISABLED';
+}
+
+export interface InternalMessage {
+  id: string;
+  title: string;
+  body: string;
+  severity: 'INFO' | 'WARNING' | 'URGENT';
+  targetType: 'ALL' | 'ROLE' | 'STAFF' | 'DEVICE';
+  targetRole?: string | null;
+  targetStaffId?: string | null;
+  targetDeviceId?: string | null;
+  createdBy?: string | null;
+  createdAt: string;
+  expiresAt?: string | null;
+  pinned: boolean;
+}
+
+export interface InternalMessageCreatedPayload {
+  message: InternalMessage;
+}
+
+export interface InternalMessageAckPayload {
+  messageId: string;
+  staffId?: string;
+  deviceId?: string;
+  acknowledgedAt: string;
 }
 

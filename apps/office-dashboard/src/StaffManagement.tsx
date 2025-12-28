@@ -11,6 +11,8 @@ interface StaffMember {
   active: boolean;
   createdAt: string;
   lastLogin: string | null;
+  phoneE164?: string | null;
+  smsOptIn?: boolean;
 }
 
 interface PasskeyCredential {
@@ -107,6 +109,8 @@ export function StaffManagement({ session }: StaffManagementProps) {
     role: 'STAFF' | 'ADMIN';
     pin: string;
     active: boolean;
+    phoneE164?: string | null;
+    smsOptIn?: boolean;
   }) => {
     if (!session.sessionToken) return;
 
@@ -117,7 +121,11 @@ export function StaffManagement({ session }: StaffManagementProps) {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.sessionToken}`,
         },
-        body: JSON.stringify(formData),
+        body: JSON.stringify({
+          ...formData,
+          phone_e164: formData.phoneE164,
+          sms_opt_in: formData.smsOptIn ?? false,
+        }),
       });
 
       if (response.ok) {
@@ -528,19 +536,28 @@ function CreateStaffModal({
   onCreate,
 }: {
   onClose: () => void;
-  onCreate: (data: { name: string; role: 'STAFF' | 'ADMIN'; pin: string; active: boolean }) => void;
+  onCreate: (data: { name: string; role: 'STAFF' | 'ADMIN'; pin: string; active: boolean; phoneE164?: string | null; smsOptIn?: boolean }) => void;
 }) {
   const [name, setName] = useState('');
   const [role, setRole] = useState<'STAFF' | 'ADMIN'>('STAFF');
   const [pin, setPin] = useState('');
   const [active, setActive] = useState(true);
+  const [phoneE164, setPhoneE164] = useState('');
+  const [smsOptIn, setSmsOptIn] = useState(false);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim() || !pin.match(/^\d{4,6}$/)) {
       return;
     }
-    onCreate({ name: name.trim(), role, pin, active });
+    onCreate({
+      name: name.trim(),
+      role,
+      pin,
+      active,
+      phoneE164: phoneE164.trim() ? phoneE164.trim() : null,
+      smsOptIn,
+    });
   };
 
   return (
@@ -612,6 +629,34 @@ function CreateStaffModal({
               <option value="ADMIN">ADMIN</option>
             </select>
           </div>
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
+              Phone (E.164, optional)
+            </label>
+            <input
+              type="tel"
+              value={phoneE164}
+              onChange={(e) => setPhoneE164(e.target.value)}
+              placeholder="+12145550123"
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: '#111827',
+                border: '1px solid #374151',
+                borderRadius: '6px',
+                color: '#f9fafb',
+                fontSize: '1rem',
+              }}
+            />
+          </div>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem', cursor: 'pointer' }}>
+            <input
+              type="checkbox"
+              checked={smsOptIn}
+              onChange={(e) => setSmsOptIn(e.target.checked)}
+            />
+            <span>Opt-in for SMS notifications</span>
+          </label>
           <div style={{ marginBottom: '1rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 500 }}>
               PIN (4-6 digits) *
@@ -707,12 +752,21 @@ function StaffDetailModal({
   }>>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [phoneE164, setPhoneE164] = useState(staff.phoneE164 || '');
+  const [smsOptIn, setSmsOptIn] = useState(!!staff.smsOptIn);
+  const [savingContact, setSavingContact] = useState(false);
+  const [contactMessage, setContactMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (activeTab === 'documents') {
       fetchDocuments();
     }
   }, [activeTab, staff.id]);
+
+  useEffect(() => {
+    setPhoneE164(staff.phoneE164 || '');
+    setSmsOptIn(!!staff.smsOptIn);
+  }, [staff.id, staff.phoneE164, staff.smsOptIn]);
 
   const fetchDocuments = async () => {
     setLoadingDocs(true);
@@ -762,6 +816,33 @@ function StaffDetailModal({
     } catch (error) {
       console.error('Failed to upload document:', error);
       alert('Failed to upload document');
+    }
+  };
+
+  const handleSaveContact = async () => {
+    setSavingContact(true);
+    setContactMessage(null);
+    try {
+      const res = await fetch(`${API_BASE}/v1/admin/staff/${staff.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${sessionToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          phone_e164: phoneE164.trim() ? phoneE164.trim() : null,
+          sms_opt_in: smsOptIn,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error || 'Failed to save');
+      }
+      setContactMessage('Contact info saved');
+    } catch (err) {
+      setContactMessage(err instanceof Error ? err.message : 'Failed to save');
+    } finally {
+      setSavingContact(false);
     }
   };
 
@@ -864,6 +945,55 @@ function StaffDetailModal({
               <p><strong>Status:</strong> {staff.active ? 'Active' : 'Inactive'}</p>
               <p><strong>Created:</strong> {new Date(staff.createdAt).toLocaleString()}</p>
               <p><strong>Last Login:</strong> {staff.lastLogin ? new Date(staff.lastLogin).toLocaleString() : 'Never'}</p>
+            </div>
+
+            <div style={{ marginBottom: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+              <div>
+                <label style={{ display: 'block', marginBottom: '0.35rem' }}>Phone (E.164)</label>
+                <input
+                  type="tel"
+                  value={phoneE164}
+                  onChange={(e) => setPhoneE164(e.target.value)}
+                  placeholder="+12145550123"
+                  style={{
+                    width: '100%',
+                    padding: '0.65rem',
+                    background: '#111827',
+                    border: '1px solid #374151',
+                    borderRadius: '6px',
+                    color: '#f9fafb',
+                  }}
+                />
+              </div>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <input
+                  type="checkbox"
+                  checked={smsOptIn}
+                  onChange={(e) => setSmsOptIn(e.target.checked)}
+                />
+                <span>Opt-in for SMS shift alerts</span>
+              </label>
+              <button
+                onClick={handleSaveContact}
+                disabled={savingContact}
+                style={{
+                  width: 'fit-content',
+                  padding: '0.65rem 1.25rem',
+                  background: savingContact ? '#6b7280' : '#10b981',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: 600,
+                  cursor: savingContact ? 'not-allowed' : 'pointer',
+                }}
+              >
+                {savingContact ? 'Saving...' : 'Save Contact'}
+              </button>
+              {contactMessage && (
+                <div style={{ color: contactMessage.includes('Failed') ? '#f87171' : '#a7f3d0' }}>
+                  {contactMessage}
+                </div>
+              )}
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>

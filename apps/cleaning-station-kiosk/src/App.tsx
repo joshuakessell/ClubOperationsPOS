@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { BrowserMultiFormatReader, NotFoundException } from '@zxing/library';
-import { RoomStatus, isAdjacentTransition } from '@club-ops/shared';
+import { RoomStatus, isAdjacentTransition, type WebSocketEvent, type InternalMessage, type InternalMessageCreatedPayload } from '@club-ops/shared';
 import { LockScreen, type StaffSession } from './LockScreen';
 
 interface ResolvedRoom {
@@ -63,6 +63,10 @@ function App() {
   const [overrideReason, setOverrideReason] = useState('');
   const [resolveStatuses, setResolveStatuses] = useState<Record<string, RoomStatus>>({});
   const [overrideReasons, setOverrideReasons] = useState<Record<string, string>>({});
+  const [messages, setMessages] = useState<Array<{ message: InternalMessage; acknowledged: boolean; acknowledgedAt: string | null }>>([]);
+  const [showMessages, setShowMessages] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [messageToast, setMessageToast] = useState<string | null>(null);
 
   const handleLogin = (newSession: StaffSession) => {
     setSession(newSession);
@@ -72,6 +76,54 @@ function App() {
     setSession(null);
     setScannedItems([]);
     setViewMode('scan');
+  };
+
+  useEffect(() => {
+    if (session?.sessionToken) {
+      refreshMessages();
+    }
+  }, [session?.sessionToken]);
+
+  useEffect(() => {
+    if (messageToast) {
+      const timer = setTimeout(() => setMessageToast(null), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [messageToast]);
+
+  const refreshMessages = async () => {
+    if (!session?.sessionToken) return;
+    try {
+      const res = await fetch(`${API_BASE}/v1/messages`, {
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+          'x-device-id': deviceId,
+        },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setMessages(data.messages || []);
+        setUnreadMessages((data.messages || []).filter((m: any) => !m.acknowledged).length);
+      }
+    } catch (error) {
+      console.error('Failed to fetch messages:', error);
+    }
+  };
+
+  const acknowledgeMessage = async (id: string) => {
+    if (!session?.sessionToken) return;
+    try {
+      await fetch(`${API_BASE}/v1/messages/${id}/ack`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${session.sessionToken}`,
+          'x-device-id': deviceId,
+        },
+      });
+      await refreshMessages();
+    } catch (error) {
+      console.error('Failed to acknowledge message:', error);
+    }
   };
 
   // Show lock screen if not authenticated
@@ -89,6 +141,30 @@ function App() {
   useEffect(() => {
     scannedItemsRef.current = scannedItems;
   }, [scannedItems]);
+
+  useEffect(() => {
+    if (!session?.sessionToken) return;
+    const ws = new WebSocket(`ws://${window.location.hostname}:3001/ws`);
+    ws.onopen = () => {
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        events: ['INTERNAL_MESSAGE_CREATED'],
+      }));
+    };
+    ws.onmessage = (event) => {
+      try {
+        const message: WebSocketEvent = JSON.parse(event.data);
+        if (message.type === 'INTERNAL_MESSAGE_CREATED') {
+          const payload = message.payload as InternalMessageCreatedPayload;
+          setMessageToast(`New message: ${payload.message.title}`);
+          refreshMessages();
+        }
+      } catch (error) {
+        console.error('WS parse error', error);
+      }
+    };
+    return () => ws.close();
+  }, [session?.sessionToken]);
 
   // Initialize camera
   useEffect(() => {
@@ -494,9 +570,159 @@ function App() {
 
   const actionType = getActionType();
 
+  const messagesButton = session ? (
+    <button
+      onClick={() => {
+        setShowMessages(true);
+        refreshMessages();
+      }}
+      style={{
+        position: 'fixed',
+        top: '1rem',
+        right: '1rem',
+        padding: '0.5rem 0.9rem',
+        background: '#1f2937',
+        color: '#f9fafb',
+        border: '1px solid #3b82f6',
+        borderRadius: '8px',
+        cursor: 'pointer',
+        zIndex: 2000,
+      }}
+    >
+      Messages {unreadMessages > 0 ? `(${unreadMessages})` : ''}
+    </button>
+  ) : null;
+
+  const messagesOverlay = showMessages ? (
+    <div
+      style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        background: 'rgba(0,0,0,0.6)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        zIndex: 2500,
+      }}
+      onClick={() => setShowMessages(false)}
+    >
+      <div
+        style={{
+          background: '#0f172a',
+          border: '1px solid #1f2937',
+          borderRadius: '12px',
+          maxWidth: '520px',
+          width: '90%',
+          maxHeight: '80vh',
+          overflowY: 'auto',
+          padding: '1rem',
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700 }}>Messages</h2>
+          <button
+            onClick={() => setShowMessages(false)}
+            style={{ background: 'transparent', border: 'none', color: '#9ca3af', fontSize: '1.25rem', cursor: 'pointer' }}
+          >
+            ×
+          </button>
+        </div>
+        <div style={{ marginBottom: '0.75rem' }}>
+          <button
+            onClick={refreshMessages}
+            style={{
+              padding: '0.5rem 1rem',
+              background: '#1e3a8a',
+              color: '#fff',
+              border: 'none',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              fontWeight: 600,
+            }}
+          >
+            Refresh
+          </button>
+        </div>
+        {messages.length === 0 ? (
+          <div style={{ color: '#9ca3af' }}>No messages</div>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {messages.map(({ message, acknowledged }) => (
+              <div key={message.id} style={{ border: '1px solid #1f2937', borderRadius: '8px', padding: '0.75rem', background: message.pinned ? '#1f2937' : '#111827' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
+                  <div style={{ fontWeight: 700 }}>{message.title}</div>
+                  <span style={{
+                    padding: '0.25rem 0.5rem',
+                    borderRadius: '6px',
+                    background: message.severity === 'URGENT' ? '#f87171' : message.severity === 'WARNING' ? '#fbbf24' : '#60a5fa',
+                    color: '#0b1221',
+                    fontWeight: 700,
+                    fontSize: '0.8rem',
+                  }}>
+                    {message.severity}
+                  </span>
+                </div>
+                <div style={{ color: '#e5e7eb', marginBottom: '0.5rem' }}>{message.body}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span style={{ color: '#9ca3af', fontSize: '0.85rem' }}>
+                    Sent {new Date(message.createdAt).toLocaleString()}
+                  </span>
+                  {!acknowledged ? (
+                    <button
+                      onClick={() => acknowledgeMessage(message.id)}
+                      style={{
+                        padding: '0.4rem 0.75rem',
+                        background: '#10b981',
+                        color: '#fff',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Acknowledge
+                    </button>
+                  ) : (
+                    <span style={{ color: '#22c55e', fontWeight: 700, fontSize: '0.9rem' }}>Acknowledged</span>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  ) : null;
+
+  const messageToastBanner = messageToast ? (
+    <div
+      style={{
+        position: 'fixed',
+        top: '1rem',
+        right: '1rem',
+        background: '#111827',
+        color: '#f9fafb',
+        padding: '0.75rem 1rem',
+        borderRadius: '8px',
+        border: '1px solid #3b82f6',
+        boxShadow: '0 8px 16px rgba(0,0,0,0.25)',
+        zIndex: 2200,
+      }}
+    >
+      {messageToast}
+    </div>
+  ) : null;
+
   if (viewMode === 'resolve') {
     return (
       <div className="app-container">
+        {messagesButton}
+        {messagesOverlay}
+        {messageToastBanner}
         <div className="resolve-container">
           <h1 className="resolve-title">Resolve Room Statuses</h1>
 
@@ -628,6 +854,9 @@ function App() {
 
   return (
     <div className="app-container">
+      {messagesButton}
+      {messagesOverlay}
+      {messageToastBanner}
       <div className="camera-container">
         <video ref={videoRef} className="camera-preview" autoPlay playsInline muted />
         <canvas ref={canvasRef} className="camera-canvas" style={{ display: 'none' }} />

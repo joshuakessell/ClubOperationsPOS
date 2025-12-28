@@ -1,7 +1,12 @@
 import { useState } from 'react';
-import { Routes, Route } from 'react-router-dom';
+import { Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { LockScreen, type StaffSession } from './LockScreen';
 import { Dashboard } from './Dashboard';
+import { ShiftsView } from './ShiftsView';
+import { AdminView } from './AdminView';
+import { StaffManagement } from './StaffManagement';
+import { MessagesView } from './MessagesView';
+import { ShiftClaimView } from './ShiftClaimView';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 
@@ -267,7 +272,19 @@ function App() {
   };
 
   const location = useLocation();
-  const navigate = useNavigate();
+  const isClaimRoute = location.pathname.startsWith('/claim-shift/');
+
+  if (!session && isClaimRoute) {
+    return (
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <Routes>
+          <Route path="/claim-shift/:token" element={<ShiftClaimView />} />
+          <Route path="*" element={<ShiftClaimView />} />
+        </Routes>
+      </ThemeProvider>
+    );
+  }
 
   // Show lock screen if not authenticated
   if (!session) {
@@ -283,11 +300,22 @@ function App() {
     );
   }
 
+  const limitedAccess = session.role !== 'ADMIN';
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Routes>
         <Route path="/" element={<Dashboard session={session} onLogout={handleLogout} />} />
+        <Route
+          path="/shifts"
+          element={<ShiftsView session={session} limitedAccess={limitedAccess} />}
+        />
+        <Route path="/admin" element={<AdminView session={session} />} />
+        <Route path="/admin/staff" element={<StaffManagement session={session} />} />
+        <Route path="/admin/messages" element={<MessagesView session={session} />} />
+        <Route path="/claim-shift/:token" element={<ShiftClaimView />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </ThemeProvider>
   );

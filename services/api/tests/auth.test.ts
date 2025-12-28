@@ -17,6 +17,10 @@ vi.mock('@simplewebauthn/server', () => ({
 }));
 
 describe('Auth Tests', () => {
+  if (process.env.SKIP_DB === 'true') {
+    describe.skip('Auth Tests', () => {});
+    return;
+  }
   let fastify: FastifyInstance;
   let adminStaffId: string;
   let staffStaffId: string;

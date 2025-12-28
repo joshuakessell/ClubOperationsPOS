@@ -36,6 +36,9 @@ export type {
   SelectionAcknowledgedPayload,
   WaitlistCreatedPayload,
   RegisterSessionUpdatedPayload,
+  InternalMessage,
+  InternalMessageCreatedPayload,
+  InternalMessageAckPayload,
 } from './types';
 
 // Zod schemas
