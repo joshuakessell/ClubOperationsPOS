@@ -7,10 +7,10 @@ interface ScreenShellProps {
   showLogoWatermark?: boolean;
 }
 
-export function ScreenShell({ 
-  children, 
+export function ScreenShell({
+  children,
   backgroundVariant = 'steamroom1',
-  showLogoWatermark = true 
+  showLogoWatermark = true,
 }: ScreenShellProps) {
   return (
     <div className={`cs-screen cs-kiosk-bg cs-kiosk-bg--${backgroundVariant}`}>
@@ -20,10 +20,7 @@ export function ScreenShell({
           <img src={logoImage} alt="Club Dallas" className="cs-kiosk-watermark__img" />
         </div>
       )}
-      <div className="cs-kiosk-stage">
-        {children}
-      </div>
+      <div className="cs-kiosk-stage">{children}</div>
     </div>
   );
 }
-
