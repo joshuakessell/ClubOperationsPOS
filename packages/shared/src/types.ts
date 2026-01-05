@@ -326,4 +326,3 @@ export interface RegisterSessionUpdatedPayload {
   lastHeartbeatAt: string | null;
   reason: 'CONFIRMED' | 'SIGNED_OUT' | 'FORCED_SIGN_OUT' | 'TTL_EXPIRED' | 'DEVICE_DISABLED';
 }
-

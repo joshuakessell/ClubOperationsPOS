@@ -25,7 +25,7 @@ import {
   timeclockRoutes,
   documentsRoutes,
   scheduleRoutes,
-  timeoffRoutes
+  timeoffRoutes,
 } from './routes/index.js';
 import { createBroadcaster, type Broadcaster } from './websocket/broadcaster.js';
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -121,7 +121,7 @@ async function main() {
     try {
       await initializeDatabase();
       fastify.log.info('Database connection initialized');
-      
+
       // Seed demo data if DEMO_MODE is enabled
       if (process.env.DEMO_MODE === 'true') {
         fastify.log.info('DEMO_MODE enabled, seeding demo data...');
@@ -161,14 +161,14 @@ async function main() {
   fastify.get('/ws', { websocket: true }, (connection, req) => {
     const clientId = crypto.randomUUID();
     const socket = connection.socket as unknown as WebSocket;
-    
+
     // Extract lane from query string if present
     const url = req.url || '';
     const urlObj = new URL(url, `http://${req.headers.host || 'localhost'}`);
     const lane = urlObj.searchParams.get('lane') || undefined;
-    
+
     fastify.log.info({ clientId, lane }, 'WebSocket client connected');
-    
+
     broadcaster.addClient(clientId, socket, lane);
 
     connection.on('message', (message: Buffer) => {
@@ -215,8 +215,12 @@ async function main() {
     process.exit(0);
   };
 
-  process.on('SIGTERM', () => { void shutdown(); });
-  process.on('SIGINT', () => { void shutdown(); });
+  process.on('SIGTERM', () => {
+    void shutdown();
+  });
+  process.on('SIGINT', () => {
+    void shutdown();
+  });
 
   try {
     await fastify.listen({ port: PORT, host: HOST });
