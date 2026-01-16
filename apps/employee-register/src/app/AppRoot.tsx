@@ -1,24 +1,12 @@
-import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useReducer, useState, useRef } from 'react';
 import {
   type ActiveVisit,
   type CheckoutRequestSummary,
   type CheckoutChecklist,
-  type WebSocketEvent,
-  type CheckoutRequestedPayload,
-  type CheckoutClaimedPayload,
-  type CheckoutUpdatedPayload,
-  type SessionUpdatedPayload,
-  type AssignmentCreatedPayload,
-  type AssignmentFailedPayload,
-  type CustomerConfirmedPayload,
-  type CustomerDeclinedPayload,
-  type SelectionProposedPayload,
-  type SelectionLockedPayload,
-  type SelectionAcknowledgedPayload,
-  type SelectionForcedPayload,
   getCustomerMembershipStatus,
 } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket, isRecord, getErrorMessage, readJson } from '@club-ops/ui';
+import { isRecord } from '@club-ops/ui';
+
 import { RegisterSignIn } from '../RegisterSignIn';
 import type { IdScanPayload } from '@club-ops/shared';
 type ScanResult =
@@ -45,6 +33,7 @@ import { PastDuePaymentModal } from '../components/register/modals/PastDuePaymen
 import { ManagerBypassModal } from '../components/register/modals/ManagerBypassModal';
 import { UpgradePaymentModal } from '../components/register/modals/UpgradePaymentModal';
 import { AddNoteModal } from '../components/register/modals/AddNoteModal';
+import { AlertModal } from '../components/register/modals/AlertModal';
 import { MembershipIdPromptModal } from '../components/register/modals/MembershipIdPromptModal';
 import { ModalFrame } from '../components/register/modals/ModalFrame';
 import { TransactionCompleteModal } from '../components/register/modals/TransactionCompleteModal';
@@ -55,12 +44,56 @@ import {
   type MultipleMatchCandidate,
 } from '../components/register/modals/MultipleMatchesModal';
 import { PaymentDeclineToast } from '../components/register/toasts/PaymentDeclineToast';
+import { ScanToastOverlay } from '../components/ScanToastOverlay';
 import { RegisterSideDrawers } from '../components/drawers/RegisterSideDrawers';
 import { UpgradesDrawerContent } from '../components/upgrades/UpgradesDrawerContent';
 import { InventoryDrawer, type InventoryDrawerSection } from '../components/inventory/InventoryDrawer';
 import { useRegisterTopActionsOverlays } from '../components/register/useRegisterTopActionsOverlays';
 import { usePassiveScannerInput } from '../usePassiveScannerInput';
 import { RegisterMainView } from '../views/RegisterMainView';
+import {
+  initialRegisterSessionState,
+  type RegisterSessionState,
+  registerSessionReducer,
+} from './registerSessionReducer';
+import { useEmployeeRegisterWs } from '../ws/useEmployeeRegisterWs';
+import {
+  authLogout,
+  addNote,
+  assignResource,
+  checkoutClaim,
+  checkoutComplete,
+  checkoutConfirmItems,
+  checkoutMarkFeePaid,
+  checkinScan,
+  completeMembershipPurchase,
+  confirmSelection,
+  createPaymentIntent,
+  customersCreateFromScan,
+  customersCreateManual,
+  customersMatchIdentity,
+  demoTakePayment,
+  documentDownloadPdf,
+  documentsBySession,
+  employeesAvailable,
+  getHealth,
+  inventoryAvailable as apiInventoryAvailable,
+  isApiError,
+  laneReset,
+  manualSignatureOverride,
+  pastDueBypass,
+  pastDueDemoPayment,
+  paymentsMarkPaid,
+  proposeSelection,
+  registerSignout,
+  scanId,
+  searchCustomers,
+  startLaneSession as apiStartLaneSession,
+  upgradesComplete,
+  upgradesFulfill,
+  waitlistList,
+  type SessionDocument as ApiSessionDocument,
+} from '../api/employeeRegisterApi';
 
 interface HealthStatus {
   status: string;
@@ -68,17 +101,7 @@ interface HealthStatus {
   uptime: number;
 }
 
-type SessionDocument = {
-  id: string;
-  doc_type: string;
-  mime_type: string;
-  created_at: string;
-  has_signature: boolean;
-  signature_hash_prefix?: string;
-  has_pdf?: boolean;
-};
-
-const API_BASE = '/api';
+type SessionDocument = ApiSessionDocument;
 
 interface StaffSession {
   staffId: string;
@@ -225,8 +248,24 @@ export function AppRoot() {
   const [isUpgradesDrawerOpen, setIsUpgradesDrawerOpen] = useState(false);
   const [isInventoryDrawerOpen, setIsInventoryDrawerOpen] = useState(false);
   const [inventoryForcedSection, setInventoryForcedSection] = useState<InventoryDrawerSection>(null);
-  const [customerName, setCustomerName] = useState('');
-  const [membershipNumber, setMembershipNumber] = useState('');
+  const [registerState, dispatchRegister] = useReducer(
+    registerSessionReducer,
+    initialRegisterSessionState
+  );
+  const patchRegister = useCallback(
+    (patch: Partial<RegisterSessionState>) => {
+      dispatchRegister({ type: 'PATCH', patch });
+    },
+    [dispatchRegister]
+  );
+
+  const [alertModal, setAlertModal] = useState<null | { title?: string; message: string }>(null);
+  const showAlert = useCallback((message: string, title?: string) => {
+    setAlertModal({ message, title });
+  }, []);
+
+  const customerName = registerState.customerName;
+  const membershipNumber = registerState.membershipNumber;
   const [pendingCreateFromScan, setPendingCreateFromScan] = useState<{
     idScanValue: string;
     idScanHash: string | null;
@@ -265,8 +304,8 @@ export function AppRoot() {
   const [scanResolutionSubmitting, setScanResolutionSubmitting] = useState(false);
   const [scanToastMessage, setScanToastMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-  const [agreementSigned, setAgreementSigned] = useState(false);
+  const currentSessionId = registerState.sessionId;
+  const agreementSigned = registerState.agreementSigned;
   // Check-in mode is now auto-detected server-side based on active visits/assignments.
   const [selectedRentalType, setSelectedRentalType] = useState<string | null>(null);
   const [checkoutRequests, setCheckoutRequests] = useState<Map<string, CheckoutRequestSummary>>(
@@ -276,22 +315,20 @@ export function AppRoot() {
   const [, setCheckoutChecklist] = useState<CheckoutChecklist>({});
   const [checkoutItemsConfirmed, setCheckoutItemsConfirmed] = useState(false);
   const [checkoutFeePaid, setCheckoutFeePaid] = useState(false);
-  const [customerSelectedType, setCustomerSelectedType] = useState<string | null>(null);
-  const [waitlistDesiredTier, setWaitlistDesiredTier] = useState<string | null>(null);
-  const [waitlistBackupType, setWaitlistBackupType] = useState<string | null>(null);
+  const customerSelectedType = registerState.customerSelectedType;
+  const waitlistDesiredTier = registerState.waitlistDesiredTier;
+  const waitlistBackupType = registerState.waitlistBackupType;
   const [selectedInventoryItem, setSelectedInventoryItem] = useState<{
     type: 'room' | 'locker';
     id: string;
     number: string;
     tier: string;
   } | null>(null);
-  const [proposedRentalType, setProposedRentalType] = useState<string | null>(null);
-  const [proposedBy, setProposedBy] = useState<'CUSTOMER' | 'EMPLOYEE' | null>(null);
-  const [selectionConfirmed, setSelectionConfirmed] = useState(false);
-  const [selectionConfirmedBy, setSelectionConfirmedBy] = useState<'CUSTOMER' | 'EMPLOYEE' | null>(
-    null
-  );
-  const [selectionAcknowledged, setSelectionAcknowledged] = useState(true);
+  const proposedRentalType = registerState.proposedRentalType;
+  const proposedBy = registerState.proposedBy;
+  const selectionConfirmed = registerState.selectionConfirmed;
+  const selectionConfirmedBy = registerState.selectionConfirmedBy;
+  const selectionAcknowledged = registerState.selectionAcknowledged;
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [alreadyCheckedIn, setAlreadyCheckedIn] = useState<null | {
     customerLabel: string | null;
@@ -303,17 +340,11 @@ export function AppRoot() {
     selected: string;
     number: string;
   } | null>(null);
-  const [paymentIntentId, setPaymentIntentId] = useState<string | null>(null);
-  const [paymentQuote, setPaymentQuote] = useState<{
-    total: number;
-    lineItems: Array<{ description: string; amount: number }>;
-    messages: string[];
-  } | null>(null);
-  const [paymentStatus, setPaymentStatus] = useState<'DUE' | 'PAID' | null>(null);
-  const [membershipPurchaseIntent, setMembershipPurchaseIntent] = useState<'PURCHASE' | 'RENEW' | null>(
-    null
-  );
-  const [customerMembershipValidUntil, setCustomerMembershipValidUntil] = useState<string | null>(null);
+  const paymentIntentId = registerState.paymentIntentId;
+  const paymentQuote = registerState.paymentQuote;
+  const paymentStatus = registerState.paymentStatus;
+  const membershipPurchaseIntent = registerState.membershipPurchaseIntent;
+  const customerMembershipValidUntil = registerState.customerMembershipValidUntil;
 
   // Agreement/PDF verification (staff-only)
   const [documentsModalOpen, setDocumentsModalOpen] = useState(false);
@@ -337,6 +368,30 @@ export function AppRoot() {
     customerSelectedTypeRef.current = customerSelectedType;
   }, [customerSelectedType]);
 
+  // UI-only effects driven by server-authoritative session updates.
+  useEffect(() => {
+    if (registerState.pastDueModalEpoch > 0) {
+      setShowPastDueModal(true);
+    }
+  }, [registerState.pastDueModalEpoch]);
+
+  useEffect(() => {
+    if (registerState.clearEpoch > 0) {
+      setSelectedInventoryItem(null);
+      setShowMembershipIdPrompt(false);
+      setMembershipIdInput('');
+      setMembershipIdError(null);
+      setMembershipIdPromptedForSessionId(null);
+      setShowWaitlistModal(false);
+    }
+  }, [registerState.clearEpoch]);
+
+  useEffect(() => {
+    if (registerState.paymentFailureReason) {
+      setPaymentDeclineError(registerState.paymentFailureReason);
+    }
+  }, [registerState.paymentFailureReason]);
+
   const [showMembershipIdPrompt, setShowMembershipIdPrompt] = useState(false);
   const [membershipIdInput, setMembershipIdInput] = useState('');
   const [membershipIdMode, setMembershipIdMode] = useState<'KEEP_EXISTING' | 'ENTER_NEW'>('ENTER_NEW');
@@ -345,8 +400,8 @@ export function AppRoot() {
   const [membershipIdPromptedForSessionId, setMembershipIdPromptedForSessionId] = useState<string | null>(
     null
   );
-  const [pastDueBlocked, setPastDueBlocked] = useState(false);
-  const [pastDueBalance, setPastDueBalance] = useState<number>(0);
+  const pastDueBlocked = registerState.pastDueBlocked;
+  const pastDueBalance = registerState.pastDueBalance;
   const [waitlistEntries, setWaitlistEntries] = useState<
     Array<{
       id: string;
@@ -395,13 +450,11 @@ export function AppRoot() {
   } | null>(null);
   const [inventoryHasLate, setInventoryHasLate] = useState(false);
 
-  // Customer info state
-  const [customerPrimaryLanguage, setCustomerPrimaryLanguage] = useState<'EN' | 'ES' | undefined>(
-    undefined
-  );
-  const [customerDobMonthDay, setCustomerDobMonthDay] = useState<string | undefined>(undefined);
-  const [customerLastVisitAt, setCustomerLastVisitAt] = useState<string | undefined>(undefined);
-  const [customerNotes, setCustomerNotes] = useState<string | undefined>(undefined);
+  // Customer info (server-authoritative view-model)
+  const customerPrimaryLanguage = registerState.customerPrimaryLanguage ?? undefined;
+  const customerDobMonthDay = registerState.customerDobMonthDay ?? undefined;
+  const customerLastVisitAt = registerState.customerLastVisitAt ?? undefined;
+  const customerNotes = registerState.customerNotes ?? undefined;
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
 
@@ -432,10 +485,10 @@ export function AppRoot() {
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
   const [selectedCustomerLabel, setSelectedCustomerLabel] = useState<string | null>(null);
 
-  // Assignment completion state
-  const [assignedResourceType, setAssignedResourceType] = useState<'room' | 'locker' | null>(null);
-  const [assignedResourceNumber, setAssignedResourceNumber] = useState<string | null>(null);
-  const [checkoutAt, setCheckoutAt] = useState<string | null>(null);
+  // Assignment completion (server-authoritative view-model)
+  const assignedResourceType = registerState.assignedResourceType;
+  const assignedResourceNumber = registerState.assignedResourceNumber;
+  const checkoutAt = registerState.checkoutAt;
 
   const deviceId = useState(() => {
     try {
@@ -505,24 +558,12 @@ export function AppRoot() {
         // IMPORTANT: release the register session (server-side) before logging out staff.
         // This makes the separate "menu sign out" redundant and keeps register availability correct.
         try {
-          await fetch(`${API_BASE}/v1/registers/signout`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${session.sessionToken}`,
-            },
-            body: JSON.stringify({ deviceId }),
-          });
+          await registerSignout({ sessionToken: session.sessionToken, deviceId });
         } catch (err) {
           console.warn('Register signout failed (continuing):', err);
         }
 
-        await fetch(`${API_BASE}/v1/auth/logout`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-        });
+        await authLogout({ sessionToken: session.sessionToken });
       }
     } catch (err) {
       console.warn('Logout failed (continuing):', err);
@@ -555,19 +596,12 @@ export function AppRoot() {
 
       setCustomerSearchLoading(true);
       try {
-        const response = await fetch(
-          `/api/v1/customers/search?q=${encodeURIComponent(query)}&limit=10`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.sessionToken}`,
-            },
-            signal: controller.signal,
-          }
-        );
-        if (!response.ok) {
-          throw new Error('Search failed');
-        }
-        const data = (await response.json()) as { suggestions?: typeof customerSuggestions };
+        const data = await searchCustomers({
+          sessionToken: session.sessionToken,
+          query,
+          limit: 10,
+          signal: controller.signal,
+        });
         setCustomerSuggestions(data.suggestions || []);
       } catch (error) {
         if (!(error instanceof DOMException && error.name === 'AbortError')) {
@@ -601,29 +635,7 @@ export function AppRoot() {
       // Customer search selection should attach to the *check-in lane session* system
       // (lane_sessions), not legacy sessions, so downstream kiosk endpoints (set-language, etc.)
       // can resolve the active session.
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          customerId: selectedCustomerId,
-        }),
-      });
-
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        if (
-          response.status === 409 &&
-          tryOpenAlreadyCheckedInModal(payload, selectedCustomerLabel || selectedCustomerId)
-        ) {
-          return;
-        }
-        throw new Error(getErrorMessage(payload) || 'Failed to start session');
-      }
-
-      const data = payload as {
+      let data: {
         sessionId?: string;
         customerName?: string;
         membershipNumber?: string;
@@ -632,13 +644,29 @@ export function AppRoot() {
         activeAssignedResourceType?: 'room' | 'locker';
         activeAssignedResourceNumber?: string;
       };
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
+      try {
+        data = await apiStartLaneSession({
+          sessionToken: session.sessionToken,
+          lane,
+          body: { customerId: selectedCustomerId },
+        });
+      } catch (err) {
+        if (isApiError(err) && err.status === 409) {
+          if (tryOpenAlreadyCheckedInModal(err.body, selectedCustomerLabel || selectedCustomerId)) {
+            return;
+          }
+        }
+        throw err;
+      }
+      if (data.customerName) patchRegister({ customerName: data.customerName });
+      if (data.membershipNumber) patchRegister({ membershipNumber: data.membershipNumber });
+      if (data.sessionId) patchRegister({ sessionId: data.sessionId });
       if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
+        if (data.activeAssignedResourceType)
+          patchRegister({ assignedResourceType: data.activeAssignedResourceType });
+        if (data.activeAssignedResourceNumber)
+          patchRegister({ assignedResourceNumber: data.activeAssignedResourceNumber });
+        patchRegister({ checkoutAt: data.blockEndsAt });
       }
 
       // Clear search UI
@@ -646,7 +674,7 @@ export function AppRoot() {
       setCustomerSuggestions([]);
     } catch (error) {
       console.error('Failed to confirm customer:', error);
-      alert(error instanceof Error ? error.message : 'Failed to confirm customer');
+      showAlert(error instanceof Error ? error.message : 'Failed to confirm customer', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -696,35 +724,14 @@ export function AppRoot() {
   ): Promise<ScanResult> => {
     if (!session?.sessionToken) {
       const msg = 'Not authenticated';
-      if (!opts?.suppressAlerts) alert(msg);
+      if (!opts?.suppressAlerts) showAlert(msg, 'Error');
       return { outcome: 'error', message: msg };
     }
 
     setIsSubmitting(true);
     try {
       setAlreadyCheckedIn(null);
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/scan-id`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (response.status === 409 && tryOpenAlreadyCheckedInModal(errorPayload, customerName || null)) {
-          return { outcome: 'matched' };
-        }
-        const msg = getErrorMessage(errorPayload) || 'Failed to scan ID';
-        if (!opts?.suppressAlerts) alert(msg);
-        // Treat 400 as "no match / invalid ID data", keep scan mode open.
-        if (response.status === 400) return { outcome: 'no_match', message: msg };
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = await readJson<{
+      let data: {
         customerName?: string;
         membershipNumber?: string;
         sessionId?: string;
@@ -732,24 +739,40 @@ export function AppRoot() {
         blockEndsAt?: string;
         activeAssignedResourceType?: 'room' | 'locker';
         activeAssignedResourceNumber?: string;
-      }>(response);
+      };
+      try {
+        data = await scanId({ sessionToken: session.sessionToken, lane, payload });
+      } catch (err) {
+        if (isApiError(err) && err.status === 409) {
+          if (tryOpenAlreadyCheckedInModal(err.body, customerName || null)) {
+            return { outcome: 'matched' };
+          }
+        }
+        const msg = err instanceof Error ? err.message : 'Failed to scan ID';
+        if (!opts?.suppressAlerts) showAlert(msg, 'Error');
+        // Treat 400 as "no match / invalid ID data", keep scan mode open.
+        if (isApiError(err) && err.status === 400) return { outcome: 'no_match', message: msg };
+        return { outcome: 'error', message: msg };
+      }
       console.log('ID scanned, session updated:', data);
 
       // Update local state
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
+      if (data.customerName) patchRegister({ customerName: data.customerName });
+      if (data.membershipNumber) patchRegister({ membershipNumber: data.membershipNumber });
+      if (data.sessionId) patchRegister({ sessionId: data.sessionId });
       if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
+        if (data.activeAssignedResourceType)
+          patchRegister({ assignedResourceType: data.activeAssignedResourceType });
+        if (data.activeAssignedResourceNumber)
+          patchRegister({ assignedResourceNumber: data.activeAssignedResourceNumber });
+        patchRegister({ checkoutAt: data.blockEndsAt });
       }
 
       return { outcome: 'matched' };
     } catch (error) {
       console.error('Failed to scan ID:', error);
       const msg = error instanceof Error ? error.message : 'Failed to scan ID';
-      if (!opts?.suppressAlerts) alert(msg);
+      if (!opts?.suppressAlerts) showAlert(msg, 'Error');
       return { outcome: 'error', message: msg };
     } finally {
       setIsSubmitting(false);
@@ -763,36 +786,14 @@ export function AppRoot() {
   ): Promise<ScanResult> => {
     if (!session?.sessionToken) {
       const msg = 'Not authenticated';
-      if (!opts?.suppressAlerts) alert(msg);
+      if (!opts?.suppressAlerts) showAlert(msg, 'Error');
       return { outcome: 'error', message: msg };
     }
 
     setIsSubmitting(true);
     try {
       setAlreadyCheckedIn(null);
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          idScanValue,
-          membershipScanValue: membershipScanValue || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (response.status === 409 && tryOpenAlreadyCheckedInModal(errorPayload, idScanValue)) {
-          return { outcome: 'matched' };
-        }
-        const msg = getErrorMessage(errorPayload) || 'Failed to start session';
-        if (!opts?.suppressAlerts) alert(msg);
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = await readJson<{
+      let data: {
         customerName?: string;
         membershipNumber?: string;
         sessionId?: string;
@@ -800,17 +801,33 @@ export function AppRoot() {
         blockEndsAt?: string;
         activeAssignedResourceType?: 'room' | 'locker';
         activeAssignedResourceNumber?: string;
-      }>(response);
+      };
+      try {
+        data = await apiStartLaneSession({
+          sessionToken: session.sessionToken,
+          lane,
+          body: { idScanValue, membershipScanValue: membershipScanValue || undefined },
+        });
+      } catch (err) {
+        if (isApiError(err) && err.status === 409 && tryOpenAlreadyCheckedInModal(err.body, idScanValue)) {
+          return { outcome: 'matched' };
+        }
+        const msg = err instanceof Error ? err.message : 'Failed to start session';
+        if (!opts?.suppressAlerts) showAlert(msg, 'Error');
+        return { outcome: 'error', message: msg };
+      }
       console.log('Session started:', data);
 
       // Update local state
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
+      if (data.customerName) patchRegister({ customerName: data.customerName });
+      if (data.membershipNumber) patchRegister({ membershipNumber: data.membershipNumber });
+      if (data.sessionId) patchRegister({ sessionId: data.sessionId });
       if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
+        if (data.activeAssignedResourceType)
+          patchRegister({ assignedResourceType: data.activeAssignedResourceType });
+        if (data.activeAssignedResourceNumber)
+          patchRegister({ assignedResourceNumber: data.activeAssignedResourceNumber });
+        patchRegister({ checkoutAt: data.blockEndsAt });
       }
 
       // Clear manual entry mode if active
@@ -821,7 +838,7 @@ export function AppRoot() {
     } catch (error) {
       console.error('Failed to start session:', error);
       const msg = error instanceof Error ? error.message : 'Failed to start session';
-      if (!opts?.suppressAlerts) alert(msg);
+      if (!opts?.suppressAlerts) showAlert(msg, 'Error');
       return { outcome: 'error', message: msg };
     } finally {
       setIsSubmitting(false);
@@ -834,33 +851,14 @@ export function AppRoot() {
   ): Promise<ScanResult> => {
     if (!session?.sessionToken) {
       const msg = 'Not authenticated';
-      if (!opts?.suppressAlerts) alert(msg);
+      if (!opts?.suppressAlerts) showAlert(msg, 'Error');
       return { outcome: 'error', message: msg };
     }
 
     setIsSubmitting(true);
     try {
       setAlreadyCheckedIn(null);
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ customerId }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (response.status === 409 && tryOpenAlreadyCheckedInModal(errorPayload, null)) {
-          return { outcome: 'matched' };
-        }
-        const msg = getErrorMessage(errorPayload) || 'Failed to start session';
-        if (!opts?.suppressAlerts) alert(msg);
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = await readJson<{
+      let data: {
         sessionId?: string;
         customerName?: string;
         membershipNumber?: string;
@@ -868,15 +866,31 @@ export function AppRoot() {
         blockEndsAt?: string;
         activeAssignedResourceType?: 'room' | 'locker';
         activeAssignedResourceNumber?: string;
-      }>(response);
+      };
+      try {
+        data = await apiStartLaneSession({
+          sessionToken: session.sessionToken,
+          lane,
+          body: { customerId },
+        });
+      } catch (err) {
+        if (isApiError(err) && err.status === 409 && tryOpenAlreadyCheckedInModal(err.body, null)) {
+          return { outcome: 'matched' };
+        }
+        const msg = err instanceof Error ? err.message : 'Failed to start session';
+        if (!opts?.suppressAlerts) showAlert(msg, 'Error');
+        return { outcome: 'error', message: msg };
+      }
 
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
+      if (data.customerName) patchRegister({ customerName: data.customerName });
+      if (data.membershipNumber) patchRegister({ membershipNumber: data.membershipNumber });
+      if (data.sessionId) patchRegister({ sessionId: data.sessionId });
       if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
+        if (data.activeAssignedResourceType)
+          patchRegister({ assignedResourceType: data.activeAssignedResourceType });
+        if (data.activeAssignedResourceNumber)
+          patchRegister({ assignedResourceNumber: data.activeAssignedResourceNumber });
+        patchRegister({ checkoutAt: data.blockEndsAt });
       }
 
       if (manualEntry) setManualEntry(false);
@@ -884,7 +898,7 @@ export function AppRoot() {
     } catch (error) {
       console.error('Failed to start session by customerId:', error);
       const msg = error instanceof Error ? error.message : 'Failed to start session';
-      if (!opts?.suppressAlerts) alert(msg);
+      if (!opts?.suppressAlerts) showAlert(msg, 'Error');
       return { outcome: 'error', message: msg };
     } finally {
       setIsSubmitting(false);
@@ -897,11 +911,11 @@ export function AppRoot() {
     const lastName = manualLastName.trim();
     const dobIso = parseDobDigitsToIso(manualDobDigits);
     if (!firstName || !lastName || !dobIso) {
-      alert('Please enter First Name, Last Name, and a valid Date of Birth (MM/DD/YYYY).');
+      showAlert('Please enter First Name, Last Name, and a valid Date of Birth (MM/DD/YYYY).', 'Validation');
       return;
     }
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
@@ -909,26 +923,22 @@ export function AppRoot() {
     setManualExistingPromptError(null);
     try {
       // First: check for existing customer match (name + dob).
-      const matchRes = await fetch(`${API_BASE}/v1/customers/match-identity`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ firstName, lastName, dob: dobIso }),
-      });
-
-      const matchPayload: unknown = await matchRes.json().catch(() => null);
-      if (!matchRes.ok) {
-        const msg = getErrorMessage(matchPayload) || 'Failed to check for existing customer';
-        setManualExistingPromptError(msg);
-        return;
-      }
-
-      const data = matchPayload as {
+      let data: {
         matchCount?: number;
         bestMatch?: { id?: string; name?: string; membershipNumber?: string | null; dob?: string | null } | null;
       };
+      try {
+        data = await customersMatchIdentity({
+          sessionToken: session.sessionToken,
+          firstName,
+          lastName,
+          dob: dobIso,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to check for existing customer';
+        setManualExistingPromptError(msg);
+        return;
+      }
       const best = data.bestMatch;
       const matchCount = typeof data.matchCount === 'number' ? data.matchCount : 0;
       if (best && typeof best.id === 'string' && typeof best.name === 'string') {
@@ -944,21 +954,19 @@ export function AppRoot() {
       }
 
       // No match: create new customer then load it.
-      const createRes = await fetch(`${API_BASE}/v1/customers/create-manual`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ firstName, lastName, dob: dobIso }),
-      });
-      const createPayload: unknown = await createRes.json().catch(() => null);
-      if (!createRes.ok) {
-        const msg = getErrorMessage(createPayload) || 'Failed to create customer';
+      let created: { customer?: { id?: string } };
+      try {
+        created = await customersCreateManual({
+          sessionToken: session.sessionToken,
+          firstName,
+          lastName,
+          dob: dobIso,
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'Failed to create customer';
         setManualExistingPromptError(msg);
         return;
       }
-      const created = createPayload as { customer?: { id?: string } };
       const newId = created.customer?.id;
       if (!newId) {
         setManualExistingPromptError('Create returned no customer id');
@@ -983,49 +991,11 @@ export function AppRoot() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/scan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          laneId: lane,
-          rawScanText,
-        }),
+      const data = await checkinScan({
+        sessionToken: session.sessionToken,
+        laneId: lane,
+        rawScanText,
       });
-
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        const msg = getErrorMessage(payload) || 'Failed to process scan';
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = payload as {
-        result: 'MATCHED' | 'NO_MATCH' | 'MULTIPLE_MATCHES' | 'ERROR';
-        scanType?: 'STATE_ID' | 'MEMBERSHIP';
-        customer?: { id: string; name: string; membershipNumber: string | null };
-        extracted?: {
-          firstName?: string;
-          lastName?: string;
-          fullName?: string;
-          dob?: string;
-          idNumber?: string;
-          issuer?: string;
-          jurisdiction?: string;
-        };
-        candidates?: Array<{
-          id: string;
-          name: string;
-          dob: string | null;
-          membershipNumber: string | null;
-          matchScore: number;
-        }>;
-        normalizedRawScanText?: string;
-        idScanHash?: string;
-        membershipCandidate?: string;
-        error?: { code?: string; message?: string };
-      };
 
       if (data.result === 'ERROR') {
         return { outcome: 'error', message: data.error?.message || 'Scan failed' };
@@ -1213,34 +1183,12 @@ export function AppRoot() {
       setScanResolutionSubmitting(true);
       setScanResolutionError(null);
       try {
-        const response = await fetch(`${API_BASE}/v1/checkin/scan`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-          body: JSON.stringify({
-            laneId: lane,
-            rawScanText: pendingScanResolution.rawScanText,
-            selectedCustomerId: customerId,
-          }),
+        const data = await checkinScan({
+          sessionToken: session.sessionToken,
+          laneId: lane,
+          rawScanText: pendingScanResolution.rawScanText,
+          selectedCustomerId: customerId,
         });
-
-        const payload: unknown = await response.json().catch(() => null);
-        if (!response.ok) {
-          const msg =
-            (payload as { error?: { message?: string } } | null)?.error?.message ||
-            getErrorMessage(payload) ||
-            'Failed to resolve scan';
-          setScanResolutionError(msg);
-          return;
-        }
-
-        const data = payload as {
-          result: 'MATCHED' | 'NO_MATCH' | 'MULTIPLE_MATCHES' | 'ERROR';
-          customer?: { id?: string };
-          error?: { code?: string; message?: string };
-        };
 
         if (data.result === 'ERROR') {
           setScanResolutionError(data.error?.message || 'Failed to resolve scan');
@@ -1280,28 +1228,14 @@ export function AppRoot() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/v1/customers/create-from-scan`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          idScanValue,
-          idScanHash: idScanHash || undefined,
-          firstName,
-          lastName,
-          dob,
-        }),
+      const data = await customersCreateFromScan({
+        sessionToken: session.sessionToken,
+        idScanValue,
+        idScanHash: idScanHash || undefined,
+        firstName,
+        lastName,
+        dob,
       });
-
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        const msg = getErrorMessage(payload) || 'Failed to create customer';
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = payload as { customer?: { id?: string } };
       const customerId = data.customer?.id;
       if (!customerId) {
         return { outcome: 'error', message: 'Create returned no customer id' };
@@ -1322,67 +1256,72 @@ export function AppRoot() {
 
   const handleClearSession = async () => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/reset`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      // Reset can be treated as idempotent on the client.
-      // If there is no active lane session, the server may respond 404.
-      if (!response.ok && response.status !== 404) {
-        throw new Error('Failed to clear session');
+      try {
+        await laneReset({ sessionToken: session.sessionToken, lane });
+      } catch (err) {
+        // Reset can be treated as idempotent on the client.
+        // If there is no active lane session, the server may respond 404.
+        if (!(isApiError(err) && err.status === 404)) {
+          throw err;
+        }
       }
 
-      setCustomerName('');
-      setMembershipNumber('');
-      setCurrentSessionId(null);
-      setAgreementSigned(false);
+      patchRegister({
+        sessionId: null,
+        status: null,
+        customerName: '',
+        membershipNumber: '',
+        customerMembershipValidUntil: null,
+        membershipPurchaseIntent: null,
+        customerPrimaryLanguage: null,
+        customerDobMonthDay: null,
+        customerLastVisitAt: null,
+        customerNotes: null,
+        agreementSigned: false,
+        proposedRentalType: null,
+        proposedBy: null,
+        selectionConfirmed: false,
+        selectionConfirmedBy: null,
+        selectionAcknowledged: true,
+        customerSelectedType: null,
+        waitlistDesiredTier: null,
+        waitlistBackupType: null,
+        assignedResourceType: null,
+        assignedResourceNumber: null,
+        checkoutAt: null,
+        paymentIntentId: null,
+        paymentStatus: null,
+        paymentQuote: null,
+        paymentFailureReason: null,
+        pastDueBlocked: false,
+        pastDueBalance: 0,
+      });
       setManualEntry(false);
       setSelectedRentalType(null);
-      setCustomerSelectedType(null);
-      setWaitlistDesiredTier(null);
-      setWaitlistBackupType(null);
       setSelectedInventoryItem(null);
-      setPaymentIntentId(null);
-      setPaymentQuote(null);
-      setPaymentStatus(null);
       setShowCustomerConfirmationPending(false);
       setCustomerConfirmationType(null);
       setShowWaitlistModal(false);
       console.log('Session cleared');
     } catch (error) {
       console.error('Failed to clear session:', error);
-      alert('Failed to clear session');
+      showAlert('Failed to clear session', 'Error');
     }
   };
 
   const handleClaimCheckout = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE}/v1/checkout/${requestId}/claim`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to claim checkout');
-      }
-
-      await response.json().catch(() => null);
+      await checkoutClaim({ sessionToken: session.sessionToken, requestId });
       setSelectedCheckoutRequest(requestId);
 
       // Fetch the checkout request details to get checklist
@@ -1397,95 +1336,60 @@ export function AppRoot() {
       }
     } catch (error) {
       console.error('Failed to claim checkout:', error);
-      alert(error instanceof Error ? error.message : 'Failed to claim checkout');
+      showAlert(error instanceof Error ? error.message : 'Failed to claim checkout', 'Error');
     }
   };
 
   const handleConfirmItems = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE}/v1/checkout/${requestId}/confirm-items`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to confirm items');
-      }
-
+      await checkoutConfirmItems({ sessionToken: session.sessionToken, requestId });
       setCheckoutItemsConfirmed(true);
     } catch (error) {
       console.error('Failed to confirm items:', error);
-      alert(error instanceof Error ? error.message : 'Failed to confirm items');
+      showAlert(error instanceof Error ? error.message : 'Failed to confirm items', 'Error');
     }
   };
 
   const handleMarkFeePaid = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     try {
-      const response = await fetch(`${API_BASE}/v1/checkout/${requestId}/mark-fee-paid`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({}),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to mark fee as paid');
-      }
-
+      await checkoutMarkFeePaid({ sessionToken: session.sessionToken, requestId });
       setCheckoutFeePaid(true);
     } catch (error) {
       console.error('Failed to mark fee as paid:', error);
-      alert(error instanceof Error ? error.message : 'Failed to mark fee as paid');
+      showAlert(error instanceof Error ? error.message : 'Failed to mark fee as paid', 'Error');
     }
   };
 
   const handleCompleteCheckout = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     if (!checkoutItemsConfirmed) {
-      alert('Please confirm items returned first');
+      showAlert('Please confirm items returned first', 'Validation');
       return;
     }
 
     const request = checkoutRequests.get(requestId);
     if (request && request.lateFeeAmount > 0 && !checkoutFeePaid) {
-      alert('Please mark late fee as paid first');
+      showAlert('Please mark late fee as paid first', 'Validation');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkout/${requestId}/complete`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to complete checkout');
-      }
-
+      await checkoutComplete({ sessionToken: session.sessionToken, requestId });
       // Reset checkout state
       setSelectedCheckoutRequest(null);
       setCheckoutChecklist({});
@@ -1493,7 +1397,7 @@ export function AppRoot() {
       setCheckoutFeePaid(false);
     } catch (error) {
       console.error('Failed to complete checkout:', error);
-      alert(error instanceof Error ? error.message : 'Failed to complete checkout');
+      showAlert(error instanceof Error ? error.message : 'Failed to complete checkout', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1505,30 +1409,18 @@ export function AppRoot() {
 
     try {
       // Fetch both ACTIVE and OFFERED waitlist entries
-      const [activeResponse, offeredResponse] = await Promise.all([
-        fetch(`${API_BASE}/v1/waitlist?status=ACTIVE`, {
-          headers: {
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-        }),
-        fetch(`${API_BASE}/v1/waitlist?status=OFFERED`, {
-          headers: {
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-        }),
+      const [activeData, offeredData] = await Promise.all([
+        waitlistList({ sessionToken: session.sessionToken, status: 'ACTIVE' }).catch(() => ({
+          entries: [] as typeof waitlistEntries,
+        })),
+        waitlistList({ sessionToken: session.sessionToken, status: 'OFFERED' }).catch(() => ({
+          entries: [] as typeof waitlistEntries,
+        })),
       ]);
 
       const allEntries: typeof waitlistEntries = [];
-
-      if (activeResponse.ok) {
-        const activeData = await readJson<{ entries?: typeof waitlistEntries }>(activeResponse);
-        allEntries.push(...(activeData.entries || []));
-      }
-
-      if (offeredResponse.ok) {
-        const offeredData = await readJson<{ entries?: typeof waitlistEntries }>(offeredResponse);
-        allEntries.push(...(offeredData.entries || []));
-      }
+      allEntries.push(...(activeData.entries || []));
+      allEntries.push(...(offeredData.entries || []));
 
       // De-dupe by id defensively (a record should not appear in both ACTIVE and OFFERED, but
       // during transitions or partial server failures it could). Prefer OFFERED over ACTIVE.
@@ -1564,29 +1456,13 @@ export function AppRoot() {
 
   const fetchInventoryAvailable = async () => {
     try {
-      const res = await fetch(`${API_BASE}/v1/inventory/available`);
-      if (!res.ok) return;
-      const data: unknown = await res.json().catch(() => null);
-      if (
-        isRecord(data) &&
-        isRecord(data.rooms) &&
-        isRecord(data.rawRooms) &&
-        isRecord(data.waitlistDemand)
-      ) {
-        const lockersRaw = data['lockers'];
-        const lockers =
-          typeof lockersRaw === 'number'
-            ? lockersRaw
-            : typeof lockersRaw === 'string'
-              ? Number(lockersRaw)
-              : 0;
-        setInventoryAvailable({
-          rooms: data.rooms as Record<string, number>,
-          rawRooms: data.rawRooms as Record<string, number>,
-          waitlistDemand: data.waitlistDemand as Record<string, number>,
-          lockers: Number.isFinite(lockers) ? lockers : 0,
-        });
-      }
+      const data = await apiInventoryAvailable({ sessionToken: null });
+      setInventoryAvailable({
+        rooms: data.rooms,
+        rawRooms: data.rawRooms,
+        waitlistDemand: data.waitlistDemand,
+        lockers: typeof data.lockers === 'number' && Number.isFinite(data.lockers) ? data.lockers : 0,
+      });
     } catch (error) {
       console.error('Failed to fetch inventory available:', error);
     }
@@ -1598,14 +1474,7 @@ export function AppRoot() {
       setDocumentsLoading(true);
       setDocumentsError(null);
       try {
-        const res = await fetch(`${API_BASE}/v1/documents/by-session/${laneSessionId}`, {
-          headers: { Authorization: `Bearer ${session.sessionToken}` },
-        });
-        if (!res.ok) {
-          const errPayload: unknown = await res.json().catch(() => null);
-          throw new Error(getErrorMessage(errPayload) || 'Failed to load documents');
-        }
-        const data = (await res.json()) as { documents?: SessionDocument[] };
+        const data = await documentsBySession({ sessionToken: session.sessionToken, laneSessionId });
         setDocumentsForSession(Array.isArray(data.documents) ? data.documents : []);
       } catch (e) {
         setDocumentsForSession(null);
@@ -1620,14 +1489,7 @@ export function AppRoot() {
   const downloadAgreementPdf = useCallback(
     async (documentId: string) => {
       if (!session?.sessionToken) return;
-      const res = await fetch(`${API_BASE}/v1/documents/${documentId}/download`, {
-        headers: { Authorization: `Bearer ${session.sessionToken}` },
-      });
-      if (!res.ok) {
-        const errPayload: unknown = await res.json().catch(() => null);
-        throw new Error(getErrorMessage(errPayload) || 'Failed to download PDF');
-      }
-      const blob = await res.blob();
+      const blob = await documentDownloadPdf({ sessionToken: session.sessionToken, documentId });
       const url = URL.createObjectURL(blob);
       window.open(url, '_blank', 'noopener,noreferrer');
       window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
@@ -1697,7 +1559,7 @@ export function AppRoot() {
 
   const openOfferUpgradeModal = (entry: (typeof waitlistEntries)[number]) => {
     if (entry.desiredTier !== 'STANDARD' && entry.desiredTier !== 'DOUBLE' && entry.desiredTier !== 'SPECIAL') {
-      alert('Only STANDARD/DOUBLE/SPECIAL upgrades can be offered.');
+      showAlert('Only STANDARD/DOUBLE/SPECIAL upgrades can be offered.', 'Validation');
       return;
     }
     dismissUpgradePulse();
@@ -1727,41 +1589,22 @@ export function AppRoot() {
 
   const handleStartUpgradePayment = async (entry: (typeof waitlistEntries)[number]) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
     if (!entry.roomId) {
-      alert('No reserved room found for this offer. Refresh and retry.');
+      showAlert('No reserved room found for this offer. Refresh and retry.', 'Error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/upgrades/fulfill`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          waitlistId: entry.id,
-          roomId: entry.roomId,
-          acknowledgedDisclaimer: true,
-        }),
+      const payload = await upgradesFulfill({
+        sessionToken: session.sessionToken,
+        waitlistId: entry.id,
+        roomId: entry.roomId,
+        acknowledgedDisclaimer: true,
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to start upgrade');
-      }
-
-      const payload = await readJson<{
-        paymentIntentId?: string;
-        upgradeFee?: number;
-        originalCharges?: Array<{ description: string; amount: number }>;
-        originalTotal?: number | null;
-        newRoomNumber?: string | null;
-      }>(response);
 
       setSelectedWaitlistEntry(entry.id);
       const intentId = payload.paymentIntentId ?? null;
@@ -1789,7 +1632,7 @@ export function AppRoot() {
       setShowUpgradePaymentModal(true);
     } catch (error) {
       console.error('Failed to start upgrade:', error);
-      alert(error instanceof Error ? error.message : 'Failed to start upgrade');
+      showAlert(error instanceof Error ? error.message : 'Failed to start upgrade', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1802,46 +1645,25 @@ export function AppRoot() {
 
   const handleUpgradePaymentFlow = async (method: 'CREDIT' | 'CASH') => {
     if (!upgradePaymentIntentId || !session?.sessionToken || !upgradeContext) {
-      alert('No upgrade payment intent available.');
+      showAlert('No upgrade payment intent available.', 'Error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const markPaidResponse = await fetch(`${API_BASE}/v1/payments/${upgradePaymentIntentId}/mark-paid`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          squareTransactionId: method === 'CASH' ? 'demo-cash-success' : 'demo-credit-success',
-        }),
+      await paymentsMarkPaid({
+        sessionToken: session.sessionToken,
+        paymentIntentId: upgradePaymentIntentId,
+        squareTransactionId: method === 'CASH' ? 'demo-cash-success' : 'demo-credit-success',
       });
-
-      if (!markPaidResponse.ok) {
-        const errorPayload: unknown = await markPaidResponse.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to mark upgrade payment as paid');
-      }
 
       setUpgradePaymentStatus('PAID');
 
-      const completeResponse = await fetch(`${API_BASE}/v1/upgrades/complete`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          waitlistId: upgradeContext.waitlistId,
-          paymentIntentId: upgradePaymentIntentId,
-        }),
+      await upgradesComplete({
+        sessionToken: session.sessionToken,
+        waitlistId: upgradeContext.waitlistId,
+        paymentIntentId: upgradePaymentIntentId,
       });
-
-      if (!completeResponse.ok) {
-        const errorPayload: unknown = await completeResponse.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to complete upgrade');
-      }
 
       resetUpgradeState();
       setSelectedWaitlistEntry(null);
@@ -1851,7 +1673,7 @@ export function AppRoot() {
       dismissUpgradePulse();
     } catch (error) {
       console.error('Failed to process upgrade payment:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process upgrade payment');
+      showAlert(error instanceof Error ? error.message : 'Failed to process upgrade payment', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -1862,17 +1684,8 @@ export function AppRoot() {
     let cancelled = false;
     void (async () => {
       try {
-        const res = await fetch(`${API_BASE}/health`);
-        const data = await readJson<unknown>(res);
-        if (
-          !cancelled &&
-          isRecord(data) &&
-          typeof data.status === 'string' &&
-          typeof data.timestamp === 'string' &&
-          typeof data.uptime === 'number'
-        ) {
-          setHealth({ status: data.status, timestamp: data.timestamp, uptime: data.uptime });
-        }
+        const next = await getHealth({ sessionToken: null });
+        if (!cancelled && next) setHealth(next);
       } catch (err) {
         console.error('Health check failed:', err);
       }
@@ -1882,260 +1695,22 @@ export function AppRoot() {
     };
   }, [lane]);
 
-  const wsScheme = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-  const wsUrl = `${wsScheme}//${window.location.host}/ws?lane=${encodeURIComponent(lane)}`;
-  const ws = useReconnectingWebSocket({
-    url: wsUrl,
-    onOpenSendJson: [
-      {
-        type: 'subscribe',
-        events: [
-          'CHECKOUT_REQUESTED',
-          'CHECKOUT_CLAIMED',
-          'CHECKOUT_UPDATED',
-          'CHECKOUT_COMPLETED',
-          'SESSION_UPDATED',
-          'ROOM_STATUS_CHANGED',
-          'INVENTORY_UPDATED',
-          'ASSIGNMENT_CREATED',
-          'ASSIGNMENT_FAILED',
-          'CUSTOMER_CONFIRMED',
-          'CUSTOMER_DECLINED',
-          'WAITLIST_UPDATED',
-          'SELECTION_PROPOSED',
-          'SELECTION_LOCKED',
-          'SELECTION_ACKNOWLEDGED',
-        ],
-      },
-    ],
-    onMessage: (event) => {
-      try {
-        const parsed: unknown = safeJsonParse(String(event.data));
-        if (!isRecord(parsed) || typeof parsed.type !== 'string') return;
-        const message = parsed as unknown as WebSocketEvent;
-        console.log('WebSocket message:', message);
-
-        if (message.type === 'CHECKOUT_REQUESTED') {
-          const payload = message.payload as CheckoutRequestedPayload;
-          setCheckoutRequests((prev) => {
-            const next = new Map(prev);
-            next.set(payload.request.requestId, payload.request);
-            return next;
-          });
-        } else if (message.type === 'CHECKOUT_CLAIMED') {
-          const payload = message.payload as CheckoutClaimedPayload;
-          setCheckoutRequests((prev) => {
-            const next = new Map(prev);
-            next.delete(payload.requestId);
-            return next;
-          });
-        } else if (message.type === 'CHECKOUT_UPDATED') {
-          const payload = message.payload as CheckoutUpdatedPayload;
-          if (selectedCheckoutRequestRef.current === payload.requestId) {
-            setCheckoutItemsConfirmed(payload.itemsConfirmed);
-            setCheckoutFeePaid(payload.feePaid);
-          }
-        } else if (message.type === 'CHECKOUT_COMPLETED') {
-          const payload = message.payload as { requestId: string };
-          setCheckoutRequests((prev) => {
-            const next = new Map(prev);
-            next.delete(payload.requestId);
-            return next;
-          });
-          if (selectedCheckoutRequestRef.current === payload.requestId) {
-            setSelectedCheckoutRequest(null);
-            setCheckoutChecklist({});
-            setCheckoutItemsConfirmed(false);
-            setCheckoutFeePaid(false);
-          }
-        } else if (message.type === 'SESSION_UPDATED') {
-          const payload = message.payload as SessionUpdatedPayload;
-          // Core identity/session fields (keep register in sync without manual refresh)
-          if (payload.sessionId !== undefined) {
-            setCurrentSessionId(payload.sessionId || null);
-          }
-          if (payload.customerName !== undefined) {
-            setCustomerName(payload.customerName || '');
-          }
-          if (payload.membershipNumber !== undefined) {
-            setMembershipNumber(payload.membershipNumber || '');
-          }
-          if (payload.customerMembershipValidUntil !== undefined) {
-            setCustomerMembershipValidUntil(payload.customerMembershipValidUntil || null);
-          }
-          if (payload.membershipPurchaseIntent !== undefined) {
-            setMembershipPurchaseIntent(payload.membershipPurchaseIntent || null);
-          }
-
-          // Agreement completion sync
-          if (payload.agreementSigned !== undefined) {
-            setAgreementSigned(Boolean(payload.agreementSigned));
-          }
-
-          // Update selection state
-          if (payload.proposedRentalType) {
-            setProposedRentalType(payload.proposedRentalType);
-            setProposedBy(payload.proposedBy || null);
-          }
-          if (payload.selectionConfirmed !== undefined) {
-            setSelectionConfirmed(payload.selectionConfirmed);
-            setSelectionConfirmedBy(payload.selectionConfirmedBy || null);
-            if (payload.selectionConfirmed) {
-              setCustomerSelectedType(payload.proposedRentalType || null);
-            }
-          }
-          // Waitlist intent (customer requested unavailable tier + backup choice)
-          if (payload.waitlistDesiredType !== undefined) {
-            setWaitlistDesiredTier(payload.waitlistDesiredType || null);
-          }
-          if (payload.backupRentalType !== undefined) {
-            setWaitlistBackupType(payload.backupRentalType || null);
-          }
-          // Update customer info
-          if (payload.customerPrimaryLanguage !== undefined) {
-            setCustomerPrimaryLanguage(payload.customerPrimaryLanguage);
-          }
-          if (payload.customerDobMonthDay !== undefined) {
-            setCustomerDobMonthDay(payload.customerDobMonthDay);
-          }
-          if (payload.customerLastVisitAt !== undefined) {
-            setCustomerLastVisitAt(payload.customerLastVisitAt);
-          }
-          if (payload.customerNotes !== undefined) {
-            setCustomerNotes(payload.customerNotes);
-          }
-          // Update assignment info
-          if (payload.assignedResourceType !== undefined) {
-            setAssignedResourceType(payload.assignedResourceType);
-          }
-          if (payload.assignedResourceNumber !== undefined) {
-            setAssignedResourceNumber(payload.assignedResourceNumber);
-          }
-          if (payload.checkoutAt !== undefined) {
-            setCheckoutAt(payload.checkoutAt);
-          }
-          // Update payment status
-          if (payload.paymentIntentId !== undefined) {
-            setPaymentIntentId(payload.paymentIntentId || null);
-          }
-          if (payload.paymentStatus !== undefined) {
-            setPaymentStatus(payload.paymentStatus);
-          }
-          // Keep payment quote view in sync with server-authoritative quote updates (e.g., kiosk membership purchase intent).
-          if (payload.paymentTotal !== undefined || payload.paymentLineItems !== undefined) {
-            setPaymentQuote((prev) => {
-              const total = payload.paymentTotal ?? prev?.total ?? 0;
-              const lineItems = payload.paymentLineItems ?? prev?.lineItems ?? [];
-              const messages = prev?.messages ?? [];
-              return { total, lineItems, messages };
-            });
-          }
-          if (payload.paymentFailureReason) {
-            setPaymentDeclineError(payload.paymentFailureReason);
-          }
-          // Update past-due blocking
-          if (payload.pastDueBlocked !== undefined) {
-            setPastDueBlocked(payload.pastDueBlocked);
-            if (payload.pastDueBalance !== undefined) {
-              setPastDueBalance(payload.pastDueBalance || 0);
-            }
-            if (payload.pastDueBlocked && payload.pastDueBalance && payload.pastDueBalance > 0) {
-              setShowPastDueModal(true);
-            }
-          }
-
-          // If server cleared the lane session (COMPLETED with empty customer name), reset local UI.
-          if (payload.status === 'COMPLETED' && (!payload.customerName || payload.customerName === '')) {
-            setCurrentSessionId(null);
-            setCustomerName('');
-            setMembershipNumber('');
-            setAgreementSigned(false);
-            setAssignedResourceType(null);
-            setAssignedResourceNumber(null);
-            setSelectedInventoryItem(null);
-            setPaymentIntentId(null);
-            setPaymentQuote(null);
-            setPaymentStatus(null);
-            setMembershipPurchaseIntent(null);
-            setCustomerMembershipValidUntil(null);
-            setShowMembershipIdPrompt(false);
-            setMembershipIdInput('');
-            setMembershipIdError(null);
-            setMembershipIdPromptedForSessionId(null);
-            setProposedRentalType(null);
-            setProposedBy(null);
-            setSelectionConfirmed(false);
-            setSelectionConfirmedBy(null);
-            setSelectionAcknowledged(true);
-            setWaitlistDesiredTier(null);
-            setWaitlistBackupType(null);
-            setShowWaitlistModal(false);
-          }
-        } else if (message.type === 'WAITLIST_UPDATED') {
-          // Refresh waitlist when updated
-          void fetchWaitlistRef.current?.();
-          void fetchInventoryAvailableRef.current?.();
-        } else if (message.type === 'SELECTION_PROPOSED') {
-          const payload = message.payload as SelectionProposedPayload;
-          if (payload.sessionId === currentSessionIdRef.current) {
-            setProposedRentalType(payload.rentalType);
-            setProposedBy(payload.proposedBy);
-          }
-        } else if (message.type === 'SELECTION_LOCKED') {
-          const payload = message.payload as SelectionLockedPayload;
-          if (payload.sessionId === currentSessionIdRef.current) {
-            setSelectionConfirmed(true);
-            setSelectionConfirmedBy(payload.confirmedBy);
-            setCustomerSelectedType(payload.rentalType);
-            setSelectionAcknowledged(true);
-          }
-        } else if (message.type === 'SELECTION_FORCED') {
-          const payload = message.payload as SelectionForcedPayload;
-          if (payload.sessionId === currentSessionIdRef.current) {
-            setSelectionConfirmed(true);
-            setSelectionConfirmedBy('EMPLOYEE');
-            setCustomerSelectedType(payload.rentalType);
-            setSelectionAcknowledged(true);
-          }
-        } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
-          setSelectionAcknowledged(true);
-        } else if (message.type === 'INVENTORY_UPDATED' || message.type === 'ROOM_STATUS_CHANGED') {
-          void fetchInventoryAvailableRef.current?.();
-        } else if (message.type === 'ASSIGNMENT_CREATED') {
-          const payload = message.payload as AssignmentCreatedPayload;
-          if (payload.sessionId === currentSessionIdRef.current) {
-            // Assignment successful - payment should already be handled before agreement + assignment.
-            // SessionUpdated will carry assigned resource details.
-          }
-        } else if (message.type === 'ASSIGNMENT_FAILED') {
-          const payload = message.payload as AssignmentFailedPayload;
-          if (payload.sessionId === currentSessionIdRef.current) {
-            // Handle race condition - refresh and re-select
-            alert('Assignment failed: ' + payload.reason);
-            setSelectedInventoryItem(null);
-          }
-        } else if (message.type === 'CUSTOMER_CONFIRMED') {
-          const payload = message.payload as CustomerConfirmedPayload;
-          if (payload.sessionId === currentSessionIdRef.current) {
-            setShowCustomerConfirmationPending(false);
-            setCustomerConfirmationType(null);
-          }
-        } else if (message.type === 'CUSTOMER_DECLINED') {
-          const payload = message.payload as CustomerDeclinedPayload;
-          if (payload.sessionId === currentSessionIdRef.current) {
-            setShowCustomerConfirmationPending(false);
-            setCustomerConfirmationType(null);
-            // Revert to customer's requested type
-            if (customerSelectedTypeRef.current) {
-              setSelectedInventoryItem(null);
-              // This will trigger auto-selection in InventorySelector
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
-      }
-    },
+  const ws = useEmployeeRegisterWs({
+    lane,
+    dispatchRegister,
+    selectedCheckoutRequestRef,
+    currentSessionIdRef,
+    customerSelectedTypeRef,
+    setCheckoutRequests,
+    setSelectedCheckoutRequest,
+    setCheckoutChecklist,
+    setCheckoutItemsConfirmed,
+    setCheckoutFeePaid,
+    setSelectedInventoryItem,
+    setShowCustomerConfirmationPending,
+    setCustomerConfirmationType,
+    fetchWaitlist: () => void fetchWaitlistRef.current?.(),
+    fetchInventoryAvailable: () => void fetchInventoryAvailableRef.current?.(),
   });
 
   useEffect(() => {
@@ -2179,29 +1754,18 @@ export function AppRoot() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          rentalType,
-          proposedBy: 'EMPLOYEE',
-        }),
+      await proposeSelection({
+        sessionToken: session.sessionToken,
+        lane,
+        rentalType,
+        proposedBy: 'EMPLOYEE',
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to propose selection');
-      }
-
-      setProposedRentalType(rentalType);
-      setProposedBy('EMPLOYEE');
+      patchRegister({ proposedRentalType: rentalType, proposedBy: 'EMPLOYEE' });
     } catch (error) {
       console.error('Failed to propose selection:', error);
-      alert(
-        error instanceof Error ? error.message : 'Failed to propose selection. Please try again.'
+      showAlert(
+        error instanceof Error ? error.message : 'Failed to propose selection. Please try again.',
+        'Error'
       );
     } finally {
       setIsSubmitting(false);
@@ -2215,30 +1779,22 @@ export function AppRoot() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/confirm-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          confirmedBy: 'EMPLOYEE',
-        }),
+      await confirmSelection({
+        sessionToken: session.sessionToken,
+        lane,
+        confirmedBy: 'EMPLOYEE',
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to confirm selection');
-      }
-
-      setSelectionConfirmed(true);
-      setSelectionConfirmedBy('EMPLOYEE');
-      setSelectionAcknowledged(true);
-      setCustomerSelectedType(proposedRentalType);
+      patchRegister({
+        selectionConfirmed: true,
+        selectionConfirmedBy: 'EMPLOYEE',
+        selectionAcknowledged: true,
+        customerSelectedType: proposedRentalType,
+      });
     } catch (error) {
       console.error('Failed to confirm selection:', error);
-      alert(
-        error instanceof Error ? error.message : 'Failed to confirm selection. Please try again.'
+      showAlert(
+        error instanceof Error ? error.message : 'Failed to confirm selection. Please try again.',
+        'Error'
       );
     } finally {
       setIsSubmitting(false);
@@ -2260,26 +1816,28 @@ export function AppRoot() {
 
   const handleAssign = async () => {
     if (!selectedInventoryItem || !currentSessionId || !session?.sessionToken) {
-      alert('Please select an item to assign');
+      showAlert('Please select an item to assign', 'Validation');
       return;
     }
 
     // Guardrails: Prevent assignment if conditions not met
     if (showCustomerConfirmationPending) {
-      alert('Please wait for customer confirmation before assigning');
+      showAlert('Please wait for customer confirmation before assigning', 'Validation');
       return;
     }
 
     if (!agreementSigned) {
-      alert(
-        'Agreement must be signed before assignment. Please wait for customer to sign the agreement.'
+      showAlert(
+        'Agreement must be signed before assignment. Please wait for customer to sign the agreement.',
+        'Validation'
       );
       return;
     }
 
     if (paymentStatus !== 'PAID') {
-      alert(
-        'Payment must be marked as paid before assignment. Please mark payment as paid in Square first.'
+      showAlert(
+        'Payment must be marked as paid before assignment. Please mark payment as paid in Square first.',
+        'Validation'
       );
       return;
     }
@@ -2287,49 +1845,43 @@ export function AppRoot() {
     setIsSubmitting(true);
     try {
       // Use new check-in assign endpoint
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/assign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
+      let data: { needsConfirmation?: boolean };
+      try {
+        data = await assignResource({
+          sessionToken: session.sessionToken,
+          lane,
           resourceType: selectedInventoryItem.type,
           resourceId: selectedInventoryItem.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        const msg = getErrorMessage(errorPayload);
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : null;
+        const body = isApiError(err) ? err.body : null;
         if (
-          isRecord(errorPayload) &&
-          (errorPayload.raceLost === true ||
-            (typeof msg === 'string' && msg.includes('already assigned')))
+          isRecord(body) &&
+          (body.raceLost === true || (typeof msg === 'string' && msg.includes('already assigned')))
         ) {
           // Race condition - refresh inventory and re-select
-          alert('Item no longer available. Refreshing inventory...');
+          showAlert('Item no longer available. Refreshing inventory...', 'Error');
           setSelectedInventoryItem(null);
           // InventorySelector will auto-refresh and re-select
-        } else {
-          throw new Error(msg || 'Failed to assign');
-        }
-      } else {
-        const data = await readJson<{ needsConfirmation?: boolean }>(response);
-        console.log('Assignment successful:', data);
-
-        // If cross-type assignment, wait for customer confirmation
-        if (data.needsConfirmation === true) {
-          setShowCustomerConfirmationPending(true);
-          setIsSubmitting(false);
           return;
         }
-
-        // Assignment occurs after payment + agreement in the corrected flow; nothing payment-related here.
+        throw err;
       }
+
+      console.log('Assignment successful:', data);
+
+      // If cross-type assignment, wait for customer confirmation
+      if (data.needsConfirmation === true) {
+        setShowCustomerConfirmationPending(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Assignment occurs after payment + agreement in the corrected flow; nothing payment-related here.
     } catch (error) {
       console.error('Failed to assign:', error);
-      alert(error instanceof Error ? error.message : 'Failed to assign');
+      showAlert(error instanceof Error ? error.message : 'Failed to assign', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -2341,34 +1893,14 @@ export function AppRoot() {
     }
 
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/create-payment-intent`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to create payment intent');
-      }
-
-      const data = await readJson<{
-        paymentIntentId?: string;
-        quote?: {
-          total: number;
-          lineItems: Array<{ description: string; amount: number }>;
-          messages: string[];
-        };
-      }>(response);
+      const data = await createPaymentIntent({ sessionToken: session.sessionToken, lane });
       if (typeof data.paymentIntentId === 'string') {
-        setPaymentIntentId(data.paymentIntentId);
+        patchRegister({ paymentIntentId: data.paymentIntentId });
       }
-      setPaymentQuote(data.quote ?? null);
-      setPaymentStatus('DUE');
+      patchRegister({ paymentQuote: data.quote ?? null, paymentStatus: 'DUE' });
     } catch (error) {
       console.error('Failed to create payment intent:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create payment intent');
+      showAlert(error instanceof Error ? error.message : 'Failed to create payment intent', 'Error');
     }
   };
 
@@ -2379,27 +1911,16 @@ export function AppRoot() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/payments/${paymentIntentId}/mark-paid`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          squareTransactionId: undefined, // Would come from Square POS integration
-        }),
+      await paymentsMarkPaid({
+        sessionToken: session.sessionToken,
+        paymentIntentId,
+        squareTransactionId: undefined, // Would come from Square POS integration
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to mark payment as paid');
-      }
-
-      setPaymentStatus('PAID');
+      patchRegister({ paymentStatus: 'PAID' });
       // Payment marked paid - customer can now sign agreement
     } catch (error) {
       console.error('Failed to mark payment as paid:', error);
-      alert(error instanceof Error ? error.message : 'Failed to mark payment as paid');
+      showAlert(error instanceof Error ? error.message : 'Failed to mark payment as paid', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -2407,7 +1928,7 @@ export function AppRoot() {
 
   const handleCompleteMembershipPurchase = async (membershipNumberOverride?: string) => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
     const membershipNumberToSave = (membershipNumberOverride ?? membershipIdInput).trim();
@@ -2419,27 +1940,12 @@ export function AppRoot() {
     setMembershipIdSubmitting(true);
     setMembershipIdError(null);
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/checkin/lane/${lane}/complete-membership-purchase`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-            membershipNumber: membershipNumberToSave,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to save membership number');
-      }
-
-      await response.json().catch(() => null);
+      await completeMembershipPurchase({
+        sessionToken: session.sessionToken,
+        lane,
+        sessionId: currentSessionId,
+        membershipNumber: membershipNumberToSave,
+      });
       // Server will broadcast updated membership + clear pending intent.
       setShowMembershipIdPrompt(false);
       setMembershipIdInput('');
@@ -2509,38 +2015,23 @@ export function AppRoot() {
 
   const handleManualSignatureOverride = async () => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/checkin/lane/${lane}/manual-signature-override`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(
-          getErrorMessage(errorPayload) || 'Failed to process manual signature override'
-        );
-      }
-
-      // Success - WebSocket will update the UI
-      await response.json();
+      await manualSignatureOverride({
+        sessionToken: session.sessionToken,
+        lane,
+        sessionId: currentSessionId,
+      });
     } catch (error) {
       console.error('Failed to process manual signature override:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process manual signature override');
+      showAlert(
+        error instanceof Error ? error.message : 'Failed to process manual signature override',
+        'Error'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -2552,26 +2043,18 @@ export function AppRoot() {
     declineReason?: string
   ) => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/past-due/demo-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ outcome, declineReason }),
+      await pastDueDemoPayment({
+        sessionToken: session.sessionToken,
+        lane,
+        outcome,
+        declineReason,
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to process payment');
-      }
-
       if (outcome === 'CREDIT_DECLINE') {
         setPaymentDeclineError(declineReason || 'Payment declined');
       } else {
@@ -2580,7 +2063,7 @@ export function AppRoot() {
       }
     } catch (error) {
       console.error('Failed to process past-due payment:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process payment');
+      showAlert(error instanceof Error ? error.message : 'Failed to process payment', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -2613,33 +2096,25 @@ export function AppRoot() {
 
   const handleManagerBypass = async () => {
     if (!session?.sessionToken || !currentSessionId || !managerId || !managerPin) {
-      alert('Please select manager and enter PIN');
+      showAlert('Please select manager and enter PIN', 'Validation');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/past-due/bypass`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ managerId, managerPin }),
+      await pastDueBypass({
+        sessionToken: session.sessionToken,
+        lane,
+        managerId,
+        managerPin,
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to bypass past-due');
-      }
-
       setShowManagerBypassModal(false);
       setManagerId('');
       setManagerPin('');
       setPaymentDeclineError(null);
     } catch (error) {
       console.error('Failed to bypass past-due:', error);
-      alert(error instanceof Error ? error.message : 'Failed to bypass past-due');
+      showAlert(error instanceof Error ? error.message : 'Failed to bypass past-due', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -2653,25 +2128,16 @@ export function AppRoot() {
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/add-note`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ note: newNoteText.trim() }),
+      await addNote({
+        sessionToken: session.sessionToken,
+        lane,
+        note: newNoteText.trim(),
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to add note');
-      }
-
       setShowAddNoteModal(false);
       setNewNoteText('');
     } catch (error) {
       console.error('Failed to add note:', error);
-      alert(error instanceof Error ? error.message : 'Failed to add note');
+      showAlert(error instanceof Error ? error.message : 'Failed to add note', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -2683,30 +2149,19 @@ export function AppRoot() {
     declineReason?: string
   ) => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/demo-take-payment`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          outcome,
-          declineReason,
-          registerNumber: registerSession?.registerNumber,
-        }),
+      await demoTakePayment({
+        sessionToken: session.sessionToken,
+        lane,
+        outcome,
+        declineReason,
+        registerNumber: registerSession?.registerNumber,
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to process payment');
-      }
-
       if (outcome === 'CREDIT_DECLINE') {
         setPaymentDeclineError(declineReason || 'Payment declined');
       } else {
@@ -2714,7 +2169,7 @@ export function AppRoot() {
       }
     } catch (error) {
       console.error('Failed to process payment:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process payment');
+      showAlert(error instanceof Error ? error.message : 'Failed to process payment', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -2723,46 +2178,50 @@ export function AppRoot() {
   // Complete transaction handler
   const handleCompleteTransaction = async () => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      showAlert('Not authenticated', 'Error');
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/reset`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to complete transaction');
-      }
-
+      await laneReset({ sessionToken: session.sessionToken, lane });
       // Reset all state
-      setCustomerName('');
-      setMembershipNumber('');
-      setCurrentSessionId(null);
-      setAgreementSigned(false);
+      patchRegister({
+        sessionId: null,
+        status: null,
+        customerName: '',
+        membershipNumber: '',
+        customerMembershipValidUntil: null,
+        membershipPurchaseIntent: null,
+        customerPrimaryLanguage: null,
+        customerDobMonthDay: null,
+        customerLastVisitAt: null,
+        customerNotes: null,
+        agreementSigned: false,
+        proposedRentalType: null,
+        proposedBy: null,
+        selectionConfirmed: false,
+        selectionConfirmedBy: null,
+        selectionAcknowledged: true,
+        customerSelectedType: null,
+        waitlistDesiredTier: null,
+        waitlistBackupType: null,
+        assignedResourceType: null,
+        assignedResourceNumber: null,
+        checkoutAt: null,
+        paymentIntentId: null,
+        paymentStatus: null,
+        paymentQuote: null,
+        paymentFailureReason: null,
+        pastDueBlocked: false,
+        pastDueBalance: 0,
+      });
       setSelectedRentalType(null);
-      setCustomerSelectedType(null);
       setSelectedInventoryItem(null);
-      setPaymentIntentId(null);
-      setPaymentQuote(null);
-      setPaymentStatus(null);
-      setAssignedResourceType(null);
-      setAssignedResourceNumber(null);
-      setCheckoutAt(null);
-      setCustomerPrimaryLanguage(undefined);
-      setCustomerDobMonthDay(undefined);
-      setCustomerLastVisitAt(undefined);
-      setCustomerNotes(undefined);
       setPaymentDeclineError(null);
     } catch (error) {
       console.error('Failed to complete transaction:', error);
-      alert(error instanceof Error ? error.message : 'Failed to complete transaction');
+      showAlert(error instanceof Error ? error.message : 'Failed to complete transaction', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -2771,27 +2230,19 @@ export function AppRoot() {
   // Fetch managers for bypass modal
   useEffect(() => {
     if (showManagerBypassModal && session?.sessionToken) {
-      fetch(`${API_BASE}/v1/employees/available`, {
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      })
-        .then((res) => res.json())
-        .then((data: unknown) => {
-          if (!isRecord(data) || !Array.isArray(data.employees)) {
-            setManagerList([]);
-            return;
-          }
-          const managers = data.employees
-            .filter(
-              (e): e is { id: string; name: string; role: string } =>
-                isRecord(e) && typeof e.role === 'string'
-            )
+      void (async () => {
+        try {
+          const data = await employeesAvailable({ sessionToken: session.sessionToken });
+          const managers = (data.employees || [])
+            .filter((e) => e && typeof e.role === 'string')
             .filter((e) => e.role === 'ADMIN')
             .map((e) => ({ id: String(e.id), name: String(e.name) }));
           setManagerList(managers);
-        })
-        .catch(console.error);
+        } catch (e) {
+          console.error(e);
+          setManagerList([]);
+        }
+      })();
     }
   }, [showManagerBypassModal, session?.sessionToken]);
 
@@ -2845,7 +2296,7 @@ export function AppRoot() {
                 }}
                 onCancelOffer={(entryId) => {
                   // Cancellation endpoint not yet implemented in this demo UI.
-                  alert(`Cancel offer not implemented yet (waitlistId=${entryId}).`);
+                  showAlert(`Cancel offer not implemented yet (waitlistId=${entryId}).`, 'Notice');
                 }}
                 isSubmitting={isSubmitting}
               />
@@ -2936,11 +2387,11 @@ export function AppRoot() {
           <RegisterMainView
             currentSessionId={currentSessionId}
             customerName={customerName}
-            customerPrimaryLanguage={customerPrimaryLanguage}
-            customerDobMonthDay={customerDobMonthDay}
-            customerLastVisitAt={customerLastVisitAt}
+            customerPrimaryLanguage={customerPrimaryLanguage ?? null}
+            customerDobMonthDay={customerDobMonthDay ?? null}
+            customerLastVisitAt={customerLastVisitAt ?? null}
             pastDueBalance={pastDueBalance}
-            customerNotes={customerNotes}
+            customerNotes={customerNotes ?? null}
             onAddNote={() => setShowAddNoteModal(true)}
             waitlistDesiredTier={waitlistDesiredTier}
             waitlistBackupType={waitlistBackupType}
@@ -3160,21 +2611,19 @@ export function AppRoot() {
                       setManualExistingPromptError(null);
                       try {
                         const { firstName, lastName, dobIso } = manualExistingPrompt;
-                        const createRes = await fetch(`${API_BASE}/v1/customers/create-manual`, {
-                          method: 'POST',
-                          headers: {
-                            'Content-Type': 'application/json',
-                            Authorization: `Bearer ${session.sessionToken}`,
-                          },
-                          body: JSON.stringify({ firstName, lastName, dob: dobIso }),
-                        });
-                        const createPayload: unknown = await createRes.json().catch(() => null);
-                        if (!createRes.ok) {
-                          const msg = getErrorMessage(createPayload) || 'Failed to create customer';
+                        let created: { customer?: { id?: string } };
+                        try {
+                          created = await customersCreateManual({
+                            sessionToken: session.sessionToken,
+                            firstName,
+                            lastName,
+                            dob: dobIso,
+                          });
+                        } catch (err) {
+                          const msg = err instanceof Error ? err.message : 'Failed to create customer';
                           setManualExistingPromptError(msg);
                           return;
                         }
-                        const created = createPayload as { customer?: { id?: string } };
                         const newId = created.customer?.id;
                         if (!newId) {
                           setManualExistingPromptError('Create returned no customer id');
@@ -3377,48 +2826,13 @@ export function AppRoot() {
           />
 
           <PaymentDeclineToast message={paymentDeclineError} onDismiss={() => setPaymentDeclineError(null)} />
-          {scanToastMessage && (
-            <div
-              style={{
-                position: 'fixed',
-                inset: 0,
-                background: 'rgba(0, 0, 0, 0.55)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: '1rem',
-                zIndex: 2000,
-              }}
-              role="status"
-              aria-label="Scan message"
-              onClick={() => setScanToastMessage(null)}
-            >
-              <div
-                className="rounded-xl bg-slate-900/70 text-white ring-1 ring-slate-700"
-                style={{
-                  width: 'min(520px, 92vw)',
-                  padding: '1rem',
-                  boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
-                }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
-                  <div style={{ fontWeight: 900 }}>Scan</div>
-                  <Button
-                    onClick={() => setScanToastMessage(null)}
-                    variant="secondary"
-                    className="h-8 px-3 text-sm"
-                    aria-label="Dismiss"
-                  >
-                    ×
-                  </Button>
-                </div>
-                <div style={{ marginTop: '0.5rem', color: '#cbd5e1', fontWeight: 700 }}>
-                  {scanToastMessage}
-                </div>
-              </div>
-            </div>
-          )}
+          <ScanToastOverlay message={scanToastMessage} onDismiss={() => setScanToastMessage(null)} />
+          <AlertModal
+            open={Boolean(alertModal)}
+            title={alertModal?.title}
+            message={alertModal?.message ?? ''}
+            onClose={() => setAlertModal(null)}
+          />
           {topActions.overlays}
 
           {/* Agreement + Assignment Display */}

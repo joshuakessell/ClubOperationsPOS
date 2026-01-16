@@ -1,7 +1,7 @@
 import { query, transaction } from './index.js';
 import { randomUUID } from 'crypto';
 import {
-  DELUXE_ROOM_NUMBERS,
+  DOUBLE_ROOM_NUMBERS,
   LOCKER_NUMBERS,
   NONEXISTENT_ROOM_NUMBERS,
   ROOM_NUMBERS,
@@ -149,7 +149,7 @@ export async function seedDemoData(): Promise<void> {
         // 3) Upsert rooms + lockers (idempotent)
         for (const r of ROOMS) {
           const type: RoomType =
-            r.kind === 'DELUXE' ? RoomType.DOUBLE : r.kind === 'SPECIAL' ? RoomType.SPECIAL : RoomType.STANDARD;
+            r.kind === 'DOUBLE' ? RoomType.DOUBLE : r.kind === 'SPECIAL' ? RoomType.SPECIAL : RoomType.STANDARD;
           await client.query(
             `INSERT INTO rooms (number, type, status, floor, last_status_change)
              VALUES ($1, $2, 'CLEAN', $3, NOW())
@@ -324,7 +324,7 @@ export async function seedDemoData(): Promise<void> {
           const kind = getRoomKind(roomNumber);
           return kind === 'SPECIAL'
             ? RentalType.SPECIAL
-            : kind === 'DELUXE'
+            : kind === 'DOUBLE'
               ? RentalType.DOUBLE
               : RentalType.STANDARD;
         }
@@ -747,13 +747,13 @@ export async function seedDemoData(): Promise<void> {
           `Expected ${108 - ACTIVE_LOCKERS_TARGET} unassigned lockers at now, got ${lockersUnassigned.rows[0]!.count}`
         );
 
-      // All DELUXE and SPECIAL rooms must be occupied at now
-      const missingDeluxe = await query<{ count: string }>(
+      // All DOUBLE and SPECIAL rooms must be occupied at now
+      const missingDouble = await query<{ count: string }>(
         `SELECT COUNT(*)::text as count
          FROM rooms
          WHERE number = ANY($1::text[])
            AND assigned_to_customer_id IS NULL`,
-        [DELUXE_ROOM_NUMBERS.map(String)]
+        [DOUBLE_ROOM_NUMBERS.map(String)]
       );
       const missingSpecial = await query<{ count: string }>(
         `SELECT COUNT(*)::text as count
@@ -762,8 +762,8 @@ export async function seedDemoData(): Promise<void> {
            AND assigned_to_customer_id IS NULL`,
         [SPECIAL_ROOM_NUMBERS.map(String)]
       );
-      if (asInt(missingDeluxe.rows[0]!) !== 0)
-        throw new Error(`Expected all DELUXE rooms occupied, missing=${missingDeluxe.rows[0]!.count}`);
+      if (asInt(missingDouble.rows[0]!) !== 0)
+        throw new Error(`Expected all DOUBLE rooms occupied, missing=${missingDouble.rows[0]!.count}`);
       if (asInt(missingSpecial.rows[0]!) !== 0)
         throw new Error(`Expected all SPECIAL rooms occupied, missing=${missingSpecial.rows[0]!.count}`);
 

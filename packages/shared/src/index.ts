@@ -71,12 +71,13 @@ export {
   ROOM_NUMBER_SET,
   EXPECTED_ROOM_COUNT,
   ROOMS,
-  DELUXE_ROOM_NUMBERS,
+  DOUBLE_ROOM_NUMBERS,
   SPECIAL_ROOM_NUMBERS,
-  isDeluxeRoom,
+  isDoubleRoom,
   isSpecialRoom,
   isExistingRoomNumber,
   getRoomKind,
+  getRoomTierFromRoomNumber,
   type RoomKind,
 } from './inventory';
 

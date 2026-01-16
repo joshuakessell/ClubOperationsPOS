@@ -1,7 +1,7 @@
-import { isDeluxeRoom, isSpecialRoom } from '@club-ops/shared';
+import { getRoomTierFromRoomNumber, type RoomKind } from '@club-ops/shared';
 import type pg from 'pg';
 
-type RoomTier = 'SPECIAL' | 'DOUBLE' | 'STANDARD';
+type RoomTier = RoomKind;
 
 export type InventoryAvailableResponse = {
   rooms: Record<RoomTier, number>; // effective (supply - demand)
@@ -15,15 +15,6 @@ export type QueryFn = <T extends pg.QueryResultRow = pg.QueryResultRow>(
   text: string,
   params?: unknown[]
 ) => Promise<{ rows: T[] }>;
-
-function getRoomTier(roomNumber: string): RoomTier {
-  const num = parseInt(roomNumber, 10);
-
-  if (isSpecialRoom(num)) return 'SPECIAL';
-  // "Deluxe" rooms in the facility contract map to DB tier/type "DOUBLE"
-  if (isDeluxeRoom(num)) return 'DOUBLE';
-  return 'STANDARD';
-}
 
 /**
  * Canonical implementation used by both:
@@ -56,7 +47,7 @@ export async function computeInventoryAvailable(queryFn: QueryFn): Promise<Inven
   };
 
   for (const row of result.rows) {
-    const tier = getRoomTier(row.number);
+    const tier = getRoomTierFromRoomNumber(row.number);
     rawRooms[tier]++;
   }
 

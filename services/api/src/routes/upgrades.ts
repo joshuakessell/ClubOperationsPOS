@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { transaction, serializableTransaction } from '../db/index.js';
 import { requireAuth } from '../auth/middleware.js';
 import type { Broadcaster } from '../websocket/broadcaster.js';
-import { isDeluxeRoom, isSpecialRoom } from '@club-ops/shared';
+import { getRoomTierFromRoomNumber } from '@club-ops/shared';
 import { broadcastInventoryUpdate } from './sessions.js';
 
 declare module 'fastify' {
@@ -101,25 +101,6 @@ Upgrade fees are charged only if an upgrade becomes available and you choose to 
 Upgrades do not extend your stay. Your checkout time remains the same as your original 6-hour check-in.
 
 The full upgrade fee applies even if limited time remains.`;
-
-/**
- * Map room number to tier (Special, Double, or Standard).
- */
-function getRoomTier(roomNumber: string): 'SPECIAL' | 'DOUBLE' | 'STANDARD' {
-  const num = parseInt(roomNumber, 10);
-
-  if (isSpecialRoom(num)) {
-    return 'SPECIAL';
-  }
-
-  // "Deluxe" rooms in the facility contract map to DB tier/type "DOUBLE"
-  if (isDeluxeRoom(num)) {
-    return 'DOUBLE';
-  }
-
-  // All else standard
-  return 'STANDARD';
-}
 
 /**
  * Calculate upgrade fee based on fixed fee schedule.
@@ -555,7 +536,7 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
           }
 
           // Verify tier matches desired tier
-          const newRoomTier = getRoomTier(newRoom.number);
+          const newRoomTier = getRoomTierFromRoomNumber(newRoom.number);
           if (newRoomTier !== waitlist.desired_tier) {
             throw {
               statusCode: 400,

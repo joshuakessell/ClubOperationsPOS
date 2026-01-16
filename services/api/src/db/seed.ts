@@ -26,7 +26,7 @@ interface LockerSeed {
  */
 const seedRooms: RoomSeed[] = ROOMS.map((r) => {
   const type: RoomType =
-    r.kind === 'DELUXE' ? RoomType.DOUBLE : r.kind === 'SPECIAL' ? RoomType.SPECIAL : RoomType.STANDARD;
+    r.kind === 'DOUBLE' ? RoomType.DOUBLE : r.kind === 'SPECIAL' ? RoomType.SPECIAL : RoomType.STANDARD;
   return {
     number: String(r.number),
     type,

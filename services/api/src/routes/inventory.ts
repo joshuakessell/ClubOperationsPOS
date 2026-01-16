@@ -1,29 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { query } from '../db/index.js';
 import { requireAuth } from '../auth/middleware.js';
-import { isDeluxeRoom, isSpecialRoom } from '@club-ops/shared';
+import { getRoomTierFromRoomNumber, type RoomKind } from '@club-ops/shared';
 import { computeInventoryAvailable } from '../inventory/available.js';
 
-/**
- * Map room number to tier (Special, Double, or Standard).
- */
-function getRoomTier(roomNumber: string): 'SPECIAL' | 'DOUBLE' | 'STANDARD' {
-  const num = parseInt(roomNumber, 10);
-
-  if (isSpecialRoom(num)) {
-    return 'SPECIAL';
-  }
-
-  // "Deluxe" rooms in the facility contract map to DB tier/type "DOUBLE"
-  if (isDeluxeRoom(num)) {
-    return 'DOUBLE';
-  }
-
-  // All else standard
-  return 'STANDARD';
-}
-
-type RoomTier = 'SPECIAL' | 'DOUBLE' | 'STANDARD';
+type RoomTier = RoomKind;
 
 interface RoomCountRow {
   status: string;
@@ -201,7 +182,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
         };
 
         for (const row of result.rows) {
-          const tier: RoomTier = getRoomTier(row.number);
+          const tier: RoomTier = getRoomTierFromRoomNumber(row.number);
           const roomInfo = {
             id: row.id,
             number: row.number,

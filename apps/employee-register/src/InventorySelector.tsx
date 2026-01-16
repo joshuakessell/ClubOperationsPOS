@@ -1,12 +1,12 @@
 import { useState, useEffect, useMemo } from 'react';
-import { RoomStatus } from '@club-ops/shared';
+import { RoomStatus, getRoomTierFromRoomNumber } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
-import { getRoomTier } from './utils/getRoomTier';
 import { ModalFrame } from './components/register/modals/ModalFrame';
 import { ManualCheckoutModal } from './components/register/modals/ManualCheckoutModal';
 import type { DetailedInventory, DetailedLocker, DetailedRoom, SelectedInventoryItem } from './components/inventory/selector/types';
 import { InventorySection } from './components/inventory/selector/InventorySection';
 import { LockerSection } from './components/inventory/selector/LockerSection';
+import { groupRooms, sortGroupedRooms } from './components/inventory/selector/grouping';
 import { alertLevelFromMsUntil, getMsUntil } from './components/inventory/selector/time';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
@@ -160,7 +160,7 @@ export function InventorySelector({
             .map((room) => ({
               id: room.id as string,
               number: room.number as string,
-              tier: getRoomTier(room.number as string), // Compute tier from room number
+              tier: getRoomTierFromRoomNumber(room.number as string), // Canonical tier mapping
               status: room.status as RoomStatus,
               floor: typeof room.floor === 'number' ? room.floor : 1,
               lastStatusChange:

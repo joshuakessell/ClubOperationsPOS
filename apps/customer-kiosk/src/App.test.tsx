@@ -482,7 +482,7 @@ describe('App', () => {
 
     expect(await screen.findByRole('button', { name: /Locker.*\$24/ })).toBeDefined();
     expect(screen.getByRole('button', { name: /Private Dressing Room.*\$30/ })).toBeDefined();
-    expect(screen.getByRole('button', { name: /Deluxe Dressing Room.*\$40/ })).toBeDefined();
+    expect(screen.getByRole('button', { name: /Double Dressing Room.*\$40/ })).toBeDefined();
     expect(screen.getByRole('button', { name: /Special Dressing Room.*\$50/ })).toBeDefined();
     expect(screen.getByRole('button', { name: /6-Month Membership.*\$43/ })).toBeDefined();
 

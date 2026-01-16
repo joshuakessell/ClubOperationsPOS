@@ -1164,6 +1164,262 @@ paths:
         '200':
           description: List of active lane sessions
 
+  /v1/sessions:
+    post:
+      tags: [Check-in]
+      deprecated: true
+      summary: 'LEGACY: Create a new check-in session (deprecated)'
+      description: |
+        Legacy endpoint kept temporarily for compatibility.
+        Prefer the lane-based check-in flow under `/v1/checkin/lane/{laneId}/...` (server-authoritative).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              oneOf:
+                - type: object
+                  required: [customerId, roomId]
+                  properties:
+                    customerId: { type: string, format: uuid }
+                    roomId: { type: string, format: uuid }
+                    expectedDuration:
+                      type: integer
+                      minimum: 1
+                      default: 360
+                      description: Minutes (legacy only; non-upgrade sessions are forced to 360 server-side)
+                    checkinType:
+                      type: string
+                      enum: [INITIAL, RENEWAL, UPGRADE]
+                      default: INITIAL
+                - type: object
+                  required: [customerId, lockerId]
+                  properties:
+                    customerId: { type: string, format: uuid }
+                    lockerId: { type: string, format: uuid }
+                    expectedDuration:
+                      type: integer
+                      minimum: 1
+                      default: 360
+                      description: Minutes (legacy only; non-upgrade sessions are forced to 360 server-side)
+                    checkinType:
+                      type: string
+                      enum: [INITIAL, RENEWAL, UPGRADE]
+                      default: INITIAL
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  customerId: { type: string, format: uuid }
+                  memberName: { type: string }
+                  roomId: { type: string, format: uuid, nullable: true }
+                  lockerId: { type: string, format: uuid, nullable: true }
+                  checkInTime: { type: string, format: date-time }
+                  expectedDuration: { type: integer }
+                  status: { type: string }
+                  agreementSigned: { type: boolean }
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '403':
+          description: Customer banned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '404':
+          description: Customer/room/locker not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '409':
+          description: Conflict (already active / already assigned)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+
+  /v1/sessions/active:
+    get:
+      tags: [Check-in]
+      deprecated: true
+      summary: 'LEGACY: List active sessions (deprecated)'
+      description: |
+        Legacy endpoint kept temporarily for compatibility.
+        Prefer `/v1/checkin/lane-sessions` (staff-authenticated) and lane session events over WebSocket.
+      responses:
+        '200':
+          description: List of active sessions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessions:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string, format: uuid }
+                        customerId: { type: string, format: uuid }
+                        memberName: { type: string }
+                        roomId: { type: string, format: uuid, nullable: true }
+                        lockerId: { type: string, format: uuid, nullable: true }
+                        checkInTime: { type: string, format: date-time }
+                        expectedDuration: { type: integer }
+                        status: { type: string }
+                        agreementSigned: { type: boolean }
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+
+  /v1/sessions/scan-id:
+    post:
+      tags: [Check-in]
+      deprecated: true
+      summary: 'LEGACY: Scan ID to start/update a lane session (deprecated)'
+      description: |
+        Legacy endpoint kept temporarily for compatibility.
+        Prefer `POST /v1/checkin/scan` and `POST /v1/checkin/lane/{laneId}/start`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idNumber, lane]
+              properties:
+                idNumber:
+                  type: string
+                  description: Legacy identifier (customer UUID string or membership number)
+                lane:
+                  type: string
+                  description: Lane identifier (e.g. lane-1)
+      responses:
+        '200':
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string, format: uuid }
+                  customerName: { type: string }
+                  membershipNumber: { type: string, nullable: true }
+                  allowedRentals:
+                    type: array
+                    items: { type: string }
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '403':
+          description: Customer banned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '404':
+          description: Customer not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+
+  /v1/sessions/scan-membership:
+    post:
+      tags: [Check-in]
+      deprecated: true
+      summary: 'LEGACY: Scan membership to update a lane session (deprecated)'
+      description: |
+        Legacy endpoint kept temporarily for compatibility.
+        Prefer `POST /v1/checkin/scan` and `POST /v1/checkin/lane/{laneId}/start`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [membershipNumber, lane]
+              properties:
+                membershipNumber: { type: string }
+                lane:
+                  type: string
+                  description: Lane identifier (e.g. lane-1)
+                sessionId:
+                  type: string
+                  format: uuid
+                  nullable: true
+                  description: Optional; when omitted the latest active session in the lane is used/created (legacy behavior)
+      responses:
+        '200':
+          description: Session updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  sessionId: { type: string, format: uuid }
+                  customerName: { type: string }
+                  membershipNumber: { type: string, nullable: true }
+                  allowedRentals:
+                    type: array
+                    items: { type: string }
+        '400':
+          description: Validation failed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '403':
+          description: Customer banned
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+        '404':
+          description: Customer/session not found
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  error: { type: string }
+
   /v1/inventory/summary:
     get:
       tags: [Inventory]

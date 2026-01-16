@@ -1,15 +1,12 @@
 import crypto from 'crypto';
 import type { SessionUpdatedPayload } from '@club-ops/shared';
-import { isDeluxeRoom, isSpecialRoom } from '@club-ops/shared';
 
 import type {
   CustomerRow,
   LaneSessionRow,
-  LockerRow,
   PaymentIntentRow,
   PoolClient,
   RoomRentalType,
-  RoomRow,
 } from './types.js';
 
 export function normalizeScanText(raw: string): string {
@@ -471,22 +468,6 @@ export function calculateAge(dob: Date | string | null): number | undefined {
     age--;
   }
   return age;
-}
-
-export function getRoomTier(roomNumber: string): 'SPECIAL' | 'DOUBLE' | 'STANDARD' {
-  const num = parseInt(roomNumber, 10);
-
-  if (isSpecialRoom(num)) {
-    return 'SPECIAL';
-  }
-
-  // \"Deluxe\" rooms in the facility contract map to DB tier/type \"DOUBLE\"
-  if (isDeluxeRoom(num)) {
-    return 'DOUBLE';
-  }
-
-  // All else standard
-  return 'STANDARD';
 }
 
 export async function computeWaitlistInfo(

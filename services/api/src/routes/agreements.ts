@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import type { PoolClient } from 'pg';
 import { z } from 'zod';
 import { query, transaction } from '../db/index.js';
 import { generateAgreementPdf } from '../utils/pdf-generator.js';
@@ -44,6 +45,74 @@ interface CustomerRow {
   dob: Date | string | null;
   membership_number: string | null;
   primary_language?: string | null;
+}
+
+/**
+ * Legacy compatibility helper:
+ * Older session flows (e.g. `/v1/sessions*`) can create a `sessions` row without first creating a
+ * canonical `visits` + `checkin_blocks` record. Agreement signing stores the signature against a
+ * `checkin_blocks` row, so we ensure one exists here.
+ *
+ * NOTE: This helper is intentionally isolated so it can be removed cleanly when legacy session
+ * endpoints are removed.
+ */
+async function ensureSessionHasCheckinBlockForAgreement(params: {
+  client: PoolClient;
+  session: SessionRow;
+  existingCheckinBlockId: string | null;
+}): Promise<{ checkinBlockId: string }> {
+  const { client, session, existingCheckinBlockId } = params;
+  if (existingCheckinBlockId) return { checkinBlockId: existingCheckinBlockId };
+
+  // Determine visit_id (reuse existing active visit if present, else create one)
+  let visitId = session.visit_id;
+  if (!visitId) {
+    const activeVisitResult = await client.query<{ id: string }>(
+      `SELECT id FROM visits WHERE customer_id = $1 AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1`,
+      [session.customer_id]
+    );
+    if (activeVisitResult.rows.length > 0) {
+      visitId = activeVisitResult.rows[0]!.id;
+    } else {
+      const createdVisitResult = await client.query<{ id: string }>(
+        `INSERT INTO visits (customer_id, started_at) VALUES ($1, $2) RETURNING id`,
+        [session.customer_id, session.check_in_time]
+      );
+      visitId = createdVisitResult.rows[0]!.id;
+    }
+
+    // Persist visit_id on the session for traceability
+    await client.query(`UPDATE sessions SET visit_id = $1, updated_at = NOW() WHERE id = $2`, [
+      visitId,
+      session.id,
+    ]);
+  }
+
+  // Determine rental_type from the session assignment
+  let rentalType: string = 'LOCKER';
+  if (session.room_id) {
+    const roomTypeResult = await client.query<{ type: string }>(`SELECT type FROM rooms WHERE id = $1`, [
+      session.room_id,
+    ]);
+    rentalType = roomTypeResult.rows[0]?.type ?? 'STANDARD';
+  } else if (session.locker_id) {
+    rentalType = 'LOCKER';
+  }
+
+  const startsAt = session.check_in_time;
+  const endsAt =
+    session.checkout_at ?? roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
+  const blockType = (session.checkin_type ?? 'INITIAL') as 'INITIAL' | 'RENEWAL' | 'UPGRADE';
+
+  const createdBlock = await client.query<{ id: string }>(
+    `INSERT INTO checkin_blocks
+     (visit_id, block_type, starts_at, ends_at, rental_type, room_id, locker_id, session_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING id`,
+    [visitId, blockType, startsAt, endsAt, rentalType, session.room_id, session.locker_id, null]
+  );
+
+  return { checkinBlockId: createdBlock.rows[0]!.id };
 }
 
 /**
@@ -174,73 +243,11 @@ export async function agreementRoutes(fastify: FastifyInstance): Promise<void> {
             };
           }
 
-          // If there is no check-in block yet (legacy /v1/sessions flow), create visit + checkin_block now.
-          // This keeps agreement signing self-contained and matches the canonical schema contract.
-          let checkinBlockId = blockResult.rows[0]?.id ?? null;
-          if (!checkinBlockId) {
-            // Determine visit_id (reuse existing active visit if present, else create one)
-            let visitId = session.visit_id;
-            if (!visitId) {
-              const activeVisitResult = await client.query<{ id: string }>(
-                `SELECT id FROM visits WHERE customer_id = $1 AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1`,
-                [session.customer_id]
-              );
-              if (activeVisitResult.rows.length > 0) {
-                visitId = activeVisitResult.rows[0]!.id;
-              } else {
-                const createdVisitResult = await client.query<{ id: string }>(
-                  `INSERT INTO visits (customer_id, started_at) VALUES ($1, $2) RETURNING id`,
-                  [session.customer_id, session.check_in_time]
-                );
-                visitId = createdVisitResult.rows[0]!.id;
-              }
-
-              // Persist visit_id on the session for traceability
-              await client.query(
-                `UPDATE sessions SET visit_id = $1, updated_at = NOW() WHERE id = $2`,
-                [visitId, session.id]
-              );
-            }
-
-            // Determine rental_type from the session assignment
-            let rentalType: string = 'LOCKER';
-            if (session.room_id) {
-              const roomTypeResult = await client.query<{ type: string }>(
-                `SELECT type FROM rooms WHERE id = $1`,
-                [session.room_id]
-              );
-              rentalType = roomTypeResult.rows[0]?.type ?? 'STANDARD';
-            } else if (session.locker_id) {
-              rentalType = 'LOCKER';
-            }
-
-            const startsAt = session.check_in_time;
-            const endsAt =
-              session.checkout_at ??
-              roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
-            const blockType = (session.checkin_type ?? 'INITIAL') as
-              | 'INITIAL'
-              | 'RENEWAL'
-              | 'UPGRADE';
-
-            const createdBlock = await client.query<{ id: string }>(
-              `INSERT INTO checkin_blocks
-             (visit_id, block_type, starts_at, ends_at, rental_type, room_id, locker_id, session_id)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-             RETURNING id`,
-              [
-                visitId,
-                blockType,
-                startsAt,
-                endsAt,
-                rentalType,
-                session.room_id,
-                session.locker_id,
-                null,
-              ]
-            );
-            checkinBlockId = createdBlock.rows[0]!.id;
-          }
+          const { checkinBlockId } = await ensureSessionHasCheckinBlockForAgreement({
+            client,
+            session,
+            existingCheckinBlockId: blockResult.rows[0]?.id ?? null,
+          });
 
           // 5. Get the active agreement
           const agreementResult = await client.query<AgreementRow>(
