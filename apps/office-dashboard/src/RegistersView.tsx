@@ -1,8 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
-import type { RegisterSessionUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import { wsBaseUrl } from './api';
 
 const API_BASE = '/api';
@@ -58,10 +58,10 @@ export function RegistersView({ session }: RegistersViewProps) {
     url: wsBaseUrl(),
     onOpenSendJson: [{ type: 'subscribe', events: ['REGISTER_SESSION_UPDATED'] }],
     onMessage: (event) => {
-      const message = safeJsonParse<WebSocketEvent>(String(event.data));
-      if (!message) return;
-      if (message.type === 'REGISTER_SESSION_UPDATED') {
-        const payload = message.payload as RegisterSessionUpdatedPayload;
+      const message = safeParseWebSocketEventJson(String(event.data));
+      if (!message || message.type !== 'REGISTER_SESSION_UPDATED') return;
+      {
+        const payload = message.payload;
         // Update the specific register in state
         setRegisters((prev) =>
           prev.map((reg) =>

@@ -554,14 +554,15 @@ export async function registerCheckinScanRoutes(fastify: FastifyInstance): Promi
           // 2) fallback match by (first_name,last_name,birthdate) normalized
           if (extracted.firstName && extracted.lastName && extracted.dob) {
             // Compare against customers.dob (DATE) using an explicit date cast to avoid timezone issues.
-            const dobStr = extracted.dob;
-            if (/^\\d{4}-\\d{2}-\\d{2}$/.test(dobStr)) {
+            // Be tolerant of minor formatting quirks (whitespace, etc.); if casting fails, we skip name+DOB matching.
+            const dobStr = extracted.dob.trim();
+            try {
               const byNameDob = await client.query<CustomerIdentityRow>(
                 `SELECT id, name, dob, membership_number, banned_until, id_scan_hash, id_scan_value
                  FROM customers
                  WHERE dob = $1::date
                    AND lower(split_part(name, ' ', 1)) = lower($2)
-                   AND lower(regexp_replace(name, '^.*\\s', '')) = lower($3)
+                   AND lower(reverse(split_part(reverse(name), ' ', 1))) = lower($3)
                  LIMIT 2`,
                 [dobStr, extracted.firstName, extracted.lastName]
               );
@@ -673,6 +674,8 @@ export async function registerCheckinScanRoutes(fastify: FastifyInstance): Promi
                   };
                 }
               }
+            } catch {
+              // If the date cast fails for any reason, treat as no match and return extracted identity.
             }
           }
 

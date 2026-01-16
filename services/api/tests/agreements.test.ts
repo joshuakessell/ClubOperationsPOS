@@ -6,6 +6,7 @@ import { sessionRoutes } from '../src/routes/sessions.js';
 import { upgradeRoutes } from '../src/routes/upgrades.js';
 import { createBroadcaster } from '../src/websocket/broadcaster.js';
 import { truncateAllTables } from './testDb.js';
+import { roundUpToQuarterHour } from '../src/time/rounding.js';
 
 // Mock auth middleware to allow test requests
 const testStaffId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
@@ -359,7 +360,11 @@ describe('Agreement and Upgrade Flows', () => {
         });
 
         const session = JSON.parse(sessionResponse.body);
-        const originalCheckoutAt = new Date(Date.now() + 360 * 60 * 1000);
+        const originalRow = await pool.query<{ checkout_at: Date }>(
+          'SELECT checkout_at FROM sessions WHERE id = $1',
+          [session.id]
+        );
+        const originalCheckoutAt = new Date(originalRow.rows[0]!.checkout_at);
 
         const upgradeResponse = await fastify.inject({
           method: 'POST',
@@ -481,6 +486,43 @@ describe('Agreement and Upgrade Flows', () => {
         const afterCheckoutAt = new Date(afterResult.rows[0].checkout_at);
 
         expect(afterCheckoutAt.getTime()).toBe(originalCheckoutAt.getTime());
+      })
+    );
+
+    it(
+      'should set checkout_at to check_in_time + expectedDuration for UPGRADE sessions',
+      runIfDbAvailable(async () => {
+        const sessionResponse = await fastify.inject({
+          method: 'POST',
+          url: '/v1/sessions',
+          payload: {
+            customerId: testCustomerId,
+            roomId: testRoomId,
+            expectedDuration: 180,
+            checkinType: 'UPGRADE',
+          },
+        });
+
+        expect(sessionResponse.statusCode).toBe(201);
+        const session = JSON.parse(sessionResponse.body) as { id: string };
+
+        const row = await pool.query<{
+          check_in_time: Date;
+          checkout_at: Date;
+          expected_duration: number;
+          checkin_type: string | null;
+        }>(`SELECT check_in_time, checkout_at, expected_duration, checkin_type FROM sessions WHERE id = $1`, [
+          session.id,
+        ]);
+
+        expect(row.rows.length).toBe(1);
+        expect(row.rows[0]!.expected_duration).toBe(180);
+        expect(row.rows[0]!.checkin_type).toBe('UPGRADE');
+
+        const checkInTime = new Date(row.rows[0]!.check_in_time);
+        const checkoutAt = new Date(row.rows[0]!.checkout_at);
+        const expected = roundUpToQuarterHour(new Date(checkInTime.getTime() + 180 * 60 * 1000));
+        expect(checkoutAt.getTime()).toBe(expected.getTime());
       })
     );
   });

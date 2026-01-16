@@ -1,11 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  WebSocketEvent,
-  ResolvedCheckoutKey,
-  CheckoutChecklist,
-  CheckoutCompletedPayload,
-} from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { safeParseWebSocketEventJson, type ResolvedCheckoutKey, type CheckoutChecklist } from '@club-ops/shared';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import { Html5Qrcode } from 'html5-qrcode';
 import logoImage from './assets/the-clubs-logo.png';
 import { Button } from './ui/Button';
@@ -51,16 +46,6 @@ function isCheckoutRequestResponse(v: unknown): v is CheckoutRequestResponse {
   );
 }
 
-function isWebSocketEvent(v: unknown): v is WebSocketEvent {
-  return (
-    typeof v === 'object' &&
-    v !== null &&
-    'type' in v &&
-    typeof (v as { type: unknown }).type === 'string' &&
-    'payload' in v
-  );
-}
-
 type AppView = 'idle' | 'scanning' | 'checklist' | 'waiting' | 'complete';
 
 type ResolvedKeyData = ResolvedCheckoutKey;
@@ -90,12 +75,11 @@ function App() {
 
   const onWsMessage = useCallback(
     (event: MessageEvent) => {
-      const parsed = safeJsonParse<unknown>(String(event.data));
-      if (!isWebSocketEvent(parsed)) return;
-      const message = parsed;
+      const message = safeParseWebSocketEventJson(String(event.data));
+      if (!message) return;
       if (message.type !== 'CHECKOUT_COMPLETED') return;
 
-      const payload = message.payload as CheckoutCompletedPayload;
+      const payload = message.payload;
       if (payload.kioskDeviceId !== kioskDeviceId) return;
       if (!requestIdRef.current || payload.requestId !== requestIdRef.current) return;
 

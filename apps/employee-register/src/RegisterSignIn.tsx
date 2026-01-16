@@ -1,14 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SignInModal } from './SignInModal';
-import type { WebSocketEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import { Button } from './ui/Button';
 
 const API_BASE = '/api';
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
 
 async function readJson<T>(response: Response): Promise<T> {
   const data: unknown = await response.json();
@@ -227,11 +223,10 @@ function RegisterSessionWs({
     url: wsUrl,
     onOpenSendJson: [{ type: 'subscribe', events: ['REGISTER_SESSION_UPDATED'] }],
     onMessage: (event) => {
-      const parsed = safeJsonParse<unknown>(String(event.data));
-      if (!isRecord(parsed) || typeof parsed.type !== 'string') return;
-      const message = parsed as unknown as WebSocketEvent;
+      const message = safeParseWebSocketEventJson(String(event.data));
+      if (!message) return;
       if (message.type !== 'REGISTER_SESSION_UPDATED') return;
-      const payload = message.payload as RegisterSessionUpdatedPayload;
+      const payload = message.payload;
       if (payload.deviceId === deviceId && !payload.active) {
         ws.close();
         onInvalidated();

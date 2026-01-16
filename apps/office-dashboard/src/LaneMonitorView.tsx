@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { RegisterSessionUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson, wsBaseUrl } from './api';
@@ -76,7 +76,7 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
       },
     ],
     onMessage: async (event) => {
-      const msg = safeJsonParse<WebSocketEvent>(String(event.data));
+      const msg = safeParseWebSocketEventJson(String(event.data));
       if (!msg) return;
       if (msg.type === 'SESSION_UPDATED') {
         setLastLaneEvent(msg.timestamp);
@@ -87,7 +87,7 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
         setLaneSession((sessions.sessions || []).find((s) => String(s.laneId) === String(lane)) || null);
       }
       if (msg.type === 'REGISTER_SESSION_UPDATED') {
-        const payload = msg.payload as RegisterSessionUpdatedPayload;
+        const payload = msg.payload;
         if (payload.registerNumber === laneNumber) {
           const regs = await apiJson<RegisterSession[]>('/v1/admin/register-sessions', {
             sessionToken: session.sessionToken,

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
-import type { WebSocketEvent } from '@club-ops/shared';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import { wsBaseUrl } from './api';
 import { Button } from './ui/Button';
@@ -730,7 +730,7 @@ function AdminWs({
       { type: 'subscribe', events: ['INVENTORY_UPDATED', 'ROOM_STATUS_CHANGED', 'SESSION_UPDATED'] },
     ],
     onMessage: (event) => {
-      const message = safeJsonParse<WebSocketEvent>(String(event.data));
+      const message = safeParseWebSocketEventJson(String(event.data));
       if (!message) return;
       if (
         message.type === 'INVENTORY_UPDATED' ||

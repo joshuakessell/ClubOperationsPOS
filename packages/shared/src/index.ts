@@ -62,6 +62,19 @@ export {
   type IdScanPayload,
 } from './schemas';
 
+// WebSocket runtime validation (Zod)
+export {
+  WebSocketEventTypeSchema,
+  WebSocketEventSchema,
+  WebSocketClientMessageSchema,
+  safeParseWebSocketEvent,
+  safeParseWebSocketEventJson,
+  safeParseWebSocketClientMessageJson,
+  type ParsedWebSocketEvent,
+  type ParsedWebSocketEventType,
+  type WebSocketClientMessage,
+} from './wsSchemas';
+
 // Facility inventory contract (rooms + lockers)
 export {
   LOCKER_NUMBERS,

@@ -1,19 +1,6 @@
 import { useCallback, type Dispatch, type SetStateAction } from 'react';
-import {
-  type WebSocketEvent,
-  type CheckoutRequestedPayload,
-  type CheckoutClaimedPayload,
-  type CheckoutUpdatedPayload,
-  type SessionUpdatedPayload,
-  type SelectionProposedPayload,
-  type SelectionLockedPayload,
-  type SelectionForcedPayload,
-  type AssignmentCreatedPayload,
-  type AssignmentFailedPayload,
-  type CustomerConfirmedPayload,
-  type CustomerDeclinedPayload,
-} from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket, isRecord } from '@club-ops/ui';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import type { CheckoutChecklist, CheckoutRequestSummary } from '@club-ops/shared';
 import type { RegisterSessionAction } from '../app/registerSessionReducer';
 
@@ -67,16 +54,15 @@ export function buildEmployeeRegisterWsUrl(lane: string): string {
 }
 
 export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegisterWsDeps): void {
-  const parsed: unknown = safeJsonParse(String(raw));
-  if (!isRecord(parsed) || typeof parsed.type !== 'string') return;
-  const message = parsed as unknown as WebSocketEvent;
+  const message = safeParseWebSocketEventJson(String(raw));
+  if (!message) return;
 
   // Keep behavior identical to legacy handler: log for debugging.
   // eslint-disable-next-line no-console
   console.log('WebSocket message:', message);
 
   if (message.type === 'CHECKOUT_REQUESTED') {
-    const payload = message.payload as CheckoutRequestedPayload;
+    const payload = message.payload;
     deps.setCheckoutRequests((prev) => {
       const next = new Map(prev);
       next.set(payload.request.requestId, payload.request);
@@ -86,7 +72,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'CHECKOUT_CLAIMED') {
-    const payload = message.payload as CheckoutClaimedPayload;
+    const payload = message.payload;
     deps.setCheckoutRequests((prev) => {
       const next = new Map(prev);
       next.delete(payload.requestId);
@@ -96,7 +82,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'CHECKOUT_UPDATED') {
-    const payload = message.payload as CheckoutUpdatedPayload;
+    const payload = message.payload;
     if (deps.selectedCheckoutRequestRef.current === payload.requestId) {
       deps.setCheckoutItemsConfirmed(payload.itemsConfirmed);
       deps.setCheckoutFeePaid(payload.feePaid);
@@ -105,7 +91,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'CHECKOUT_COMPLETED') {
-    const payload = message.payload as { requestId: string };
+    const payload = message.payload;
     deps.setCheckoutRequests((prev) => {
       const next = new Map(prev);
       next.delete(payload.requestId);
@@ -121,8 +107,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'SESSION_UPDATED') {
-    const payload = message.payload as SessionUpdatedPayload;
-    deps.dispatchRegister({ type: 'SESSION_UPDATED', payload });
+    deps.dispatchRegister({ type: 'SESSION_UPDATED', payload: message.payload });
     return;
   }
 
@@ -133,7 +118,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'SELECTION_PROPOSED') {
-    const payload = message.payload as SelectionProposedPayload;
+    const payload = message.payload;
     if (payload.sessionId === deps.currentSessionIdRef.current) {
       deps.dispatchRegister({
         type: 'PATCH',
@@ -144,7 +129,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'SELECTION_LOCKED') {
-    const payload = message.payload as SelectionLockedPayload;
+    const payload = message.payload;
     if (payload.sessionId === deps.currentSessionIdRef.current) {
       deps.dispatchRegister({
         type: 'PATCH',
@@ -160,7 +145,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'SELECTION_FORCED') {
-    const payload = message.payload as SelectionForcedPayload;
+    const payload = message.payload;
     if (payload.sessionId === deps.currentSessionIdRef.current) {
       deps.dispatchRegister({
         type: 'PATCH',
@@ -186,7 +171,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'ASSIGNMENT_CREATED') {
-    const payload = message.payload as AssignmentCreatedPayload;
+    const payload = message.payload;
     if (payload.sessionId === deps.currentSessionIdRef.current) {
       // Assignment success: SessionUpdated will carry assigned resource details.
     }
@@ -194,7 +179,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'ASSIGNMENT_FAILED') {
-    const payload = message.payload as AssignmentFailedPayload;
+    const payload = message.payload;
     if (payload.sessionId === deps.currentSessionIdRef.current) {
       // Handle race condition - refresh and re-select
       alert('Assignment failed: ' + payload.reason);
@@ -204,7 +189,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'CUSTOMER_CONFIRMED') {
-    const payload = message.payload as CustomerConfirmedPayload;
+    const payload = message.payload;
     if (payload.sessionId === deps.currentSessionIdRef.current) {
       deps.setShowCustomerConfirmationPending(false);
       deps.setCustomerConfirmationType(null);
@@ -213,7 +198,7 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
   }
 
   if (message.type === 'CUSTOMER_DECLINED') {
-    const payload = message.payload as CustomerDeclinedPayload;
+    const payload = message.payload;
     if (payload.sessionId === deps.currentSessionIdRef.current) {
       deps.setShowCustomerConfirmationPending(false);
       deps.setCustomerConfirmationType(null);

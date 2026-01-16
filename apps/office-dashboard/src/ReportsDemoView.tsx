@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { InventoryUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson, wsBaseUrl } from './api';
@@ -40,12 +40,9 @@ export function ReportsDemoView({ session }: { session: StaffSession }) {
     url: wsBaseUrl(),
     onOpenSendJson: [{ type: 'subscribe', events: ['INVENTORY_UPDATED'] }],
     onMessage: (event) => {
-      const msg = safeJsonParse<WebSocketEvent>(String(event.data));
-      if (!msg) return;
-      if (msg.type === 'INVENTORY_UPDATED') {
-        const payload = msg.payload as InventoryUpdatedPayload;
-        setInventory(payload.inventory as unknown as InventorySummaryResponse);
-      }
+      const msg = safeParseWebSocketEventJson(String(event.data));
+      if (!msg || msg.type !== 'INVENTORY_UPDATED') return;
+      setInventory(msg.payload.inventory as unknown as InventorySummaryResponse);
     },
   });
 

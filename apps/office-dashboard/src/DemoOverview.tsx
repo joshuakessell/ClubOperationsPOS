@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { InventoryUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson, wsBaseUrl } from './api';
 import { useNavigate } from 'react-router-dom';
@@ -62,11 +62,10 @@ export function DemoOverview({ session }: { session: StaffSession }) {
     url: wsBaseUrl(),
     onOpenSendJson: [{ type: 'subscribe', events: ['INVENTORY_UPDATED', 'WAITLIST_UPDATED'] }],
     onMessage: (event) => {
-      const msg = safeJsonParse<WebSocketEvent>(String(event.data));
+      const msg = safeParseWebSocketEventJson(String(event.data));
       if (!msg) return;
       if (msg.type === 'INVENTORY_UPDATED') {
-        const payload = msg.payload as InventoryUpdatedPayload;
-        setInventory(payload.inventory as unknown as InventorySummaryResponse);
+        setInventory(msg.payload.inventory as unknown as InventorySummaryResponse);
       }
       if (msg.type === 'WAITLIST_UPDATED') {
         apiJson<{ activeCount: number; offeredCount: number; averageWaitTimeMinutes: number }>(

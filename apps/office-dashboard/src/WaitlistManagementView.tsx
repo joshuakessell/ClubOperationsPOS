@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { WebSocketEvent } from '@club-ops/shared';
+import { safeParseWebSocketEventJson } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { ApiError, apiJson, wsBaseUrl } from './api';
@@ -74,7 +74,7 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
     url: wsBaseUrl(),
     onOpenSendJson: [{ type: 'subscribe', events: ['WAITLIST_UPDATED', 'INVENTORY_UPDATED'] }],
     onMessage: (event) => {
-      const msg = safeJsonParse<WebSocketEvent>(String(event.data));
+      const msg = safeParseWebSocketEventJson(String(event.data));
       if (!msg) return;
       if (msg.type === 'WAITLIST_UPDATED' || msg.type === 'INVENTORY_UPDATED') {
         load().catch(() => {});

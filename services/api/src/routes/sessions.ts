@@ -247,14 +247,16 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
           }
 
           // 5. Create the session
-          // For initial check-ins and renewals, always use 6 hours (360 minutes)
-          // checkout_at is always check_in_time + 6 hours
+          // Contract: checkout_at should be check_in_time + duration (rounded up to the next 15-minute boundary).
+          // - UPGRADE: duration = expectedDuration (minutes)
+          // - otherwise: duration = 360 minutes (6 hours)
           const duration = body.checkinType === 'UPGRADE' ? body.expectedDuration : 360;
-          const checkoutAt = new Date(Date.now() + 360 * 60 * 1000); // 6 hours from now
+          const checkInTime = new Date();
+          const checkoutAt = roundUpToQuarterHour(new Date(checkInTime.getTime() + duration * 60 * 1000));
 
           const sessionResult = await client.query<SessionRow>(
-            `INSERT INTO sessions (customer_id, member_name, room_id, locker_id, expected_duration, status, checkin_type, checkout_at)
-           VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7)
+            `INSERT INTO sessions (customer_id, member_name, room_id, locker_id, expected_duration, status, checkin_type, check_in_time, checkout_at)
+           VALUES ($1, $2, $3, $4, $5, 'ACTIVE', $6, $7, $8)
            RETURNING id, customer_id, member_name, room_id, locker_id, check_in_time, expected_duration, status`,
             [
               body.customerId,
@@ -263,6 +265,7 @@ export async function sessionRoutes(fastify: FastifyInstance): Promise<void> {
               assignedLockerId,
               duration,
               body.checkinType || 'INITIAL',
+              checkInTime,
               checkoutAt,
             ]
           );

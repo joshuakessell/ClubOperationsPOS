@@ -34,7 +34,7 @@ import { createBroadcaster, type Broadcaster } from './websocket/broadcaster.js'
 import { initializeDatabase, closeDatabase } from './db/index.js';
 import { cleanupAbandonedRegisterSessions } from './routes/registers.js';
 import { seedDemoData } from './db/seed-demo.js';
-import type { WebSocketEventType } from '@club-ops/shared';
+import { safeParseWebSocketClientMessageJson } from '@club-ops/shared';
 import { expireWaitlistEntries } from './waitlist/expireWaitlist.js';
 import { setupTelemetry } from './telemetry/plugin.js';
 
@@ -42,36 +42,6 @@ const PORT = parseInt(process.env.PORT || '3001', 10);
 const HOST = process.env.HOST || '0.0.0.0';
 const SKIP_DB = process.env.SKIP_DB === 'true';
 const SEED_ON_STARTUP = process.env.SEED_ON_STARTUP === 'true';
-
-function isWebSocketEventType(value: unknown): value is WebSocketEventType {
-  if (typeof value !== 'string') return false;
-  switch (value) {
-    case 'ROOM_STATUS_CHANGED':
-    case 'INVENTORY_UPDATED':
-    case 'ROOM_ASSIGNED':
-    case 'ROOM_RELEASED':
-    case 'SESSION_UPDATED':
-    case 'SELECTION_PROPOSED':
-    case 'SELECTION_FORCED':
-    case 'SELECTION_LOCKED':
-    case 'SELECTION_ACKNOWLEDGED':
-    case 'WAITLIST_CREATED':
-    case 'ASSIGNMENT_CREATED':
-    case 'ASSIGNMENT_FAILED':
-    case 'CUSTOMER_CONFIRMATION_REQUIRED':
-    case 'CUSTOMER_CONFIRMED':
-    case 'CUSTOMER_DECLINED':
-    case 'CHECKOUT_REQUESTED':
-    case 'CHECKOUT_CLAIMED':
-    case 'CHECKOUT_UPDATED':
-    case 'CHECKOUT_COMPLETED':
-    case 'WAITLIST_UPDATED':
-    case 'REGISTER_SESSION_UPDATED':
-      return true;
-    default:
-      return false;
-  }
-}
 
 // Augment FastifyInstance with broadcaster
 declare module 'fastify' {
@@ -225,24 +195,24 @@ async function main() {
     }, 30000); // 30s
 
     connection.on('message', (message: Buffer) => {
-      try {
-        const data = JSON.parse(message.toString()) as Record<string, unknown>;
-        fastify.log.info({ clientId, data }, 'Received message from client');
+      const parsed = safeParseWebSocketClientMessageJson(message.toString());
+      if (!parsed) {
+        fastify.log.warn({ clientId }, 'Ignoring invalid websocket client message');
+        return;
+      }
 
-        // Handle subscription messages
-        if (data.type === 'subscribe' && Array.isArray(data.events)) {
-          const events = data.events.filter(isWebSocketEventType);
-          fastify.log.info({ clientId, events }, 'Client subscribed to events');
-          broadcaster.subscribeClient(clientId, events);
-        }
+      // Handle subscription messages
+      if (parsed.type === 'subscribe') {
+        fastify.log.info({ clientId, events: parsed.events }, 'Client subscribed to events');
+        broadcaster.subscribeClient(clientId, parsed.events);
+        return;
+      }
 
-        // Handle lane update
-        if (data.type === 'setLane' && typeof data.lane === 'string') {
-          fastify.log.info({ clientId, lane: data.lane }, 'Client lane updated');
-          broadcaster.updateClientLane(clientId, data.lane);
-        }
-      } catch {
-        fastify.log.warn({ clientId }, 'Received invalid JSON from client');
+      // Handle lane update
+      if (parsed.type === 'setLane') {
+        fastify.log.info({ clientId, lane: parsed.lane }, 'Client lane updated');
+        broadcaster.updateClientLane(clientId, parsed.lane);
+        return;
       }
     });
 
