@@ -1,3 +1,5 @@
+import { Button } from '../../ui/Button';
+
 interface HealthStatus {
   status: string;
   timestamp: string;
@@ -60,18 +62,12 @@ export function RegisterHeader({
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginLeft: 'auto' }}>
-        <button
-          onClick={() => void onSignOut()}
-          className="cs-liquid-button cs-liquid-button--secondary er-header-action-btn"
-        >
+        <Button onClick={() => void onSignOut()} variant="secondary" className="er-header-action-btn">
           Sign Out
-        </button>
-        <button
-          onClick={() => void onCloseOut()}
-          className="cs-liquid-button cs-liquid-button--danger er-header-action-btn"
-        >
+        </Button>
+        <Button onClick={() => void onCloseOut()} variant="danger" className="er-header-action-btn">
           Close Out
-        </button>
+        </Button>
       </div>
     </header>
   );

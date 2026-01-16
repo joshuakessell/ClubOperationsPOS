@@ -35,8 +35,8 @@ export function useEmployeeRegisterTabletUiTweaks() {
     const collected: BaselineVars = {};
 
     const tryCollect = () => {
-      const primaryBtn = document.querySelector<HTMLElement>('.cs-liquid-button:not(.cs-liquid-button--secondary)');
-      const secondaryBtn = document.querySelector<HTMLElement>('.cs-liquid-button.cs-liquid-button--secondary');
+      const primaryBtn = document.querySelector<HTMLElement>('.er-btn[data-variant="primary"]');
+      const secondaryBtn = document.querySelector<HTMLElement>('.er-btn[data-variant="secondary"]');
       const labelEl = document.querySelector<HTMLElement>('label');
       const searchEl = document.getElementById('customer-search');
       const iconEl = document.querySelector<HTMLElement>('.btn-icon');

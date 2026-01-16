@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
-import { LiquidGlassPinInput } from '@club-ops/ui';
+import { PinInput } from '@club-ops/ui';
+import { ModalFrame } from './components/register/modals/ModalFrame';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 
 const API_BASE = '/api';
 
@@ -261,142 +264,146 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
   if (!isOpen) return null;
 
   return (
-    <div className="sign-in-modal-overlay" onClick={onClose}>
-      <div className="sign-in-modal cs-liquid-card" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="sign-in-modal-close cs-liquid-button cs-liquid-button--secondary"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
+    <ModalFrame isOpen={isOpen} title="Register Sign In" onClose={onClose} maxWidth="720px">
+      {step === 'select-employee' ? (
+        <div className="grid gap-3">
+          <div className="text-sm text-gray-600">Select an employee to sign in.</div>
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          ) : null}
 
-        {step === 'select-employee' && (
-          <div className="sign-in-step">
-            <h2>Select Employee</h2>
-            {error && <div className="sign-in-error">{error}</div>}
-            <div className="employee-list">
-              {employees.length === 0 ? (
-                <p>No available employees</p>
-              ) : (
-                employees.map((emp) => (
+          <Card padding="none" className="overflow-hidden">
+            {employees.length === 0 ? (
+              <div className="p-4 text-sm text-gray-600">No available employees</div>
+            ) : (
+              <div className="grid">
+                {employees.map((emp) => (
                   <button
                     key={emp.id}
-                    className="employee-item cs-liquid-button cs-liquid-button--secondary"
+                    type="button"
                     onClick={() => handleSelectEmployee(emp)}
                     disabled={isLoading}
+                    className="w-full border-b border-gray-200 p-4 text-left hover:bg-gray-50 disabled:opacity-60"
                   >
-                    {emp.name}
+                    <div className="font-semibold text-gray-900">{emp.name}</div>
+                    <div className="mt-1 text-sm text-gray-600">{emp.role}</div>
                   </button>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {step === 'enter-pin' && selectedEmployee && (
-          <div className="sign-in-step">
-            <h2>Enter PIN</h2>
-            <p className="sign-in-subtitle">Employee: {selectedEmployee.name}</p>
-            {pinError && <div className="sign-in-error shake">Wrong PIN</div>}
-            {error && <div className="sign-in-error">{error}</div>}
-            <LiquidGlassPinInput
-              length={6}
-              value={pin}
-              onChange={(next) => {
-                setPin(next);
-                setPinError(false);
-              }}
-              onSubmit={() => void handlePinSubmit()}
-              submitLabel={isLoading ? 'Verifying…' : 'Verify PIN'}
-              submitDisabled={isLoading}
-              disabled={isLoading}
-              className={pinError ? 'shake' : undefined}
-              displayAriaLabel="Employee PIN"
-            />
-            <div className="sign-in-actions">
-              <button
-                type="button"
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={handleBack}
-                disabled={isLoading}
-              >
-                Back
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 'assign-register' && (
-          <div className="sign-in-step">
-            <h2>Select Register</h2>
-            {error && <div className="sign-in-error">{error}</div>}
-            {!registers ? (
-              <div className="sign-in-subtitle">Loading registers...</div>
-            ) : (
-              <div className="register-buttons">
-                {([1, 2] as const).map((num) => {
-                  const reg = registers.find((r) => r.registerNumber === num);
-                  const occupied = reg?.occupied ?? false;
-                  const occupiedLabel = reg?.employee?.name
-                    ? ` (In use: ${reg.employee.name})`
-                    : ' (In use)';
-
-                  return (
-                    <button
-                      key={num}
-                      className="register-button cs-liquid-button"
-                      onClick={() => void handleSelectRegister(num)}
-                      disabled={isLoading || occupied}
-                      title={occupied ? `Register ${num} is occupied` : `Use Register ${num}`}
-                    >
-                      Register {num}
-                      {occupied ? occupiedLabel : ''}
-                    </button>
-                  );
-                })}
+                ))}
               </div>
             )}
-            <div className="sign-in-actions">
-              <button
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={handleBack}
-                disabled={isLoading}
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={() => void fetchRegisterAvailability()}
-                disabled={isLoading}
-              >
-                Refresh
-              </button>
-            </div>
-          </div>
-        )}
+          </Card>
+        </div>
+      ) : null}
 
-        {step === 'confirm' && registerNumber && (
-          <div className="sign-in-step">
-            <h2>Assigned Register {registerNumber}</h2>
-            <p className="sign-in-subtitle">Employee: {selectedEmployee?.name}</p>
-            {error && <div className="sign-in-error">{error}</div>}
-            <div className="sign-in-actions">
-              <button
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={handleBack}
-                disabled={isLoading}
-              >
-                Back
-              </button>
-              <button className="cs-liquid-button" onClick={() => void handleConfirm()} disabled={isLoading}>
-                {isLoading ? 'Confirming...' : 'Confirm'}
-              </button>
-            </div>
+      {step === 'enter-pin' && selectedEmployee ? (
+        <div className="grid gap-3">
+          <div className="text-sm text-gray-600">
+            Employee: <span className="font-semibold text-gray-900">{selectedEmployee.name}</span>
           </div>
-        )}
-      </div>
-    </div>
+          {pinError ? (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+              Wrong PIN
+            </div>
+          ) : null}
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          <PinInput
+            length={6}
+            value={pin}
+            onChange={(next) => {
+              setPin(next);
+              setPinError(false);
+            }}
+            onSubmit={() => void handlePinSubmit()}
+            submitLabel={isLoading ? 'Verifying…' : 'Verify PIN'}
+            submitDisabled={isLoading}
+            disabled={isLoading}
+            displayAriaLabel="Employee PIN"
+          />
+
+          <div className="flex justify-end">
+            <Button variant="secondary" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 'assign-register' ? (
+        <div className="grid gap-3">
+          <div className="text-sm text-gray-600">Select a register for this device.</div>
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          {!registers ? (
+            <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+              Loading registers…
+            </div>
+          ) : (
+            <div className="grid gap-2">
+              {([1, 2] as const).map((num) => {
+                const reg = registers.find((r) => r.registerNumber === num);
+                const occupied = reg?.occupied ?? false;
+                const occupiedLabel = reg?.employee?.name ? ` (In use: ${reg.employee.name})` : ' (In use)';
+                return (
+                  <Button
+                    key={num}
+                    variant="secondary"
+                    className="w-full justify-between"
+                    onClick={() => void handleSelectRegister(num)}
+                    disabled={isLoading || occupied}
+                    title={occupied ? `Register ${num} is occupied` : `Use Register ${num}`}
+                  >
+                    <span>Register {num}</span>
+                    <span className="text-sm text-gray-600">{occupied ? occupiedLabel : ''}</span>
+                  </Button>
+                );
+              })}
+            </div>
+          )}
+
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+            <Button variant="secondary" type="button" onClick={() => void fetchRegisterAvailability()} disabled={isLoading}>
+              Refresh
+            </Button>
+          </div>
+        </div>
+      ) : null}
+
+      {step === 'confirm' && registerNumber ? (
+        <div className="grid gap-3">
+          <div className="text-lg font-semibold text-gray-900">Assigned Register {registerNumber}</div>
+          <div className="text-sm text-gray-600">
+            Employee: <span className="font-semibold text-gray-900">{selectedEmployee?.name}</span>
+          </div>
+          {error ? (
+            <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          <div className="flex justify-end gap-3">
+            <Button variant="secondary" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+            <Button onClick={() => void handleConfirm()} disabled={isLoading}>
+              {isLoading ? 'Confirming…' : 'Confirm'}
+            </Button>
+          </div>
+        </div>
+      ) : null}
+    </ModalFrame>
   );
 }

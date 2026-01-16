@@ -1,4 +1,6 @@
 import { ReactNode } from 'react';
+import { Modal } from '../../../ui/Modal';
+import { Button } from '../../../ui/Button';
 
 export interface ModalFrameProps {
   isOpen: boolean;
@@ -9,6 +11,19 @@ export interface ModalFrameProps {
   maxHeight?: string;
   closeOnOverlayClick?: boolean;
 }
+
+const MAX_WIDTH_TO_MODAL: Array<{ match: RegExp; width: 'md' | 'lg' | 'xl' | '2xl' | '3xl' | '4xl' }> =
+  [
+    { match: /760|768/, width: '3xl' },
+    { match: /720/, width: '3xl' },
+    { match: /600|560|576/, width: 'xl' },
+    { match: /520|512/, width: 'lg' },
+  ];
+
+const MAX_HEIGHT_CLASS: Record<string, string> = {
+  '70vh': 'max-h-[70vh]',
+  '80vh': 'max-h-[80vh]',
+};
 
 export function ModalFrame({
   isOpen,
@@ -21,72 +36,27 @@ export function ModalFrame({
 }: ModalFrameProps) {
   if (!isOpen) return null;
 
+  const width =
+    MAX_WIDTH_TO_MODAL.find((m) => m.match.test(maxWidth))?.width ?? ('md' as const);
+  const bodyMaxHClass = maxHeight ? MAX_HEIGHT_CLASS[maxHeight] ?? 'max-h-[80vh]' : undefined;
+
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 2000,
-      }}
-      onClick={closeOnOverlayClick ? onClose : undefined}
+    <Modal
+      open={isOpen}
+      width={width}
+      onClose={closeOnOverlayClick ? onClose : undefined}
+      panelClassName="p-0 overflow-hidden"
     >
-      <div
-        className="cs-liquid-card"
-        style={{
-          maxWidth,
-          width: '90%',
-          maxHeight,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div style={{ padding: '2rem', paddingBottom: '1rem', flex: '0 0 auto' }}>
-          <div
-            style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>{title}</h2>
-            <button
-              onClick={onClose}
-              className="cs-liquid-button cs-liquid-button--secondary"
-              style={{
-                fontSize: '1.5rem',
-                cursor: 'pointer',
-                padding: '0.25rem 0.5rem',
-                lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              aria-label="Close"
-            >
-              ×
-            </button>
-          </div>
-        </div>
-        <div
-          style={{
-            padding: '0 2rem 2rem',
-            overflowY: maxHeight ? 'auto' : undefined,
-            flex: maxHeight ? '1 1 auto' : undefined,
-            minHeight: maxHeight ? 0 : undefined,
-          }}
-        >
-          {children}
-        </div>
+      <div className="flex items-center justify-between border-b border-gray-200 px-6 py-4">
+        <h2 className="m-0 text-lg font-semibold text-gray-900">{title}</h2>
+        <Button variant="ghost" onClick={onClose} aria-label="Close">
+          ×
+        </Button>
       </div>
-    </div>
+      <div className={['px-6 py-4', bodyMaxHClass ? `overflow-y-auto ${bodyMaxHClass}` : undefined].filter(Boolean).join(' ')}>
+        {children}
+      </div>
+    </Modal>
   );
 }
 

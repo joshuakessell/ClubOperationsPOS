@@ -30,6 +30,7 @@ import { extractDobDigits, formatDobMmDdYyyy, parseDobDigitsToIso } from '../uti
 import { OfferUpgradeModal } from '../components/OfferUpgradeModal';
 import { CheckoutRequestsBanner } from '../components/register/CheckoutRequestsBanner';
 import { CheckoutVerificationModal } from '../components/register/CheckoutVerificationModal';
+import { AgreementArtifactsModal } from '../components/register/AgreementArtifactsModal';
 import { RegisterHeader } from '../components/register/RegisterHeader';
 import { RegisterTopActionsBar } from '../components/register/RegisterTopActionsBar';
 import { useEmployeeRegisterTabletUiTweaks } from '../hooks/useEmployeeRegisterTabletUiTweaks';
@@ -47,6 +48,8 @@ import { AddNoteModal } from '../components/register/modals/AddNoteModal';
 import { MembershipIdPromptModal } from '../components/register/modals/MembershipIdPromptModal';
 import { ModalFrame } from '../components/register/modals/ModalFrame';
 import { TransactionCompleteModal } from '../components/register/modals/TransactionCompleteModal';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
 import {
   MultipleMatchesModal,
   type MultipleMatchCandidate,
@@ -55,9 +58,9 @@ import { PaymentDeclineToast } from '../components/register/toasts/PaymentDeclin
 import { RegisterSideDrawers } from '../components/drawers/RegisterSideDrawers';
 import { UpgradesDrawerContent } from '../components/upgrades/UpgradesDrawerContent';
 import { InventoryDrawer, type InventoryDrawerSection } from '../components/inventory/InventoryDrawer';
-import { InventorySummaryBar } from '../components/inventory/InventorySummaryBar';
 import { useRegisterTopActionsOverlays } from '../components/register/useRegisterTopActionsOverlays';
 import { usePassiveScannerInput } from '../usePassiveScannerInput';
+import { RegisterMainView } from '../views/RegisterMainView';
 
 interface HealthStatus {
   status: string;
@@ -2876,7 +2879,7 @@ export function AppRoot() {
                 .join(' ')}
               aria-hidden="true"
             >
-              <div className="er-scan-processing-card cs-liquid-card">
+              <div className="er-scan-processing-card rounded-xl bg-slate-900/70 text-white ring-1 ring-slate-700">
                 <span className="er-spinner" aria-hidden="true" />
                 <span className="er-scan-processing-text">Processing scan…</span>
               </div>
@@ -2930,684 +2933,62 @@ export function AppRoot() {
             onRoomCleaning={topActions.openRoomCleaning}
           />
 
-          <main className="main">
-            {/* Customer Info Panel */}
-            {currentSessionId && customerName && (
-              <section
-                style={{
-                  marginBottom: '1rem',
-                  padding: '1rem',
-                  background: '#1e293b',
-                  border: '1px solid #475569',
-                  borderRadius: '8px',
-                }}
-              >
-                <h2 className="er-text-lg" style={{ marginBottom: '1rem', fontWeight: 600 }}>
-                  Customer Information
-                </h2>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                    gap: '1rem',
-                  }}
-                >
-                  <div>
-                    <div
-                      className="er-text-sm"
-                      style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                    >
-                      Name
-                    </div>
-                    <div className="er-text-md" style={{ fontWeight: 600 }}>
-                      {customerName}
-                    </div>
-                  </div>
-                  {customerPrimaryLanguage && (
-                    <div>
-                      <div
-                        className="er-text-sm"
-                        style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                      >
-                        Primary Language
-                      </div>
-                      <div className="er-text-md" style={{ fontWeight: 600 }}>
-                        {customerPrimaryLanguage}
-                      </div>
-                    </div>
-                  )}
-                  {customerDobMonthDay && (
-                    <div>
-                      <div
-                        className="er-text-sm"
-                        style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                      >
-                        Date of Birth
-                      </div>
-                      <div className="er-text-md" style={{ fontWeight: 600 }}>
-                        {customerDobMonthDay}
-                      </div>
-                    </div>
-                  )}
-                  {customerLastVisitAt && (
-                    <div>
-                      <div
-                        className="er-text-sm"
-                        style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                      >
-                        Last Visit
-                      </div>
-                      <div className="er-text-md" style={{ fontWeight: 600 }}>
-                        {new Date(customerLastVisitAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                  )}
-                  {pastDueBalance > 0 && (
-                    <div>
-                      <div
-                        className="er-text-sm"
-                        style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                      >
-                        Past Due Balance
-                      </div>
-                      <div
-                        className="er-text-md"
-                        style={{
-                          fontWeight: 600,
-                          color: pastDueBalance > 0 ? '#f59e0b' : 'inherit',
-                        }}
-                      >
-                        ${pastDueBalance.toFixed(2)}
-                      </div>
-                    </div>
-                  )}
-                </div>
-                {customerNotes && (
-                  <div
-                    style={{
-                      marginTop: '1rem',
-                      paddingTop: '1rem',
-                      borderTop: '1px solid #475569',
-                    }}
-                  >
-                    <div className="er-text-sm" style={{ color: '#94a3b8', marginBottom: '0.5rem' }}>
-                      Notes
-                    </div>
-                    <div
-                      className="er-text-sm"
-                      style={{
-                        padding: '0.75rem',
-                        background: '#0f172a',
-                        borderRadius: '6px',
-                        whiteSpace: 'pre-wrap',
-                        maxHeight: '150px',
-                        overflowY: 'auto',
-                      }}
-                    >
-                      {customerNotes}
-                    </div>
-                  </div>
-                )}
-                <div style={{ marginTop: '1rem', display: 'flex', gap: '0.5rem' }}>
-                  <button
-                    onClick={() => setShowAddNoteModal(true)}
-                    className="cs-liquid-button cs-liquid-button--secondary er-text-sm"
-                    style={{
-                      padding: '0.5rem 1rem',
-                      fontWeight: 600,
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Add Note
-                  </button>
-                </div>
-              </section>
-            )}
-
-            {/* Waitlist Banner */}
-            {waitlistDesiredTier && waitlistBackupType && (
-              <div
-                style={{
-                  padding: '1rem',
-                  background: '#fef3c7',
-                  border: '2px solid #f59e0b',
-                  borderRadius: '8px',
-                  marginBottom: '1rem',
-                  color: '#92400e',
-                }}
-              >
-                <div className="er-text-md" style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
-                  ⚠️ Customer Waitlisted
-                </div>
-                <div className="er-text-sm">
-                  Customer requested <strong>{waitlistDesiredTier}</strong> but it's unavailable.
-                  Assigning <strong>{waitlistBackupType}</strong> as backup. If{' '}
-                  {waitlistDesiredTier} becomes available, customer can upgrade.
-                </div>
-              </div>
-            )}
-
-            {/* Selection State Display */}
-            {currentSessionId && customerName && (proposedRentalType || selectionConfirmed) && (
-              <div
-                style={{
-                  padding: '1rem',
-                  marginBottom: '1rem',
-                  background: selectionConfirmed ? '#10b981' : '#3b82f6',
-                  borderRadius: '8px',
-                  color: 'white',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
-                  {selectionConfirmed
-                    ? `✓ Selection Locked: ${proposedRentalType} (by ${selectionConfirmedBy === 'CUSTOMER' ? 'Customer' : 'You'})`
-                    : `Proposed: ${proposedRentalType} (by ${proposedBy === 'CUSTOMER' ? 'Customer' : 'You'})`}
-                </div>
-                {!selectionConfirmed && proposedBy === 'EMPLOYEE' && (
-                  <button
-                    onClick={() => void handleConfirmSelection()}
-                    className="cs-liquid-button"
-                    disabled={isSubmitting}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      fontWeight: 600,
-                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {isSubmitting ? 'Confirming...' : 'Confirm Selection'}
-                  </button>
-                )}
-                {!selectionConfirmed && proposedBy === 'CUSTOMER' && (
-                  <button
-                    onClick={() => void handleConfirmSelection()}
-                    className="cs-liquid-button"
-                    disabled={isSubmitting}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      fontWeight: 600,
-                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    {isSubmitting ? 'Confirming...' : 'Confirm Customer Selection'}
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Quick Selection Buttons */}
-            {currentSessionId && customerName && !selectionConfirmed && !pastDueBlocked && (
-              <div
-                style={{
-                  display: 'flex',
-                  gap: '0.5rem',
-                  marginBottom: '1rem',
-                  flexWrap: 'wrap',
-                }}
-              >
-                {['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'].map((rental) => (
-                  <button
-                    key={rental}
-                    onClick={() => void handleProposeSelection(rental)}
-                    disabled={isSubmitting}
-                    className={[
-                      'cs-liquid-button',
-                      'cs-liquid-button--secondary',
-                      proposedRentalType === rental ? 'cs-liquid-button--selected' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    style={{
-                      padding: '0.5rem 1rem',
-                      fontWeight: 600,
-                      cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    }}
-                  >
-                    Propose {rental}
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {/* Inventory Selector */}
-            {currentSessionId && customerName && !pastDueBlocked && (
-              <InventorySummaryBar
-                counts={inventoryAvailable}
-                onOpenInventorySection={(section) => {
-                  setInventoryForcedSection(section);
-                  setIsInventoryDrawerOpen(true);
-                }}
-              />
-            )}
-
-            {/* Assignment Bar */}
-            {selectedInventoryItem && (
-              <div
-                className="cs-liquid-card"
-                style={{
-                  position: 'sticky',
-                  bottom: 0,
-                  borderTop: '2px solid #3b82f6',
-                  padding: '1rem',
-                  zIndex: 100,
-                }}
-              >
-                <div
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    gap: '1rem',
-                    marginBottom: paymentQuote ? '1rem' : 0,
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600, fontSize: '1.125rem', marginBottom: '0.25rem' }}>
-                      Selected: {selectedInventoryItem.type === 'room' ? 'Room' : 'Locker'}{' '}
-                      {selectedInventoryItem.number}
-                    </div>
-                    {customerSelectedType &&
-                      selectedInventoryItem.tier !== customerSelectedType && (
-                        <div style={{ fontSize: '0.875rem', color: '#f59e0b' }}>
-                          Waiting for customer confirmation...
-                        </div>
-                      )}
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <button
-                      onClick={() => void handleAssign()}
-                      className="cs-liquid-button"
-                      disabled={
-                        isSubmitting ||
-                        showCustomerConfirmationPending ||
-                        !agreementSigned ||
-                        paymentStatus !== 'PAID'
-                      }
-                      style={{
-                        padding: '0.75rem 1.5rem',
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                        cursor:
-                          isSubmitting ||
-                          showCustomerConfirmationPending ||
-                          !agreementSigned ||
-                          paymentStatus !== 'PAID'
-                            ? 'not-allowed'
-                            : 'pointer',
-                      }}
-                      title={
-                        showCustomerConfirmationPending
-                          ? 'Waiting for customer confirmation'
-                          : paymentStatus !== 'PAID'
-                            ? 'Payment must be successful before assignment'
-                            : !agreementSigned
-                              ? 'Waiting for customer to sign agreement'
-                              : 'Assign resource'
-                      }
-                    >
-                      {isSubmitting
-                        ? 'Assigning...'
-                        : showCustomerConfirmationPending
-                          ? 'Waiting for Confirmation'
-                          : paymentStatus !== 'PAID'
-                            ? 'Awaiting Payment'
-                            : !agreementSigned
-                              ? 'Awaiting Signature'
-                              : 'Assign'}
-                    </button>
-                    {!agreementSigned && paymentStatus === 'PAID' ? (
-                      <button
-                        onClick={() => {
-                          if (
-                            window.confirm(
-                              'Override customer signature? This will complete the agreement signing process without a customer signature.'
-                            )
-                          ) {
-                            void handleManualSignatureOverride();
-                          }
-                        }}
-                        className="cs-liquid-button cs-liquid-button--danger"
-                        disabled={isSubmitting}
-                        style={{
-                          padding: '0.75rem 1.5rem',
-                          fontSize: '1rem',
-                          fontWeight: 600,
-                          cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        Manual Signature
-                      </button>
-                    ) : (
-                      <button
-                        onClick={handleClearSelection}
-                        className="cs-liquid-button cs-liquid-button--secondary"
-                        disabled={isSubmitting}
-                        style={{
-                          padding: '0.75rem 1.5rem',
-                          fontSize: '1rem',
-                          fontWeight: 600,
-                          cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                        }}
-                      >
-                        Clear
-                      </button>
-                    )}
-                  </div>
-                </div>
-
-                {/* Payment Quote and Mark Paid */}
-                {paymentQuote && (
-                  <div
-                    className="cs-liquid-card"
-                    style={{
-                      padding: '1rem',
-                    }}
-                  >
-                    <div style={{ marginBottom: '0.75rem', fontWeight: 600, fontSize: '1rem' }}>
-                      Payment Quote
-                    </div>
-                    <div style={{ marginBottom: '0.5rem' }}>
-                      {paymentQuote.lineItems.map((item, idx) => (
-                        <div
-                          key={idx}
-                          style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            marginBottom: '0.25rem',
-                            fontSize: '0.875rem',
-                          }}
-                        >
-                          <span>{item.description}</span>
-                          <span>${item.amount.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                    <div
-                      style={{
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        fontWeight: 600,
-                        fontSize: '1.125rem',
-                        paddingTop: '0.5rem',
-                        borderTop: '1px solid #475569',
-                        marginBottom: '0.75rem',
-                      }}
-                    >
-                      <span>Total Due:</span>
-                      <span>${paymentQuote.total.toFixed(2)}</span>
-                    </div>
-                    {paymentQuote.messages && paymentQuote.messages.length > 0 && (
-                      <div
-                        style={{ fontSize: '0.75rem', color: '#94a3b8', marginBottom: '0.75rem' }}
-                      >
-                        {paymentQuote.messages.map((msg, idx) => (
-                          <div key={idx}>{msg}</div>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      onClick={() => void handleMarkPaid()}
-                      disabled={isSubmitting || paymentStatus === 'PAID'}
-                      className={[
-                        'cs-liquid-button',
-                        paymentStatus === 'PAID' ? 'cs-liquid-button--selected' : '',
-                      ]
-                        .filter(Boolean)
-                        .join(' ')}
-                      style={{
-                        width: '100%',
-                        padding: '0.75rem',
-                        fontSize: '1rem',
-                        fontWeight: 600,
-                      }}
-                    >
-                      {paymentStatus === 'PAID' ? '✓ Paid in Square' : 'Mark Paid in Square'}
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-
-            <section className="actions-panel">
-              <h2>Lane Session</h2>
-
-              {/* Customer lookup (typeahead) */}
-              <div className="er-search-section-half">
-                <div
-                  className="typeahead-section cs-liquid-card"
-                  style={{
-                    marginTop: 0,
-                    marginBottom: '1rem',
-                    padding: '1rem',
-                  }}
-                >
-                  <div
-                    style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      alignItems: 'center',
-                      marginBottom: '0.5rem',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <label htmlFor="customer-search" style={{ fontWeight: 600 }}>
-                      Search Customer
-                    </label>
-                    <span className="er-search-help">(type at least 3 letters)</span>
-                  </div>
-                  <input
-                    id="customer-search"
-                    type="text"
-                    className="cs-liquid-input"
-                    value={customerSearch}
-                    onChange={(e) => setCustomerSearch(e.target.value)}
-                    placeholder="Start typing name..."
-                    disabled={isSubmitting}
-                  />
-                  {customerSearchLoading && (
-                    <div className="er-text-sm" style={{ marginTop: '0.25rem', color: '#94a3b8' }}>
-                      Searching...
-                    </div>
-                  )}
-                  {customerSuggestions.length > 0 && (
-                    <div
-                      className="cs-liquid-card"
-                      style={{
-                        marginTop: '0.5rem',
-                        maxHeight: '180px',
-                        overflowY: 'auto',
-                      }}
-                    >
-                      {customerSuggestions.map((s) => {
-                        const label = `${s.lastName}, ${s.firstName}`;
-                        const active = selectedCustomerId === s.id;
-                        return (
-                          <div
-                            key={s.id}
-                            onClick={() => {
-                              setSelectedCustomerId(s.id);
-                              setSelectedCustomerLabel(label);
-                            }}
-                            style={{
-                              padding: '0.5rem 0.75rem',
-                              cursor: 'pointer',
-                              background: active ? '#1e293b' : 'transparent',
-                              borderBottom: '1px solid #1f2937',
-                            }}
-                          >
-                            <div style={{ fontWeight: 600 }}>{label}</div>
-                            <div
-                              className="er-text-sm"
-                              style={{
-                                color: '#94a3b8',
-                                display: 'flex',
-                                gap: '0.75rem',
-                                flexWrap: 'wrap',
-                              }}
-                            >
-                              {s.dobMonthDay && <span>DOB: {s.dobMonthDay}</span>}
-                              {s.membershipNumber && <span>Membership: {s.membershipNumber}</span>}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                  <div
-                    style={{
-                      display: 'flex',
-                      justifyContent: 'center',
-                      gap: '0.75rem',
-                      marginTop: '0.75rem',
-                      alignItems: 'center',
-                      flexDirection: 'column',
-                    }}
-                  >
-                    <div className="er-search-help">
-                      {selectedCustomerLabel ? `Selected: ${selectedCustomerLabel}` : 'Select a customer above'}
-                    </div>
-                    <button
-                      onClick={() => void handleConfirmCustomerSelection()}
-                      disabled={!selectedCustomerId || isSubmitting}
-                      className="cs-liquid-button"
-                      style={{
-                        padding: '0.55rem 0.9rem',
-                        fontWeight: 700,
-                        opacity: !selectedCustomerId || isSubmitting ? 0.7 : 1,
-                      }}
-                    >
-                      Confirm
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="action-buttons">
-                <button
-                  className={`action-btn cs-liquid-button cs-liquid-button--secondary ${manualEntry ? 'cs-liquid-button--selected active' : ''}`}
-                  onClick={() => {
-                    const next = !manualEntry;
-                    setManualEntry(next);
-                    if (!next) {
-                      setManualFirstName('');
-                      setManualLastName('');
-                      setManualDobDigits('');
-                    }
-                  }}
-                >
-                  <span className="btn-icon">✏️</span>
-                  <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', lineHeight: 1.1 }}>
-                    <span>First Time Customer</span>
-                    <span className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 700 }}>
-                      Alternate ID
-                    </span>
-                  </span>
-                </button>
-                <button
-                  className="action-btn cs-liquid-button cs-liquid-button--danger"
-                  onClick={() => void handleClearSession()}
-                  disabled={isSubmitting}
-                >
-                  <span className="btn-icon">🗑️</span>
-                  Clear Session
-                </button>
-              </div>
-
-              {manualEntry && (
-                <form
-                  className="manual-entry-form cs-liquid-card"
-                  onSubmit={(e) => void handleManualSubmit(e)}
-                >
-                  <div className="form-group">
-                    <label htmlFor="manualFirstName">First Name *</label>
-                    <input
-                      id="manualFirstName"
-                      type="text"
-                      className="cs-liquid-input"
-                      value={manualFirstName}
-                      onChange={(e) => setManualFirstName(e.target.value)}
-                      placeholder="Enter first name"
-                      disabled={isSubmitting}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="manualLastName">Last Name *</label>
-                    <input
-                      id="manualLastName"
-                      type="text"
-                      className="cs-liquid-input"
-                      value={manualLastName}
-                      onChange={(e) => setManualLastName(e.target.value)}
-                      placeholder="Enter last name"
-                      disabled={isSubmitting}
-                      required
-                    />
-                  </div>
-                  <div className="form-group">
-                    <label htmlFor="manualDob">Date of Birth *</label>
-                    <input
-                      id="manualDob"
-                      type="text"
-                      inputMode="numeric"
-                      className="cs-liquid-input"
-                      value={formatDobMmDdYyyy(manualDobDigits)}
-                      onChange={(e) => setManualDobDigits(extractDobDigits(e.target.value))}
-                      placeholder="MM/DD/YYYY"
-                      disabled={isSubmitting}
-                      required
-                    />
-                  </div>
-                  <div className="form-actions">
-                    <button
-                      type="submit"
-                      className="submit-btn cs-liquid-button"
-                      disabled={
-                        isSubmitting ||
-                        manualEntrySubmitting ||
-                        !manualFirstName.trim() ||
-                        !manualLastName.trim() ||
-                        !parseDobDigitsToIso(manualDobDigits)
-                      }
-                    >
-                      {isSubmitting || manualEntrySubmitting ? 'Submitting...' : 'Add Customer'}
-                    </button>
-                    <button
-                      type="button"
-                      className="cancel-btn cs-liquid-button cs-liquid-button--danger"
-                      onClick={() => {
-                        setManualEntry(false);
-                        setManualFirstName('');
-                        setManualLastName('');
-                        setManualDobDigits('');
-                      }}
-                      disabled={isSubmitting || manualEntrySubmitting}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                </form>
-              )}
-
-              {(customerName || membershipNumber) && !manualEntry && (
-                <div className="current-session">
-                  <p>
-                    <strong>Current Session:</strong>
-                  </p>
-                  <p>Name: {customerName || 'Not set'}</p>
-                  {membershipNumber && <p>Membership: {membershipNumber}</p>}
-                  {currentSessionId && (
-                    <p
-                      className={
-                        agreementSigned ? 'agreement-status signed' : 'agreement-status unsigned'
-                      }
-                    >
-                      {agreementSigned ? 'Agreement signed ✓' : 'Agreement pending'}
-                    </p>
-                  )}
-                </div>
-              )}
-            </section>
-          </main>
+          <RegisterMainView
+            currentSessionId={currentSessionId}
+            customerName={customerName}
+            customerPrimaryLanguage={customerPrimaryLanguage}
+            customerDobMonthDay={customerDobMonthDay}
+            customerLastVisitAt={customerLastVisitAt}
+            pastDueBalance={pastDueBalance}
+            customerNotes={customerNotes}
+            onAddNote={() => setShowAddNoteModal(true)}
+            waitlistDesiredTier={waitlistDesiredTier}
+            waitlistBackupType={waitlistBackupType}
+            proposedRentalType={proposedRentalType}
+            proposedBy={proposedBy}
+            selectionConfirmed={selectionConfirmed}
+            selectionConfirmedBy={selectionConfirmedBy}
+            onConfirmSelection={() => void handleConfirmSelection()}
+            pastDueBlocked={pastDueBlocked}
+            isSubmitting={isSubmitting}
+            onProposeSelection={(rentalType) => void handleProposeSelection(rentalType)}
+            inventoryAvailable={inventoryAvailable}
+            onOpenInventorySection={(section) => {
+              setInventoryForcedSection(section);
+              setIsInventoryDrawerOpen(true);
+            }}
+            selectedInventoryItem={selectedInventoryItem}
+            customerSelectedType={customerSelectedType}
+            showCustomerConfirmationPending={showCustomerConfirmationPending}
+            agreementSigned={agreementSigned}
+            paymentStatus={paymentStatus}
+            paymentQuote={paymentQuote}
+            onAssign={() => void handleAssign()}
+            onManualSignatureOverride={() => void handleManualSignatureOverride()}
+            onClearSelection={handleClearSelection}
+            onMarkPaid={() => void handleMarkPaid()}
+            customerSearch={customerSearch}
+            setCustomerSearch={setCustomerSearch}
+            customerSearchLoading={customerSearchLoading}
+            customerSuggestions={customerSuggestions}
+            selectedCustomerId={selectedCustomerId}
+            selectedCustomerLabel={selectedCustomerLabel}
+            setSelectedCustomerId={setSelectedCustomerId}
+            setSelectedCustomerLabel={setSelectedCustomerLabel}
+            onConfirmCustomerSelection={() => void handleConfirmCustomerSelection()}
+            manualEntry={manualEntry}
+            setManualEntry={setManualEntry}
+            manualFirstName={manualFirstName}
+            setManualFirstName={setManualFirstName}
+            manualLastName={manualLastName}
+            setManualLastName={setManualLastName}
+            manualDobDigits={manualDobDigits}
+            setManualDobDigits={setManualDobDigits}
+            onManualSubmit={(e) => void handleManualSubmit(e)}
+            manualEntrySubmitting={manualEntrySubmitting}
+            onClearSession={() => void handleClearSession()}
+            membershipNumber={membershipNumber}
+          />
 
           <footer className="footer">
             <p>Employee-facing tablet • Runs alongside Square POS</p>
@@ -3691,7 +3072,7 @@ export function AppRoot() {
               ) : null}
 
               {manualExistingPrompt ? (
-                <div className="cs-liquid-card" style={{ padding: '1rem' }}>
+                <Card padding="md" className="bg-slate-900/70 text-white ring-slate-700">
                   <div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{manualExistingPrompt.bestMatch.name}</div>
                   <div style={{ marginTop: '0.25rem', color: '#94a3b8', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                     <span>
@@ -3707,7 +3088,7 @@ export function AppRoot() {
                       </span>
                     ) : null}
                   </div>
-                </div>
+                </Card>
               ) : null}
 
               {manualExistingPromptError ? (
@@ -3726,9 +3107,9 @@ export function AppRoot() {
               ) : null}
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <button
+                <Button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                  variant="secondary"
                   disabled={manualExistingPromptSubmitting || isSubmitting}
                   onClick={() => {
                     setManualExistingPrompt(null);
@@ -3736,11 +3117,11 @@ export function AppRoot() {
                   }}
                 >
                   Cancel
-                </button>
+                </Button>
 
-                <button
+                <Button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                  variant="secondary"
                   disabled={manualExistingPromptSubmitting || isSubmitting || !manualExistingPrompt}
                   onClick={() => {
                     if (!manualExistingPrompt) return;
@@ -3767,11 +3148,10 @@ export function AppRoot() {
                   }}
                 >
                   Existing Customer
-                </button>
+                </Button>
 
-                <button
+                <Button
                   type="button"
-                  className="cs-liquid-button"
                   disabled={manualExistingPromptSubmitting || isSubmitting || !manualExistingPrompt || !session?.sessionToken}
                   onClick={() => {
                     if (!manualExistingPrompt || !session?.sessionToken) return;
@@ -3815,7 +3195,7 @@ export function AppRoot() {
                   }}
                 >
                   Add Customer
-                </button>
+                </Button>
               </div>
             </div>
           </ModalFrame>
@@ -3852,7 +3232,7 @@ export function AppRoot() {
                 </div>
               ) : null}
 
-              <div className="cs-liquid-card" style={{ padding: '1rem' }}>
+              <Card padding="md" className="bg-slate-900/70 text-white ring-slate-700">
                 <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', color: '#94a3b8' }}>
                   <span>
                     First: <strong style={{ color: 'white' }}>{pendingCreateFromScan?.extracted.firstName || '—'}</strong>
@@ -3864,11 +3244,11 @@ export function AppRoot() {
                     DOB: <strong style={{ color: 'white' }}>{pendingCreateFromScan?.extracted.dob || '—'}</strong>
                   </span>
                 </div>
-              </div>
+              </Card>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-                <button
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                <Button
+                  variant="secondary"
                   disabled={createFromScanSubmitting || isSubmitting}
                   onClick={() => {
                     setShowCreateFromScanPrompt(false);
@@ -3877,9 +3257,8 @@ export function AppRoot() {
                   }}
                 >
                   Cancel
-                </button>
-                <button
-                  className="cs-liquid-button"
+                </Button>
+                <Button
                   disabled={createFromScanSubmitting || isSubmitting || !pendingCreateFromScan}
                   onClick={() => {
                     void (async () => {
@@ -3897,7 +3276,7 @@ export function AppRoot() {
                   }}
                 >
                   {createFromScanSubmitting ? 'Creating…' : 'Create Customer'}
-                </button>
+                </Button>
               </div>
             </div>
           </ModalFrame>
@@ -4015,28 +3394,24 @@ export function AppRoot() {
               onClick={() => setScanToastMessage(null)}
             >
               <div
-                className="cs-liquid-card"
+                className="rounded-xl bg-slate-900/70 text-white ring-1 ring-slate-700"
                 style={{
                   width: 'min(520px, 92vw)',
-                  background: '#0f172a',
-                  color: 'white',
                   padding: '1rem',
-                  borderRadius: '12px',
-                  border: '1px solid rgba(148, 163, 184, 0.18)',
                   boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
                 }}
                 onClick={(e) => e.stopPropagation()}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
                   <div style={{ fontWeight: 900 }}>Scan</div>
-                  <button
+                  <Button
                     onClick={() => setScanToastMessage(null)}
-                    className="cs-liquid-button cs-liquid-button--secondary"
-                    style={{ padding: '0.2rem 0.55rem' }}
+                    variant="secondary"
+                    className="h-8 px-3 text-sm"
                     aria-label="Dismiss"
                   >
                     ×
-                  </button>
+                  </Button>
                 </div>
                 <div style={{ marginTop: '0.5rem', color: '#cbd5e1', fontWeight: 700 }}>
                   {scanToastMessage}
@@ -4086,91 +3461,24 @@ export function AppRoot() {
             )}
         </div>
       )}
-      <ModalFrame
+      <AgreementArtifactsModal
         isOpen={documentsModalOpen}
-        title="Agreement artifacts"
         onClose={() => setDocumentsModalOpen(false)}
-        maxWidth="720px"
-        maxHeight="70vh"
-      >
-        <div style={{ display: 'grid', gap: '0.75rem' }}>
-          <div style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
-            Session: <span style={{ fontFamily: 'monospace' }}>{currentSessionIdRef.current || '—'}</span>
-          </div>
-
-          {documentsError && (
-            <div
-              style={{
-                padding: '0.75rem',
-                background: 'rgba(239, 68, 68, 0.18)',
-                border: '1px solid rgba(239, 68, 68, 0.35)',
-                borderRadius: 12,
-                color: '#fecaca',
-                fontWeight: 700,
-              }}
-            >
-              {documentsError}
-            </div>
-          )}
-
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              className="cs-liquid-button cs-liquid-button--secondary"
-              disabled={documentsLoading || !currentSessionIdRef.current}
-              onClick={() => {
-                const sid = currentSessionIdRef.current;
-                if (!sid) return;
-                void fetchDocumentsBySession(sid);
-              }}
-            >
-              {documentsLoading ? 'Refreshing…' : 'Refresh'}
-            </button>
-          </div>
-
-          {documentsForSession === null ? (
-            <div style={{ color: '#94a3b8' }}>No data loaded yet.</div>
-          ) : documentsForSession.length === 0 ? (
-            <div style={{ color: '#94a3b8' }}>No documents found for this session.</div>
-          ) : (
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
-              {documentsForSession.map((doc) => (
-                <div
-                  key={doc.id}
-                  className="er-surface"
-                  style={{ padding: '0.75rem', borderRadius: 12, display: 'grid', gap: '0.35rem' }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <div style={{ fontWeight: 900 }}>
-                      {doc.doc_type}{' '}
-                      <span style={{ fontFamily: 'monospace', fontWeight: 700, color: '#94a3b8' }}>
-                        {doc.id}
-                      </span>
-                    </div>
-                    <div style={{ color: '#94a3b8' }}>{new Date(doc.created_at).toLocaleString()}</div>
-                  </div>
-                  <div style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
-                    PDF stored: {doc.has_pdf ? 'yes' : 'no'} • Signature stored: {doc.has_signature ? 'yes' : 'no'}
-                    {doc.signature_hash_prefix ? ` • sig hash: ${doc.signature_hash_prefix}…` : ''}
-                  </div>
-                  <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <button
-                      className="cs-liquid-button"
-                      disabled={!doc.has_pdf}
-                      onClick={() => {
-                        void downloadAgreementPdf(doc.id).catch((e) => {
-                          setDocumentsError(e instanceof Error ? e.message : 'Failed to download PDF');
-                        });
-                      }}
-                    >
-                      Download PDF
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </ModalFrame>
+        sessionIdLabel={currentSessionIdRef.current || null}
+        documentsError={documentsError}
+        documentsLoading={documentsLoading}
+        documentsForSession={documentsForSession}
+        onRefresh={() => {
+          const sid = currentSessionIdRef.current;
+          if (!sid) return;
+          void fetchDocumentsBySession(sid);
+        }}
+        onDownloadPdf={(docId) => {
+          void downloadAgreementPdf(docId).catch((e) => {
+            setDocumentsError(e instanceof Error ? e.message : 'Failed to download PDF');
+          });
+        }}
+      />
     </RegisterSignIn>
   );
 }

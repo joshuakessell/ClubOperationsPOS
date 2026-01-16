@@ -1,4 +1,6 @@
 import { t, type Language } from '../../i18n';
+import { Modal } from '../../ui/Modal';
+import { Button } from '../../ui/Button';
 
 export interface MembershipModalProps {
   isOpen: boolean;
@@ -17,37 +19,24 @@ export function MembershipModal({
   onClose,
   isSubmitting,
 }: MembershipModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content cs-liquid-card" onClick={(e) => e.stopPropagation()}>
-        <h2>{t(customerPrimaryLanguage, 'membership.modal.title')}</h2>
-        <div className="disclaimer-text">
-          <p>
-            {intent === 'PURCHASE'
-              ? t(customerPrimaryLanguage, 'membership.modal.body.purchase')
-              : t(customerPrimaryLanguage, 'membership.modal.body.renew')}
-          </p>
+    <Modal isOpen={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'membership.modal.title')} width="2xl">
+      <div className="grid gap-6">
+        <div className="text-lg text-gray-700">
+          {intent === 'PURCHASE'
+            ? t(customerPrimaryLanguage, 'membership.modal.body.purchase')
+            : t(customerPrimaryLanguage, 'membership.modal.body.renew')}
         </div>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button
-            className="cs-liquid-button modal-ok-btn"
-            onClick={() => void onContinue()}
-            disabled={isSubmitting}
-          >
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+          <Button onClick={() => void onContinue()} disabled={isSubmitting} className="min-w-[240px]">
             {t(customerPrimaryLanguage, 'common.continue')}
-          </button>
-          <button
-            className="cs-liquid-button cs-liquid-button--secondary modal-ok-btn"
-            onClick={onClose}
-            disabled={isSubmitting}
-          >
+          </Button>
+          <Button variant="secondary" onClick={onClose} disabled={isSubmitting} className="min-w-[240px]">
             {t(customerPrimaryLanguage, 'common.cancel')}
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

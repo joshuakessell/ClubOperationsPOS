@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { Input } from '../../ui/Input';
 
 type MeasuredHalfWidthSearchInputProps = {
   id: string;
@@ -63,7 +64,7 @@ export function MeasuredHalfWidthSearchInput({
         <input
           ref={measureInputRef}
           type="text"
-          className="cs-liquid-input"
+          className="form-input block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-600 focus:ring-indigo-600/30 h-12 px-4 text-base"
           defaultValue=""
           placeholder=""
           style={{ width: '100%' }}
@@ -74,10 +75,10 @@ export function MeasuredHalfWidthSearchInput({
 
       {/* Visible input: exactly 50% of baseline width, centered */}
       <div className="er-search-half__center">
-        <input
+        <Input
           id={id}
           type="text"
-          className={['cs-liquid-input', className].filter(Boolean).join(' ')}
+          className={className}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

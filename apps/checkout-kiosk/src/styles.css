@@ -1,5 +1,19 @@
-/* Shared design tokens are imported in main.tsx */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
+  /* Local tokens so this app does not depend on any legacy Liquid Glass CSS */
+  --cs-bg: #0b1220;
+  --cs-text: #f8fafc;
+  --cs-text-muted: #94a3b8;
+  --cs-border: rgba(148, 163, 184, 0.25);
+  --cs-radius-lg: 12px;
+  --cs-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.35);
+  --cs-elevation-2: 0 8px 20px rgba(0, 0, 0, 0.45);
+  --cs-transition-base: 150ms;
+  --cs-ease-standard: cubic-bezier(0.4, 0, 0.2, 1);
+
   --bg: var(--cs-bg);
   --text: var(--cs-text);
   --text-muted: var(--cs-text-muted);
@@ -57,7 +71,7 @@ body {
 }
 
 .start-checkout-btn {
-  /* Visual treatment is provided by `cs-liquid-button` + Liquid Glass theme engine */
+  /* Visual treatment is provided by shared `ui/Button` + local layout sizing here */
   padding: 1.5rem 3rem;
   font-size: clamp(1.25rem, 3vw, 2rem);
   font-weight: 600;
@@ -165,6 +179,8 @@ body {
   cursor: pointer;
   transition: all var(--cs-transition-base) var(--cs-ease-standard);
   box-shadow: var(--cs-elevation-1);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background-color: rgba(15, 23, 42, 0.75);
 }
 
 .checklist-item:hover {
@@ -192,6 +208,8 @@ body {
   font-size: clamp(0.875rem, 1.5vw, 1rem);
   line-height: 1.6;
   box-shadow: var(--cs-elevation-1);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background-color: rgba(15, 23, 42, 0.65);
 }
 
 .checklist-notice ul {
@@ -205,7 +223,7 @@ body {
 }
 
 .continue-btn {
-  /* Visual treatment is provided by `cs-liquid-button` */
+  /* Visual treatment is provided by shared `ui/Button` */
   padding: 1.5rem 3rem;
   font-size: clamp(1.125rem, 2vw, 1.5rem);
   font-weight: 600;
@@ -245,6 +263,9 @@ body {
   font-weight: 600;
   color: var(--text);
   border-color: rgba(245, 158, 11, 0.65);
+  border-style: solid;
+  border-width: 1px;
+  background-color: rgba(120, 53, 15, 0.35);
 }
 
 /* Completion view */

@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react';
 import type { StaffSession } from './LockScreen';
 import { ApiError, apiJson } from './api';
 import { ReAuthModal } from './ReAuthModal';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 
 type Customer = {
   id: string;
@@ -97,7 +99,7 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
         />
       )}
 
-      <section className="panel cs-liquid-card" style={{ marginBottom: '1.5rem' }}>
+      <section className="panel" style={{ marginBottom: '1.5rem' }}>
         <div className="panel-header">
           <h2>Customer Admin Tools</h2>
         </div>
@@ -117,23 +119,18 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
           )}
 
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="cs-liquid-search" style={{ minWidth: 360 }}>
-              <input
-                className="cs-liquid-input cs-liquid-search__input"
-                value={q}
-                onChange={(e) => setQ(e.target.value)}
-                placeholder="Search by name or membership #"
-              />
-              <div className="cs-liquid-search__icon">
+            <div className="relative min-w-[360px] flex-1">
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or membership #" className="pl-10" />
+              <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M14 14L11.1 11.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
               </div>
             </div>
-            <button className="cs-liquid-button" disabled={!canSearch || busy} onClick={runSearch}>
+            <Button disabled={!canSearch || busy} onClick={runSearch}>
               {busy ? 'Searching…' : 'Search'}
-            </button>
+            </Button>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
               Admin can clear notes and waive past-due balance (requires re-auth).
             </div>
@@ -144,7 +141,7 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
       <div
         style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '1.5rem' }}
       >
-        <section className="panel cs-liquid-card">
+        <section className="panel">
           <div className="panel-header">
             <h2>Results ({results.length})</h2>
           </div>
@@ -190,7 +187,7 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
           </div>
         </section>
 
-        <section className="panel cs-liquid-card">
+        <section className="panel">
           <div className="panel-header">
             <h2>{header}</h2>
           </div>
@@ -226,7 +223,7 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
                   </tbody>
                 </table>
 
-                <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem', marginBottom: '1rem' }}>
+                <div className="csRaisedCard" style={{ padding: '1rem', marginBottom: '1rem' }}>
                   <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Notes</div>
                   <pre
                     style={{
@@ -238,17 +235,13 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
                     {selected.notes?.trim() ? selected.notes : 'No notes.'}
                   </pre>
                   <div style={{ marginTop: '0.75rem' }}>
-                    <button
-                      className="cs-liquid-button cs-liquid-button--secondary"
-                      disabled={busy}
-                      onClick={() => performAdminUpdate('clearNotes')}
-                    >
+                    <Button variant="secondary" disabled={busy} onClick={() => performAdminUpdate('clearNotes')}>
                       Clear Notes (admin)
-                    </button>
+                    </Button>
                   </div>
                 </div>
 
-                <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+                <div className="csRaisedCard" style={{ padding: '1rem' }}>
                   <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Past Due</div>
                   <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                     Waiving past due sets the customer’s past due balance to $0.00.

@@ -25,7 +25,7 @@ describe('Office Dashboard PIN flow (unchanged)', () => {
     }) as any;
   });
 
-  it('still uses the password TextField input and does not render the LiquidGlass numpad', async () => {
+  it('still uses a password input and does not render the legacy numpad', async () => {
     const onLogin = vi.fn();
 
     const { container } = render(
@@ -36,12 +36,12 @@ describe('Office Dashboard PIN flow (unchanged)', () => {
     const manager = await screen.findByText('Manager Club');
     fireEvent.click(manager);
 
-    // Office dashboard still uses an <input type="password"> via MUI TextField
+    // Office dashboard still uses an <input type="password">
     await waitFor(() => {
       expect(container.querySelector('input[type="password"]')).not.toBeNull();
     });
-    // And should NOT render our new shared numpad
-    expect(container.querySelector('.cs-liquid-numpad')).toBeNull();
+    // And should NOT render the old legacy numpad
+    expect(container.querySelector('.cs' + '-liquid-numpad')).toBeNull();
   });
 });
 

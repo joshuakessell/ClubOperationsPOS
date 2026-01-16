@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
+import { Button } from './ui/Button';
 
 type NavItem = {
   to: string;
@@ -28,6 +29,7 @@ export function OfficeShell({
       { to: '/waitlist', label: 'Waitlist', icon: '🕒', adminOnly: true },
       { to: '/reports', label: 'Reports', icon: '📊', adminOnly: true },
       { to: '/customers', label: 'Customers', icon: '🗂️', adminOnly: true },
+      { to: '/telemetry', label: 'Telemetry', icon: '📡', adminOnly: true },
     ];
 
     const staff: NavItem[] = [
@@ -81,12 +83,9 @@ export function OfficeShell({
           <h1>{isAdmin ? 'Office Dashboard (Admin)' : 'Office Dashboard (Staff)'}</h1>
           <div className="topbar-status" style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-muted)' }}>{location.pathname}</span>
-            <button
-              onClick={onLogout}
-              className="cs-liquid-button cs-liquid-button--danger"
-            >
+            <Button onClick={onLogout} variant="danger">
               Sign Out
-            </button>
+            </Button>
           </div>
         </header>
 

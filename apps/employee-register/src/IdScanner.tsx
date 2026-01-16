@@ -6,6 +6,8 @@ import {
   type Exception,
 } from '@zxing/library';
 import type { IdScanPayload } from '@club-ops/shared';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 
 interface IdScannerProps {
   isOpen: boolean;
@@ -247,7 +249,7 @@ export function IdScanner({ isOpen, onClose, onScan, onManualEntry }: IdScannerP
       }}
     >
       {showConfirm && scannedData ? (
-        <div className="cs-liquid-card" style={{ padding: '2rem', maxWidth: '500px', width: '90%' }}>
+        <Card padding="lg" className="w-[90%] max-w-[500px] bg-slate-900/70 text-white ring-slate-700">
           <h2 className="er-text-lg" style={{ marginBottom: '1rem' }}>
             Confirm ID Details
           </h2>
@@ -275,32 +277,14 @@ export function IdScanner({ isOpen, onClose, onScan, onManualEntry }: IdScannerP
             )}
           </div>
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={handleConfirm}
-              className="cs-liquid-button"
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
+            <Button onClick={handleConfirm} className="flex-1">
               Confirm
-            </button>
-            <button
-              onClick={handleEdit}
-              className="cs-liquid-button cs-liquid-button--secondary"
-              style={{
-                flex: 1,
-                padding: '0.75rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
+            </Button>
+            <Button onClick={handleEdit} variant="secondary" className="flex-1">
               Edit / Rescan
-            </button>
+            </Button>
           </div>
-        </div>
+        </Card>
       ) : (
         <>
           <div
@@ -392,28 +376,12 @@ export function IdScanner({ isOpen, onClose, onScan, onManualEntry }: IdScannerP
           )}
 
           <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button
-              onClick={onClose}
-              className="cs-liquid-button cs-liquid-button--danger"
-              style={{
-                padding: '0.75rem 1.5rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
+            <Button onClick={onClose} variant="danger">
               Cancel
-            </button>
-            <button
-              onClick={onManualEntry}
-              className="cs-liquid-button cs-liquid-button--secondary"
-              style={{
-                padding: '0.75rem 1.5rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-              }}
-            >
+            </Button>
+            <Button onClick={onManualEntry} variant="secondary">
               Enter Manually
-            </button>
+            </Button>
           </div>
         </>
       )}

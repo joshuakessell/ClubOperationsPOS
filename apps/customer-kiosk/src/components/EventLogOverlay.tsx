@@ -1,5 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { LogEvent, onEvent } from '../lib/eventBus';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Input } from '../ui/Input';
 
 const MAX_EVENTS = 500;
 
@@ -62,57 +65,84 @@ export default function EventLogOverlay() {
   if (!show) return null;
 
   return (
-    <div style={outer}>
-      <div style={header}>
-        <strong>Event Log</strong>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          <input placeholder="Search…" value={q} onChange={(e) => setQ(e.target.value)} style={input} />
-          <label style={pill}>
+    <div className="fixed bottom-3 right-3 z-[999999] w-[420px] max-h-[60vh] overflow-hidden rounded-xl bg-slate-950/90 font-mono text-xs text-white shadow-2xl ring-1 ring-white/10 backdrop-blur">
+      <div className="flex items-center justify-between gap-3 bg-white/5 p-3">
+        <strong className="text-sm">Event Log</strong>
+        <div className="flex flex-wrap items-center gap-2">
+          <Input
+            size="md"
+            placeholder="Search…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            className="h-8 w-[180px] bg-black/30 text-xs text-white placeholder:text-white/50 ring-white/15"
+          />
+          <label className="flex items-center gap-2 rounded-full bg-white/10 px-2 py-1">
             <input
               type="checkbox"
               checked={filterWSIn}
               onChange={(e) => setFilterWSIn(e.target.checked)}
-            />{' '}
-            WS In
+            />
+            <span>WS In</span>
           </label>
-          <label style={pill}>
+          <label className="flex items-center gap-2 rounded-full bg-white/10 px-2 py-1">
             <input
               type="checkbox"
               checked={filterWSOut}
               onChange={(e) => setFilterWSOut(e.target.checked)}
-            />{' '}
-            WS Out
+            />
+            <span>WS Out</span>
           </label>
-          <label style={pill}>
+          <label className="flex items-center gap-2 rounded-full bg-white/10 px-2 py-1">
             <input type="checkbox" checked={filterDB} onChange={(e) => setFilterDB(e.target.checked)} /> DB
           </label>
-          <button onClick={() => setPaused((p) => !p)} style={btn}>
+          <Button
+            size="md"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            onClick={() => setPaused((p) => !p)}
+          >
             {paused ? 'Resume' : 'Pause'}
-          </button>
-          <button onClick={() => navigator.clipboard.writeText(JSON.stringify(filtered, null, 2))} style={btn}>
+          </Button>
+          <Button
+            size="md"
+            variant="secondary"
+            className="h-8 px-3 text-xs"
+            onClick={() => navigator.clipboard.writeText(JSON.stringify(filtered, null, 2))}
+          >
             Copy
-          </button>
-          <button onClick={() => setEvents([])} style={btn}>
+          </Button>
+          <Button size="md" variant="secondary" className="h-8 px-3 text-xs" onClick={() => setEvents([])}>
             Clear
-          </button>
-          <button onClick={() => setShow(false)} style={btn}>
+          </Button>
+          <Button size="md" variant="secondary" className="h-8 px-3 text-xs" onClick={() => setShow(false)}>
             Hide
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div style={list}>
+      <div className="max-h-[calc(60vh-52px)] overflow-auto p-2">
         {filtered.map((e) => (
-          <div key={e.id} style={{ ...row, borderLeft: `4px solid ${colorFor(e.kind)}` }}>
-            <div style={rowTop}>
-              <span style={tag(colorFor(e.kind))}>{e.kind}</span>
-              <span style={{ opacity: 0.8 }}>{new Date(e.ts).toLocaleTimeString()}</span>
-              {e.channel && <span style={{ opacity: 0.8 }}>· {e.channel}</span>}
+          <Card
+            key={e.id}
+            padding="sm"
+            className={[
+              'mb-2 bg-white/5 ring-1 ring-white/10',
+              borderClassFor(e.kind),
+            ].join(' ')}
+          >
+            <div className="mb-1 flex flex-wrap items-center gap-2">
+              <span className={tagClassFor(e.kind)}>{e.kind}</span>
+              <span className="opacity-80">{new Date(e.ts).toLocaleTimeString()}</span>
+              {e.channel && <span className="opacity-80">· {e.channel}</span>}
               <strong>· {e.title}</strong>
             </div>
 
-            {e.payload !== undefined && <pre style={pre}>{safeStringify(e.payload)}</pre>}
-          </div>
+            {e.payload !== undefined && (
+              <pre className="m-0 whitespace-pre-wrap break-words rounded bg-black/35 p-2">
+                {safeStringify(e.payload)}
+              </pre>
+            )}
+          </Card>
         ))}
         <div ref={bottomRef} />
       </div>
@@ -120,104 +150,16 @@ export default function EventLogOverlay() {
   );
 }
 
-const outer: React.CSSProperties = {
-  position: 'fixed',
-  right: 12,
-  bottom: 12,
-  width: 420,
-  maxHeight: '60vh',
-  background: 'rgba(20,20,24,0.9)',
-  color: '#fff',
-  fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-  fontSize: 12,
-  borderRadius: 8,
-  boxShadow: '0 8px 24px rgba(0,0,0,0.35)',
-  backdropFilter: 'blur(6px)',
-  overflow: 'hidden',
-  zIndex: 999999,
-};
-
-const header: React.CSSProperties = {
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  padding: '8px 10px',
-  background: 'rgba(255,255,255,0.06)',
-};
-
-const list: React.CSSProperties = {
-  overflow: 'auto',
-  maxHeight: 'calc(60vh - 42px)',
-  padding: 8,
-};
-
-const row: React.CSSProperties = {
-  padding: '6px 8px',
-  marginBottom: 6,
-  background: 'rgba(255,255,255,0.04)',
-  borderRadius: 6,
-};
-
-const rowTop: React.CSSProperties = {
-  display: 'flex',
-  gap: 8,
-  alignItems: 'center',
-  marginBottom: 4,
-  flexWrap: 'wrap',
-};
-
-const pre: React.CSSProperties = {
-  margin: 0,
-  whiteSpace: 'pre-wrap',
-  wordBreak: 'break-word',
-  background: 'rgba(0,0,0,0.35)',
-  padding: 6,
-  borderRadius: 4,
-};
-
-const input: React.CSSProperties = {
-  height: 24,
-  borderRadius: 6,
-  border: '1px solid rgba(255,255,255,0.2)',
-  background: 'rgba(0,0,0,0.4)',
-  color: '#fff',
-  padding: '0 8px',
-};
-
-const btn: React.CSSProperties = {
-  height: 24,
-  borderRadius: 6,
-  border: '1px solid rgba(255,255,255,0.2)',
-  background: 'rgba(255,255,255,0.08)',
-  color: '#fff',
-  padding: '0 8px',
-  cursor: 'pointer',
-};
-
-const pill: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'center',
-  gap: 6,
-  background: 'rgba(255,255,255,0.08)',
-  padding: '2px 6px',
-  borderRadius: 999,
-};
-
-function colorFor(k: LogEvent['kind']) {
-  if (k === 'ws-in') return '#79ffa1';
-  if (k === 'ws-out') return '#7db3ff';
-  return '#ffd279';
+function borderClassFor(k: LogEvent['kind']) {
+  if (k === 'ws-in') return 'border-l-4 border-emerald-400';
+  if (k === 'ws-out') return 'border-l-4 border-sky-400';
+  return 'border-l-4 border-amber-300';
 }
 
-function tag(bg: string): React.CSSProperties {
-  return {
-    background: bg,
-    color: '#111',
-    fontWeight: 700,
-    padding: '2px 6px',
-    borderRadius: 999,
-    textTransform: 'uppercase',
-  };
+function tagClassFor(k: LogEvent['kind']) {
+  if (k === 'ws-in') return 'rounded-full bg-emerald-300 px-2 py-0.5 font-bold uppercase text-slate-950';
+  if (k === 'ws-out') return 'rounded-full bg-sky-300 px-2 py-0.5 font-bold uppercase text-slate-950';
+  return 'rounded-full bg-amber-200 px-2 py-0.5 font-bold uppercase text-slate-950';
 }
 
 function safeStringify(v: unknown) {

@@ -4,6 +4,7 @@ import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson, wsBaseUrl } from './api';
 import { useNavigate } from 'react-router-dom';
+import { Button } from './ui/Button';
 
 type InventorySummaryResponse = {
   byType: Record<string, { clean: number; cleaning: number; dirty: number; total: number }>;
@@ -101,7 +102,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
         </div>
       </section>
 
-      <section className="panel cs-liquid-card" style={{ marginBottom: '1.5rem' }}>
+      <section className="panel" style={{ marginBottom: '1.5rem' }}>
         <div className="panel-header">
           <h2>Administrative Demo Overview</h2>
         </div>
@@ -113,27 +114,27 @@ export function DemoOverview({ session }: { session: StaffSession }) {
               gap: '1rem',
             }}
           >
-            <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+            <div className="csRaisedCard" style={{ padding: '1rem' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Live Lane Monitor</div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Pick lane 1 or 2; see employee + customer mirrored state with live WS updates.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/monitor')}>
+              <Button onClick={() => navigate('/monitor')}>
                 Open Monitor
-              </button>
+              </Button>
             </div>
 
-            <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+            <div className="csRaisedCard" style={{ padding: '1rem' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Waitlist Management</div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Active / Offered lists, offer upgrades, complete or cancel, live refresh.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/waitlist')}>
+              <Button onClick={() => navigate('/waitlist')}>
                 Manage Waitlist
-              </button>
+              </Button>
             </div>
 
-            <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+            <div className="csRaisedCard" style={{ padding: '1rem' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Agreement PDF verification</div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Paste a lane session ID to verify PDF + signature artifacts, and download the PDF.
@@ -153,8 +154,8 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                     fontFamily: 'monospace',
                   }}
                 />
-                <button
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                <Button
+                  variant="secondary"
                   disabled={docLookupBusy || !docSessionId.trim()}
                   onClick={() => {
                     const sid = docSessionId.trim();
@@ -170,7 +171,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                   }}
                 >
                   {docLookupBusy ? 'Checking…' : 'Check'}
-                </button>
+                </Button>
               </div>
               {docLookupError && (
                 <div style={{ marginTop: '0.75rem', color: '#fecaca', fontWeight: 700 }}>{docLookupError}</div>
@@ -202,8 +203,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                           {d.signature_hash_prefix ? ` • sig hash: ${d.signature_hash_prefix}…` : ''}
                         </div>
                         <div>
-                          <button
-                            className="cs-liquid-button"
+                          <Button
                             disabled={!d.has_pdf}
                             onClick={() => {
                               fetch(`/api/v1/documents/${d.id}/download`, {
@@ -220,7 +220,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                             }}
                           >
                             Download PDF
-                          </button>
+                          </Button>
                         </div>
                       </div>
                     ))
@@ -229,30 +229,30 @@ export function DemoOverview({ session }: { session: StaffSession }) {
               )}
             </div>
 
-            <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+            <div className="csRaisedCard" style={{ padding: '1rem' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Customer Admin Tools</div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Search customers; admin can clear notes and waive past-due balance.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/customers')}>
+              <Button onClick={() => navigate('/customers')}>
                 Open Customer Tools
-              </button>
+              </Button>
             </div>
 
-            <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+            <div className="csRaisedCard" style={{ padding: '1rem' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Reports (Demo)</div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Inventory summary + low-availability tiers; cash totals by method/register.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/reports')}>
+              <Button onClick={() => navigate('/reports')}>
                 Open Reports
-              </button>
+              </Button>
             </div>
           </div>
         </div>
       </section>
 
-      <section className="panel cs-liquid-card">
+      <section className="panel">
         <div className="panel-header">
           <h2>Low Availability (tiers &lt; 5 available)</h2>
         </div>
@@ -287,9 +287,9 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                     </td>
                     <td>
                       {row.available < 5 ? (
-                        <button className="cs-liquid-button cs-liquid-button--secondary" onClick={() => navigate('/monitor')}>
+                        <Button variant="secondary" onClick={() => navigate('/monitor')}>
                           Monitor lanes
-                        </button>
+                        </Button>
                       ) : (
                         <span style={{ color: 'var(--text-muted)' }}>—</span>
                       )}

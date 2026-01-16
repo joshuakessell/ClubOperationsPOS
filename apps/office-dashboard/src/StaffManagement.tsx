@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react';
 import type { StaffSession } from './LockScreen';
 import { ReAuthModal } from './ReAuthModal';
+import { Button } from './ui/Button';
+import { Input } from './ui/Input';
 
 const API_BASE = '/api';
 
@@ -275,18 +277,12 @@ export function StaffManagement({ session }: StaffManagementProps) {
       >
         <h1 style={{ fontSize: '2rem', fontWeight: 600 }}>Staff Management</h1>
         <div style={{ display: 'flex', gap: '1rem' }}>
-          <button
-            onClick={() => (window.location.href = '/admin')}
-            className="cs-liquid-button cs-liquid-button--secondary"
-          >
+          <Button onClick={() => (window.location.href = '/admin')} variant="secondary">
             ← Back to Admin
-          </button>
-          <button
-            onClick={() => setShowCreateModal(true)}
-            className="cs-liquid-button"
-          >
+          </Button>
+          <Button onClick={() => setShowCreateModal(true)}>
             + Create Staff
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -295,15 +291,15 @@ export function StaffManagement({ session }: StaffManagementProps) {
         className="staff-filters"
         style={{ marginBottom: '1.5rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}
       >
-        <div className="cs-liquid-search" style={{ flex: 1, minWidth: '200px' }}>
-          <input
-            className="cs-liquid-input cs-liquid-search__input"
+        <div className="relative flex-1 min-w-[200px]">
+          <Input
             type="text"
             placeholder="Search by name or ID..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
+            className="pl-10"
           />
-          <div className="cs-liquid-search__icon">
+          <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
               <path d="M14 14L11.1 11.1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
@@ -411,18 +407,15 @@ export function StaffManagement({ session }: StaffManagementProps) {
                   </td>
                   <td style={{ padding: '1rem' }}>
                     <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                      <button
-                        onClick={() => openStaffDetail(member)}
-                        className="cs-liquid-button cs-liquid-button--secondary"
-                      >
+                      <Button onClick={() => openStaffDetail(member)} variant="secondary">
                         View
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         onClick={() => handleToggleActive(member.id, member.active)}
-                        className={member.active ? 'cs-liquid-button cs-liquid-button--danger' : 'cs-liquid-button'}
+                        variant={member.active ? 'danger' : 'primary'}
                       >
                         {member.active ? 'Deactivate' : 'Activate'}
-                      </button>
+                      </Button>
                     </div>
                   </td>
                 </tr>
@@ -631,19 +624,12 @@ function CreateStaffModal({
             </label>
           </div>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="cs-liquid-button cs-liquid-button--secondary"
-            >
+            <Button type="button" onClick={onClose} variant="secondary">
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="cs-liquid-button"
-            >
+            </Button>
+            <Button type="submit">
               Create
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -864,13 +850,9 @@ function StaffDetailModal({
             </div>
 
             <div style={{ marginBottom: '1.5rem' }}>
-            <button
-              onClick={onPinReset}
-              className="cs-liquid-button cs-liquid-button--secondary"
-              style={{ marginRight: '1rem' }}
-            >
-              Reset PIN
-            </button>
+              <Button onClick={onPinReset} variant="secondary" style={{ marginRight: '1rem' }}>
+                Reset PIN
+              </Button>
             </div>
           </>
         )}
@@ -926,12 +908,12 @@ function StaffDetailModal({
                       </td>
                       <td style={{ padding: '0.75rem' }}>
                         {pk.isActive && (
-                          <button
+                          <Button
                             onClick={() => onRevokePasskey(pk.credentialId)}
-                            className="cs-liquid-button cs-liquid-button--danger"
+                            variant="danger"
                           >
                             Revoke
-                          </button>
+                          </Button>
                         )}
                       </td>
                     </tr>
@@ -953,12 +935,9 @@ function StaffDetailModal({
               }}
             >
               <h3 style={{ fontSize: '1.25rem' }}>Documents</h3>
-              <button
-                onClick={() => setShowUploadModal(true)}
-                className="cs-liquid-button"
-              >
+              <Button onClick={() => setShowUploadModal(true)}>
                 Upload Document
-              </button>
+              </Button>
             </div>
             {loadingDocs ? (
               <p style={{ color: '#9ca3af' }}>Loading documents...</p>
@@ -1155,20 +1134,12 @@ function UploadDocumentModal({
           />
         </div>
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onClose}
-            disabled={uploading}
-            className="cs-liquid-button cs-liquid-button--secondary"
-          >
+          <Button onClick={onClose} disabled={uploading} variant="secondary">
             Cancel
-          </button>
-          <button
-            onClick={handleSubmit}
-            disabled={uploading || !file}
-            className="cs-liquid-button"
-          >
+          </Button>
+          <Button onClick={handleSubmit} disabled={uploading || !file}>
             {uploading ? 'Uploading...' : 'Upload'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>
@@ -1247,19 +1218,12 @@ function PinResetModal({
             />
           </div>
           <div style={{ display: 'flex', gap: '1rem', justifyContent: 'flex-end' }}>
-            <button
-              type="button"
-              onClick={onClose}
-              className="cs-liquid-button cs-liquid-button--secondary"
-            >
+            <Button type="button" onClick={onClose} variant="secondary">
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="cs-liquid-button"
-            >
+            </Button>
+            <Button type="submit">
               Reset PIN
-            </button>
+            </Button>
           </div>
         </form>
       </div>

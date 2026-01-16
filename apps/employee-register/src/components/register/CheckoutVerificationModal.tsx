@@ -1,6 +1,8 @@
 import type { CheckoutRequestSummary } from '@club-ops/shared';
 import { computeCheckoutDelta, formatCheckoutDelta } from '@club-ops/shared';
 import { useEffect, useMemo, useState } from 'react';
+import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
 
 export interface CheckoutVerificationModalProps {
   request: CheckoutRequestSummary;
@@ -52,15 +54,10 @@ export function CheckoutVerificationModal({
         padding: '2rem',
       }}
     >
-      <div
-        className="cs-liquid-card"
-        style={{
-          padding: '2rem',
-          maxWidth: '600px',
-          width: '100%',
-          maxHeight: '80vh',
-          overflowY: 'auto',
-        }}
+      <Card
+        padding="none"
+        className="w-full max-w-[600px] overflow-y-auto bg-slate-900/70 text-white ring-slate-700"
+        style={{ maxHeight: '80vh', padding: '2rem' }}
       >
         <h2 style={{ marginBottom: '1.5rem', fontSize: '1.5rem', fontWeight: 600 }}>
           Checkout Verification
@@ -73,7 +70,7 @@ export function CheckoutVerificationModal({
               3) Expected Check Out time
               4) Delta (remaining/late) with 15-min floor rounding
           */}
-          <div className="cs-liquid-card glass-effect" style={{ padding: '1rem', marginBottom: '1rem' }}>
+          <Card padding="md" className="mb-4 bg-slate-900/70 text-white ring-slate-700">
             <div style={{ fontWeight: 900, fontSize: '2rem', letterSpacing: '0.01em' }}>
               {numberLabel} {number}
             </div>
@@ -96,7 +93,7 @@ export function CheckoutVerificationModal({
             >
               {deltaLabel}
             </div>
-          </div>
+          </Card>
 
           {request.lateFeeAmount > 0 && (
             <div style={{ marginBottom: '0.5rem', color: '#f59e0b', fontWeight: 600 }}>
@@ -106,21 +103,14 @@ export function CheckoutVerificationModal({
           )}
         </div>
 
-        <div
-          className="cs-liquid-card"
-          style={{
-            marginBottom: '1.5rem',
-            padding: '1rem',
-            borderRadius: '8px',
-          }}
-        >
+        <Card padding="md" className="mb-6 bg-slate-900/70 text-white ring-slate-700">
           <div style={{ marginBottom: '0.5rem', fontWeight: 600 }}>
             Customer Checklist:
           </div>
           <div style={{ fontSize: '0.875rem', color: '#94a3b8' }}>
             (Items customer marked as returned)
           </div>
-        </div>
+        </Card>
 
         <div
           style={{
@@ -130,78 +120,53 @@ export function CheckoutVerificationModal({
             marginBottom: '1.5rem',
           }}
         >
-          <button
+          <Button
             onClick={onConfirmItems}
             disabled={checkoutItemsConfirmed}
             className={[
-              'cs-liquid-button',
-              checkoutItemsConfirmed ? 'cs-liquid-button--selected' : '',
-            ]
-              .filter(Boolean)
-              .join(' ')}
-            style={{
-              padding: '0.75rem',
-              cursor: checkoutItemsConfirmed ? 'default' : 'pointer',
-              fontWeight: 600,
-            }}
+              'w-full',
+              checkoutItemsConfirmed
+                ? 'bg-emerald-600 text-white hover:bg-emerald-600 focus-visible:ring-emerald-600/40'
+                : '',
+            ].join(' ')}
+            variant={checkoutItemsConfirmed ? 'secondary' : 'primary'}
           >
             {checkoutItemsConfirmed ? '✓ Items Confirmed' : 'Confirm Items Returned'}
-          </button>
+          </Button>
 
           {request.lateFeeAmount > 0 && (
-            <button
+            <Button
               onClick={onMarkFeePaid}
               disabled={checkoutFeePaid}
               className={[
-                'cs-liquid-button',
-                checkoutFeePaid ? 'cs-liquid-button--selected' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              style={{
-                padding: '0.75rem',
-                cursor: checkoutFeePaid ? 'default' : 'pointer',
-                fontWeight: 600,
-              }}
+                'w-full',
+                checkoutFeePaid
+                  ? 'bg-emerald-600 text-white hover:bg-emerald-600 focus-visible:ring-emerald-600/40'
+                  : '',
+              ].join(' ')}
+              variant={checkoutFeePaid ? 'secondary' : 'primary'}
             >
               {checkoutFeePaid ? '✓ Fee Marked Paid' : 'Mark Late Fee Paid'}
-            </button>
+            </Button>
           )}
 
-          <button
+          <Button
             onClick={onComplete}
             disabled={
               !checkoutItemsConfirmed ||
               (request.lateFeeAmount > 0 && !checkoutFeePaid) ||
               isSubmitting
             }
-            className="cs-liquid-button"
-            style={{
-              padding: '0.75rem',
-              cursor:
-                !checkoutItemsConfirmed ||
-                (request.lateFeeAmount > 0 && !checkoutFeePaid)
-                  ? 'not-allowed'
-                  : 'pointer',
-              fontWeight: 600,
-            }}
+            className="w-full"
           >
             {isSubmitting ? 'Processing...' : 'Complete Checkout'}
-          </button>
+          </Button>
         </div>
 
-        <button
-          onClick={onCancel}
-          className="cs-liquid-button cs-liquid-button--danger"
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            cursor: 'pointer',
-          }}
-        >
+        <Button onClick={onCancel} variant="danger" className="w-full">
           Cancel
-        </button>
-      </div>
+        </Button>
+      </Card>
     </div>
   );
 }

@@ -1,5 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
-import { LiquidGlassPinInput } from '@club-ops/ui';
+import { PinInput } from '@club-ops/ui';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
+import { Input } from './ui/Input';
 import {
   isWebAuthnSupported,
   requestAuthenticationOptions,
@@ -150,107 +153,116 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
   };
 
   return (
-    <div className="lock-screen">
-      <div className="lock-screen-content cs-liquid-card">
-        <div className="lock-screen-header">
-          <h1>Staff Login</h1>
-          <p>Sign in with fingerprint or PIN</p>
-        </div>
-
-        <div className="lock-screen-tabs">
-          {webauthnSupported && (
-            <button
-              className={`tab-button cs-liquid-button cs-liquid-button--secondary ${mode === 'webauthn' ? 'cs-liquid-button--selected' : ''}`}
-              onClick={() => {
-                setMode('webauthn');
-                setError(null);
-              }}
-              disabled={isLoading}
-            >
-              Fingerprint
-            </button>
-          )}
-          <button
-            className={`tab-button cs-liquid-button cs-liquid-button--secondary ${mode === 'pin' ? 'cs-liquid-button--selected' : ''}`}
-            onClick={() => {
-              setMode('pin');
-              setError(null);
-            }}
-            disabled={isLoading}
-          >
-            PIN
-          </button>
-        </div>
-
-        {error && <div className="lock-screen-error">{error}</div>}
-
-        {mode === 'webauthn' ? (
-          <div className="lock-screen-webauthn">
-            <input
-              type="text"
-              className="staff-lookup-input cs-liquid-input"
-              placeholder="Enter your name or staff ID"
-              value={staffLookup}
-              onChange={(e) => setStaffLookup(e.target.value)}
-              disabled={isLoading}
-              autoFocus
-            />
-            <button
-              type="button"
-              className="webauthn-button cs-liquid-button"
-              onClick={() => void handleWebAuthnLogin()}
-              disabled={isLoading || !staffLookup.trim()}
-            >
-              {isLoading ? 'Authenticating...' : 'Sign in with fingerprint'}
-            </button>
-            <button
-              type="button"
-              className="pin-fallback-button cs-liquid-button cs-liquid-button--secondary"
-              onClick={() => {
-                setMode('pin');
-                setError(null);
-              }}
-              disabled={isLoading}
-            >
-              Use PIN instead
-            </button>
+    <div className="min-h-screen bg-gray-50 p-6 text-gray-900 flex items-center justify-center">
+      <div className="w-full max-w-md">
+        <Card padding="lg">
+          <div className="mb-6">
+            <div className="text-sm font-semibold text-indigo-600">Employee Register</div>
+            <h1 className="mt-1 text-2xl font-semibold text-gray-900">Staff Login</h1>
+            <p className="mt-2 text-sm text-gray-600">Sign in with fingerprint or PIN</p>
           </div>
-        ) : (
-          <div className="lock-screen-pin">
-            <input
-              type="text"
-              className="staff-lookup-input cs-liquid-input"
-              placeholder="Enter your name or staff ID"
-              value={staffLookup}
-              onChange={(e) => setStaffLookup(e.target.value)}
-              disabled={isLoading}
-              autoFocus
-            />
-            <LiquidGlassPinInput
-              length={6}
-              value={pin}
-              onChange={(next) => setPin(next)}
-              onSubmit={() => void handlePinSubmit()}
-              submitLabel={isLoading ? 'Logging in…' : 'Login'}
-              submitDisabled={isLoading || !staffLookup.trim()}
-              disabled={isLoading}
-              displayAriaLabel="Staff PIN"
-            />
-            {webauthnSupported && (
-              <button
-                type="button"
-                className="webauthn-fallback-button cs-liquid-button cs-liquid-button--secondary"
+
+          <div className="mb-4 flex gap-2">
+            {webauthnSupported ? (
+              <Button
+                variant={mode === 'webauthn' ? 'primary' : 'secondary'}
+                className="flex-1"
                 onClick={() => {
                   setMode('webauthn');
                   setError(null);
                 }}
                 disabled={isLoading}
               >
-                Use fingerprint instead
-              </button>
-            )}
+                Fingerprint
+              </Button>
+            ) : null}
+            <Button
+              variant={mode === 'pin' ? 'primary' : 'secondary'}
+              className="flex-1"
+              onClick={() => {
+                setMode('pin');
+                setError(null);
+              }}
+              disabled={isLoading}
+            >
+              PIN
+            </Button>
           </div>
-        )}
+
+          {error ? (
+            <div className="mb-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              {error}
+            </div>
+          ) : null}
+
+          {mode === 'webauthn' ? (
+            <div className="space-y-3">
+              <Input
+                type="text"
+                placeholder="Enter your name or staff ID"
+                value={staffLookup}
+                onChange={(e) => setStaffLookup(e.target.value)}
+                disabled={isLoading}
+                autoFocus
+              />
+              <Button
+                type="button"
+                onClick={() => void handleWebAuthnLogin()}
+                disabled={isLoading || !staffLookup.trim()}
+                className="w-full"
+              >
+                {isLoading ? 'Authenticating…' : 'Sign in with fingerprint'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  setMode('pin');
+                  setError(null);
+                }}
+                disabled={isLoading}
+                className="w-full"
+              >
+                Use PIN instead
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              <Input
+                type="text"
+                placeholder="Enter your name or staff ID"
+                value={staffLookup}
+                onChange={(e) => setStaffLookup(e.target.value)}
+                disabled={isLoading}
+                autoFocus
+              />
+              <PinInput
+                length={6}
+                value={pin}
+                onChange={(next) => setPin(next)}
+                onSubmit={() => void handlePinSubmit()}
+                submitLabel={isLoading ? 'Logging in…' : 'Login'}
+                submitDisabled={isLoading || !staffLookup.trim()}
+                disabled={isLoading}
+                displayAriaLabel="Staff PIN"
+              />
+              {webauthnSupported ? (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => {
+                    setMode('webauthn');
+                    setError(null);
+                  }}
+                  disabled={isLoading}
+                  className="w-full"
+                >
+                  Use fingerprint instead
+                </Button>
+              ) : null}
+            </div>
+          )}
+        </Card>
       </div>
     </div>
   );

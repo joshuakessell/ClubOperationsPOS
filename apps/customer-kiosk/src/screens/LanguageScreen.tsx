@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { Button } from '../ui/Button';
 
 export interface LanguageScreenProps {
   customerPrimaryLanguage: Language | null | undefined;
@@ -27,20 +28,20 @@ export function LanguageScreen({
             <div className="language-selection-screen">
               <h1 className="language-title">{t(null, 'selectLanguage')}</h1>
               <div className="language-options">
-                <button
-                  className="language-option cs-liquid-button cs-liquid-button--pill"
+                <Button
+                  className="language-option"
                   onClick={() => void onSelectLanguage('EN')}
                   disabled={isSubmitting}
                 >
                   {t(null, 'english')}
-                </button>
-                <button
-                  className="language-option cs-liquid-button cs-liquid-button--pill"
+                </Button>
+                <Button
+                  className="language-option"
                   onClick={() => void onSelectLanguage('ES')}
                   disabled={isSubmitting}
                 >
                   {t(null, 'spanish')}
-                </button>
+                </Button>
               </div>
             </div>
           </main>

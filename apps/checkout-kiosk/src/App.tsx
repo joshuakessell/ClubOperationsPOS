@@ -8,6 +8,8 @@ import type {
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import { Html5Qrcode } from 'html5-qrcode';
 import logoImage from './assets/the-clubs-logo.png';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
 
 // Explicitly type the image import to avoid type inference issues
 const logoImageSrc = String(logoImage);
@@ -279,12 +281,12 @@ function App() {
     return (
       <div className="idle-container">
         <img src={logoImageSrc} alt="Club Dallas" className="logo-idle" />
-        <button
-          className="start-checkout-btn cs-liquid-button cs-liquid-button--pill"
+        <Button
+          className="start-checkout-btn"
           onClick={() => void handleStartCheckout()}
         >
           Start Checkout
-        </button>
+        </Button>
       </div>
     );
   }
@@ -318,10 +320,7 @@ function App() {
             <div className="checklist-items">
               {isLocker ? (
                 <>
-                  <div
-                    className="checklist-item glass-effect"
-                    onClick={() => handleChecklistToggle('key')}
-                  >
+                  <Card className="checklist-item bg-slate-900 ring-slate-700" onClick={() => handleChecklistToggle('key')}>
                     <input
                       type="checkbox"
                       id="key"
@@ -329,11 +328,8 @@ function App() {
                       onChange={() => handleChecklistToggle('key')}
                     />
                     <label htmlFor="key">Locker key</label>
-                  </div>
-                  <div
-                    className="checklist-item glass-effect"
-                    onClick={() => handleChecklistToggle('towel')}
-                  >
+                  </Card>
+                  <Card className="checklist-item bg-slate-900 ring-slate-700" onClick={() => handleChecklistToggle('towel')}>
                     <input
                       type="checkbox"
                       id="towel"
@@ -341,14 +337,11 @@ function App() {
                       onChange={() => handleChecklistToggle('towel')}
                     />
                     <label htmlFor="towel">Towel</label>
-                  </div>
+                  </Card>
                 </>
               ) : (
                 <>
-                  <div
-                    className="checklist-item glass-effect"
-                    onClick={() => handleChecklistToggle('key')}
-                  >
+                  <Card className="checklist-item bg-slate-900 ring-slate-700" onClick={() => handleChecklistToggle('key')}>
                     <input
                       type="checkbox"
                       id="key"
@@ -356,11 +349,8 @@ function App() {
                       onChange={() => handleChecklistToggle('key')}
                     />
                     <label htmlFor="key">Room key</label>
-                  </div>
-                  <div
-                    className="checklist-item glass-effect"
-                    onClick={() => handleChecklistToggle('sheets')}
-                  >
+                  </Card>
+                  <Card className="checklist-item bg-slate-900 ring-slate-700" onClick={() => handleChecklistToggle('sheets')}>
                     <input
                       type="checkbox"
                       id="sheets"
@@ -368,12 +358,9 @@ function App() {
                       onChange={() => handleChecklistToggle('sheets')}
                     />
                     <label htmlFor="sheets">Sheets</label>
-                  </div>
+                  </Card>
                   {resolvedKey.hasTvRemote && (
-                    <div
-                      className="checklist-item glass-effect"
-                      onClick={() => handleChecklistToggle('remote')}
-                    >
+                    <Card className="checklist-item bg-slate-900 ring-slate-700" onClick={() => handleChecklistToggle('remote')}>
                       <input
                         type="checkbox"
                         id="remote"
@@ -381,28 +368,28 @@ function App() {
                         onChange={() => handleChecklistToggle('remote')}
                       />
                       <label htmlFor="remote">TV remote</label>
-                    </div>
+                    </Card>
                   )}
                 </>
               )}
             </div>
 
-            <div className="checklist-notice glass-effect">
+            <Card className="checklist-notice bg-slate-900 ring-slate-700">
               <strong>Important:</strong>
               <ul>
                 <li>A staff member must verify all items have been returned.</li>
                 <li>Sheets and towels may be placed in the laundry bin at the counter.</li>
                 <li>Keys and TV remotes must be handed directly to an employee.</li>
               </ul>
-            </div>
+            </Card>
 
-            <button
-              className="continue-btn cs-liquid-button"
+            <Button
+              className="continue-btn"
               onClick={() => void handleSubmitCheckout()}
               disabled={!isChecklistComplete()}
             >
               Continue
-            </button>
+            </Button>
           </div>
         </main>
       </div>
@@ -418,9 +405,9 @@ function App() {
           <div className="waiting-container">
             <h1 className="waiting-title">Please hand your items to staff for verification.</h1>
             {lateFeeAmount > 0 && (
-              <div className="late-fee-notice glass-effect">
+              <Card className="late-fee-notice bg-amber-950 ring-amber-700">
                 Late fee due: ${lateFeeAmount.toFixed(2)}. Staff will collect payment.
-              </div>
+              </Card>
             )}
           </div>
         </main>

@@ -1,3 +1,6 @@
+import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
+
 export interface WaitlistPopoverItem {
   id: string;
   title: string; // entry.customerName || entry.displayIdentifier
@@ -29,15 +32,9 @@ export function WaitlistPopover({
 
   return (
     <div style={{ position: 'relative', marginTop: '0.5rem' }}>
-      <div
-        className="cs-liquid-card"
-        style={{
-          position: 'absolute',
-          right: 0,
-          zIndex: 1500,
-          width: '320px',
-          boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
-        }}
+      <Card
+        padding="none"
+        className="absolute right-0 z-[1500] w-[320px] bg-slate-900/70 text-white shadow-2xl ring-slate-700"
       >
         <div
           style={{
@@ -49,16 +46,9 @@ export function WaitlistPopover({
           }}
         >
           <div style={{ fontWeight: 700, color: '#f59e0b' }}>Waitlist</div>
-          <button
-            onClick={onClose}
-            className="cs-liquid-button cs-liquid-button--secondary"
-            style={{
-              fontSize: '0.9rem',
-              padding: '0.25rem 0.6rem',
-            }}
-          >
+          <Button onClick={onClose} variant="secondary" className="h-9 px-3 text-sm">
             Close
-          </button>
+          </Button>
         </div>
         <div
           style={{
@@ -86,23 +76,15 @@ export function WaitlistPopover({
                 <div style={{ fontWeight: 600 }}>{item.title}</div>
                 <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{item.subtitle}</div>
               </div>
-              <button
+              <Button
                 aria-label={`Begin upgrade for ${item.title}`}
                 onClick={() => onAction(item.id, item.customerName)}
-                className={[
-                  'cs-liquid-button',
-                  item.eligible ? '' : 'cs-liquid-button--secondary',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-                style={{
-                  padding: '0.4rem 0.55rem',
-                  fontWeight: 700,
-                }}
+                variant={item.eligible ? 'primary' : 'secondary'}
+                className="h-10 w-12 p-0 text-base"
                 disabled={!item.eligible}
               >
                 🔑
-              </button>
+              </Button>
             </div>
           ))}
           {hasMore && (
@@ -132,7 +114,7 @@ export function WaitlistPopover({
             {disabledReason}
           </div>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

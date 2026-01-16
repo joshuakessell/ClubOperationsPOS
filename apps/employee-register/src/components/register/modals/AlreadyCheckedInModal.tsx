@@ -1,4 +1,5 @@
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
 
 export type ActiveCheckinDetails = {
   visitId: string;
@@ -43,38 +44,38 @@ export function AlreadyCheckedInModal({
 
   return (
     <ModalFrame isOpen={isOpen} title="Already Checked In" onClose={onClose}>
-      <div style={{ marginBottom: '1rem', color: '#e2e8f0' }}>
+      <div className="mb-4">
         {customerLabel ? (
-          <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>{customerLabel}</div>
+          <div className="mb-2 text-base font-semibold text-gray-900">{customerLabel}</div>
         ) : null}
-        <div style={{ lineHeight: 1.5 }}>
+        <div className="text-sm leading-6 text-gray-700">
           This customer currently has an active check-in. Please use the current visit (or check them out) instead of
           starting a new check-in.
         </div>
       </div>
 
-      <div style={{ display: 'grid', gap: '0.6rem', marginBottom: '1rem' }}>
+      <div className="grid gap-3 mb-4">
         <div>
-          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Assigned</div>
-          <div style={{ fontWeight: 800 }}>{assignedLabel}</div>
+          <div className="text-xs font-semibold text-gray-500">Assigned</div>
+          <div className="font-semibold text-gray-900">{assignedLabel}</div>
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Check-in</div>
-            <div style={{ fontWeight: 700 }}>{checkinAtLabel}</div>
+            <div className="text-xs font-semibold text-gray-500">Check-in</div>
+            <div className="font-medium text-gray-900">{checkinAtLabel}</div>
           </div>
           <div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Checkout</div>
-            <div style={{ fontWeight: 700 }}>
+            <div className="text-xs font-semibold text-gray-500">Checkout</div>
+            <div className="font-medium text-gray-900">
               {checkoutAtLabel}{' '}
-              {activeCheckin?.overdue ? <span style={{ color: '#f59e0b' }}>(overdue)</span> : null}
+              {activeCheckin?.overdue ? <span className="text-amber-600">(overdue)</span> : null}
             </div>
           </div>
         </div>
         {activeCheckin?.waitlist ? (
           <div>
-            <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>Pending upgrade request</div>
-            <div style={{ fontWeight: 800 }}>
+            <div className="text-xs font-semibold text-gray-500">Pending upgrade request</div>
+            <div className="font-semibold text-gray-900">
               {activeCheckin.waitlist.desiredTier} (backup: {activeCheckin.waitlist.backupTier}) •{' '}
               {activeCheckin.waitlist.status}
             </div>
@@ -82,13 +83,9 @@ export function AlreadyCheckedInModal({
         ) : null}
       </div>
 
-      <button
-        onClick={onClose}
-        className="cs-liquid-button"
-        style={{ width: '100%', padding: '0.75rem', fontSize: '1rem', fontWeight: 800 }}
-      >
+      <Button onClick={onClose} className="w-full">
         OK
-      </button>
+      </Button>
     </ModalFrame>
   );
 }

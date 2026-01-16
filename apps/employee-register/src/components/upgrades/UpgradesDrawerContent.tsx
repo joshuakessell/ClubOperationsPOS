@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { Button } from '../../ui/Button';
 
 export type UpgradeWaitlistStatus = 'ACTIVE' | 'OFFERED' | string;
 
@@ -134,47 +135,29 @@ export function UpgradesDrawerContent({
                           </div>
 
                           {status === 'ACTIVE' ? (
-                            <button
+                            <Button
                               onClick={() => onOffer(entry.id, entry.desiredTier, customerLabel)}
-                              className={[
-                                'cs-liquid-button',
-                                eligible ? 'cs-liquid-button--success' : 'cs-liquid-button--secondary',
-                              ].join(' ')}
+                              variant={eligible ? 'primary' : 'secondary'}
                               disabled={!eligible || isSubmitting}
-                              style={{
-                                padding: '0.5rem 1rem',
-                                fontSize: '0.875rem',
-                                fontWeight: 700,
-                              }}
+                              className={eligible ? 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-600/40' : ''}
                             >
                               Offer Upgrade
-                            </button>
+                            </Button>
                           ) : (
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                              <button
+                              <Button
                                 onClick={() => onStartPayment(entry)}
-                                className="cs-liquid-button"
                                 disabled={!eligible || isSubmitting}
-                                style={{
-                                  padding: '0.5rem 0.9rem',
-                                  fontSize: '0.875rem',
-                                  fontWeight: 700,
-                                }}
                               >
                                 Start Payment
-                              </button>
-                              <button
+                              </Button>
+                              <Button
                                 onClick={() => onCancelOffer(entry.id)}
-                                className="cs-liquid-button cs-liquid-button--danger"
+                                variant="danger"
                                 disabled={isSubmitting}
-                                style={{
-                                  padding: '0.5rem 0.9rem',
-                                  fontSize: '0.875rem',
-                                  fontWeight: 700,
-                                }}
                               >
                                 Cancel Offer
-                              </button>
+                              </Button>
                             </div>
                           )}
                         </div>

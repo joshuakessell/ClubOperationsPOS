@@ -1,6 +1,8 @@
 import { t, type Language } from '../../i18n';
 import { getRentalDisplayName } from '../../utils/display';
 import type { CustomerConfirmationRequiredPayload } from '@club-ops/shared';
+import { Modal } from '../../ui/Modal';
+import { Button } from '../../ui/Button';
 
 export interface CustomerConfirmationModalProps {
   isOpen: boolean;
@@ -19,45 +21,34 @@ export function CustomerConfirmationModal({
   onDecline,
   isSubmitting,
 }: CustomerConfirmationModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay" onClick={() => {}}>
-      <div className="modal-content cs-liquid-card" onClick={(e) => e.stopPropagation()}>
-        <h2>{t(customerPrimaryLanguage, 'confirmDifferent.title')}</h2>
-        <div className="disclaimer-text">
+    <Modal isOpen={isOpen} onClose={() => {}} title={t(customerPrimaryLanguage, 'confirmDifferent.title')} width="2xl">
+      <div className="grid gap-6">
+        <div className="grid gap-3 text-lg text-gray-700">
           <p>
             {t(customerPrimaryLanguage, 'confirmDifferent.youRequested')}{' '}
-            <strong>
+            <span className="font-semibold">
               {getRentalDisplayName(data.requestedType, customerPrimaryLanguage)}
-            </strong>
+            </span>
           </p>
           <p>
             {t(customerPrimaryLanguage, 'confirmDifferent.staffSelected')}{' '}
-            <strong>
+            <span className="font-semibold">
               {getRentalDisplayName(data.selectedType, customerPrimaryLanguage)} {data.selectedNumber}
-            </strong>
+            </span>
           </p>
           <p>{t(customerPrimaryLanguage, 'confirmDifferent.question')}</p>
         </div>
-        <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
-          <button
-            className="cs-liquid-button modal-ok-btn"
-            onClick={() => void onAccept()}
-            disabled={isSubmitting}
-          >
+        <div className="flex flex-col gap-4 sm:flex-row sm:justify-center">
+          <Button onClick={() => void onAccept()} disabled={isSubmitting} className="min-w-[240px]">
             {t(customerPrimaryLanguage, 'common.accept')}
-          </button>
-          <button
-            className="cs-liquid-button cs-liquid-button--danger modal-ok-btn"
-            onClick={() => void onDecline()}
-            disabled={isSubmitting}
-          >
+          </Button>
+          <Button variant="danger" onClick={() => void onDecline()} disabled={isSubmitting} className="min-w-[240px]">
             {t(customerPrimaryLanguage, 'common.decline')}
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

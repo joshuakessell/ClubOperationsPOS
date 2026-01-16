@@ -1,4 +1,6 @@
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
+import { Card } from '../../../ui/Card';
 
 export interface PastDuePaymentModalProps {
   isOpen: boolean;
@@ -23,29 +25,20 @@ export function PastDuePaymentModal({
 }: PastDuePaymentModalProps) {
   return (
     <ModalFrame isOpen={isOpen} title={`Past Due Balance: $${quote.total.toFixed(2)}`} onClose={onClose}>
-      <p style={{ marginBottom: '1.5rem', color: '#94a3b8' }}>
+      <p className="mb-6 text-sm text-gray-600">
         Customer has a past due balance. Please process payment or bypass.
       </p>
 
       {(quote.lineItems.length > 0 || quote.messages.length > 0) && (
-        <div
-          className="cs-liquid-card glass-effect"
-          style={{ padding: '0.75rem', marginBottom: '1rem', display: 'grid', gap: '0.5rem' }}
-        >
+        <Card padding="md" className="mb-4 grid gap-2">
           {quote.lineItems.length > 0 && (
-            <div style={{ display: 'grid', gap: '0.35rem' }}>
+            <div className="grid gap-1">
               {quote.lineItems.map((li, idx) => (
                 <div
                   key={`${li.description}-${idx}`}
-                  style={{
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    gap: '0.75rem',
-                    color: '#e2e8f0',
-                    fontWeight: 700,
-                  }}
+                  className="flex items-center justify-between gap-3 text-sm font-semibold text-gray-900"
                 >
-                  <span style={{ color: '#cbd5e1' }}>{li.description}</span>
+                  <span className="text-gray-700">{li.description}</span>
                   <span>${li.amount.toFixed(2)}</span>
                 </div>
               ))}
@@ -53,89 +46,48 @@ export function PastDuePaymentModal({
           )}
 
           {quote.messages.length > 0 && (
-            <div style={{ display: 'grid', gap: '0.25rem' }}>
+            <div className="grid gap-1">
               {quote.messages.map((m, idx) => (
-                <div key={idx} style={{ color: '#94a3b8', fontSize: '0.9rem' }}>
+                <div key={idx} className="text-sm text-gray-600">
                   {m}
                 </div>
               ))}
             </div>
           )}
-        </div>
+        </Card>
       )}
 
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '0.75rem',
-          marginBottom: '1rem',
-        }}
-      >
-        <button
+      <div className="mb-4 flex flex-col gap-3">
+        <Button
           onClick={() => onPayInSquare('CREDIT_SUCCESS')}
           disabled={isSubmitting}
-          className="cs-liquid-button"
-          style={{
-            padding: '0.75rem',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-          }}
         >
           Credit Success
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => onPayInSquare('CASH_SUCCESS')}
           disabled={isSubmitting}
-          className="cs-liquid-button"
-          style={{
-            padding: '0.75rem',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-          }}
         >
           Cash Success
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => onPayInSquare('CREDIT_DECLINE', 'Card declined')}
           disabled={isSubmitting}
-          className="cs-liquid-button cs-liquid-button--danger"
-          style={{
-            padding: '0.75rem',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-          }}
+          variant="danger"
         >
           Credit Decline
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onManagerBypass}
           disabled={isSubmitting}
-          className="cs-liquid-button cs-liquid-button--secondary"
-          style={{
-            padding: '0.75rem',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-          }}
+          variant="secondary"
         >
           Manager Bypass
-        </button>
+        </Button>
       </div>
-      <button
-        onClick={onClose}
-        className="cs-liquid-button cs-liquid-button--danger"
-        style={{
-          width: '100%',
-          padding: '0.75rem',
-          cursor: 'pointer',
-        }}
-      >
+      <Button onClick={onClose} variant="danger" className="w-full">
         Cancel
-      </button>
+      </Button>
     </ModalFrame>
   );
 }

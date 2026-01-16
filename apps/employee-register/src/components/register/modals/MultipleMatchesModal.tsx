@@ -1,4 +1,6 @@
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
+import { Card } from '../../../ui/Card';
 
 export type MultipleMatchCandidate = {
   id: string;
@@ -34,72 +36,45 @@ export function MultipleMatchesModal({
       maxHeight="70vh"
       closeOnOverlayClick={false}
     >
-      <div style={{ display: 'grid', gap: '0.75rem' }}>
-        <div style={{ color: '#94a3b8' }}>Select the correct customer to continue.</div>
+      <div className="grid gap-3">
+        <div className="text-sm text-gray-600">Select the correct customer to continue.</div>
 
         {errorMessage ? (
           <div
-            style={{
-              padding: '0.75rem',
-              background: 'rgba(239, 68, 68, 0.18)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              borderRadius: 12,
-              color: '#fecaca',
-              fontWeight: 800,
-            }}
+            className="rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700"
           >
             {errorMessage}
           </div>
         ) : null}
 
-        <div
-          className="cs-liquid-card"
-          style={{
-            padding: 0,
-            overflow: 'hidden',
-          }}
-        >
+        <Card padding="none" className="overflow-hidden">
           {candidates.length === 0 ? (
-            <div style={{ padding: '1rem', color: '#94a3b8' }}>No candidates.</div>
+            <div className="p-4 text-sm text-gray-600">No candidates.</div>
           ) : (
-            <div style={{ display: 'grid' }}>
+            <div className="grid">
               {candidates.map((c) => (
                 <button
                   key={c.id}
                   type="button"
                   onClick={() => onSelect(c.id)}
                   disabled={isSubmitting}
-                  className="cs-liquid-button cs-liquid-button--secondary"
-                  style={{
-                    width: '100%',
-                    textAlign: 'left',
-                    padding: '1rem',
-                    borderRadius: 0,
-                    border: 'none',
-                    borderBottom: '1px solid rgba(148, 163, 184, 0.18)',
-                    display: 'grid',
-                    gap: '0.35rem',
-                  }}
+                  className="w-full border-b border-gray-200 p-4 text-left hover:bg-gray-50 disabled:opacity-60"
                 >
-                  <div style={{ fontWeight: 900, fontSize: '1.05rem' }}>{c.name}</div>
-                  <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', color: '#94a3b8' }}>
-                    {c.dob && <span>DOB: {c.dob}</span>}
-                    {c.membershipNumber && <span>Membership: {c.membershipNumber}</span>}
+                  <div className="font-semibold text-gray-900">{c.name}</div>
+                  <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600">
+                    {c.dob ? <span>DOB: {c.dob}</span> : null}
+                    {c.membershipNumber ? <span>Membership: {c.membershipNumber}</span> : null}
                   </div>
                 </button>
               ))}
             </div>
           )}
-        </div>
+        </Card>
 
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button
-            className="cs-liquid-button cs-liquid-button--danger"
-            onClick={onCancel}
-            disabled={isSubmitting}
-          >
+        <div className="flex justify-end">
+          <Button variant="danger" onClick={onCancel} disabled={isSubmitting}>
             Cancel
-          </button>
+          </Button>
         </div>
       </div>
     </ModalFrame>

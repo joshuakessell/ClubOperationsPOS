@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
+import { Input } from '../../../ui/Input';
 
 type Step = 'select' | 'confirm';
 
@@ -194,17 +196,7 @@ export function ManualCheckoutModal({
     <>
       <ModalFrame isOpen={isOpen} title="Checkout" onClose={attemptClose} maxWidth="760px" maxHeight="80vh">
         {candidatesError && (
-          <div
-            style={{
-              marginBottom: '0.75rem',
-              padding: '0.75rem',
-              background: 'rgba(239, 68, 68, 0.18)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              borderRadius: 12,
-              color: '#fecaca',
-              fontWeight: 700,
-            }}
-          >
+          <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
             {candidatesError}
           </div>
         )}
@@ -216,9 +208,8 @@ export function ManualCheckoutModal({
             ) : (
               <>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-                  <div className="cs-liquid-search" style={{ flex: 1, minWidth: 280 }}>
-                    <input
-                      className="cs-liquid-input cs-liquid-search__input"
+                  <div style={{ flex: 1, minWidth: 280 }}>
+                    <Input
                       placeholder="Type room/locker number…"
                       value={typedNumber}
                       onFocus={() => setSelectedOccupancyId(null)}
@@ -228,34 +219,15 @@ export function ManualCheckoutModal({
                       }}
                       aria-label="Checkout number"
                     />
-                    <div className="cs-liquid-search__icon">
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path
-                          d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M14 14L11.1 11.1"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
                   </div>
 
-                  <button
+                  <Button
                     type="button"
-                    className="cs-liquid-button"
                     onClick={() => void handleContinue()}
                     disabled={!canContinue || isSubmitting}
                   >
                     {isSubmitting ? 'Loading…' : 'Continue'}
-                  </button>
+                  </Button>
                 </div>
 
                 <div style={{ marginTop: '1rem' }}>
@@ -274,28 +246,16 @@ export function ManualCheckoutModal({
                           c.isOverdue ? ` (${formatLateDuration(minutesLate)} late)` : ''
                         }`;
                         return (
-                          <button
+                          <Button
                             key={c.occupancyId}
                             type="button"
-                            className={[
-                              'cs-liquid-button',
-                              selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                            ].join(' ')}
+                            variant={selected ? 'primary' : 'secondary'}
                             aria-pressed={selected}
                             onClick={() => {
                               setSelectedOccupancyId(c.occupancyId);
                               setTypedNumber('');
                             }}
-                            style={{
-                              justifyContent: 'space-between',
-                              padding: '0.75rem',
-                              borderColor: c.isOverdue ? 'rgba(239, 68, 68, 0.65)' : undefined,
-                              background: selected
-                                ? undefined
-                                : c.isOverdue
-                                  ? 'rgba(239, 68, 68, 0.08)'
-                                  : undefined,
-                            }}
+                            className="w-full justify-between"
                           >
                             <div
                               style={{
@@ -319,7 +279,7 @@ export function ManualCheckoutModal({
                                 {checkoutLabel}
                               </div>
                             </div>
-                          </button>
+                          </Button>
                         );
                       })}
                     </div>
@@ -371,9 +331,9 @@ export function ManualCheckoutModal({
               )}
 
               <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}>
-                <button
+                <Button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                  variant="secondary"
                   onClick={() => {
                     if (entryMode === 'direct-confirm') {
                       onClose();
@@ -385,15 +345,14 @@ export function ManualCheckoutModal({
                   disabled={isSubmitting}
                 >
                   Back
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
-                  className="cs-liquid-button"
                   onClick={() => void handleConfirm()}
                   disabled={isSubmitting}
                 >
                   {isSubmitting ? 'Confirming…' : 'Confirm'}
-                </button>
+                </Button>
               </div>
             </div>
           </>
@@ -411,23 +370,22 @@ export function ManualCheckoutModal({
           You’re on the confirmation step. Do you want to cancel checkout?
         </div>
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
-          <button
+          <Button
             type="button"
-            className="cs-liquid-button cs-liquid-button--secondary"
             onClick={() => setShowCancelWarning(false)}
           >
             Return to confirm checkout
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="cs-liquid-button cs-liquid-button--danger"
+            variant="danger"
             onClick={() => {
               setShowCancelWarning(false);
               onClose();
             }}
           >
             Cancel checkout
-          </button>
+          </Button>
         </div>
       </ModalFrame>
     </>

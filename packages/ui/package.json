@@ -5,18 +5,19 @@
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "dependencies": {
+    "@tailwindcss/forms": "^0.5.9"
+  },
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js"
     },
+    "./tailwind-preset": "./tailwind-preset.js",
     "./styles": {
       "types": "./dist/styles.d.ts",
       "import": "./dist/styles.js"
-    },
-    "./src/styles/tokens.css": "./src/styles/tokens.css",
-    "./src/styles/components.css": "./src/styles/components.css",
-    "./src/styles/liquid-glass.css": "./src/styles/liquid-glass.css"
+    }
   },
   "scripts": {
     "build": "tsc",

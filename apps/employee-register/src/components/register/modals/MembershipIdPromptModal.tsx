@@ -1,4 +1,7 @@
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
+import { Card } from '../../../ui/Card';
+import { Input } from '../../../ui/Input';
 
 export interface MembershipIdPromptModalProps {
   isOpen: boolean;
@@ -29,66 +32,36 @@ export function MembershipIdPromptModal({
 }: MembershipIdPromptModalProps) {
   return (
     <ModalFrame isOpen={isOpen} title="Enter Membership ID" onClose={onNotNow} maxWidth="520px">
-      <p style={{ marginBottom: '1rem', color: '#94a3b8' }}>
+      <p className="mb-4 text-sm text-gray-600">
         Payment was accepted for a 6 month membership. Scan or type the membership number from the
         physical card, then press Enter.
       </p>
 
       {membershipPurchaseIntent === 'RENEW' && membershipNumber ? (
-        <div style={{ marginBottom: '0.75rem' }}>
-          <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <button
+        <div className="mb-3">
+          <div className="mb-3 flex gap-3">
+            <Button
               onClick={() => onModeChange('KEEP_EXISTING')}
               disabled={isSubmitting}
-              className={[
-                'cs-liquid-button',
-                'cs-liquid-button--secondary',
-                membershipIdMode === 'KEEP_EXISTING' ? 'cs-liquid-button--selected' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              style={{
-                flex: 1,
-                padding: '0.6rem',
-                fontWeight: 700,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              }}
+              variant={membershipIdMode === 'KEEP_EXISTING' ? 'primary' : 'secondary'}
+              className="flex-1"
             >
               Keep Same ID
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={() => onModeChange('ENTER_NEW')}
               disabled={isSubmitting}
-              className={[
-                'cs-liquid-button',
-                'cs-liquid-button--secondary',
-                membershipIdMode === 'ENTER_NEW' ? 'cs-liquid-button--selected' : '',
-              ]
-                .filter(Boolean)
-                .join(' ')}
-              style={{
-                flex: 1,
-                padding: '0.6rem',
-                fontWeight: 700,
-                cursor: isSubmitting ? 'not-allowed' : 'pointer',
-              }}
+              variant={membershipIdMode === 'ENTER_NEW' ? 'primary' : 'secondary'}
+              className="flex-1"
             >
               Enter New ID
-            </button>
+            </Button>
           </div>
 
           {membershipIdMode === 'KEEP_EXISTING' && (
-            <div
-              className="cs-liquid-card"
-              style={{
-                padding: '0.75rem',
-                color: 'white',
-                fontSize: '1.25rem',
-                letterSpacing: '0.04em',
-              }}
-            >
+            <Card padding="md" className="font-mono text-lg tracking-wide">
               {membershipNumber}
-            </div>
+            </Card>
           )}
         </div>
       ) : null}
@@ -96,7 +69,7 @@ export function MembershipIdPromptModal({
       {(membershipPurchaseIntent !== 'RENEW' ||
         !membershipNumber ||
         membershipIdMode === 'ENTER_NEW') && (
-        <input
+        <Input
           type="text"
           value={membershipIdInput}
           autoFocus
@@ -114,21 +87,14 @@ export function MembershipIdPromptModal({
           }}
           placeholder="Membership ID"
           disabled={isSubmitting}
-          className="cs-liquid-input"
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            fontSize: '1.25rem',
-            letterSpacing: '0.04em',
-            marginBottom: '0.75rem',
-          }}
+          className="mb-3 font-mono text-lg tracking-wide"
         />
       )}
 
-      {error && <div style={{ color: '#fecaca', marginBottom: '0.75rem' }}>{error}</div>}
+      {error ? <div className="mb-3 text-sm font-semibold text-red-700">{error}</div> : null}
 
-      <div style={{ display: 'flex', gap: '0.75rem' }}>
-        <button
+      <div className="flex gap-3">
+        <Button
           onClick={() =>
             onConfirm(
               membershipIdMode === 'KEEP_EXISTING' && membershipPurchaseIntent === 'RENEW'
@@ -142,29 +108,17 @@ export function MembershipIdPromptModal({
               ? !membershipNumber
               : !membershipIdInput.trim())
           }
-          className="cs-liquid-button"
-          style={{
-            flex: 1,
-            padding: '0.75rem',
-            fontSize: '1rem',
-            fontWeight: 700,
-          }}
+          className="flex-1"
         >
           {isSubmitting ? 'Saving…' : 'Save Membership'}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onNotNow}
           disabled={isSubmitting}
-          className="cs-liquid-button cs-liquid-button--secondary"
-          style={{
-            padding: '0.75rem 1rem',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: isSubmitting ? 'not-allowed' : 'pointer',
-          }}
+          variant="secondary"
         >
           Not now
-        </button>
+        </Button>
       </div>
     </ModalFrame>
   );

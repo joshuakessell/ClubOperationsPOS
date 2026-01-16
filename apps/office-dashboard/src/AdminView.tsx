@@ -4,6 +4,7 @@ import type { StaffSession } from './LockScreen';
 import type { WebSocketEvent } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import { wsBaseUrl } from './api';
+import { Button } from './ui/Button';
 
 const API_BASE = '/api';
 
@@ -214,9 +215,9 @@ export function AdminView({ session }: AdminViewProps) {
         <div className="admin-unauthorized">
           <h1>Not authorized</h1>
           <p>You must be an administrator to access this page.</p>
-          <button onClick={() => navigate('/')} className="cs-liquid-button">
+          <Button onClick={() => navigate('/')} variant="secondary">
             Return to Dashboard
-          </button>
+          </Button>
         </div>
       </div>
     );
@@ -264,18 +265,12 @@ export function AdminView({ session }: AdminViewProps) {
             ></span>
             <span>{wsConnected ? 'Live' : 'Offline'}</span>
           </div>
-          <button
-            onClick={() => navigate('/admin/staff')}
-            className="cs-liquid-button cs-liquid-button--secondary"
-          >
+          <Button onClick={() => navigate('/admin/staff')} variant="secondary">
             Staff Management
-          </button>
-          <button
-            onClick={() => navigate('/')}
-            className="cs-liquid-button cs-liquid-button--secondary"
-          >
+          </Button>
+          <Button onClick={() => navigate('/')} variant="secondary">
             ← Back to Dashboard
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -288,32 +283,26 @@ export function AdminView({ session }: AdminViewProps) {
           borderBottom: '1px solid var(--border)',
         }}
       >
-        <button
+        <Button
           onClick={() => {
             setActiveTab('operations');
             loadOperationsData();
           }}
-          className={[
-            'cs-liquid-button',
-            'cs-liquid-button--pill',
-            activeTab === 'operations' ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-          ].join(' ')}
+          variant={activeTab === 'operations' ? 'primary' : 'secondary'}
+          className="rounded-full"
         >
           Operations
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={() => {
             setActiveTab('metrics');
             loadMetricsData();
           }}
-          className={[
-            'cs-liquid-button',
-            'cs-liquid-button--pill',
-            activeTab === 'metrics' ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-          ].join(' ')}
+          variant={activeTab === 'metrics' ? 'primary' : 'secondary'}
+          className="rounded-full"
         >
           Metrics
-        </button>
+        </Button>
       </div>
 
       {isLoading && (
@@ -334,7 +323,7 @@ export function AdminView({ session }: AdminViewProps) {
                 gap: '1rem',
               }}
             >
-              <div className="csRaisedCard cs-liquid-card" style={{ padding: '1.5rem' }}>
+              <div className="csRaisedCard" style={{ padding: '1.5rem' }}>
                 <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>
                   {kpi?.roomsOccupied ?? 0}
                 </div>
@@ -342,7 +331,7 @@ export function AdminView({ session }: AdminViewProps) {
                   Rooms Occupied
                 </div>
               </div>
-              <div className="csRaisedCard cs-liquid-card" style={{ padding: '1.5rem' }}>
+              <div className="csRaisedCard" style={{ padding: '1.5rem' }}>
                 <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>
                   {kpi?.roomsUnoccupied ?? 0}
                 </div>
@@ -350,7 +339,7 @@ export function AdminView({ session }: AdminViewProps) {
                   Rooms Unoccupied
                 </div>
               </div>
-              <div className="csRaisedCard cs-liquid-card" style={{ padding: '1.5rem' }}>
+              <div className="csRaisedCard" style={{ padding: '1.5rem' }}>
                 <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>
                   {kpi?.lockersOccupied ?? 0}
                 </div>
@@ -358,7 +347,7 @@ export function AdminView({ session }: AdminViewProps) {
                   Lockers Occupied
                 </div>
               </div>
-              <div className="csRaisedCard cs-liquid-card" style={{ padding: '1.5rem' }}>
+              <div className="csRaisedCard" style={{ padding: '1.5rem' }}>
                 <div style={{ fontSize: '2rem', fontWeight: 700, color: '#f9fafb' }}>
                   {kpi?.lockersAvailable ?? 0}
                 </div>

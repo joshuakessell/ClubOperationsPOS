@@ -8,6 +8,57 @@ import { requireAuth, requireAdmin, requireReauthForAdmin } from '../auth/middle
  */
 export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   /**
+   * GET /v1/admin/telemetry/recent - Dev/admin telemetry viewer feed
+   *
+   * In production: ADMIN only.
+   * In DEV/DEMO_MODE: any authenticated staff may view (still requires auth).
+   */
+  fastify.get(
+    '/v1/admin/telemetry/recent',
+    {
+      preHandler: [
+        requireAuth,
+        async (request, reply) => {
+          const isDevOrDemo = process.env.NODE_ENV !== 'production' || process.env.DEMO_MODE === 'true';
+          if (isDevOrDemo) return;
+          // Production: admin only
+          await requireAdmin(request, reply);
+        },
+      ],
+    },
+    async (request, reply) => {
+      const parsed = z
+        .object({
+          limit: z
+            .preprocess((v) => (typeof v === 'string' ? Number(v) : v), z.number().int().min(1).max(200))
+            .default(200),
+        })
+        .safeParse(request.query ?? {});
+
+      const limit = parsed.success ? parsed.data.limit : 200;
+
+      const res = await query<{
+        id: string;
+        created_at: string;
+        app: string;
+        kind: string;
+        level: string;
+        message: string | null;
+        route: string | null;
+        request_id: string | null;
+      }>(
+        `SELECT id::text as id, created_at, app, kind, level, message, route, request_id
+         FROM telemetry_events
+         ORDER BY created_at DESC
+         LIMIT $1`,
+        [limit]
+      );
+
+      return reply.status(200).send({ events: res.rows });
+    }
+  );
+
+  /**
    * GET /v1/admin/metrics/summary - Get cleaning metrics summary
    *
    * Returns average dirty time and cleaning duration for a time range.

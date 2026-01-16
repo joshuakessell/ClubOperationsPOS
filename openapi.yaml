@@ -1793,6 +1793,49 @@ paths:
         '403':
           description: Re-authentication required
 
+  /v1/admin/telemetry/recent:
+    get:
+      tags: [Telemetry, Admin]
+      summary: List recent telemetry events (admin/dev viewer)
+      description: |
+        Returns the most recent telemetry events recorded by the system.
+        In production, this endpoint requires ADMIN role. In DEV/DEMO_MODE it may be available to any authenticated staff.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 200
+      responses:
+        '200':
+          description: Recent telemetry events
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  events:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id: { type: string }
+                        created_at: { type: string, format: date-time }
+                        app: { type: string }
+                        kind: { type: string }
+                        level: { type: string, enum: [error, warn, info] }
+                        message: { type: string, nullable: true }
+                        route: { type: string, nullable: true }
+                        request_id: { type: string, nullable: true }
+        '401':
+          description: Unauthorized
+        '403':
+          description: Forbidden
+
   /v1/admin/reports/cash-totals:
     get:
       tags: [Admin]

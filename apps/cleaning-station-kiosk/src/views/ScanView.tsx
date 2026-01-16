@@ -1,4 +1,5 @@
 import { RefObject } from 'react';
+import { Button } from '../ui/Button';
 
 export interface ScannedItem {
   tagCode: string;
@@ -56,11 +57,11 @@ export function ScanView({
         <video ref={videoRef} className="camera-preview" autoPlay playsInline muted />
         <canvas ref={canvasRef} className="camera-canvas" style={{ display: 'none' }} />
         {cameraError && (
-          <div className="camera-error glass-effect">
+          <div className="camera-error">
             <p>Camera Error: {cameraError}</p>
-            <button className="button-secondary" onClick={onToggleFacingMode}>
+            <Button variant="secondary" onClick={onToggleFacingMode}>
               Switch Camera
-            </button>
+            </Button>
           </div>
         )}
         {!cameraError && (
@@ -74,7 +75,7 @@ export function ScanView({
         )}
       </div>
 
-      <div className="content-panel glass-effect">
+      <div className="content-panel">
         <h1 className="panel-title">Scanned Rooms</h1>
 
         {scannedItems.length === 0 ? (
@@ -85,7 +86,7 @@ export function ScanView({
           <>
             <div className="scanned-list">
               {scannedItems.map((item) => (
-                <div key={item.tagCode} className="scanned-item glass-effect">
+                <div key={item.tagCode} className="scanned-item">
                   <div className="scanned-info">
                     <div className="scanned-room-number">Room {item.room.roomNumber}</div>
                     <div className={`scanned-status status-${item.room.status.toLowerCase()}`}>
@@ -104,40 +105,28 @@ export function ScanView({
             </div>
 
             <div className="control-buttons">
-              <button className="button-secondary" onClick={onUndoLastScan}>
+              <Button variant="secondary" onClick={onUndoLastScan}>
                 Undo Last
-              </button>
-              <button className="button-secondary" onClick={onClearAll}>
+              </Button>
+              <Button variant="secondary" onClick={onClearAll}>
                 Clear All
-              </button>
-              <button
-                className="button-secondary"
-                onClick={onLogout}
-                type="button"
-              >
+              </Button>
+              <Button variant="secondary" onClick={onLogout} type="button">
                 Log Out
-              </button>
+              </Button>
             </div>
 
             <div className="action-buttons">
               {actionType === 'begin' && (
-                <button
-                  className="button-primary button-large"
-                  onClick={onBeginCleaning}
-                  disabled={isProcessing}
-                >
+                <Button onClick={onBeginCleaning} disabled={isProcessing} className="button-large">
                   Begin Cleaning ({scannedItems.length})
-                </button>
+                </Button>
               )}
 
               {actionType === 'finish' && (
-                <button
-                  className="button-primary button-large"
-                  onClick={onFinishCleaning}
-                  disabled={isProcessing}
-                >
+                <Button onClick={onFinishCleaning} disabled={isProcessing} className="button-large">
                   Finish Cleaning ({scannedItems.length})
-                </button>
+                </Button>
               )}
 
               {actionType === 'mixed' && (
@@ -145,13 +134,9 @@ export function ScanView({
                   <div className="warning-message">
                     ⚠️ Mixed statuses detected. Please resolve before proceeding.
                   </div>
-                  <button
-                    className="button-primary button-large"
-                    onClick={onGoToResolve}
-                    disabled={isProcessing}
-                  >
+                  <Button onClick={onGoToResolve} disabled={isProcessing} className="button-large">
                     Resolve Statuses
-                  </button>
+                  </Button>
                 </>
               )}
             </div>

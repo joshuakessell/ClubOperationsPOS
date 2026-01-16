@@ -4,6 +4,7 @@ import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { ApiError, apiJson, wsBaseUrl } from './api';
 import { ReAuthModal } from './ReAuthModal';
+import { Button } from './ui/Button';
 
 type WaitlistEntry = {
   id: string;
@@ -203,7 +204,7 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
         />
       )}
 
-      <section className="panel cs-liquid-card" style={{ marginBottom: '1.5rem' }}>
+      <section className="panel" style={{ marginBottom: '1.5rem' }}>
         <div className="panel-header">
           <h2>Waitlist Management</h2>
         </div>
@@ -229,7 +230,7 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
               gap: '1.5rem',
             }}
           >
-            <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+            <div className="csRaisedCard" style={{ padding: '1rem' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>
                 ACTIVE ({active.length})
               </div>
@@ -252,20 +253,20 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
                         <td>{e.desiredTier}</td>
                         <td>{e.currentRentalType}</td>
                         <td>
-                          <button
-                            className="cs-liquid-button cs-liquid-button--secondary"
+                          <Button
+                            variant="secondary"
                             onClick={() => setSelectedEntry(e)}
                             style={{ marginRight: 8 }}
                           >
                             Offer
-                          </button>
-                          <button
-                            className="cs-liquid-button cs-liquid-button--secondary"
+                          </Button>
+                          <Button
+                            variant="secondary"
                             onClick={() => cancelEntry(e)}
                             disabled={busy === e.id}
                           >
                             Cancel
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -274,7 +275,7 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
               )}
             </div>
 
-            <div className="csRaisedCard cs-liquid-card" style={{ padding: '1rem' }}>
+            <div className="csRaisedCard" style={{ padding: '1rem' }}>
               <div style={{ fontWeight: 700, marginBottom: '0.75rem' }}>
                 OFFERED ({offered.length})
               </div>
@@ -299,20 +300,16 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
                           {e.offeredAt ? new Date(e.offeredAt).toLocaleString() : '—'}
                         </td>
                         <td>
-                          <button
-                            className="cs-liquid-button cs-liquid-button--secondary"
-                            onClick={() => setSelectedEntry(e)}
-                            style={{ marginRight: 8 }}
-                          >
+                          <Button variant="secondary" onClick={() => setSelectedEntry(e)} style={{ marginRight: 8 }}>
                             Complete
-                          </button>
-                          <button
-                            className="cs-liquid-button cs-liquid-button--secondary"
+                          </Button>
+                          <Button
+                            variant="secondary"
                             onClick={() => cancelEntry(e)}
                             disabled={busy === e.id}
                           >
                             Cancel
-                          </button>
+                          </Button>
                         </td>
                       </tr>
                     ))}
@@ -324,7 +321,7 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
         </div>
       </section>
 
-      <section className="panel cs-liquid-card">
+      <section className="panel">
         <div className="panel-header">
           <h2>
             {selectedEntry
@@ -366,31 +363,23 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
                   ))}
                 </select>
                 {selectedEntry.status === 'ACTIVE' ? (
-                  <button
-                    className="cs-liquid-button"
-                    onClick={() => offerUpgrade(selectedEntry)}
-                    disabled={busy === selectedEntry.id}
-                  >
+                  <Button onClick={() => offerUpgrade(selectedEntry)} disabled={busy === selectedEntry.id}>
                     Offer Upgrade
-                  </button>
+                  </Button>
                 ) : (
-                  <button
-                    className="cs-liquid-button"
-                    onClick={() => startUpgrade(selectedEntry)}
-                    disabled={busy === selectedEntry.id}
-                  >
+                  <Button onClick={() => startUpgrade(selectedEntry)} disabled={busy === selectedEntry.id}>
                     Complete Upgrade (demo)
-                  </button>
+                  </Button>
                 )}
-                <button
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                <Button
+                  variant="secondary"
                   onClick={() => {
                     setSelectedEntry(null);
                     setSelectedRoomId('');
                   }}
                 >
                   Clear Selection
-                </button>
+                </Button>
               </div>
 
               <div style={{ marginTop: '1rem', color: 'var(--text-muted)', fontSize: '0.875rem' }}>

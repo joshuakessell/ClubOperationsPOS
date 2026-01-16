@@ -1,6 +1,9 @@
 import { ReactNode, RefObject, useEffect, useMemo, useState } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
+import { Modal } from '../ui/Modal';
 
 export interface Agreement {
   id: string;
@@ -78,7 +81,7 @@ export function AgreementScreen({
         {welcomeOverlay}
         <div className="agreement-screen-container">
           {/* Liquid-glass panel */}
-          <div className="agreement-paper-panel cs-liquid-card">
+          <Card className="agreement-paper-panel bg-slate-900/70 ring-slate-700 text-white">
             <h1 className="agreement-title">
               {agreement?.title || t(customerPrimaryLanguage, 'agreementTitle')}
             </h1>
@@ -170,17 +173,14 @@ export function AgreementScreen({
                   )}
                 </div>
                 <div className="ck-action-content ck-action-content--center">
-                  <button
+                  <Button
                     type="button"
-                    className={[
-                      'cs-liquid-button',
-                      'agreement-signature-button',
-                      pulseSignButton ? 'pulse-bright' : '',
-                    ]
+                    className={['agreement-signature-button', pulseSignButton ? 'pulse-bright' : '']
                       .filter(Boolean)
                       .join(' ')}
                     onClick={() => setSignatureModalOpen(true)}
                     disabled={!hasScrolledAgreement || !!signatureData}
+                    variant={signatureData ? 'secondary' : 'primary'}
                   >
                     {signatureData ? (
                       <span className="agreement-signature-button__content">
@@ -192,17 +192,13 @@ export function AgreementScreen({
                     ) : (
                       t(customerPrimaryLanguage, 'agreement.tapToSign')
                     )}
-                  </button>
+                  </Button>
                 </div>
               </div>
 
               <div className="agreement-submit-container">
-                <button
-                  className={[
-                    'cs-liquid-button',
-                    'submit-agreement-btn',
-                    pulseSubmitButton ? 'pulse-bright' : '',
-                  ]
+                <Button
+                  className={['submit-agreement-btn', pulseSubmitButton ? 'pulse-bright' : '']
                     .filter(Boolean)
                     .join(' ')}
                   onClick={onSubmit}
@@ -211,61 +207,51 @@ export function AgreementScreen({
                   {isSubmitting
                     ? t(customerPrimaryLanguage, 'submitting')
                     : t(customerPrimaryLanguage, 'submit')}
-                </button>
+                </Button>
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
-        {signatureModalOpen && (
-          <div
-            className="signature-modal-overlay"
-            role="dialog"
-            aria-label={t(customerPrimaryLanguage, 'a11y.signatureDialog')}
-            onClick={() => setSignatureModalOpen(false)}
-          >
-            <div className="signature-modal cs-liquid-card" onClick={(e) => e.stopPropagation()}>
-              <div className="signature-modal-header">
-                <div className="signature-modal-title">{t(customerPrimaryLanguage, 'signatureRequired')}</div>
-              </div>
+        <Modal
+          isOpen={signatureModalOpen}
+          onClose={() => setSignatureModalOpen(false)}
+          title={t(customerPrimaryLanguage, 'signatureRequired')}
+          width="5xl"
+          panelClassName="p-6"
+        >
+          <div className="grid gap-6">
+            <canvas
+              ref={signatureCanvasRef}
+              className="signature-modal-canvas w-full rounded-lg border border-gray-300 bg-white"
+              width={900}
+              height={320}
+              onMouseDown={onSignatureStart}
+              onMouseMove={onSignatureMove}
+              onMouseUp={onSignatureEnd}
+              onMouseLeave={onSignatureEnd}
+              onTouchStart={onSignatureStart}
+              onTouchMove={onSignatureMove}
+              onTouchEnd={onSignatureEnd}
+            />
 
-              <canvas
-                ref={signatureCanvasRef}
-                className="signature-modal-canvas"
-                width={900}
-                height={320}
-                onMouseDown={onSignatureStart}
-                onMouseMove={onSignatureMove}
-                onMouseUp={onSignatureEnd}
-                onMouseLeave={onSignatureEnd}
-                onTouchStart={onSignatureStart}
-                onTouchMove={onSignatureMove}
-                onTouchEnd={onSignatureEnd}
-              />
-
-              <div className="signature-modal-actions">
-                <button
-                  type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
-                  onClick={() => {
-                    onClearSignature();
-                    setSignatureModalOpen(false);
-                  }}
-                >
-                  {t(customerPrimaryLanguage, 'common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  className="cs-liquid-button"
-                  disabled={!signatureData}
-                  onClick={() => setSignatureModalOpen(false)}
-                >
-                  {t(customerPrimaryLanguage, 'agreement.sign')}
-                </button>
-              </div>
+            <div className="flex flex-col gap-4 sm:flex-row sm:justify-end">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  onClearSignature();
+                  setSignatureModalOpen(false);
+                }}
+              >
+                {t(customerPrimaryLanguage, 'common.cancel')}
+              </Button>
+              <Button type="button" disabled={!signatureData} onClick={() => setSignatureModalOpen(false)}>
+                {t(customerPrimaryLanguage, 'agreement.sign')}
+              </Button>
             </div>
           </div>
-        )}
+        </Modal>
       </ScreenShell>
     </I18nProvider>
   );

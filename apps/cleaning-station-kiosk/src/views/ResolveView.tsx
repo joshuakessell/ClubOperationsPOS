@@ -1,5 +1,6 @@
 import { RoomStatus } from '@club-ops/shared';
 import { OverrideModal } from '../components/OverrideModal';
+import { Button } from '../ui/Button';
 
 export interface ScannedItem {
   tagCode: string;
@@ -127,16 +128,12 @@ export function ResolveView({
         </div>
 
         <div className="resolve-actions">
-          <button className="button-secondary" onClick={onBackToScan}>
+          <Button variant="secondary" onClick={onBackToScan}>
             Cancel
-          </button>
-          <button
-            className="button-primary"
-            onClick={onSubmitResolved}
-            disabled={isProcessing}
-          >
+          </Button>
+          <Button onClick={onSubmitResolved} disabled={isProcessing}>
             Save Changes
-          </button>
+          </Button>
         </div>
       </div>
 

@@ -174,13 +174,24 @@ export function SlideOutDrawer({
     .filter(Boolean)
     .join(' ');
 
+  const tabVariantClass =
+    tabVariant === 'danger'
+      ? 'bg-red-600 text-white hover:bg-red-700 focus-visible:ring-red-600/40'
+      : tabVariant === 'warning'
+        ? 'bg-amber-600 text-white hover:bg-amber-700 focus-visible:ring-amber-600/40'
+        : tabVariant === 'success'
+          ? 'bg-emerald-600 text-white hover:bg-emerald-700 focus-visible:ring-emerald-600/40'
+          : 'bg-slate-900/80 text-white ring-1 ring-inset ring-slate-700 hover:bg-slate-900 focus-visible:ring-indigo-600/30';
+
   const tabClasses = [
-    'cs-liquid-button',
-    tabVariant === 'secondary' ? 'cs-liquid-button--secondary' : `cs-liquid-button--${tabVariant}`,
     'sod-tab',
     side === 'left' ? 'sod-tab--left' : 'sod-tab--right',
     tabPulseVariant ? `er-pulse-${tabPulseVariant}` : '',
     attention ? 'gold-pulse' : '',
+    // Button-like styling (touch-first)
+    'inline-flex items-center justify-center rounded-md font-bold shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60',
+    'h-12 px-3',
+    tabVariantClass,
   ]
     .filter(Boolean)
     .join(' ');
@@ -213,7 +224,7 @@ export function SlideOutDrawer({
 
         <div
           id={panelId}
-          className="cs-liquid-card sod-panel"
+          className="sod-panel rounded-xl bg-slate-900/70 text-white ring-1 ring-slate-700"
           role="region"
           aria-label={label}
           hidden={!isOpen && !isDragging}

@@ -1,3 +1,6 @@
+import { Button } from '../../ui/Button';
+import { Card } from '../../ui/Card';
+
 export type InventorySummarySection = 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL';
 
 export type InventoryAvailableCounts = null | {
@@ -34,49 +37,34 @@ export function InventorySummaryBar({ counts, onOpenInventorySection }: Inventor
 
   const disabled = !counts;
 
-  const Button = (props: {
+  const PillButton = (props: {
     label: string;
     ratio: string;
     section: InventorySummarySection;
   }) => (
-    <button
+    <Button
       type="button"
-      className="cs-liquid-button cs-liquid-button--secondary cs-liquid-button--pill"
-      style={{
-        padding: '0.55rem 0.85rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        gap: '0.75rem',
-        minWidth: 150,
-        opacity: disabled ? 0.65 : 1,
-      }}
+      variant="secondary"
+      className="min-w-[150px] justify-between gap-3 rounded-full px-4"
       disabled={disabled}
       onClick={() => onOpenInventorySection(props.section)}
     >
       <span style={{ fontWeight: 800 }}>{props.label}</span>
       <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800 }}>{props.ratio}</span>
-    </button>
+    </Button>
   );
 
   return (
-    <div
-      className="cs-liquid-card"
-      style={{
-        padding: '0.75rem',
-        display: 'flex',
-        gap: '0.5rem',
-        flexWrap: 'wrap',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-      }}
+    <Card
+      padding="md"
+      className="flex flex-wrap items-center justify-between gap-2 bg-slate-900/70 text-white ring-slate-700"
       aria-label="Inventory summary"
     >
-      <Button label="Lockers" ratio={formatRatio(lockers, lockers)} section="LOCKER" />
-      <Button label="Standard" ratio={formatRatio(xStandard, yStandard)} section="STANDARD" />
-      <Button label="Double" ratio={formatRatio(xDouble, yDouble)} section="DOUBLE" />
-      <Button label="Special" ratio={formatRatio(xSpecial, ySpecial)} section="SPECIAL" />
-    </div>
+      <PillButton label="Lockers" ratio={formatRatio(lockers, lockers)} section="LOCKER" />
+      <PillButton label="Standard" ratio={formatRatio(xStandard, yStandard)} section="STANDARD" />
+      <PillButton label="Double" ratio={formatRatio(xDouble, yDouble)} section="DOUBLE" />
+      <PillButton label="Special" ratio={formatRatio(xSpecial, ySpecial)} section="SPECIAL" />
+    </Card>
   );
 }
 

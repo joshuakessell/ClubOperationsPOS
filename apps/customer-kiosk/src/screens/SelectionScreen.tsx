@@ -3,6 +3,8 @@ import { I18nProvider, t } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
 import { getRentalDisplayName } from '../utils/display';
 import { getMembershipStatus, type SessionState } from '../utils/membership';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
 
 const DISPLAY_PRICE_BY_RENTAL: Record<string, number> = {
   LOCKER: 24,
@@ -110,27 +112,25 @@ export function SelectionScreen({
 
             {/* Selection State Display */}
             {proposedRentalType && (
-              <div
-                style={{
-                  padding: '1rem',
-                  marginBottom: '1rem',
-                  background: selectionConfirmed
-                    ? '#10b981'
+              <Card
+                padding="md"
+                className={[
+                  'mb-4 text-white',
+                  selectionConfirmed
+                    ? 'bg-emerald-600 ring-emerald-500'
                     : proposedBy === 'EMPLOYEE'
-                      ? '#2563eb'
-                      : '#334155',
-                  borderRadius: '8px',
-                  color: 'white',
-                }}
+                      ? 'bg-indigo-600 ring-indigo-500'
+                      : 'bg-slate-700 ring-slate-600',
+                ].join(' ')}
               >
-                <div style={{ fontWeight: 600, marginBottom: '0.5rem' }}>
+                <div className="text-lg font-semibold">
                   {selectionConfirmed
                     ? `✓ ${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${selectionConfirmedBy === 'CUSTOMER' ? t(session.customerPrimaryLanguage, 'common.you') : t(session.customerPrimaryLanguage, 'common.staff')})`
                     : proposedBy === 'EMPLOYEE'
                       ? `${t(session.customerPrimaryLanguage, 'proposed')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})`
                       : `${t(session.customerPrimaryLanguage, 'proposed')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'selection.yourSelectionWaiting')})`}
                 </div>
-              </div>
+              </Card>
             )}
 
             <div className="purchase-cards">
@@ -144,8 +144,8 @@ export function SelectionScreen({
                     </div>
                   </>
                 )}
-                <section
-                  className={`cs-liquid-card purchase-card purchase-card--membership ${activeStep === 'MEMBERSHIP' ? 'ck-step-active' : ''}`}
+                <Card
+                  className={`purchase-card purchase-card--membership ${activeStep === 'MEMBERSHIP' ? 'ck-step-active' : ''} bg-slate-900/70 ring-slate-700 text-white`}
                 >
                 <div className="purchase-card__header">
                   <div className="purchase-card__title">{t(lang, 'membership')}</div>
@@ -168,8 +168,9 @@ export function SelectionScreen({
                 ) : (
                   <div className="purchase-card__body">
                     <div className="membership-option-stack">
-                      <button
-                        className={`cs-liquid-button kiosk-option-button ${membershipChoice === 'ONE_TIME' ? 'cs-liquid-button--selected' : ''}`}
+                      <Button
+                        className={`kiosk-option-button ${membershipChoice === 'ONE_TIME' ? 'ck-selected' : ''}`}
+                        variant={membershipChoice === 'ONE_TIME' ? 'primary' : 'secondary'}
                         onClick={() => {
                           if (!canInteract) return;
                           onSelectOneTimeMembership();
@@ -181,10 +182,11 @@ export function SelectionScreen({
                             price: formatWholeDollars(ONE_TIME_MEMBERSHIP_PRICE),
                           })}
                         </span>
-                      </button>
+                      </Button>
 
-                      <button
-                        className={`cs-liquid-button kiosk-option-button ${membershipChoice === 'SIX_MONTH' ? 'cs-liquid-button--selected' : ''}`}
+                      <Button
+                        className={`kiosk-option-button ${membershipChoice === 'SIX_MONTH' ? 'ck-selected' : ''}`}
+                        variant={membershipChoice === 'SIX_MONTH' ? 'primary' : 'secondary'}
                         onClick={() => {
                           if (!canInteract) return;
                           onSelectSixMonthMembership();
@@ -196,11 +198,11 @@ export function SelectionScreen({
                             price: formatWholeDollars(SIX_MONTH_MEMBERSHIP_PRICE),
                           })}
                         </span>
-                      </button>
+                      </Button>
                     </div>
                   </div>
                 )}
-                </section>
+                </Card>
               </div>
 
               {/* Rental card */}
@@ -213,8 +215,8 @@ export function SelectionScreen({
                     </div>
                   </>
                 )}
-                <section
-                  className={`cs-liquid-card purchase-card purchase-card--rental ${activeStep === 'RENTAL' ? 'ck-step-active' : ''}`}
+                <Card
+                  className={`purchase-card purchase-card--rental ${activeStep === 'RENTAL' ? 'ck-step-active' : ''} bg-slate-900/70 ring-slate-700 text-white`}
                 >
                 <div className="purchase-card__header">
                   <div className="purchase-card__title">{t(lang, 'rental.title')}</div>
@@ -246,15 +248,25 @@ export function SelectionScreen({
                         const span2 = rental === 'LOCKER' || rental === 'STANDARD';
 
                         return (
-                          <button
+                          <Button
                             key={rental}
-                            className={`cs-liquid-button kiosk-option-button ${span2 ? 'span-2' : ''} ${isSelected ? 'cs-liquid-button--selected' : ''} ${isStaffProposed ? 'cs-liquid-button--staff-proposed' : ''} ${isDisabled ? 'cs-liquid-button--disabled' : ''} ${isPulsing ? 'pulse-bright' : ''}`}
+                            className={[
+                              'kiosk-option-button',
+                              span2 ? 'span-2' : '',
+                              isStaffProposed ? 'ring-4 ring-amber-300' : '',
+                              isPulsing ? 'pulse-bright' : '',
+                              // Dark-surface overrides when using variant="secondary"
+                              isSelected ? '' : 'bg-slate-900/80 text-white ring-slate-700 hover:bg-slate-800',
+                            ]
+                              .filter(Boolean)
+                              .join(' ')}
                             data-forced={isForced}
                             onClick={() => {
                               if (isDisabled) return;
                               void onSelectRental(rental);
                             }}
                             disabled={isDisabled}
+                            variant={isSelected ? 'primary' : 'secondary'}
                           >
                             <div className="kiosk-option-stack">
                               <span className="kiosk-option-title">{displayName}</span>
@@ -272,17 +284,17 @@ export function SelectionScreen({
                                 </span>
                               )}
                             </div>
-                          </button>
+                          </Button>
                         );
                       })}
                     </div>
                   ) : (
-                    <div className="cs-liquid-button cs-liquid-button--disabled">
+                    <Card className="bg-slate-900/60 ring-slate-700 text-center text-white">
                       {t(lang, 'noOptionsAvailable')}
-                    </div>
+                    </Card>
                   )}
                 </div>
-                </section>
+                </Card>
               </div>
             </div>
 

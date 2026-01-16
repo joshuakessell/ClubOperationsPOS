@@ -1,3 +1,5 @@
+import { Button } from '../../../ui/Button';
+
 export interface PaymentDeclineToastProps {
   message: string | null;
   onDismiss: () => void;
@@ -23,7 +25,6 @@ export function PaymentDeclineToast({ message, onDismiss }: PaymentDeclineToastP
       onClick={onDismiss}
     >
       <div
-        className="cs-liquid-card"
         style={{
           width: 'min(520px, 92vw)',
           background: '#ef4444',
@@ -44,9 +45,9 @@ export function PaymentDeclineToast({ message, onDismiss }: PaymentDeclineToastP
           }}
         >
           <div style={{ fontWeight: 900 }}>Payment Declined</div>
-          <button
+          <Button
             onClick={onDismiss}
-            className="cs-liquid-button cs-liquid-button--secondary"
+            variant="secondary"
             style={{
               fontSize: '1.25rem',
               cursor: 'pointer',
@@ -56,7 +57,7 @@ export function PaymentDeclineToast({ message, onDismiss }: PaymentDeclineToastP
             aria-label="Dismiss"
           >
             ×
-          </button>
+          </Button>
         </div>
         <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{message}</div>
       </div>

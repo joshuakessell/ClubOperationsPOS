@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
+import { Card } from '../../../ui/Card';
 
 type DetailedRoom = {
   id: string;
@@ -121,58 +123,51 @@ export function RoomCleaningModal({ isOpen, sessionToken, staffId, onClose, onSu
   return (
     <ModalFrame isOpen={isOpen} title="Room Cleaning" onClose={onClose} maxWidth="760px">
       {error && (
-        <div
-          style={{
-            marginBottom: '0.75rem',
-            padding: '0.75rem',
-            background: 'rgba(239, 68, 68, 0.18)',
-            border: '1px solid rgba(239, 68, 68, 0.35)',
-            borderRadius: 12,
-            color: '#fecaca',
-            fontWeight: 700,
-          }}
-        >
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
           {error}
         </div>
       )}
 
-      <div style={{ fontWeight: 900, marginBottom: '0.75rem' }}>
+      <div className="mb-3 text-sm font-semibold text-gray-900">
         Select rooms to begin or finish cleaning
       </div>
 
       {loading ? (
-        <div style={{ padding: '0.75rem', color: '#94a3b8' }}>Loading…</div>
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+          Loading…
+        </div>
       ) : dirtyRooms.length === 0 && cleaningRooms.length === 0 ? (
-        <div style={{ padding: '0.75rem', color: '#94a3b8' }}>No DIRTY or CLEANING rooms</div>
+        <div className="rounded-md border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+          No DIRTY or CLEANING rooms
+        </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.75rem' }}>
+        <div className="grid grid-cols-2 gap-3">
           <div>
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800, marginBottom: '0.5rem' }}>
+            <div className="mb-2 text-xs font-semibold text-gray-500">
               DIRTY (ready to begin cleaning)
             </div>
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
+            <div className="grid gap-2">
               {dirtyRooms.length === 0 ? (
-                <div style={{ padding: '0.5rem', color: '#94a3b8' }}>None</div>
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-2 text-sm text-gray-600">
+                  None
+                </div>
               ) : (
                 dirtyRooms.map((r) => {
                   const selected = selectedRoomIds.has(r.id);
                   const disabled = activeList === 'CLEANING';
                   return (
-                    <button
+                    <Button
                       key={r.id}
                       type="button"
-                      className={[
-                        'cs-liquid-button',
-                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                      ].join(' ')}
+                      variant={selected ? 'primary' : 'secondary'}
                       aria-pressed={selected}
                       disabled={disabled}
                       onClick={() => toggleRoom(r.id, 'DIRTY')}
-                      style={{ justifyContent: 'space-between', padding: '0.75rem' }}
+                      className="w-full justify-between"
                     >
-                      <span style={{ fontWeight: 900 }}>Room {r.number}</span>
-                      <span style={{ color: 'rgba(148, 163, 184, 0.95)' }}>{selected ? 'Selected' : 'DIRTY'}</span>
-                    </button>
+                      <span className="font-semibold">Room {r.number}</span>
+                      <span className="text-sm text-gray-600">{selected ? 'Selected' : 'DIRTY'}</span>
+                    </Button>
                   );
                 })
               )}
@@ -180,32 +175,31 @@ export function RoomCleaningModal({ isOpen, sessionToken, staffId, onClose, onSu
           </div>
 
           <div>
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800, marginBottom: '0.5rem' }}>
+            <div className="mb-2 text-xs font-semibold text-gray-500">
               CLEANING (ready to finish cleaning)
             </div>
-            <div style={{ display: 'grid', gap: '0.5rem' }}>
+            <div className="grid gap-2">
               {cleaningRooms.length === 0 ? (
-                <div style={{ padding: '0.5rem', color: '#94a3b8' }}>None</div>
+                <div className="rounded-md border border-gray-200 bg-gray-50 p-2 text-sm text-gray-600">
+                  None
+                </div>
               ) : (
                 cleaningRooms.map((r) => {
                   const selected = selectedRoomIds.has(r.id);
                   const disabled = activeList === 'DIRTY';
                   return (
-                    <button
+                    <Button
                       key={r.id}
                       type="button"
-                      className={[
-                        'cs-liquid-button',
-                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                      ].join(' ')}
+                      variant={selected ? 'primary' : 'secondary'}
                       aria-pressed={selected}
                       disabled={disabled}
                       onClick={() => toggleRoom(r.id, 'CLEANING')}
-                      style={{ justifyContent: 'space-between', padding: '0.75rem' }}
+                      className="w-full justify-between"
                     >
-                      <span style={{ fontWeight: 900 }}>Room {r.number}</span>
-                      <span style={{ color: 'rgba(148, 163, 184, 0.95)' }}>{selected ? 'Selected' : 'CLEANING'}</span>
-                    </button>
+                      <span className="font-semibold">Room {r.number}</span>
+                      <span className="text-sm text-gray-600">{selected ? 'Selected' : 'CLEANING'}</span>
+                    </Button>
                   );
                 })
               )}
@@ -215,20 +209,18 @@ export function RoomCleaningModal({ isOpen, sessionToken, staffId, onClose, onSu
       )}
 
       {selectedRooms.length > 0 && (
-        <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12, marginTop: '0.75rem' }}>
-          <div className="er-text-sm" style={{ fontWeight: 900, marginBottom: '0.25rem' }}>
-            Selected:
-          </div>
-          <div className="er-text-sm" style={{ color: '#94a3b8' }}>
+        <Card padding="md" className="mt-3">
+          <div className="text-xs font-semibold text-gray-500">Selected</div>
+          <div className="mt-1 text-sm text-gray-700">
             {selectedRooms.map((r) => `Room ${r.number}`).join(', ')}
           </div>
-        </div>
+        </Card>
       )}
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', marginTop: '1rem' }}>
-        <button
+      <div className="mt-4 flex justify-end gap-3">
+        <Button
           type="button"
-          className="cs-liquid-button cs-liquid-button--secondary"
+          variant="secondary"
           onClick={() => {
             setSelectedRoomIds(new Set());
             setActiveList(null);
@@ -236,10 +228,9 @@ export function RoomCleaningModal({ isOpen, sessionToken, staffId, onClose, onSu
           disabled={isSubmitting || selectedRoomIds.size === 0}
         >
           Clear
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="cs-liquid-button"
           onClick={() => void handleConfirm()}
           disabled={isSubmitting || selectedRoomIds.size === 0 || !activeList}
         >
@@ -250,7 +241,7 @@ export function RoomCleaningModal({ isOpen, sessionToken, staffId, onClose, onSu
               : activeList === 'CLEANING'
                 ? 'Finish Cleaning'
                 : 'Continue'}
-        </button>
+        </Button>
       </div>
     </ModalFrame>
   );

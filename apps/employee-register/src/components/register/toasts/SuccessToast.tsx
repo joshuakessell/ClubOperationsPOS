@@ -1,3 +1,5 @@
+import { Button } from '../../../ui/Button';
+
 export interface SuccessToastProps {
   message: string | null;
   onDismiss: () => void;
@@ -24,7 +26,6 @@ export function SuccessToast({ message, onDismiss, title = 'Success' }: SuccessT
       onClick={onDismiss}
     >
       <div
-        className="cs-liquid-card"
         style={{
           width: 'min(520px, 92vw)',
           background: '#10b981',
@@ -45,9 +46,9 @@ export function SuccessToast({ message, onDismiss, title = 'Success' }: SuccessT
           }}
         >
           <div style={{ fontWeight: 900 }}>{title}</div>
-          <button
+          <Button
             onClick={onDismiss}
-            className="cs-liquid-button cs-liquid-button--secondary"
+            variant="secondary"
             style={{
               fontSize: '1.25rem',
               cursor: 'pointer',
@@ -57,7 +58,7 @@ export function SuccessToast({ message, onDismiss, title = 'Success' }: SuccessT
             aria-label="Dismiss"
           >
             ×
-          </button>
+          </Button>
         </div>
         <div style={{ fontSize: '0.95rem', fontWeight: 700 }}>{message}</div>
       </div>

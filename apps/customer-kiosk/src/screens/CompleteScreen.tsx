@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { Card } from '../ui/Card';
+import { Button } from '../ui/Button';
 
 export interface CompleteScreenProps {
   customerPrimaryLanguage: Language | null | undefined;
@@ -45,7 +47,7 @@ export function CompleteScreen({
             <div className="complete-screen">
               <h1>{t(lang, 'thankYou')}</h1>
               {assignedResourceType && assignedResourceNumber ? (
-                <div className="assignment-info cs-liquid-card">
+                <Card className="assignment-info bg-slate-900/70 ring-slate-700 text-white">
                   <div className="assignment-row">
                     <div className="assignment-label">{t(lang, assignedResourceType)}</div>
                     <div className="assignment-value">{assignedResourceNumber}</div>
@@ -60,19 +62,15 @@ export function CompleteScreen({
                       {checkoutDateText && <div className="assignment-subvalue">{checkoutDateText}</div>}
                     </div>
                   )}
-                </div>
+                </Card>
               ) : (
                 <p>{t(lang, 'assignmentComplete')}</p>
               )}
 
-              <div style={{ marginTop: '2rem', display: 'flex', justifyContent: 'center' }}>
-                <button
-                  className="cs-liquid-button modal-ok-btn complete-ok-btn"
-                  onClick={onComplete}
-                  disabled={isSubmitting}
-                >
+              <div className="mt-8 flex justify-center">
+                <Button onClick={onComplete} disabled={isSubmitting} className="complete-ok-btn min-w-[240px]">
                   {t(lang, 'common.ok')}
-                </button>
+                </Button>
               </div>
             </div>
           </main>

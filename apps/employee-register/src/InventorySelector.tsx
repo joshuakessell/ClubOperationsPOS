@@ -1,19 +1,16 @@
-import { useState, useEffect, useMemo, type CSSProperties } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { RoomStatus } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
 import { getRoomTier } from './utils/getRoomTier';
 import { ModalFrame } from './components/register/modals/ModalFrame';
 import { ManualCheckoutModal } from './components/register/modals/ManualCheckoutModal';
-
-const INVENTORY_COLUMN_HEADER_STYLE: CSSProperties = {
-  fontWeight: 700,
-  marginBottom: '0.5rem',
-  paddingBottom: '0.25rem',
-  borderBottom: '1px solid #334155',
-  minHeight: '28px',
-  display: 'flex',
-  alignItems: 'center',
-};
+import type { DetailedInventory, DetailedLocker, DetailedRoom, SelectedInventoryItem } from './components/inventory/selector/types';
+import { InventorySection } from './components/inventory/selector/InventorySection';
+import { LockerSection } from './components/inventory/selector/LockerSection';
+import { alertLevelFromMsUntil, getMsUntil } from './components/inventory/selector/time';
+import { Button } from './ui/Button';
+import { Card } from './ui/Card';
+import { Input } from './ui/Input';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -24,85 +21,13 @@ async function readJson<T>(response: Response): Promise<T> {
   return data as T;
 }
 
-function getMsUntil(iso: string | undefined, nowMs: number): number | null {
-  if (!iso) return null;
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return null;
-  return t - nowMs;
-}
-
-function formatCountdownHMM5Min(msUntil: number): { label: string; isOverdue: boolean } {
-  const isOverdue = msUntil < 0;
-  // Display in 5-minute increments and update on a 5-minute tick.
-  // Example: 3 hours 20 minutes => "320"
-  const minutesTotalRaw = Math.max(0, Math.ceil(Math.abs(msUntil) / (60 * 1000)));
-  const minutesTotal = Math.ceil(minutesTotalRaw / 5) * 5;
-  const hours = Math.floor(minutesTotal / 60);
-  const minutes = minutesTotal % 60;
-  const hmm = `${String(hours)}${String(minutes).padStart(2, '0')}`;
-  return { label: hmm, isOverdue };
-}
-
-function formatDurationHuman(msUntil: number): { label: string; isOverdue: boolean } {
-  const isOverdue = msUntil < 0;
-  const minutesTotalRaw = Math.max(0, Math.ceil(Math.abs(msUntil) / (60 * 1000)));
-  const minutesTotal = minutesTotalRaw; // Do not round; show exact minutes (based on tick cadence).
-  const hours = Math.floor(minutesTotal / 60);
-  const minutes = minutesTotal % 60;
-
-  if (hours <= 0) {
-    return { label: `${minutesTotal} mins`, isOverdue };
-  }
-  if (minutes === 0) {
-    return { label: `${hours} hr`, isOverdue };
-  }
-  return { label: `${hours} hr ${minutes} mins`, isOverdue };
-}
-
-function formatTimeOfDay(iso: string | undefined): string | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (!Number.isFinite(d.getTime())) return null;
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-interface DetailedRoom {
-  id: string;
-  number: string;
-  tier: string; // STANDARD, DOUBLE, SPECIAL
-  status: RoomStatus;
-  floor: number;
-  lastStatusChange: string;
-  assignedTo?: string;
-  assignedMemberName?: string;
-  overrideFlag: boolean;
-  checkinAt?: string;
-  checkoutAt?: string;
-  occupancyId?: string;
-}
-
-interface DetailedLocker {
-  id: string;
-  number: string;
-  status: RoomStatus;
-  assignedTo?: string;
-  assignedMemberName?: string;
-  checkinAt?: string;
-  checkoutAt?: string;
-  occupancyId?: string;
-}
-
-interface DetailedInventory {
-  rooms: DetailedRoom[];
-  lockers: DetailedLocker[];
-}
 
 interface InventorySelectorProps {
   customerSelectedType: string | null; // LOCKER, STANDARD, DOUBLE, SPECIAL
   waitlistDesiredTier?: string | null;
   waitlistBackupType?: string | null;
   onSelect: (type: 'room' | 'locker', id: string, number: string, tier: string) => void;
-  selectedItem: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null;
+  selectedItem: SelectedInventoryItem | null;
   onClearSelection?: () => void;
   sessionId: string | null;
   lane: string;
@@ -112,144 +37,6 @@ interface InventorySelectorProps {
   onExpandedSectionChange?: (next: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => void;
   disableSelection?: boolean;
   onAlertSummaryChange?: (summary: { hasLate: boolean; hasNearing: boolean }) => void;
-}
-
-// Map room types to display names
-const ROOM_TYPE_LABELS: Record<string, string> = {
-  SPECIAL: 'Special Rooms',
-  DOUBLE: 'Double Rooms',
-  STANDARD: 'Standard Rooms',
-  LOCKER: 'Lockers',
-};
-
-// Group rooms by availability status (standard view ordering)
-type RoomGroup = 'upgradeRequest' | 'available' | 'occupied' | 'cleaning' | 'dirty';
-
-interface GroupedRoom {
-  room: DetailedRoom;
-  group: RoomGroup;
-  msUntilCheckout?: number | null;
-  isWaitlistMatch?: boolean; // True if room matches pending waitlist upgrade
-}
-
-type AlertLevel = 'danger' | 'warning' | null;
-
-const DUE_SOON_MS = 30 * 60 * 1000;
-
-function alertLevelFromMsUntil(msUntil: number | null | undefined): AlertLevel {
-  if (msUntil === null || msUntil === undefined) return null;
-  if (!Number.isFinite(msUntil)) return null;
-  if (msUntil < 0) return 'danger';
-  if (msUntil <= DUE_SOON_MS) return 'warning';
-  return null;
-}
-
-function maxAlert(a: AlertLevel, b: AlertLevel): AlertLevel {
-  if (a === 'danger' || b === 'danger') return 'danger';
-  if (a === 'warning' || b === 'warning') return 'warning';
-  return null;
-}
-
-function groupRooms(
-  rooms: DetailedRoom[],
-  waitlistEntries: Array<{ desiredTier: string; status: string }> = [],
-  nowMs: number
-): GroupedRoom[] {
-  // Create set of tiers with active waitlist entries
-  const waitlistTiers = new Set(
-    waitlistEntries
-      .filter((e) => e.status === 'ACTIVE' || e.status === 'OFFERED')
-      .map((e) => e.desiredTier)
-  );
-
-  return rooms.map((room) => {
-    const isWaitlistMatch =
-      waitlistTiers.has(room.tier) && room.status === RoomStatus.CLEAN && !room.assignedTo;
-
-    // Upgrade request: room matches waitlist tier and is available
-    if (isWaitlistMatch) {
-      return { room, group: 'upgradeRequest' as RoomGroup, isWaitlistMatch: true };
-    }
-
-    // Available: CLEAN status and not assigned
-    if (room.status === RoomStatus.CLEAN && !room.assignedTo) {
-      return { room, group: 'available' as RoomGroup };
-    }
-
-    // Occupied: assigned or OCCUPIED status (show countdown if checkoutAt is present)
-    if (room.assignedTo || room.status === RoomStatus.OCCUPIED) {
-      return {
-        room,
-        group: 'occupied' as RoomGroup,
-        msUntilCheckout: getMsUntil(room.checkoutAt, nowMs),
-      };
-    }
-
-    // Cleaning: CLEANING status
-    if (room.status === RoomStatus.CLEANING) {
-      return { room, group: 'cleaning' as RoomGroup };
-    }
-
-    // Dirty: DIRTY status
-    if (room.status === RoomStatus.DIRTY) {
-      return { room, group: 'dirty' as RoomGroup };
-    }
-
-    // Default to available for other cases
-    return { room, group: 'available' as RoomGroup };
-  });
-}
-
-function sortGroupedRooms(grouped: GroupedRoom[]): GroupedRoom[] {
-  return grouped.sort((a, b) => {
-    // Group order: upgradeRequest, available, occupied, cleaning, dirty
-    const groupOrder: Record<RoomGroup, number> = {
-      upgradeRequest: 0,
-      available: 1,
-      occupied: 2,
-      cleaning: 3,
-      dirty: 4,
-    };
-
-    if (groupOrder[a.group] !== groupOrder[b.group]) {
-      return groupOrder[a.group] - groupOrder[b.group];
-    }
-
-    // Within available: sort by room number ascending
-    if (a.group === 'available' || a.group === 'upgradeRequest') {
-      return parseInt(a.room.number) - parseInt(b.room.number);
-    }
-
-    // Within cleaning/dirty: sort by room number ascending
-    if (a.group === 'cleaning' || a.group === 'dirty') {
-      return parseInt(a.room.number) - parseInt(b.room.number);
-    }
-
-    // Within occupied: sort by checkout_at ascending (closest checkout first; missing checkoutAt last)
-    if (a.group === 'occupied') {
-      const aMs = a.msUntilCheckout ?? null;
-      const bMs = b.msUntilCheckout ?? null;
-      const aLevel = alertLevelFromMsUntil(aMs);
-      const bLevel = alertLevelFromMsUntil(bMs);
-
-      // Overdue first, then due-soon, then normal.
-      const rank = (lvl: AlertLevel) => (lvl === 'danger' ? 0 : lvl === 'warning' ? 1 : 2);
-      if (rank(aLevel) !== rank(bLevel)) return rank(aLevel) - rank(bLevel);
-
-      // Within overdue: most overdue first (more negative).
-      if (aLevel === 'danger' && bLevel === 'danger') return (aMs ?? 0) - (bMs ?? 0);
-
-      // Within due-soon: soonest first.
-      if (aLevel === 'warning' && bLevel === 'warning') return (aMs ?? 0) - (bMs ?? 0);
-
-      // Otherwise: closest checkout first; missing checkoutAt last.
-      const aTime = a.room.checkoutAt ? new Date(a.room.checkoutAt).getTime() : Number.POSITIVE_INFINITY;
-      const bTime = b.room.checkoutAt ? new Date(b.room.checkoutAt).getTime() : Number.POSITIVE_INFINITY;
-      return aTime - bTime;
-    }
-
-    return 0;
-  });
 }
 
 export function InventorySelector({
@@ -637,28 +424,15 @@ export function InventorySelector({
 
   return (
     <>
-      <div
-        className="cs-liquid-card"
-        style={{
-          padding: '1rem',
-          height: '100%',
-          minHeight: 0,
-          display: 'flex',
-          flexDirection: 'column',
-        }}
-      >
+      <Card padding="md" className="flex h-full min-h-0 flex-col bg-slate-900/70 text-white ring-slate-700">
         <h2 style={{ margin: 0, marginBottom: '0.75rem', fontSize: '1.25rem', fontWeight: 800 }}>
           Inventory
         </h2>
 
         {!occupancyLookupMode && !disableSelection && selectedItem && onClearSelection && (
-          <button
-            className="cs-liquid-button cs-liquid-button--secondary"
-            onClick={onClearSelection}
-            style={{ width: '100%', marginBottom: '0.75rem', padding: '0.6rem', fontWeight: 800 }}
-          >
+          <Button variant="secondary" onClick={onClearSelection} className="mb-3 w-full">
             Clear selection (currently {selectedItem.type === 'room' ? 'Room' : 'Locker'} {selectedItem.number})
-          </button>
+          </Button>
         )}
 
         {/*
@@ -735,17 +509,17 @@ export function InventorySelector({
           <div style={{ margin: 0, marginBottom: '0.35rem', fontSize: '1.25rem', fontWeight: 800 }}>
             Search
           </div>
-          <div className="cs-liquid-search">
-            <input
-              className="cs-liquid-input cs-liquid-search__input"
+          <div className="relative">
+            <Input
               type="text"
               placeholder="Search by name or number..."
               value={effectiveFilterQuery}
               onChange={(e) => setLocalFilterQuery(e.target.value)}
               aria-label="Inventory search"
               disabled={filterQuery !== undefined}
+              className="w-full pl-10"
             />
-            <div className="cs-liquid-search__icon">
+            <div className="pointer-events-none absolute inset-y-0 left-3 flex items-center text-slate-400">
               <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path
                   d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
@@ -765,7 +539,7 @@ export function InventorySelector({
             </div>
           </div>
         </div>
-      </div>
+      </Card>
 
       <ModalFrame
         isOpen={!!occupancyDetails}
@@ -809,16 +583,15 @@ export function InventorySelector({
             </div>
 
             <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <button
+              <Button
                 type="button"
-                className="cs-liquid-button"
                 onClick={() => {
                   setQuickCheckout({ occupancyId: occupancyDetails.occupancyId, number: occupancyDetails.number });
                   setOccupancyDetails(null);
                 }}
               >
                 Checkout
-              </button>
+              </Button>
             </div>
           </div>
         )}
@@ -842,618 +615,5 @@ export function InventorySelector({
         />
       )}
     </>
-  );
-}
-
-interface InventorySectionProps {
-  title: string;
-  rooms: DetailedRoom[];
-  isExpanded: boolean;
-  onToggle: () => void;
-  onSelectRoom: (room: DetailedRoom) => void;
-  selectedItem: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null;
-  nowMs: number;
-  disableSelection?: boolean;
-  occupancyLookupMode?: boolean;
-}
-
-function InventorySection({
-  title,
-  rooms,
-  isExpanded,
-  onToggle,
-  onSelectRoom,
-  selectedItem,
-  waitlistEntries = [],
-  nowMs,
-  disableSelection = false,
-  occupancyLookupMode = false,
-}: InventorySectionProps & { waitlistEntries?: Array<{ desiredTier: string; status: string }> }) {
-  const grouped = useMemo(() => {
-    const groupedRooms = groupRooms(rooms, waitlistEntries, nowMs);
-    return sortGroupedRooms(groupedRooms);
-  }, [rooms, waitlistEntries, nowMs]);
-
-  const upgradeRequests = grouped.filter((g) => g.group === 'upgradeRequest');
-  const available = grouped.filter((g) => g.group === 'available');
-  const occupied = grouped.filter((g) => g.group === 'occupied');
-  const cleaning = grouped.filter((g) => g.group === 'cleaning');
-  const dirty = grouped.filter((g) => g.group === 'dirty');
-  const availableForDisplay = [...upgradeRequests, ...available];
-  const allowAvailableSelection = !disableSelection && !occupancyLookupMode;
-
-  const sectionAlertLevel = useMemo(() => {
-    let level: AlertLevel = null;
-    for (const r of rooms) {
-      const isOccupied = !!r.assignedTo || r.status === RoomStatus.OCCUPIED;
-      if (!isOccupied) continue;
-      const ms = getMsUntil(r.checkoutAt, nowMs);
-      level = maxAlert(level, alertLevelFromMsUntil(ms));
-      if (level === 'danger') return 'danger';
-    }
-    return level;
-  }, [nowMs, rooms]);
-
-  const sectionCounts = useMemo(() => {
-    const availableCount = rooms.filter((r) => r.status === RoomStatus.CLEAN && !r.assignedTo).length;
-    let nearing = 0;
-    let late = 0;
-    for (const r of rooms) {
-      const isOccupied = !!r.assignedTo || r.status === RoomStatus.OCCUPIED;
-      if (!isOccupied) continue;
-      const lvl = alertLevelFromMsUntil(getMsUntil(r.checkoutAt, nowMs));
-      if (lvl === 'danger') late += 1;
-      else if (lvl === 'warning') nearing += 1;
-    }
-    return { availableCount, nearing, late };
-  }, [nowMs, rooms]);
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.5rem',
-        flex: isExpanded ? '1 1 0' : '0 0 auto',
-        minHeight: 0,
-      }}
-    >
-      <button
-        onClick={onToggle}
-        className={[
-          'cs-liquid-button',
-          sectionAlertLevel === 'danger'
-            ? 'cs-liquid-button--danger'
-            : sectionAlertLevel === 'warning'
-              ? 'cs-liquid-button--warning'
-              : isExpanded
-                ? 'cs-liquid-button--selected'
-                : 'cs-liquid-button--secondary',
-        ].join(' ')}
-        style={{
-          width: '100%',
-          padding: '0.75rem',
-          fontWeight: 600,
-          cursor: 'pointer',
-          position: 'relative',
-          textAlign: 'left',
-        }}
-      >
-        <span
-          aria-hidden={true}
-          style={{
-            position: 'absolute',
-            top: '0.75rem',
-            right: '0.75rem',
-            fontWeight: 900,
-          }}
-        >
-          {isExpanded ? '▼' : '▶'}
-        </span>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'flex-start' }}>
-          <div style={{ fontWeight: 700 }}>{title}</div>
-          <div className="er-text-sm er-inv-meta" style={{ fontWeight: 800 }}>
-            Available: {sectionCounts.availableCount}
-          </div>
-          {sectionCounts.nearing > 0 && (
-            <div className="er-text-sm" style={{ fontWeight: 900, color: '#f59e0b' }}>
-              Nearing Checkout: {sectionCounts.nearing}
-            </div>
-          )}
-          {sectionCounts.late > 0 && (
-            <div className="er-text-sm" style={{ fontWeight: 900, color: '#ef4444' }}>
-              Late for Checkout: {sectionCounts.late}
-            </div>
-          )}
-        </div>
-      </button>
-
-      {isExpanded && (
-        <div
-          className="cs-liquid-card"
-          style={{
-            padding: '0.5rem',
-            flex: 1,
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          {/*
-            Single-column layout: Occupied → Dirty/Cleaning → Available
-            Scroll happens within the expanded category, not the drawer panel.
-          */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-              height: '100%',
-              overflowY: 'auto',
-              paddingRight: '0.25rem',
-            }}
-          >
-            {/* Occupied */}
-            <div style={{ minWidth: 0 }}>
-              <div className="er-text-sm" style={{ color: '#94a3b8', ...INVENTORY_COLUMN_HEADER_STYLE }}>
-                🔒 Occupied
-              </div>
-              {occupied.length > 0 ? (
-                occupied.map(({ room }) => (
-                  <RoomItem
-                    key={room.id}
-                    room={room}
-                    isSelectable={true}
-                    isSelected={false}
-                    onClick={() => onSelectRoom(room)}
-                    nowMs={nowMs}
-                  />
-                ))
-              ) : (
-                <div style={{ padding: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>None</div>
-              )}
-            </div>
-
-            {/* Dirty / Cleaning */}
-            <div style={{ minWidth: 0 }}>
-              <div className="er-text-sm" style={{ color: '#94a3b8', ...INVENTORY_COLUMN_HEADER_STYLE }}>
-                🧹 Dirty / Cleaning
-              </div>
-              {cleaning.map(({ room }) => (
-                <RoomItem key={room.id} room={room} isSelectable={false} isSelected={false} nowMs={nowMs} />
-              ))}
-              {dirty.map(({ room }) => (
-                <RoomItem key={room.id} room={room} isSelectable={false} isSelected={false} nowMs={nowMs} />
-              ))}
-              {cleaning.length === 0 && dirty.length === 0 && (
-                <div style={{ padding: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>None</div>
-              )}
-            </div>
-
-            {/* Available */}
-            <div style={{ minWidth: 0 }}>
-              <div className="er-text-sm" style={{ color: '#10b981', ...INVENTORY_COLUMN_HEADER_STYLE }}>
-                ✓ Available
-              </div>
-              {availableForDisplay.length > 0 ? (
-                availableForDisplay.map(({ room, isWaitlistMatch }) => (
-                  <RoomItem
-                    key={room.id}
-                    room={room}
-                    isSelectable={allowAvailableSelection}
-                    isSelected={selectedItem?.type === 'room' && selectedItem.id === room.id}
-                    onClick={() => {
-                      if (!allowAvailableSelection) return;
-                      onSelectRoom(room);
-                    }}
-                    isWaitlistMatch={isWaitlistMatch}
-                    nowMs={nowMs}
-                  />
-                ))
-              ) : (
-                <div style={{ padding: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>None</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-interface RoomItemProps {
-  room: DetailedRoom;
-  isSelectable: boolean;
-  isSelected: boolean;
-  onClick?: () => void;
-  isWaitlistMatch?: boolean;
-  nowMs: number;
-}
-
-function RoomItem({
-  room,
-  isSelectable,
-  isSelected,
-  onClick,
-  isWaitlistMatch,
-  nowMs,
-}: RoomItemProps) {
-  const isOccupied = !!room.assignedTo || room.status === RoomStatus.OCCUPIED;
-  const isCleaning = room.status === RoomStatus.CLEANING;
-  const isDirty = room.status === RoomStatus.DIRTY;
-  const msUntil = isOccupied ? getMsUntil(room.checkoutAt, nowMs) : null;
-  const duration = msUntil !== null ? formatDurationHuman(msUntil) : null;
-  const checkoutTime = isOccupied ? formatTimeOfDay(room.checkoutAt) : null;
-  const customerLabel = room.assignedMemberName || room.assignedTo || null;
-  const dueLevel = isOccupied ? alertLevelFromMsUntil(msUntil) : null;
-
-  return (
-    <button
-      type="button"
-      className={[
-        'cs-liquid-card',
-        'er-inv-item',
-        isWaitlistMatch ? 'er-inv-item--waitlist' : '',
-        isSelected ? 'er-inv-item--selected' : '',
-        dueLevel === 'danger' ? 'er-inv-item--danger' : dueLevel === 'warning' ? 'er-inv-item--warning' : '',
-      ]
-        .filter(Boolean)
-        .join(' ')}
-      onClick={isSelectable ? onClick : undefined}
-      disabled={!isSelectable}
-      aria-disabled={!isSelectable}
-    >
-      {isOccupied ? (
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.25rem 0.75rem' }}>
-          <div className="er-text-lg" style={{ fontWeight: 900, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            Room {room.number}
-          </div>
-          <div className="er-text-md er-inv-meta" style={{ fontWeight: 900, whiteSpace: 'nowrap' }}>
-            Checkout: {checkoutTime ?? '—'}
-          </div>
-
-          <div className="er-text-md er-inv-meta" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-            {customerLabel ?? '—'}
-          </div>
-          <div
-            className="er-text-md"
-            style={{
-              fontWeight: 900,
-              color: duration?.isOverdue ? '#ef4444' : duration ? 'rgba(148, 163, 184, 0.95)' : 'rgba(148, 163, 184, 0.95)',
-              fontVariantNumeric: 'tabular-nums',
-              whiteSpace: 'nowrap',
-            }}
-          >
-            ({duration ? (duration.isOverdue ? `Overdue ${duration.label}` : duration.label) : '—'})
-          </div>
-        </div>
-      ) : (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.75rem' }}>
-          <div style={{ minWidth: 0, overflow: 'hidden' }}>
-            <div
-              className="er-text-lg"
-              style={{
-                fontWeight: 800,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              Room {room.number}
-            </div>
-            {!isCleaning && !isDirty && isWaitlistMatch && (
-              <div className="er-text-sm" style={{ color: '#f59e0b', marginTop: '0.25rem', fontWeight: 800 }}>
-                Upgrade Request
-              </div>
-            )}
-            {isCleaning && (
-              <div className="er-text-sm" style={{ color: '#94a3b8', marginTop: '0.25rem', fontWeight: 800 }}>
-                Cleaning
-              </div>
-            )}
-            {!isCleaning && isDirty && (
-              <div className="er-text-sm" style={{ color: '#ef4444', marginTop: '0.25rem', fontWeight: 900 }}>
-                Dirty
-              </div>
-            )}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-            {isSelected && <span className="er-text-xl">✓</span>}
-          </div>
-        </div>
-      )}
-    </button>
-  );
-}
-
-interface LockerSectionProps {
-  lockers: DetailedLocker[];
-  isExpanded: boolean;
-  onToggle: () => void;
-  onSelectLocker: (locker: DetailedLocker) => void;
-  selectedItem: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null;
-  nowMs: number;
-  disableSelection?: boolean;
-  occupancyLookupMode?: boolean;
-}
-
-function LockerSection({
-  lockers,
-  isExpanded,
-  onToggle,
-  onSelectLocker,
-  selectedItem,
-  nowMs,
-  disableSelection = false,
-  occupancyLookupMode = false,
-}: LockerSectionProps) {
-  const availableCount = lockers.filter(
-    (l) => l.status === RoomStatus.CLEAN && !l.assignedTo
-  ).length;
-  const availableLockers = useMemo(
-    () =>
-      lockers
-        .filter((l) => l.status === RoomStatus.CLEAN && !l.assignedTo)
-        .sort((a, b) => parseInt(a.number) - parseInt(b.number)),
-    [lockers]
-  );
-  const occupiedLockers = useMemo(
-    () =>
-      lockers
-        .filter((l) => !!l.assignedTo || l.status === RoomStatus.OCCUPIED)
-        .sort((a, b) => {
-          const aMs = getMsUntil(a.checkoutAt, nowMs);
-          const bMs = getMsUntil(b.checkoutAt, nowMs);
-          const aLevel = alertLevelFromMsUntil(aMs);
-          const bLevel = alertLevelFromMsUntil(bMs);
-          const rank = (lvl: AlertLevel) => (lvl === 'danger' ? 0 : lvl === 'warning' ? 1 : 2);
-          if (rank(aLevel) !== rank(bLevel)) return rank(aLevel) - rank(bLevel);
-          if (aLevel === 'danger' && bLevel === 'danger') return (aMs ?? 0) - (bMs ?? 0);
-          if (aLevel === 'warning' && bLevel === 'warning') return (aMs ?? 0) - (bMs ?? 0);
-          const aTime = a.checkoutAt ? new Date(a.checkoutAt).getTime() : Number.POSITIVE_INFINITY;
-          const bTime = b.checkoutAt ? new Date(b.checkoutAt).getTime() : Number.POSITIVE_INFINITY;
-          return aTime - bTime;
-        }),
-    [lockers, nowMs]
-  );
-
-  const sectionAlertLevel = useMemo(() => {
-    let level: AlertLevel = null;
-    for (const l of occupiedLockers) {
-      level = maxAlert(level, alertLevelFromMsUntil(getMsUntil(l.checkoutAt, nowMs)));
-      if (level === 'danger') return 'danger';
-    }
-    return level;
-  }, [nowMs, occupiedLockers]);
-
-  const sectionCounts = useMemo(() => {
-    let nearing = 0;
-    let late = 0;
-    for (const l of occupiedLockers) {
-      const lvl = alertLevelFromMsUntil(getMsUntil(l.checkoutAt, nowMs));
-      if (lvl === 'danger') late += 1;
-      else if (lvl === 'warning') nearing += 1;
-    }
-    return { availableCount, nearing, late };
-  }, [availableCount, nowMs, occupiedLockers]);
-
-  return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.5rem',
-        flex: isExpanded ? '1 1 0' : '0 0 auto',
-        minHeight: 0,
-      }}
-    >
-      <button
-        onClick={onToggle}
-        className={[
-          'cs-liquid-button',
-          sectionAlertLevel === 'danger'
-            ? 'cs-liquid-button--danger'
-            : sectionAlertLevel === 'warning'
-              ? 'cs-liquid-button--warning'
-              : isExpanded
-                ? 'cs-liquid-button--selected'
-                : 'cs-liquid-button--secondary',
-        ].join(' ')}
-        style={{
-          width: '100%',
-          padding: '0.75rem',
-          fontWeight: 600,
-          cursor: 'pointer',
-          position: 'relative',
-          textAlign: 'left',
-        }}
-      >
-        <span
-          aria-hidden={true}
-          style={{
-            position: 'absolute',
-            top: '0.75rem',
-            right: '0.75rem',
-            fontWeight: 900,
-          }}
-        >
-          {isExpanded ? '▼' : '▶'}
-        </span>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.15rem', alignItems: 'flex-start' }}>
-          <div style={{ fontWeight: 700 }}>{ROOM_TYPE_LABELS.LOCKER}</div>
-          <div className="er-text-sm er-inv-meta" style={{ fontWeight: 800 }}>
-            Available: {sectionCounts.availableCount}
-          </div>
-          {sectionCounts.nearing > 0 && (
-            <div className="er-text-sm" style={{ fontWeight: 900, color: '#f59e0b' }}>
-              Nearing Checkout: {sectionCounts.nearing}
-            </div>
-          )}
-          {sectionCounts.late > 0 && (
-            <div className="er-text-sm" style={{ fontWeight: 900, color: '#ef4444' }}>
-              Late for Checkout: {sectionCounts.late}
-            </div>
-          )}
-        </div>
-      </button>
-
-      {isExpanded && (
-        <div
-          className="cs-liquid-card"
-          style={{
-            padding: '0.5rem',
-            flex: 1,
-            minHeight: 0,
-            overflow: 'hidden',
-          }}
-        >
-          {/* Single-column layout: Occupied → Available */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              gap: '0.75rem',
-              height: '100%',
-              overflowY: 'auto',
-              paddingRight: '0.25rem',
-            }}
-          >
-            {/* Occupied */}
-            <div style={{ minWidth: 0 }}>
-              <div className="er-text-sm" style={{ color: '#94a3b8', ...INVENTORY_COLUMN_HEADER_STYLE }}>
-                🔒 Occupied
-              </div>
-
-              {occupiedLockers.length > 0 ? (
-                <>
-                  {occupiedLockers.map((locker) => {
-                    const msUntil = getMsUntil(locker.checkoutAt, nowMs);
-                    const duration = msUntil !== null ? formatDurationHuman(msUntil) : null;
-                    const checkoutTime = formatTimeOfDay(locker.checkoutAt);
-                    const customerLabel = locker.assignedMemberName || locker.assignedTo || null;
-                    const dueLevel = alertLevelFromMsUntil(msUntil);
-                    return (
-                      <button
-                        key={locker.id}
-                        onClick={() => onSelectLocker(locker)}
-                        type="button"
-                        className={[
-                          'cs-liquid-card',
-                          'er-inv-item',
-                          dueLevel === 'danger'
-                            ? 'er-inv-item--danger'
-                            : dueLevel === 'warning'
-                              ? 'er-inv-item--warning'
-                              : '',
-                        ]
-                          .filter(Boolean)
-                          .join(' ')}
-                      >
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '0.25rem 0.75rem' }}>
-                          <div
-                            className="er-text-lg"
-                            style={{
-                              fontWeight: 800,
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            Locker {locker.number}
-                          </div>
-                          <div
-                            className="er-text-md er-inv-meta"
-                            style={{
-                              fontWeight: 800,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Checkout: {checkoutTime ?? '—'}
-                          </div>
-
-                          <div
-                            className="er-text-md er-inv-meta"
-                            style={{
-                              whiteSpace: 'nowrap',
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                            }}
-                          >
-                            {customerLabel ?? '—'}
-                          </div>
-                          <div
-                            className="er-text-md"
-                            style={{
-                              fontWeight: 800,
-                              color: duration?.isOverdue ? '#ef4444' : 'rgba(148, 163, 184, 0.95)',
-                              fontVariantNumeric: 'tabular-nums',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            ({duration ? (duration.isOverdue ? `Overdue ${duration.label}` : duration.label) : '—'})
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </>
-              ) : (
-                <div style={{ padding: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>None</div>
-              )}
-            </div>
-
-            {/* Available */}
-            <div style={{ minWidth: 0 }}>
-              <div className="er-text-sm" style={{ color: '#10b981', ...INVENTORY_COLUMN_HEADER_STYLE }}>
-                ✓ Available
-              </div>
-
-              {availableLockers.length > 0 ? (
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(5, 1fr)',
-                    gap: '0.5rem',
-                  }}
-                >
-                  {availableLockers.map((locker) => {
-                    const isSelected = selectedItem?.type === 'locker' && selectedItem.id === locker.id;
-                    return (
-                      <div
-                        key={locker.id}
-                        onClick={() => {
-                          if (disableSelection || occupancyLookupMode) return;
-                          onSelectLocker(locker);
-                        }}
-                        style={{
-                          padding: '0.5rem',
-                          background: isSelected ? '#3b82f6' : '#0f172a',
-                          border: isSelected ? '2px solid #60a5fa' : '1px solid #475569',
-                          borderRadius: '4px',
-                          textAlign: 'center',
-                          fontSize: '0.875rem',
-                          cursor: disableSelection || occupancyLookupMode ? 'default' : 'pointer',
-                          minHeight: '44px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexDirection: 'column',
-                        }}
-                      >
-                        <div style={{ fontWeight: 600 }}>{locker.number}</div>
-                        {isSelected && <div style={{ fontSize: '1rem', marginTop: '0.25rem' }}>✓</div>}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div style={{ padding: '0.75rem', color: '#94a3b8', textAlign: 'center' }}>None</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
   );
 }

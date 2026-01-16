@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Button } from '../ui/Button';
 
 const API_BASE = '/api';
 
@@ -116,16 +117,17 @@ export function OfferUpgradeModal(props: {
 
   return (
     <div className="offer-upgrade-modal-overlay" role="dialog" aria-label="Offer upgrade modal">
-      <div className="offer-upgrade-modal cs-liquid-card">
+      <div className="offer-upgrade-modal rounded-xl bg-slate-900/70 text-white ring-1 ring-slate-700">
         <div className="offer-upgrade-modal-header">
           <div className="offer-upgrade-modal-title">{title}</div>
-          <button
-            className="offer-upgrade-modal-close cs-liquid-button cs-liquid-button--secondary"
+          <Button
+            className="offer-upgrade-modal-close"
+            variant="secondary"
             onClick={onClose}
             aria-label="Close offer modal"
           >
             ×
-          </button>
+          </Button>
         </div>
 
         {disabled && (
@@ -144,34 +146,31 @@ export function OfferUpgradeModal(props: {
           ) : (
             <div className="offer-upgrade-room-list">
               {rooms.map((r) => (
-                <button
+                <Button
                   key={r.id}
-                  className={`offer-upgrade-room-item cs-liquid-button cs-liquid-button--secondary ${selectedRoomId === r.id ? 'cs-liquid-button--selected selected' : ''}`}
+                  className={`offer-upgrade-room-item ${selectedRoomId === r.id ? 'selected' : ''}`}
+                  variant={selectedRoomId === r.id ? 'primary' : 'secondary'}
                   onClick={() => setSelectedRoomId(r.id)}
                   disabled={Boolean(disabled) || isLoading}
                 >
                   Room {r.number}
-                </button>
+                </Button>
               ))}
             </div>
           )}
         </div>
 
         <div className="offer-upgrade-modal-actions">
-          <button
-            className="offer-upgrade-cancel cs-liquid-button cs-liquid-button--danger"
-            onClick={onClose}
-            disabled={isLoading}
-          >
+          <Button className="offer-upgrade-cancel" variant="danger" onClick={onClose} disabled={isLoading}>
             Cancel
-          </button>
-          <button
-            className="offer-upgrade-confirm cs-liquid-button"
+          </Button>
+          <Button
+            className="offer-upgrade-confirm"
             onClick={() => void handleConfirm()}
             disabled={Boolean(disabled) || isLoading || !selectedRoomId}
           >
             Offer Selected Room
-          </button>
+          </Button>
         </div>
       </div>
     </div>

@@ -1,4 +1,7 @@
 import { useEffect, useRef } from 'react';
+import { Modal } from '../../../ui/Modal';
+import { Button } from '../../../ui/Button';
+import { Card } from '../../../ui/Card';
 
 export function TransactionCompleteModal({
   isOpen,
@@ -69,57 +72,54 @@ export function TransactionCompleteModal({
   if (!isOpen) return null;
 
   return (
-    <div className="er-txn-complete-modal__overlay" role="presentation">
-      <div
-        ref={modalRef}
-        className="er-txn-complete-modal cs-liquid-card glass-effect"
-        role="dialog"
-        aria-modal="true"
-        aria-label="Transaction ready"
-      >
-        <div className="er-txn-complete-modal__title">Transaction Ready</div>
-
-        {agreementPending && (
-          <div className="er-txn-complete-modal__notice er-surface">
-            <div style={{ fontWeight: 900, fontSize: '1.05rem' }}>Agreement Pending</div>
-            <div style={{ fontSize: '0.95rem', color: '#94a3b8', fontWeight: 700 }}>
-              Waiting for customer to sign the agreement on their device.
-            </div>
-          </div>
-        )}
-
-        <div className="er-txn-complete-modal__assignment er-surface">
-          <div style={{ fontWeight: 900, fontSize: '1.2rem' }}>
-            Assigned: {assignedLabel} {assignedNumber}
-          </div>
-          {checkoutAt && (
-            <div style={{ fontSize: '1rem', color: '#94a3b8', fontWeight: 700 }}>
-              Checkout: {new Date(checkoutAt).toLocaleString()}
-            </div>
-          )}
+    <Modal open={isOpen} width="lg" panelClassName="p-0 overflow-hidden">
+      <div ref={modalRef} role="dialog" aria-modal="true" aria-label="Transaction ready">
+        <div className="border-b border-gray-200 px-6 py-4">
+          <div className="text-lg font-semibold text-gray-900">Transaction Ready</div>
         </div>
 
-        <button
-          type="button"
-          className="cs-liquid-button cs-liquid-button--secondary er-txn-complete-modal__verify"
-          onClick={onVerifyAgreementArtifacts}
-          disabled={verifyDisabled}
-        >
-          Verify agreement PDF + signature saved
-        </button>
+        <div className="grid gap-3 px-6 py-4">
+          {agreementPending ? (
+            <Card padding="md" className="bg-amber-50 ring-amber-200">
+              <div className="font-semibold text-gray-900">Agreement Pending</div>
+              <div className="mt-1 text-sm text-gray-700">
+                Waiting for customer to sign the agreement on their device.
+              </div>
+            </Card>
+          ) : null}
 
-        {showComplete && (
-          <button
+          <Card padding="md">
+            <div className="font-semibold text-gray-900">
+              Assigned: {assignedLabel} {assignedNumber}
+            </div>
+            {checkoutAt ? (
+              <div className="mt-1 text-sm text-gray-600">
+                Checkout: {new Date(checkoutAt).toLocaleString()}
+              </div>
+            ) : null}
+          </Card>
+
+          <Button
             type="button"
-            className="cs-liquid-button er-txn-complete-modal__complete"
-            onClick={onCompleteTransaction}
-            disabled={completeDisabled}
+            variant="secondary"
+            onClick={onVerifyAgreementArtifacts}
+            disabled={verifyDisabled}
           >
-            {completeLabel}
-          </button>
-        )}
+            Verify agreement PDF + signature saved
+          </Button>
+
+          {showComplete ? (
+            <Button
+              type="button"
+              onClick={onCompleteTransaction}
+              disabled={completeDisabled}
+            >
+              {completeLabel}
+            </Button>
+          ) : null}
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

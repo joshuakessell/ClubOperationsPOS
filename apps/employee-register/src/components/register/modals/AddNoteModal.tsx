@@ -1,4 +1,5 @@
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
 
 export interface AddNoteModalProps {
   isOpen: boolean;
@@ -24,40 +25,23 @@ export function AddNoteModal({
         onChange={(e) => onChangeNoteText(e.target.value)}
         placeholder="Enter note..."
         rows={4}
-        className="cs-liquid-card"
-        style={{
-          width: '100%',
-          padding: '0.75rem',
-          fontSize: '1rem',
-          marginBottom: '1rem',
-          resize: 'vertical',
-        }}
+        className="form-textarea mb-4 block w-full resize-y rounded-md border-gray-300 shadow-sm focus:border-indigo-600 focus:ring-indigo-600/30"
       />
-      <div style={{ display: 'flex', gap: '0.5rem' }}>
-        <button
+      <div className="flex gap-3">
+        <Button
           onClick={onSubmit}
           disabled={isSubmitting || !noteText.trim()}
-          className="cs-liquid-button"
-          style={{
-            flex: 1,
-            padding: '0.75rem',
-            fontSize: '1rem',
-            fontWeight: 600,
-          }}
+          className="flex-1"
         >
           {isSubmitting ? 'Adding...' : 'Add Note'}
-        </button>
-        <button
+        </Button>
+        <Button
           onClick={onCancel}
-          className="cs-liquid-button cs-liquid-button--danger"
-          style={{
-            flex: 1,
-            padding: '0.75rem',
-            cursor: 'pointer',
-          }}
+          variant="danger"
+          className="flex-1"
         >
           Cancel
-        </button>
+        </Button>
       </div>
     </ModalFrame>
   );

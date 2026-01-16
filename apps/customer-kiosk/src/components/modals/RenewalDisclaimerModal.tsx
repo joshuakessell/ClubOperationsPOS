@@ -1,4 +1,6 @@
 import { t, type Language } from '../../i18n';
+import { Modal } from '../../ui/Modal';
+import { Button } from '../../ui/Button';
 
 export interface RenewalDisclaimerModalProps {
   isOpen: boolean;
@@ -17,15 +19,12 @@ export function RenewalDisclaimerModal({
   onProceed,
   isSubmitting,
 }: RenewalDisclaimerModalProps) {
-  if (!isOpen) return null;
-
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content cs-liquid-card" onClick={(e) => e.stopPropagation()}>
-        <h2>{t(customerPrimaryLanguage, 'renewal.title')}</h2>
-        <div className="disclaimer-text">
-          <ul style={{ listStyle: 'disc', paddingLeft: '1.5rem', textAlign: 'left' }}>
-            <li style={{ marginBottom: '0.5rem' }}>
+    <Modal isOpen={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'renewal.title')} width="2xl">
+      <div className="grid gap-6">
+        <div className="text-left">
+          <ul className="list-disc space-y-3 pl-6 text-lg text-gray-700">
+            <li>
               {t(customerPrimaryLanguage, 'renewal.bullet.extendsStay')}
               {blockEndsAt && (
                 <span>
@@ -36,26 +35,20 @@ export function RenewalDisclaimerModal({
                 </span>
               )}
             </li>
-            <li style={{ marginBottom: '0.5rem', color: '#f59e0b', fontWeight: 600 }}>
+            <li className="font-semibold text-amber-700">
               {t(customerPrimaryLanguage, 'renewal.bullet.approachingMax')}
             </li>
-            <li style={{ marginBottom: '0.5rem' }}>
-              {t(customerPrimaryLanguage, 'renewal.bullet.finalExtension')}
-            </li>
-            <li style={{ marginBottom: '0.5rem' }}>
-              {t(customerPrimaryLanguage, 'renewal.bullet.feeNotChargedNow')}
-            </li>
+            <li>{t(customerPrimaryLanguage, 'renewal.bullet.finalExtension')}</li>
+            <li>{t(customerPrimaryLanguage, 'renewal.bullet.feeNotChargedNow')}</li>
           </ul>
         </div>
-        <button
-          className="cs-liquid-button modal-ok-btn"
-          onClick={() => void onProceed()}
-          disabled={isSubmitting}
-        >
-          {t(customerPrimaryLanguage, 'common.ok')}
-        </button>
+        <div className="flex justify-center">
+          <Button onClick={() => void onProceed()} disabled={isSubmitting} className="min-w-[240px]">
+            {t(customerPrimaryLanguage, 'common.ok')}
+          </Button>
+        </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 

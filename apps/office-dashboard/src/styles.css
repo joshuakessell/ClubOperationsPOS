@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 /* Shared design tokens are imported in main.tsx */
 :root {
   /* TailAdmin dark palette mapped to local aliases */
@@ -224,8 +228,6 @@
 .panel {
   overflow: hidden;
   position: relative;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-card */
-  /* Keep only layout properties */
 }
 
 .panel-header {
@@ -242,7 +244,6 @@
 }
 
 .btn-override {
-  /* Background, border, border-radius handled by cs-liquid-button */
   /* Keep only sizing/font properties */
   padding: 0.5rem 1rem;
   font-size: 0.75rem;
@@ -872,8 +873,6 @@
   margin-bottom: 2rem;
   padding: 1.5rem;
   flex-wrap: wrap;
-  /* Background, border, border-radius handled by cs-liquid-card */
-  /* Keep only layout properties */
 }
 
 .filter-group {
@@ -915,8 +914,6 @@
   padding: 1.5rem;
   position: relative;
   overflow: hidden;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-card */
-  /* Keep only layout/padding properties */
 }
 
 .metric-card h3 {
@@ -954,7 +951,6 @@
   padding: 0.75rem 1.5rem;
   font-size: 0.875rem;
   font-weight: 600;
-  /* Background, border, border-radius handled by cs-liquid-button */
   /* Keep only sizing/font properties */
 }
 
@@ -962,6 +958,5 @@
 .csRaisedCard {
   position: relative;
   overflow: hidden;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-card */
   /* Keep only layout properties */
 }

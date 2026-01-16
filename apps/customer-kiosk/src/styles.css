@@ -1,5 +1,20 @@
-/* Shared design tokens are imported in main.tsx */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
+  /* Local tokens so this app does not depend on any legacy Liquid Glass CSS */
+  --cs-bg: #0b1220;
+  --cs-bg-card: rgba(15, 23, 42, 0.75);
+  --cs-text: #f8fafc;
+  --cs-text-muted: #94a3b8;
+  --cs-border: rgba(148, 163, 184, 0.25);
+
+  --cs-radius-md: 10px;
+  --cs-radius-lg: 12px;
+  --cs-radius-xl: 16px;
+  --cs-ease-decelerate: cubic-bezier(0.2, 0, 0, 1);
+
   --bg: var(--cs-bg);
   --text: var(--cs-text);
   --text-muted: var(--cs-text-muted);
@@ -615,7 +630,7 @@ body {
 }
 
 .kiosk-option-button {
-  /* Override shared cs-liquid-button defaults that assume single-line labels. */
+  /* Override shared kiosk button defaults that assume single-line labels. */
   white-space: normal;
   text-align: center;
   padding: 1rem 1rem;
@@ -663,7 +678,6 @@ body {
   text-align: center;
   cursor: pointer;
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-card */
   /* Keep only sizing/layout/animation properties */
 }
 
@@ -685,7 +699,6 @@ body {
 
 .package-option:hover {
   transform: translateY(-2px);
-  /* Other hover effects handled by cs-liquid-card */
 }
 
 .package-name {
@@ -862,58 +875,10 @@ body {
   color: rgba(255, 255, 255, 0.95);
 }
 
-.signature-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 4000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
-  background: rgba(0, 0, 0, 0.75);
-}
-
-.signature-modal {
-  width: min(980px, 96vw);
-  max-height: min(760px, 92vh);
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.signature-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.signature-modal-title {
-  font-weight: 800;
-  font-size: clamp(1.1rem, 2.2vw, 1.4rem);
-  color: #fff;
-  text-align: center;
-}
-
 .signature-modal-canvas {
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
-  background: #ffffff;
   width: 100%;
   height: clamp(260px, 36vh, 420px);
   touch-action: none;
-}
-
-.signature-modal-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-}
-
-.signature-modal-actions .cs-liquid-button {
-  min-width: 160px;
-  min-height: 52px;
-  font-weight: 800;
 }
 
 .agreement-checkbox-row {
@@ -981,7 +946,6 @@ body {
 
 .clear-signature-btn {
   align-self: flex-start;
-  /* Background, border, border-radius handled by cs-liquid-button */
   /* Keep only sizing/layout properties */
 }
 
@@ -998,7 +962,6 @@ body {
   font-weight: 600;
   min-height: 56px;
   min-width: 200px;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-button */
   /* Keep only sizing/font properties */
 }
 
@@ -1061,31 +1024,7 @@ body {
   color: var(--text-muted);
 }
 
-/* Modal */
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.8);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-  animation: fadeIn 0.3s ease;
-}
-
-.modal-content {
-  padding: 2rem;
-  max-width: 600px;
-  width: 90%;
-  max-height: 80vh;
-  overflow-y: auto;
-  animation: slideUp 0.3s var(--cs-ease-decelerate);
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-card */
-  /* Keep only sizing/layout properties */
-}
+/* Modals now use shared `ui/Modal` */
 
 @keyframes slideUp {
   from {
@@ -1118,15 +1057,7 @@ body {
   color: var(--text);
 }
 
-.modal-ok-btn {
-  width: 100%;
-  padding: 1rem;
-  font-size: clamp(1rem, 2vw, 1.125rem);
-  font-weight: 600;
-  min-height: 56px;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-button */
-  /* Keep only sizing/font properties */
-}
+/* Legacy modal button styles removed (shared `ui/Button` is used). */
 
 /* Language Selection Screen */
 .language-selection-screen {
@@ -1159,7 +1090,6 @@ body {
   font-size: clamp(1.25rem, 2.5vw, 2rem);
   font-weight: 600;
   min-width: 200px;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-button */
   /* Keep only sizing/font properties */
 }
 
@@ -1324,5 +1254,3 @@ body {
   font-size: clamp(1.5rem, 3.4vw, 2.25rem);
   font-weight: 900;
 }
-
-/* Old .btn-liquid-glass styles removed - now using .cs-liquid-button from shared package */

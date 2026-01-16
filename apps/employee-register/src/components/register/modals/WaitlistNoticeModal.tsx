@@ -1,4 +1,5 @@
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
 
 export interface WaitlistNoticeModalProps {
   isOpen: boolean;
@@ -15,22 +16,12 @@ export function WaitlistNoticeModal({
 }: WaitlistNoticeModalProps) {
   return (
     <ModalFrame isOpen={isOpen} title="Waitlist Notice" onClose={onClose}>
-      <p style={{ marginBottom: '1.5rem', lineHeight: '1.6' }}>
+      <p className="mb-6 text-sm leading-6 text-gray-700">
         Customer requested waitlist for {desiredTier}. Assigning a {backupType} in the meantime.
       </p>
-      <button
-        onClick={onClose}
-        className="cs-liquid-button"
-        style={{
-          width: '100%',
-          padding: '0.75rem',
-          fontSize: '1rem',
-          fontWeight: 600,
-          cursor: 'pointer',
-        }}
-      >
+      <Button onClick={onClose} className="w-full">
         OK
-      </button>
+      </Button>
     </ModalFrame>
   );
 }

@@ -1,4 +1,5 @@
 import { ModalFrame } from './ModalFrame';
+import { Button } from '../../../ui/Button';
 
 export interface CustomerConfirmationPendingModalProps {
   isOpen: boolean;
@@ -16,25 +17,20 @@ export function CustomerConfirmationPendingModal({
   onCancel,
 }: CustomerConfirmationPendingModalProps) {
   return (
-    <ModalFrame isOpen={isOpen} title="Waiting for Customer Confirmation" onClose={() => {}} closeOnOverlayClick={false}>
-      <p style={{ marginBottom: '1.5rem', lineHeight: '1.6' }}>
+    <ModalFrame
+      isOpen={isOpen}
+      title="Waiting for Customer Confirmation"
+      onClose={() => {}}
+      closeOnOverlayClick={false}
+    >
+      <p className="mb-6 text-sm leading-6 text-gray-700">
         Staff selected a different option: {data.selected} {data.number}. Waiting for customer to
         accept or decline on their device.
       </p>
       {onCancel && (
-        <button
-          onClick={onCancel}
-          className="cs-liquid-button cs-liquid-button--danger"
-          style={{
-            width: '100%',
-            padding: '0.75rem',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: 'pointer',
-          }}
-        >
+        <Button onClick={onCancel} variant="danger" className="w-full">
           Cancel
-        </button>
+        </Button>
       )}
     </ModalFrame>
   );

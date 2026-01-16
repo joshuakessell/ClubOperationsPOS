@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { SignInModal } from './SignInModal';
 import type { WebSocketEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { Button } from './ui/Button';
 
 const API_BASE = '/api';
 
@@ -179,12 +180,12 @@ export function RegisterSignIn({ deviceId, onSignedIn, children }: RegisterSignI
   if (!registerSession) {
     return (
       <div className="register-sign-in-container">
-        <button
-          className="register-sign-in-button cs-liquid-button"
+        <Button
+          className="register-sign-in-button"
           onClick={() => setShowSignInModal(true)}
         >
           Sign In
-        </button>
+        </Button>
         <SignInModal
           isOpen={showSignInModal}
           onClose={() => setShowSignInModal(false)}
