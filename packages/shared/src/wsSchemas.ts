@@ -14,19 +14,12 @@ export const WebSocketEventTypeSchema = z.enum([
   'ROOM_STATUS_CHANGED',
   'INVENTORY_UPDATED',
   'ROOM_ASSIGNED',
-  'ROOM_RELEASED',
   'SESSION_UPDATED',
   'SELECTION_PROPOSED',
   'SELECTION_FORCED',
   'SELECTION_LOCKED',
   'SELECTION_ACKNOWLEDGED',
-  'WAITLIST_CREATED',
   'WAITLIST_UPDATED',
-  'ASSIGNMENT_CREATED',
-  'ASSIGNMENT_FAILED',
-  'CUSTOMER_CONFIRMATION_REQUIRED',
-  'CUSTOMER_CONFIRMED',
-  'CUSTOMER_DECLINED',
   'CHECKOUT_REQUESTED',
   'CHECKOUT_CLAIMED',
   'CHECKOUT_UPDATED',
@@ -94,14 +87,12 @@ const RoomAssignedPayloadSchema = z.object({
   customerId: zUuidishString,
 });
 
-const RoomReleasedPayloadSchema = z.object({
-  roomId: zUuidishString,
-  sessionId: zUuidishString,
-});
-
-const SessionUpdatedPayloadSchema = z.object({
-  sessionId: zUuidishString,
-  customerName: zNonEmptyString,
+const SessionUpdatedPayloadSchema = z
+  .object({
+    sessionId: zUuidishString,
+    // Lane resets clear the session and may emit customerName='' when status is COMPLETED.
+    // Keep strictness by validating empties via a refinement below.
+    customerName: z.string(),
   membershipNumber: z.string().optional(),
   customerMembershipValidUntil: z.string().optional(),
   membershipPurchaseIntent: z.enum(['PURCHASE', 'RENEW']).optional(),
@@ -141,7 +132,16 @@ const SessionUpdatedPayloadSchema = z.object({
   assignedResourceType: z.enum(['room', 'locker']).optional(),
   assignedResourceNumber: z.string().optional(),
   checkoutAt: zIsoishString.optional(),
-});
+  })
+  .superRefine((payload, ctx) => {
+    if (payload.customerName.length === 0 && payload.status !== 'COMPLETED') {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['customerName'],
+        message: "customerName cannot be empty unless status is 'COMPLETED'",
+      });
+    }
+  });
 
 const SelectionProposedPayloadSchema = z.object({
   sessionId: zUuidishString,
@@ -167,16 +167,6 @@ const SelectionAcknowledgedPayloadSchema = z.object({
   acknowledgedBy: z.enum(['CUSTOMER', 'EMPLOYEE']),
 });
 
-const WaitlistCreatedPayloadSchema = z.object({
-  sessionId: zUuidishString,
-  waitlistId: zUuidishString,
-  desiredType: z.string(),
-  backupType: z.string(),
-  position: z.number(),
-  estimatedReadyAt: zIsoishString.optional(),
-  upgradeFee: z.number().optional(),
-});
-
 const WaitlistUpdatedPayloadSchema = z.object({
   waitlistId: zUuidishString,
   status: z.string(),
@@ -184,40 +174,6 @@ const WaitlistUpdatedPayloadSchema = z.object({
   desiredTier: z.string().optional(),
   roomId: zUuidishString.optional(),
   roomNumber: z.string().optional(),
-});
-
-const AssignmentCreatedPayloadSchema = z.object({
-  sessionId: zUuidishString,
-  roomId: zUuidishString.optional(),
-  roomNumber: z.string().optional(),
-  lockerId: zUuidishString.optional(),
-  lockerNumber: z.string().optional(),
-  rentalType: z.string(),
-});
-
-const AssignmentFailedPayloadSchema = z.object({
-  sessionId: zUuidishString,
-  reason: z.string(),
-  requestedRoomId: zUuidishString.optional(),
-  requestedLockerId: zUuidishString.optional(),
-});
-
-const CustomerConfirmationRequiredPayloadSchema = z.object({
-  sessionId: zUuidishString,
-  requestedType: z.string(),
-  selectedType: z.string(),
-  selectedNumber: z.string(),
-});
-
-const CustomerConfirmedPayloadSchema = z.object({
-  sessionId: zUuidishString,
-  confirmedType: z.string(),
-  confirmedNumber: z.string(),
-});
-
-const CustomerDeclinedPayloadSchema = z.object({
-  sessionId: zUuidishString,
-  requestedType: z.string(),
 });
 
 const CheckoutRequestSummarySchema = z.object({
@@ -278,23 +234,12 @@ export const WebSocketEventSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('ROOM_STATUS_CHANGED'), payload: RoomStatusChangedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('INVENTORY_UPDATED'), payload: InventoryUpdatedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('ROOM_ASSIGNED'), payload: RoomAssignedPayloadSchema, timestamp: zIsoishString }),
-  z.object({ type: z.literal('ROOM_RELEASED'), payload: RoomReleasedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('SESSION_UPDATED'), payload: SessionUpdatedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('SELECTION_PROPOSED'), payload: SelectionProposedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('SELECTION_FORCED'), payload: SelectionForcedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('SELECTION_LOCKED'), payload: SelectionLockedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('SELECTION_ACKNOWLEDGED'), payload: SelectionAcknowledgedPayloadSchema, timestamp: zIsoishString }),
-  z.object({ type: z.literal('WAITLIST_CREATED'), payload: WaitlistCreatedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('WAITLIST_UPDATED'), payload: WaitlistUpdatedPayloadSchema, timestamp: zIsoishString }),
-  z.object({ type: z.literal('ASSIGNMENT_CREATED'), payload: AssignmentCreatedPayloadSchema, timestamp: zIsoishString }),
-  z.object({ type: z.literal('ASSIGNMENT_FAILED'), payload: AssignmentFailedPayloadSchema, timestamp: zIsoishString }),
-  z.object({
-    type: z.literal('CUSTOMER_CONFIRMATION_REQUIRED'),
-    payload: CustomerConfirmationRequiredPayloadSchema,
-    timestamp: zIsoishString,
-  }),
-  z.object({ type: z.literal('CUSTOMER_CONFIRMED'), payload: CustomerConfirmedPayloadSchema, timestamp: zIsoishString }),
-  z.object({ type: z.literal('CUSTOMER_DECLINED'), payload: CustomerDeclinedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('CHECKOUT_REQUESTED'), payload: CheckoutRequestedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('CHECKOUT_CLAIMED'), payload: CheckoutClaimedPayloadSchema, timestamp: zIsoishString }),
   z.object({ type: z.literal('CHECKOUT_UPDATED'), payload: CheckoutUpdatedPayloadSchema, timestamp: zIsoishString }),

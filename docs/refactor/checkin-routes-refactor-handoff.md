@@ -48,7 +48,7 @@ Suggested new handler module:
 
 Notes:
 - Uses `serializableTransaction` and `FOR UPDATE` locks to prevent double-booking.
-- Broadcasts `ASSIGNMENT_CREATED`, `ASSIGNMENT_FAILED`, and `CUSTOMER_CONFIRMATION_REQUIRED`.
+- Broadcasts `SESSION_UPDATED` (full lane session snapshot) after assignment-related mutations.
 - **Preserve existing behavior exactly**, even if something looks odd.
 
 ### Payment / intents

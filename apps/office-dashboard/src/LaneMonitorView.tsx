@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson, wsBaseUrl } from './api';
 
@@ -68,9 +68,6 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
           'SESSION_UPDATED',
           'SELECTION_PROPOSED',
           'SELECTION_LOCKED',
-          'CUSTOMER_CONFIRMATION_REQUIRED',
-          'CUSTOMER_CONFIRMED',
-          'CUSTOMER_DECLINED',
           'REGISTER_SESSION_UPDATED',
         ],
       },

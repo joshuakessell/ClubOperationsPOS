@@ -29,16 +29,10 @@ export type {
   CheckoutClaimedPayload,
   CheckoutUpdatedPayload,
   CheckoutCompletedPayload,
-  AssignmentCreatedPayload,
-  AssignmentFailedPayload,
-  CustomerConfirmationRequiredPayload,
-  CustomerConfirmedPayload,
-  CustomerDeclinedPayload,
   SelectionProposedPayload,
   SelectionForcedPayload,
   SelectionLockedPayload,
   SelectionAcknowledgedPayload,
-  WaitlistCreatedPayload,
   RegisterSessionUpdatedPayload,
 } from './types';
 

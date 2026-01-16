@@ -8,6 +8,7 @@ import type {
   PoolClient,
   RoomRentalType,
 } from './types.js';
+import { getAllowedRentals } from './allowedRentals.js';
 
 export function normalizeScanText(raw: string): string {
   // Normalize line endings and whitespace while preserving line breaks.
@@ -403,49 +404,6 @@ export async function buildFullSessionUpdatedPayload(
   };
 
   return { laneId, payload };
-}
-
-function isGymLockerEligible(membershipNumber: string | null | undefined): boolean {
-  if (!membershipNumber) {
-    return false;
-  }
-
-  const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
-  if (!rangesEnv.trim()) {
-    return false;
-  }
-
-  const membershipNum = parseInt(membershipNumber, 10);
-  if (isNaN(membershipNum)) {
-    return false;
-  }
-
-  const ranges = rangesEnv
-    .split(',')
-    .map((range) => range.trim())
-    .filter(Boolean);
-
-  for (const range of ranges) {
-    const [startStr, endStr] = range.split('-').map((s) => s.trim());
-    const start = parseInt(startStr || '', 10);
-    const end = parseInt(endStr || '', 10);
-
-    if (!isNaN(start) && !isNaN(end) && membershipNum >= start && membershipNum <= end) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-export function getAllowedRentals(membershipNumber: string | null | undefined): string[] {
-  const allowed: string[] = ['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'];
-
-  if (isGymLockerEligible(membershipNumber)) {
-    allowed.push('GYM_LOCKER');
-  }
-
-  return allowed;
 }
 
 export function parseMembershipNumber(scanValue: string): string | null {

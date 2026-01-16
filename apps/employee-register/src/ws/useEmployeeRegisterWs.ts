@@ -1,6 +1,6 @@
-import { useCallback, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useRef, type Dispatch, type SetStateAction } from 'react';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
-import { useReconnectingWebSocket } from '@club-ops/ui';
+import { useReconnectingWebSocket, useToast, logDevError } from '@club-ops/ui';
 import type { CheckoutChecklist, CheckoutRequestSummary } from '@club-ops/shared';
 import type { RegisterSessionAction } from '../app/registerSessionReducer';
 
@@ -12,12 +12,9 @@ export const EMPLOYEE_REGISTER_WS_SUBSCRIPTIONS = [
   'SESSION_UPDATED',
   'ROOM_STATUS_CHANGED',
   'INVENTORY_UPDATED',
-  'ASSIGNMENT_CREATED',
-  'ASSIGNMENT_FAILED',
-  'CUSTOMER_CONFIRMED',
-  'CUSTOMER_DECLINED',
   'WAITLIST_UPDATED',
   'SELECTION_PROPOSED',
+  'SELECTION_FORCED',
   'SELECTION_LOCKED',
   'SELECTION_ACKNOWLEDGED',
 ] as const;
@@ -40,8 +37,6 @@ export type EmployeeRegisterWsDeps = {
   setSelectedInventoryItem: Dispatch<
     SetStateAction<{ type: 'room' | 'locker'; id: string; number: string; tier: string } | null>
   >;
-  setShowCustomerConfirmationPending: Dispatch<SetStateAction<boolean>>;
-  setCustomerConfirmationType: Dispatch<SetStateAction<{ requested: string; selected: string; number: string } | null>>;
 
   // Side-effect triggers
   fetchWaitlist: () => void;
@@ -178,59 +173,26 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
     deps.fetchInventoryAvailable();
     return;
   }
-
-  if (message.type === 'ASSIGNMENT_CREATED') {
-    const payload = message.payload;
-    if (payload.sessionId === deps.currentSessionIdRef.current) {
-      // Assignment success: SessionUpdated will carry assigned resource details.
-    }
-    return;
-  }
-
-  if (message.type === 'ASSIGNMENT_FAILED') {
-    const payload = message.payload;
-    if (payload.sessionId === deps.currentSessionIdRef.current) {
-      // Handle race condition - refresh and re-select
-      alert('Assignment failed: ' + payload.reason);
-      deps.setSelectedInventoryItem(null);
-    }
-    return;
-  }
-
-  if (message.type === 'CUSTOMER_CONFIRMED') {
-    const payload = message.payload;
-    if (payload.sessionId === deps.currentSessionIdRef.current) {
-      deps.setShowCustomerConfirmationPending(false);
-      deps.setCustomerConfirmationType(null);
-    }
-    return;
-  }
-
-  if (message.type === 'CUSTOMER_DECLINED') {
-    const payload = message.payload;
-    if (payload.sessionId === deps.currentSessionIdRef.current) {
-      deps.setShowCustomerConfirmationPending(false);
-      deps.setCustomerConfirmationType(null);
-      // Revert to customer's requested type
-      if (deps.customerSelectedTypeRef.current) {
-        deps.setSelectedInventoryItem(null);
-        // This will trigger auto-selection in InventorySelector
-      }
-    }
-    return;
-  }
 }
 
 export function useEmployeeRegisterWs(deps: EmployeeRegisterWsDeps) {
   const { lane } = deps;
+  const toast = useToast();
+  const lastErrorToastAtRef = useRef<number>(0);
+  const toastWsError = (message: string) => {
+    const now = Date.now();
+    if (now - lastErrorToastAtRef.current < 10_000) return; // throttle
+    lastErrorToastAtRef.current = now;
+    toast.error(message, { title: 'Live updates' });
+  };
 
   const onMessage = useCallback(
     (event: MessageEvent) => {
       try {
         handleEmployeeRegisterWsMessage(event.data, deps);
       } catch (error) {
-        // eslint-disable-next-line no-console
-        console.error('Failed to parse WebSocket message:', error);
+        logDevError(error, 'ws.message');
+        toastWsError('Received an invalid live update. Reconnecting…');
       }
     },
     [deps]
@@ -246,6 +208,9 @@ export function useEmployeeRegisterWs(deps: EmployeeRegisterWsDeps) {
       },
     ],
     onMessage,
+    onError: () => {
+      toastWsError('WebSocket connection error. Retrying…');
+    },
   });
 }
 

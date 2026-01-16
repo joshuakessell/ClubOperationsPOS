@@ -6,10 +6,10 @@ import { requireAuth } from '../../auth/middleware.js';
 import type { CustomerRow, LaneSessionRow } from '../types.js';
 import {
   buildFullSessionUpdatedPayload,
-  getAllowedRentals,
   parseMembershipNumber,
   toDate,
 } from '../service.js';
+import { getAllowedRentals } from '../allowedRentals.js';
 
 export async function registerCheckinStartRoutes(fastify: FastifyInstance): Promise<void> {
   const StartLaneSessionBodySchema = z

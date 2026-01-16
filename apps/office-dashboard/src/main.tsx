@@ -1,7 +1,7 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { installTelemetry, TelemetryErrorBoundary } from '@club-ops/ui';
+import { installTelemetry, TelemetryErrorBoundary, ToastProvider } from '@club-ops/ui';
 import App from './App';
 import './styles.css';
 
@@ -18,9 +18,11 @@ installTelemetry({
 createRoot(root).render(
   <StrictMode>
     <TelemetryErrorBoundary>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <ToastProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </ToastProvider>
     </TelemetryErrorBoundary>
   </StrictMode>
 );

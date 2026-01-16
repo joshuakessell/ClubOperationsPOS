@@ -153,7 +153,8 @@ describe('App', () => {
         <App />
       </MemoryRouter>
     );
-    expect(await screen.findByText('Select your account to continue')).toBeDefined();
+    expect(await screen.findByText(/Select your account/i)).toBeDefined();
+    expect(await screen.findByText(/Choose your staff account to continue\./i)).toBeDefined();
     expect(await screen.findByText('Manager Club')).toBeDefined();
   });
 

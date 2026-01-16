@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
+import { getToastErrorMessage, logDevError, useToast } from '@club-ops/ui';
 
 const API_BASE = '/api';
 
@@ -21,6 +22,7 @@ interface TimeclockViewProps {
 
 export function TimeclockView({ session }: TimeclockViewProps) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [sessions, setSessions] = useState<TimeclockSession[]>([]);
   const [currentlyClockedIn, setCurrentlyClockedIn] = useState<TimeclockSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -98,11 +100,13 @@ export function TimeclockView({ session }: TimeclockViewProps) {
       if (response.ok) {
         await fetchSessions();
       } else {
-        alert('Failed to close session');
+        const body = await response.json().catch(() => null);
+        logDevError(body, 'timeclock.close');
+        toast.error(getToastErrorMessage(body, 'Failed to close session'), { title: 'Error' });
       }
     } catch (error) {
-      console.error('Failed to close session:', error);
-      alert('Failed to close session');
+      logDevError(error, 'timeclock.close');
+      toast.error(getToastErrorMessage(error, 'Failed to close session'), { title: 'Error' });
     }
   };
 
@@ -427,11 +431,13 @@ export function TimeclockView({ session }: TimeclockViewProps) {
                 setShowEditModal(false);
                 setSelectedSession(null);
               } else {
-                alert('Failed to update session');
+                const body = await response.json().catch(() => null);
+                logDevError(body, 'timeclock.update');
+                toast.error(getToastErrorMessage(body, 'Failed to update session'), { title: 'Error' });
               }
             } catch (error) {
-              console.error('Failed to update session:', error);
-              alert('Failed to update session');
+              logDevError(error, 'timeclock.update');
+              toast.error(getToastErrorMessage(error, 'Failed to update session'), { title: 'Error' });
             }
           }}
         />

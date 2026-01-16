@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import { wsBaseUrl } from './api';
 import { Button } from './ui/Button';
 

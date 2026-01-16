@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
-import { useReconnectingWebSocket } from '@club-ops/ui';
+import { getToastErrorMessage, logDevError, useReconnectingWebSocket, useToast } from '@club-ops/ui';
 import { wsBaseUrl } from './api';
 
 const API_BASE = '/api';
@@ -27,6 +27,7 @@ interface RegistersViewProps {
 }
 
 export function RegistersView({ session }: RegistersViewProps) {
+  const toast = useToast();
   const navigate = useNavigate();
   const [registers, setRegisters] = useState<RegisterSession[]>([]);
   const [loading, setLoading] = useState(true);
@@ -100,11 +101,13 @@ export function RegistersView({ session }: RegistersViewProps) {
       if (response.ok) {
         await fetchRegisters();
       } else {
-        alert('Failed to force sign out');
+        const body = await response.json().catch(() => null);
+        logDevError(body, 'register.forceSignOut');
+        toast.error(getToastErrorMessage(body, 'Failed to force sign out'), { title: 'Error' });
       }
     } catch (error) {
-      console.error('Failed to force sign out:', error);
-      alert('Failed to force sign out');
+      logDevError(error, 'register.forceSignOut');
+      toast.error(getToastErrorMessage(error, 'Failed to force sign out'), { title: 'Error' });
     } finally {
       setForceSignOutLoading(null);
     }

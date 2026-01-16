@@ -4,6 +4,9 @@ import { transaction } from '../db/index.js';
 import { requireAuth } from '../auth/middleware.js';
 import type { Broadcaster } from '../websocket/broadcaster.js';
 import type { SessionUpdatedPayload } from '@club-ops/shared';
+import type { LaneSessionRow } from '../checkin/types.js';
+import { buildFullSessionUpdatedPayload, getHttpError } from '../checkin/service.js';
+import { getAllowedRentals } from '../checkin/allowedRentals.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -22,59 +25,6 @@ interface CustomerRow {
   id: string;
   name: string;
   membership_number: string | null;
-}
-
-/**
- * Check if a membership number is eligible for Gym Locker rental.
- * Eligibility is determined by configurable numeric ranges in GYM_LOCKER_ELIGIBLE_RANGES.
- * Format: "1000-1999,5000-5999" (comma-separated ranges)
- */
-function isGymLockerEligible(membershipNumber: string | null | undefined): boolean {
-  if (!membershipNumber) {
-    return false;
-  }
-
-  const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
-  if (!rangesEnv.trim()) {
-    return false;
-  }
-
-  // Parse membership number as integer
-  const membershipNum = parseInt(membershipNumber, 10);
-  if (isNaN(membershipNum)) {
-    return false;
-  }
-
-  // Parse ranges (e.g., "1000-1999,5000-5999")
-  const ranges = rangesEnv
-    .split(',')
-    .map((range) => range.trim())
-    .filter(Boolean);
-
-  for (const range of ranges) {
-    const [startStr, endStr] = range.split('-').map((s) => s.trim());
-    const start = parseInt(startStr || '', 10);
-    const end = parseInt(endStr || '', 10);
-
-    if (!isNaN(start) && !isNaN(end) && membershipNum >= start && membershipNum <= end) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Determine allowed rentals based on membership eligibility.
- */
-function getAllowedRentals(membershipNumber: string | null | undefined): string[] {
-  const allowed: string[] = ['LOCKER', 'STANDARD', 'DOUBLE'];
-
-  if (isGymLockerEligible(membershipNumber)) {
-    allowed.push('GYM_LOCKER');
-  }
-
-  return allowed;
 }
 
 /**
@@ -233,8 +183,8 @@ export async function laneRoutes(fastify: FastifyInstance): Promise<void> {
   /**
    * POST /v1/lanes/:laneId/clear - Clear lane session
    *
-   * Cancels the active session for a specific lane.
-   * Broadcasts SESSION_UPDATED event with null/empty data to clear the kiosk.
+   * Clears the lane session for a specific lane (lane_sessions table).
+   * Broadcasts a full, contract-consistent SESSION_UPDATED snapshot (status: COMPLETED).
    * Auth required.
    */
   fastify.post<{ Params: { laneId: string } }>(
@@ -252,33 +202,58 @@ export async function laneRoutes(fastify: FastifyInstance): Promise<void> {
       const { laneId } = request.params;
 
       try {
-        await transaction(async (client) => {
-          // Cancel all active sessions in this lane
-          await client.query(
-            `UPDATE sessions 
-           SET status = 'CANCELLED', updated_at = NOW()
-           WHERE lane = $1 AND status = 'ACTIVE'`,
+        const sessionId = await transaction(async (client) => {
+          const sessionRes = await client.query<LaneSessionRow>(
+            `SELECT * FROM lane_sessions
+             WHERE lane_id = $1 AND status IN ('IDLE','ACTIVE','AWAITING_CUSTOMER','AWAITING_ASSIGNMENT','AWAITING_PAYMENT','AWAITING_SIGNATURE','COMPLETED')
+             ORDER BY created_at DESC
+             LIMIT 1
+             FOR UPDATE`,
             [laneId]
           );
+          if (sessionRes.rows.length === 0) throw { statusCode: 404, message: 'Lane session not found' };
+          const session = sessionRes.rows[0]!;
+
+          await client.query(
+            `UPDATE lane_sessions
+             SET status = 'COMPLETED',
+                 customer_id = NULL,
+                 customer_display_name = NULL,
+                 membership_number = NULL,
+                 desired_rental_type = NULL,
+                 proposed_rental_type = NULL,
+                 proposed_by = NULL,
+                 selection_confirmed = false,
+                 selection_confirmed_by = NULL,
+                 selection_locked_at = NULL,
+                 assigned_resource_id = NULL,
+                 assigned_resource_type = NULL,
+                 waitlist_desired_type = NULL,
+                 backup_rental_type = NULL,
+                 payment_intent_id = NULL,
+                 price_quote_json = NULL,
+                 membership_purchase_intent = NULL,
+                 membership_purchase_requested_at = NULL,
+                 kiosk_acknowledged_at = NULL,
+                 updated_at = NOW()
+             WHERE id = $1`,
+            [session.id]
+          );
+
+          return session.id;
         });
 
-        // Broadcast empty session to clear the kiosk
-        const payload: SessionUpdatedPayload = {
-          sessionId: '',
-          customerName: '',
-          membershipNumber: undefined,
-          allowedRentals: [],
-        };
-
+        const { payload } = await transaction((client) => buildFullSessionUpdatedPayload(client, sessionId));
         fastify.broadcaster.broadcastSessionUpdated(payload, laneId);
 
         return reply.send({ success: true });
       } catch (error) {
         request.log.error(error, 'Failed to clear lane session');
-        return reply.status(500).send({
-          error: 'Internal Server Error',
-          message: 'Failed to clear session',
-        });
+        const httpErr = getHttpError(error);
+        if (httpErr) {
+          return reply.status(httpErr.statusCode).send({ error: httpErr.message ?? 'Failed' });
+        }
+        return reply.status(500).send({ error: 'Internal Server Error', message: 'Failed to clear session' });
       }
     }
   );

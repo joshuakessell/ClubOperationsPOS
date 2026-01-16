@@ -241,13 +241,10 @@ The employee register displays organized inventory lists:
 
 - `SESSION_UPDATED` - Lane session created/updated (customer name, membership, allowed rentals, selection state)
 - `SELECTION_PROPOSED` - Rental type proposed by customer or employee
+- `SELECTION_FORCED` - Employee forces a selection (advances flow)
 - `SELECTION_LOCKED` - Selection confirmed and locked (first-confirm-wins)
 - `SELECTION_ACKNOWLEDGED` - Other side acknowledged locked selection
-- `WAITLIST_CREATED` - Waitlist entry created with position and ETA
-- `ASSIGNMENT_CREATED` - Room/locker assigned
-- `ASSIGNMENT_FAILED` - Assignment failed (race condition)
-- `CUSTOMER_CONFIRMATION_REQUIRED` - Cross-type assignment requires customer confirmation
-- `CUSTOMER_CONFIRMED` / `CUSTOMER_DECLINED` - Customer response to cross-type assignment
+- `WAITLIST_UPDATED` - Waitlist entry updated (status changes, room offer, etc.)
 
 ### Flow Sequence Summary
 
@@ -307,13 +304,17 @@ The employee register displays organized inventory lists:
 - `ROOM_STATUS_CHANGED` - Room status transition
 - `INVENTORY_UPDATED` - Inventory counts changed
 - `ROOM_ASSIGNED` - Room assigned to customer
-- `ROOM_RELEASED` - Room released from session
 - `SESSION_UPDATED` - Session created or updated (contains customer_name, membership_number, allowed_rentals)
+- `WAITLIST_UPDATED` - Waitlist state changed (offers, completion, expiry)
+- `CHECKOUT_REQUESTED` / `CHECKOUT_CLAIMED` / `CHECKOUT_UPDATED` / `CHECKOUT_COMPLETED` - Checkout request lifecycle
+- `REGISTER_SESSION_UPDATED` - Employee register session lifecycle
+- `SELECTION_PROPOSED` / `SELECTION_FORCED` / `SELECTION_LOCKED` / `SELECTION_ACKNOWLEDGED` - Lane selection lifecycle (lane-scoped)
 
 **Client → Server**:
 
 - `subscribe` - Subscribe to specific event types
-- `unsubscribe` - Unsubscribe from events
+- `setLane` - Associate this websocket connection with a lane (for lane-scoped events)
+- `ping` - Keepalive (server may ignore; primarily for client health checks)
 
 ---
 

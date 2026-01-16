@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson, wsBaseUrl } from './api';
 

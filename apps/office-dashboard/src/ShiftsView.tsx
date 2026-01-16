@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
+import { getToastErrorMessage, logDevError, useToast } from '@club-ops/ui';
 
 const API_BASE = '/api';
 
@@ -61,6 +62,7 @@ const SHIFT_BADGE_COLORS: Record<'A' | 'B' | 'C', string> = {
 
 export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
   const navigate = useNavigate();
+  const toast = useToast();
   const isAdmin = session.role === 'ADMIN';
   const [viewMode, setViewMode] = useState<'calendar' | 'list'>(() =>
     isAdmin ? 'calendar' : 'calendar'
@@ -754,7 +756,10 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
                         });
                         if (!res.ok) {
                           const body = await res.json().catch(() => ({}));
-                          alert(body.error || 'Failed to submit request');
+                          logDevError(body, 'timeoff.submit');
+                          toast.error(getToastErrorMessage(body, body.error || 'Failed to submit request'), {
+                            title: 'Error',
+                          });
                           return;
                         }
                         await fetchMonthData();
@@ -1014,11 +1019,13 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
                 setShowEditModal(false);
                 setSelectedShift(null);
               } else {
-                alert('Failed to update shift');
+                const body = await response.json().catch(() => null);
+                logDevError(body, 'shift.update');
+                toast.error(getToastErrorMessage(body, 'Failed to update shift'), { title: 'Error' });
               }
             } catch (error) {
-              console.error('Failed to update shift:', error);
-              alert('Failed to update shift');
+              logDevError(error, 'shift.update');
+              toast.error(getToastErrorMessage(error, 'Failed to update shift'), { title: 'Error' });
             }
           }}
         />

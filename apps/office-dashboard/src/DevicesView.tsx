@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
+import { getToastErrorMessage, logDevError, useToast } from '@club-ops/ui';
 
 const API_BASE = '/api';
 
@@ -16,6 +17,7 @@ interface DevicesViewProps {
 
 export function DevicesView({ session }: DevicesViewProps) {
   const navigate = useNavigate();
+  const toast = useToast();
   const [devices, setDevices] = useState<Device[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAddModal, setShowAddModal] = useState(false);
@@ -51,7 +53,7 @@ export function DevicesView({ session }: DevicesViewProps) {
 
   const handleAddDevice = async () => {
     if (!newDeviceId.trim() || !newDeviceName.trim()) {
-      alert('Device ID and display name are required');
+      toast.error('Device ID and display name are required', { title: 'Validation' });
       return;
     }
 
@@ -76,11 +78,12 @@ export function DevicesView({ session }: DevicesViewProps) {
         setNewDeviceName('');
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to add device');
+        logDevError(error, 'devices.add');
+        toast.error(getToastErrorMessage(error, 'Failed to add device'), { title: 'Error' });
       }
     } catch (error) {
-      console.error('Failed to add device:', error);
-      alert('Failed to add device');
+      logDevError(error, 'devices.add');
+      toast.error(getToastErrorMessage(error, 'Failed to add device'), { title: 'Error' });
     } finally {
       setAdding(false);
     }
@@ -88,7 +91,7 @@ export function DevicesView({ session }: DevicesViewProps) {
 
   const handleToggleDevice = async (deviceId: string, currentEnabled: boolean) => {
     if (!currentEnabled && enabledCount >= 2) {
-      alert('Maximum of 2 enabled devices allowed');
+      toast.error('Maximum of 2 enabled devices allowed', { title: 'Validation' });
       return;
     }
 
@@ -109,11 +112,12 @@ export function DevicesView({ session }: DevicesViewProps) {
         await fetchDevices();
       } else {
         const error = await response.json();
-        alert(error.message || 'Failed to update device');
+        logDevError(error, 'devices.toggle');
+        toast.error(getToastErrorMessage(error, 'Failed to update device'), { title: 'Error' });
       }
     } catch (error) {
-      console.error('Failed to toggle device:', error);
-      alert('Failed to update device');
+      logDevError(error, 'devices.toggle');
+      toast.error(getToastErrorMessage(error, 'Failed to update device'), { title: 'Error' });
     } finally {
       setToggling(null);
     }

@@ -1,6 +1,10 @@
 export * from './websocket/useReconnectingWebSocket';
 export * from './utils/typeGuards';
 export * from './utils/http';
+export * from './utils/errors';
+
+export * from './toast/ToastProvider';
+export * from './toast/types';
 
 export * from './components/Button';
 export * from './components/Card';

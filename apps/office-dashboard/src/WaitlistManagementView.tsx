@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { safeParseWebSocketEventJson } from '@club-ops/shared';
-import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
+import { getRoomTierFromRoomNumber, safeParseWebSocketEventJson } from '@club-ops/shared';
+import { useReconnectingWebSocket } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { ApiError, apiJson, wsBaseUrl } from './api';
 import { ReAuthModal } from './ReAuthModal';
@@ -19,22 +19,6 @@ type WaitlistEntry = {
 };
 
 type Room = { id: string; number: string; status: string; type: string };
-
-function getRoomTierFromNumber(roomNumber: string): 'STANDARD' | 'DOUBLE' | 'SPECIAL' {
-  const num = parseInt(roomNumber, 10);
-  if (num === 201 || num === 232 || num === 256) return 'SPECIAL';
-  if (
-    num === 216 ||
-    num === 218 ||
-    num === 232 ||
-    num === 252 ||
-    num === 256 ||
-    num === 262 ||
-    num === 225
-  )
-    return 'DOUBLE';
-  return 'STANDARD';
-}
 
 export function WaitlistManagementView({ session }: { session: StaffSession }) {
   const [active, setActive] = useState<WaitlistEntry[]>([]);
@@ -85,7 +69,7 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
   const availableRoomsForEntry = useMemo(() => {
     if (!selectedEntry) return [];
     return rooms
-      .filter((r) => getRoomTierFromNumber(r.number) === selectedEntry.desiredTier)
+      .filter((r) => getRoomTierFromRoomNumber(r.number) === selectedEntry.desiredTier)
       .sort((a, b) => parseInt(a.number, 10) - parseInt(b.number, 10));
   }, [rooms, selectedEntry]);
 
@@ -358,7 +342,7 @@ export function WaitlistManagementView({ session }: { session: StaffSession }) {
                   <option value="">Select room…</option>
                   {availableRoomsForEntry.map((r) => (
                     <option key={r.id} value={r.id}>
-                      Room {r.number} ({getRoomTierFromNumber(r.number)})
+                      Room {r.number} ({getRoomTierFromRoomNumber(r.number)})
                     </option>
                   ))}
                 </select>

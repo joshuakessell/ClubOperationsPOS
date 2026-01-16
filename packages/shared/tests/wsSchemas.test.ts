@@ -25,6 +25,24 @@ describe('wsSchemas', () => {
     expect(ok?.payload.customerName).toBe('Test');
   });
 
+  it('accepts SESSION_UPDATED reset events (COMPLETED allows empty customerName)', () => {
+    const msg = safeParseWebSocketEventJson(
+      JSON.stringify({
+        type: 'SESSION_UPDATED',
+        timestamp: new Date().toISOString(),
+        payload: {
+          sessionId: '11111111-1111-1111-1111-111111111111',
+          status: 'COMPLETED',
+          customerName: '',
+          allowedRentals: ['STANDARD', 'DOUBLE'],
+        },
+      })
+    );
+    expect(msg).not.toBeNull();
+    expect(msg?.type).toBe('SESSION_UPDATED');
+    expect(msg?.payload.customerName).toBe('');
+  });
+
   it('rejects invalid JSON and unknown event types (server->client)', () => {
     expect(safeParseWebSocketEventJson('{')).toBeNull();
     expect(

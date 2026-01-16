@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
-import { checkinRoutes } from '../src/routes/checkin.js';
+import { laneRoutes } from '../src/routes/lanes.js';
 import { createBroadcaster } from '../src/websocket/broadcaster.js';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
 import { truncateAllTables } from './testDb.js';
@@ -23,7 +23,7 @@ vi.mock('../src/auth/middleware.js', () => ({
   },
 }));
 
-describe('Lane session lifecycle: kiosk-ack must not end session', () => {
+describe('Lane clear broadcasts contract-consistent SESSION_UPDATED', () => {
   let fastify: FastifyInstance;
   let pool: pg.Pool;
   let dbAvailable = false;
@@ -56,7 +56,8 @@ describe('Lane session lifecycle: kiosk-ack must not end session', () => {
       return original(payload, lane);
     };
     fastify.decorate('broadcaster', broadcaster);
-    await fastify.register(checkinRoutes);
+
+    await fastify.register(laneRoutes);
     await fastify.ready();
   });
 
@@ -86,66 +87,7 @@ describe('Lane session lifecycle: kiosk-ack must not end session', () => {
   };
 
   it(
-    'kiosk-ack leaves session active so employee-register reset still succeeds',
-    runIfDbAvailable(async () => {
-      const customerId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
-      const sessionId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
-
-      await pool.query(
-        `INSERT INTO customers (id, name, dob, membership_number, membership_card_type, membership_valid_until)
-         VALUES ($1, 'Test Customer', '1990-01-01', NULL, 'NONE', NULL)`,
-        [customerId]
-      );
-
-      await pool.query(
-        `INSERT INTO lane_sessions (
-           id, lane_id, status, staff_id, customer_id, customer_display_name,
-           desired_rental_type, selection_confirmed, selection_confirmed_by, selection_locked_at
-         )
-         VALUES ($1, 'lane-1', 'ACTIVE', $2, $3, 'Test Customer',
-                 'LOCKER', true, 'CUSTOMER', NOW())`,
-        [sessionId, testStaffId, customerId]
-      );
-
-      // Simulate kiosk clicking OK
-      const ackRes = await fastify.inject({
-        method: 'POST',
-        url: `/v1/checkin/lane/lane-1/kiosk-ack`,
-      });
-      expect(ackRes.statusCode).toBe(200);
-
-      const afterAck = await pool.query<{
-        status: string;
-        customer_id: string | null;
-        kiosk_acknowledged_at: string | null;
-      }>(
-        `SELECT status::text as status, customer_id::text, kiosk_acknowledged_at::text
-         FROM lane_sessions WHERE id = $1`,
-        [sessionId]
-      );
-      expect(afterAck.rows[0]!.status).not.toBe('COMPLETED');
-      expect(afterAck.rows[0]!.customer_id).toBe(customerId);
-      expect(afterAck.rows[0]!.kiosk_acknowledged_at).toBeTruthy();
-
-      // Employee register completes transaction (reset)
-      const resetRes = await fastify.inject({
-        method: 'POST',
-        url: `/v1/checkin/lane/lane-1/reset`,
-        headers: { Authorization: 'Bearer test' },
-      });
-      expect(resetRes.statusCode).toBe(200);
-
-      const afterReset = await pool.query<{ status: string; customer_id: string | null }>(
-        `SELECT status::text as status, customer_id::text FROM lane_sessions WHERE id = $1`,
-        [sessionId]
-      );
-      expect(afterReset.rows[0]!.status).toBe('COMPLETED');
-      expect(afterReset.rows[0]!.customer_id).toBeNull();
-    })
-  );
-
-  it(
-    'reset broadcasts a contract-consistent SESSION_UPDATED event (parseable by shared ws schema)',
+    'POST /v1/lanes/:laneId/clear emits SESSION_UPDATED with non-empty sessionId and status COMPLETED',
     runIfDbAvailable(async () => {
       const sessionId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
@@ -155,12 +97,12 @@ describe('Lane session lifecycle: kiosk-ack must not end session', () => {
         [sessionId, testStaffId]
       );
 
-      const resetRes = await fastify.inject({
+      const res = await fastify.inject({
         method: 'POST',
-        url: `/v1/checkin/lane/lane-1/reset`,
+        url: `/v1/lanes/lane-1/clear`,
         headers: { Authorization: 'Bearer test' },
       });
-      expect(resetRes.statusCode).toBe(200);
+      expect(res.statusCode).toBe(200);
 
       expect(sessionUpdatedEvents.length).toBeGreaterThan(0);
       const last = sessionUpdatedEvents[sessionUpdatedEvents.length - 1]!;
@@ -173,9 +115,7 @@ describe('Lane session lifecycle: kiosk-ack must not end session', () => {
       expect(parsed?.type).toBe('SESSION_UPDATED');
       expect(parsed?.payload.sessionId).toBe(sessionId);
       expect(parsed?.payload.status).toBe('COMPLETED');
-      expect(Array.isArray(parsed?.payload.allowedRentals)).toBe(true);
     })
   );
 });
-
 

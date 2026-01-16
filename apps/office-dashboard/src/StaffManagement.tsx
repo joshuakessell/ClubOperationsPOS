@@ -3,6 +3,7 @@ import type { StaffSession } from './LockScreen';
 import { ReAuthModal } from './ReAuthModal';
 import { Button } from './ui/Button';
 import { Input } from './ui/Input';
+import { getToastErrorMessage, logDevError, useToast } from '@club-ops/ui';
 
 const API_BASE = '/api';
 
@@ -32,6 +33,7 @@ interface StaffManagementProps {
 }
 
 export function StaffManagement({ session }: StaffManagementProps) {
+  const toast = useToast();
   const [staff, setStaff] = useState<StaffMember[]>([]);
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('');
@@ -45,7 +47,6 @@ export function StaffManagement({ session }: StaffManagementProps) {
   const [showReAuthModal, setShowReAuthModal] = useState(false);
   const [pendingAction, setPendingAction] = useState<(() => void) | null>(null);
   const [, setPendingPinReset] = useState<{ staffId: string; newPin: string } | null>(null);
-  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     loadStaff();
@@ -72,8 +73,8 @@ export function StaffManagement({ session }: StaffManagementProps) {
         setStaff(data.staff || []);
       }
     } catch (error) {
-      console.error('Failed to load staff:', error);
-      showToast('Failed to load staff', 'error');
+      logDevError(error, 'staff.load');
+      toast.error(getToastErrorMessage(error, 'Failed to load staff'), { title: 'Error' });
     } finally {
       setIsLoading(false);
     }
@@ -94,14 +95,9 @@ export function StaffManagement({ session }: StaffManagementProps) {
         setPasskeys(data.credentials || []);
       }
     } catch (error) {
-      console.error('Failed to load passkeys:', error);
-      showToast('Failed to load passkeys', 'error');
+      logDevError(error, 'passkeys.load');
+      toast.error(getToastErrorMessage(error, 'Failed to load passkeys'), { title: 'Error' });
     }
-  };
-
-  const showToast = (message: string, type: 'success' | 'error') => {
-    setToast({ message, type });
-    setTimeout(() => setToast(null), 3000);
   };
 
   const handleCreateStaff = async (formData: {
@@ -123,15 +119,17 @@ export function StaffManagement({ session }: StaffManagementProps) {
       });
 
       if (response.ok) {
-        showToast('Staff created successfully', 'success');
+        toast.success('Staff created successfully', { title: 'Success' });
         setShowCreateModal(false);
         loadStaff();
       } else {
         const error = await response.json();
-        showToast(error.error || 'Failed to create staff', 'error');
+        logDevError(error, 'staff.create');
+        toast.error(getToastErrorMessage(error, error.error || 'Failed to create staff'), { title: 'Error' });
       }
     } catch (error) {
-      showToast('Failed to create staff', 'error');
+      logDevError(error, 'staff.create');
+      toast.error(getToastErrorMessage(error, 'Failed to create staff'), { title: 'Error' });
     }
   };
 
@@ -149,14 +147,16 @@ export function StaffManagement({ session }: StaffManagementProps) {
       });
 
       if (response.ok) {
-        showToast(`Staff ${!currentActive ? 'activated' : 'deactivated'}`, 'success');
+        toast.success(`Staff ${!currentActive ? 'activated' : 'deactivated'}`, { title: 'Success' });
         loadStaff();
       } else {
         const error = await response.json();
-        showToast(error.error || 'Failed to update staff', 'error');
+        logDevError(error, 'staff.update');
+        toast.error(getToastErrorMessage(error, error.error || 'Failed to update staff'), { title: 'Error' });
       }
     } catch (error) {
-      showToast('Failed to update staff', 'error');
+      logDevError(error, 'staff.update');
+      toast.error(getToastErrorMessage(error, 'Failed to update staff'), { title: 'Error' });
     }
   };
 
@@ -187,20 +187,22 @@ export function StaffManagement({ session }: StaffManagementProps) {
       );
 
       if (response.ok) {
-        showToast('Passkey revoked', 'success');
+        toast.success('Passkey revoked', { title: 'Success' });
         if (selectedStaff) {
           loadPasskeys(selectedStaff.id);
         }
       } else {
         const error = await response.json();
         if (error.code === 'REAUTH_REQUIRED' || error.code === 'REAUTH_EXPIRED') {
-          showToast('Re-authentication required. Please try again.', 'error');
+          toast.error('Re-authentication required. Please try again.', { title: 'Auth' });
         } else {
-          showToast(error.error || 'Failed to revoke passkey', 'error');
+          logDevError(error, 'passkey.revoke');
+          toast.error(getToastErrorMessage(error, error.error || 'Failed to revoke passkey'), { title: 'Error' });
         }
       }
     } catch (error) {
-      showToast('Failed to revoke passkey', 'error');
+      logDevError(error, 'passkey.revoke');
+      toast.error(getToastErrorMessage(error, 'Failed to revoke passkey'), { title: 'Error' });
     }
   };
 
@@ -235,22 +237,24 @@ export function StaffManagement({ session }: StaffManagementProps) {
       });
 
       if (response.ok) {
-        showToast('PIN reset successfully', 'success');
+        toast.success('PIN reset successfully', { title: 'Success' });
         setShowPinResetModal(false);
         return true;
       } else {
         const error = await response.json();
         if (error.code === 'REAUTH_REQUIRED' || error.code === 'REAUTH_EXPIRED') {
-          showToast('Re-authentication required. Please try again.', 'error');
+          toast.error('Re-authentication required. Please try again.', { title: 'Auth' });
           // Don't clear state - allow retry after re-auth
           setShowReAuthModal(true);
         } else {
-          showToast(error.error || 'Failed to reset PIN', 'error');
+          logDevError(error, 'pin.reset');
+          toast.error(getToastErrorMessage(error, error.error || 'Failed to reset PIN'), { title: 'Error' });
         }
         return false;
       }
     } catch (error) {
-      showToast('Failed to reset PIN', 'error');
+      logDevError(error, 'pin.reset');
+      toast.error(getToastErrorMessage(error, 'Failed to reset PIN'), { title: 'Error' });
       return false;
     }
   };
@@ -476,25 +480,6 @@ export function StaffManagement({ session }: StaffManagementProps) {
           }}
         />
       )}
-
-      {/* Toast */}
-      {toast && (
-        <div
-          style={{
-            position: 'fixed',
-            bottom: '2rem',
-            right: '2rem',
-            padding: '1rem 1.5rem',
-            background: toast.type === 'success' ? '#10b981' : '#ef4444',
-            color: '#f9fafb',
-            borderRadius: '8px',
-            boxShadow: '0 4px 6px rgba(0, 0, 0, 0.3)',
-            zIndex: 1000,
-          }}
-        >
-          {toast.message}
-        </div>
-      )}
     </div>
   );
 }
@@ -652,6 +637,7 @@ function StaffDetailModal({
   onPinReset: () => void;
   sessionToken: string;
 }) {
+  const toast = useToast();
   const [activeTab, setActiveTab] = useState<'details' | 'passkeys' | 'documents'>('details');
   const [documents, setDocuments] = useState<
     Array<{
@@ -713,13 +699,15 @@ function StaffDetailModal({
           await fetchDocuments();
           setShowUploadModal(false);
         } else {
-          alert('Failed to upload document');
+          const body = await response.json().catch(() => null);
+          logDevError(body, 'doc.upload');
+          toast.error(getToastErrorMessage(body, 'Failed to upload document'), { title: 'Error' });
         }
       };
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error('Failed to upload document:', error);
-      alert('Failed to upload document');
+      logDevError(error, 'doc.upload');
+      toast.error(getToastErrorMessage(error, 'Failed to upload document'), { title: 'Error' });
     }
   };
 
@@ -1002,6 +990,7 @@ function UploadDocumentModal({
   onClose: () => void;
   onUpload: (file: File, docType: string, notes?: string) => void;
 }) {
+  const toast = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [docType, setDocType] = useState('OTHER');
   const [notes, setNotes] = useState('');
@@ -1009,7 +998,7 @@ function UploadDocumentModal({
 
   const handleSubmit = async () => {
     if (!file) {
-      alert('Please select a file');
+      toast.error('Please select a file', { title: 'Validation' });
       return;
     }
     setUploading(true);

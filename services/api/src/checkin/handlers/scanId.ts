@@ -9,10 +9,10 @@ import type { CustomerRow, LaneSessionRow } from '../types.js';
 import {
   buildFullSessionUpdatedPayload,
   computeSha256Hex,
-  getAllowedRentals,
   normalizeScanText,
   toDate,
 } from '../service.js';
+import { getAllowedRentals } from '../allowedRentals.js';
 
 export async function registerCheckinScanIdRoutes(fastify: FastifyInstance): Promise<void> {
   /**

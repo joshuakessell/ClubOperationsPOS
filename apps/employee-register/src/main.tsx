@@ -1,6 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { installTelemetry, TelemetryErrorBoundary } from '@club-ops/ui';
+import { installTelemetry, TelemetryErrorBoundary, ToastProvider } from '@club-ops/ui';
 import App from './App';
 import './styles.css';
 import './legacy.css';
@@ -19,7 +19,9 @@ installTelemetry({
 createRoot(root).render(
   <StrictMode>
     <TelemetryErrorBoundary>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </TelemetryErrorBoundary>
   </StrictMode>
 );

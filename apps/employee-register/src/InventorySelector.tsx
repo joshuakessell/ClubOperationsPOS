@@ -100,14 +100,14 @@ export function InventorySelector({
     onOpenSendJson: [
       {
         type: 'subscribe',
-        events: ['ROOM_STATUS_CHANGED', 'INVENTORY_UPDATED', 'ROOM_ASSIGNED', 'ROOM_RELEASED'],
+        events: ['ROOM_STATUS_CHANGED', 'INVENTORY_UPDATED', 'ROOM_ASSIGNED'],
       },
     ],
     onMessage: (event) => {
       const parsed = safeJsonParse<unknown>(String(event.data));
       if (!isRecord(parsed) || typeof parsed.type !== 'string') return;
       const t = parsed.type;
-      if (t === 'ROOM_STATUS_CHANGED' || t === 'INVENTORY_UPDATED' || t === 'ROOM_ASSIGNED' || t === 'ROOM_RELEASED') {
+      if (t === 'ROOM_STATUS_CHANGED' || t === 'INVENTORY_UPDATED' || t === 'ROOM_ASSIGNED') {
         setRefreshTrigger((prev) => prev + 1);
       }
     },

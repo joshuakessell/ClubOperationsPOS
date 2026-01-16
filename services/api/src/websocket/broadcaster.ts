@@ -10,15 +10,9 @@ import type {
   CheckoutClaimedPayload,
   CheckoutUpdatedPayload,
   CheckoutCompletedPayload,
-  CustomerConfirmationRequiredPayload,
-  CustomerConfirmedPayload,
-  CustomerDeclinedPayload,
-  AssignmentCreatedPayload,
-  AssignmentFailedPayload,
   SelectionProposedPayload,
   SelectionLockedPayload,
   SelectionAcknowledgedPayload,
-  WaitlistCreatedPayload,
   RegisterSessionUpdatedPayload,
 } from '@club-ops/shared';
 
@@ -32,36 +26,21 @@ export interface RoomAssignedPayload {
 }
 
 /**
- * Room released event payload.
- */
-export interface RoomReleasedPayload {
-  roomId: string;
-  sessionId: string;
-}
-
-/**
  * Union type for all WebSocket payloads.
  */
 export type WebSocketPayload =
   | RoomStatusChangedPayload
   | InventoryUpdatedPayload
   | RoomAssignedPayload
-  | RoomReleasedPayload
   | SessionUpdatedPayload
   | CheckoutRequestedPayload
   | CheckoutClaimedPayload
   | CheckoutUpdatedPayload
   | CheckoutCompletedPayload
-  | CustomerConfirmationRequiredPayload
-  | CustomerConfirmedPayload
-  | CustomerDeclinedPayload
   | SelectionForcedPayload
-  | AssignmentCreatedPayload
-  | AssignmentFailedPayload
   | SelectionProposedPayload
   | SelectionLockedPayload
   | SelectionAcknowledgedPayload
-  | WaitlistCreatedPayload
   | RegisterSessionUpdatedPayload;
 
 /**
@@ -88,17 +67,8 @@ export interface Broadcaster {
   broadcastRoomStatusChanged(payload: RoomStatusChangedPayload): void;
   broadcastInventoryUpdated(payload: InventoryUpdatedPayload): void;
   broadcastRoomAssigned(payload: RoomAssignedPayload): void;
-  broadcastRoomReleased(payload: RoomReleasedPayload): void;
   broadcastSessionUpdated(payload: SessionUpdatedPayload, lane: string): void;
-  broadcastCustomerConfirmationRequired(
-    payload: CustomerConfirmationRequiredPayload,
-    lane: string
-  ): void;
-  broadcastCustomerConfirmed(payload: CustomerConfirmedPayload, lane: string): void;
-  broadcastCustomerDeclined(payload: CustomerDeclinedPayload, lane: string): void;
   broadcastSelectionForced(payload: SelectionForcedPayload, lane: string): void;
-  broadcastAssignmentCreated(payload: AssignmentCreatedPayload, lane: string): void;
-  broadcastAssignmentFailed(payload: AssignmentFailedPayload, lane: string): void;
   broadcastRegisterSessionUpdated(payload: RegisterSessionUpdatedPayload): void;
   getClientCount(): number;
 }
@@ -225,14 +195,6 @@ export function createBroadcaster(): Broadcaster {
     },
 
     /**
-     * Broadcast a room released event.
-     * Called when a room is released from a session.
-     */
-    broadcastRoomReleased(payload: RoomReleasedPayload) {
-      broadcast(createEvent('ROOM_RELEASED', payload));
-    },
-
-    /**
      * Broadcast a session updated event to a specific lane.
      * Called when a lane session is created or updated.
      */
@@ -241,54 +203,11 @@ export function createBroadcaster(): Broadcaster {
     },
 
     /**
-     * Broadcast a customer confirmation required event to a specific lane.
-     * Called when employee selects different type than customer requested.
-     */
-    broadcastCustomerConfirmationRequired(
-      payload: CustomerConfirmationRequiredPayload,
-      lane: string
-    ) {
-      broadcastToLane(createEvent('CUSTOMER_CONFIRMATION_REQUIRED', payload), lane);
-    },
-
-    /**
-     * Broadcast a customer confirmed event to a specific lane.
-     * Called when customer accepts the different selection.
-     */
-    broadcastCustomerConfirmed(payload: CustomerConfirmedPayload, lane: string) {
-      broadcastToLane(createEvent('CUSTOMER_CONFIRMED', payload), lane);
-    },
-
-    /**
-     * Broadcast a customer declined event to a specific lane.
-     * Called when customer rejects the different selection.
-     */
-    broadcastCustomerDeclined(payload: CustomerDeclinedPayload, lane: string) {
-      broadcastToLane(createEvent('CUSTOMER_DECLINED', payload), lane);
-    },
-
-    /**
      * Broadcast a selection forced event to a specific lane.
      * Used when employee double-taps to force selection and advance flow.
      */
     broadcastSelectionForced(payload: SelectionForcedPayload, lane: string) {
       broadcastToLane(createEvent('SELECTION_FORCED', payload), lane);
-    },
-
-    /**
-     * Broadcast an assignment created event to a specific lane.
-     * Called when a room or locker is successfully assigned.
-     */
-    broadcastAssignmentCreated(payload: AssignmentCreatedPayload, lane: string) {
-      broadcastToLane(createEvent('ASSIGNMENT_CREATED', payload), lane);
-    },
-
-    /**
-     * Broadcast an assignment failed event to a specific lane.
-     * Called when assignment fails (e.g., race condition).
-     */
-    broadcastAssignmentFailed(payload: AssignmentFailedPayload, lane: string) {
-      broadcastToLane(createEvent('ASSIGNMENT_FAILED', payload), lane);
     },
 
     /**

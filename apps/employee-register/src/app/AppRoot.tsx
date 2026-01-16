@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useMemo, useReducer, useState, useRef } from 'react';
 import {
   type ActiveVisit,
-  type CheckoutRequestSummary,
-  type CheckoutChecklist,
   getCustomerMembershipStatus,
 } from '@club-ops/shared';
 import { isRecord } from '@club-ops/ui';
@@ -14,11 +12,8 @@ type ScanResult =
   | { outcome: 'matched' }
   | { outcome: 'no_match'; message: string; canCreate?: boolean }
   | { outcome: 'error'; message: string };
-import { debounce } from '../utils/debounce';
-import { extractDobDigits, formatDobMmDdYyyy, parseDobDigitsToIso } from '../utils/dob';
 import { OfferUpgradeModal } from '../components/OfferUpgradeModal';
-import { CheckoutRequestsBanner } from '../features/register/CheckoutRequestsBanner';
-import { CheckoutVerificationModal } from '../features/register/CheckoutVerificationModal';
+import { CheckoutRequestsLayer, useCheckoutRequestsController } from '../features/checkoutRequests';
 import { AgreementArtifactsModal } from '../features/register/AgreementArtifactsModal';
 import { RegisterHeader } from '../features/register/RegisterHeader';
 import { RegisterTopActionsBar } from '../features/register/RegisterTopActionsBar';
@@ -48,8 +43,16 @@ import { PaymentDeclineToast } from '../features/register/toasts/PaymentDeclineT
 import { ScanToastOverlay } from '../components/ScanToastOverlay';
 import { RegisterSideDrawers } from '../components/drawers/RegisterSideDrawers';
 import { UpgradesDrawerContent } from '../features/upgrades/UpgradesDrawerContent';
-import { InventoryDrawer, type InventoryDrawerSection } from '../features/inventory/InventoryDrawer';
+import {
+  InventoryDrawer,
+  type InventoryDrawerSection,
+  useInventorySelectionController,
+} from '../features/inventory';
 import { useRegisterTopActionsOverlays } from '../features/register/useRegisterTopActionsOverlays';
+import { useRegisterMainViewProps } from '../features/register/controller/useRegisterMainViewProps';
+import { useCustomerSearchController } from '../features/register/controller/useCustomerSearchController';
+import { useManualEntryController } from '../features/register/controller/useManualEntryController';
+import { ManualExistingCustomerModal } from '../features/register/modals/ManualExistingCustomerModal';
 import { usePassiveScannerInput } from '../usePassiveScannerInput';
 import { RegisterMainView } from '../features/register/views/RegisterMainView';
 import {
@@ -61,18 +64,10 @@ import { useEmployeeRegisterWs } from '../ws/useEmployeeRegisterWs';
 import {
   authLogout,
   addNote,
-  assignResource,
-  checkoutClaim,
-  checkoutComplete,
-  checkoutConfirmItems,
-  checkoutMarkFeePaid,
   checkinScan,
   completeMembershipPurchase,
-  confirmSelection,
   createPaymentIntent,
   customersCreateFromScan,
-  customersCreateManual,
-  customersMatchIdentity,
   demoTakePayment,
   documentDownloadPdf,
   documentsBySession,
@@ -85,10 +80,8 @@ import {
   pastDueBypass,
   pastDueDemoPayment,
   paymentsMarkPaid,
-  proposeSelection,
   registerSignout,
   scanId,
-  searchCustomers,
   startLaneSession as apiStartLaneSession,
   upgradesComplete,
   upgradesFulfill,
@@ -212,23 +205,7 @@ export function AppRoot() {
   const scanOverlayHideTimerRef = useRef<number | null>(null);
   const scanOverlayShownAtRef = useRef<number | null>(null);
   const SCAN_OVERLAY_MIN_VISIBLE_MS = 300;
-  const [manualEntry, setManualEntry] = useState(false);
-  const [manualFirstName, setManualFirstName] = useState('');
-  const [manualLastName, setManualLastName] = useState('');
-  const [manualDobDigits, setManualDobDigits] = useState('');
-  const [manualEntrySubmitting, setManualEntrySubmitting] = useState(false);
-  const [manualExistingPrompt, setManualExistingPrompt] = useState<null | {
-    firstName: string;
-    lastName: string;
-    dobIso: string;
-    matchCount: number;
-    bestMatch: { id: string; name: string; membershipNumber?: string | null; dob?: string | null };
-  }>(null);
-  const [manualExistingPromptError, setManualExistingPromptError] = useState<string | null>(null);
-  const [manualExistingPromptSubmitting, setManualExistingPromptSubmitting] = useState(false);
   const [isUpgradesDrawerOpen, setIsUpgradesDrawerOpen] = useState(false);
-  const [isInventoryDrawerOpen, setIsInventoryDrawerOpen] = useState(false);
-  const [inventoryForcedSection, setInventoryForcedSection] = useState<InventoryDrawerSection>(null);
   const [registerState, dispatchRegister] = useReducer(
     registerSessionReducer,
     initialRegisterSessionState
@@ -244,6 +221,12 @@ export function AppRoot() {
   const showAlert = useCallback((message: string, title?: string) => {
     setAlertModal({ message, title });
   }, []);
+
+  const manual = useManualEntryController({
+    sessionToken: session?.sessionToken ?? null,
+    showAlert,
+    startLaneSessionByCustomerId,
+  });
 
   const customerName = registerState.customerName;
   const membershipNumber = registerState.membershipNumber;
@@ -289,22 +272,22 @@ export function AppRoot() {
   const agreementSigned = registerState.agreementSigned;
   // Check-in mode is now auto-detected server-side based on active visits/assignments.
   const [selectedRentalType, setSelectedRentalType] = useState<string | null>(null);
-  const [checkoutRequests, setCheckoutRequests] = useState<Map<string, CheckoutRequestSummary>>(
-    new Map()
-  );
-  const [selectedCheckoutRequest, setSelectedCheckoutRequest] = useState<string | null>(null);
-  const [, setCheckoutChecklist] = useState<CheckoutChecklist>({});
-  const [checkoutItemsConfirmed, setCheckoutItemsConfirmed] = useState(false);
-  const [checkoutFeePaid, setCheckoutFeePaid] = useState(false);
+  const checkout = useCheckoutRequestsController({
+    sessionToken: session?.sessionToken ?? null,
+    isSubmitting,
+    setIsSubmitting,
+    showAlert,
+  });
   const customerSelectedType = registerState.customerSelectedType;
   const waitlistDesiredTier = registerState.waitlistDesiredTier;
   const waitlistBackupType = registerState.waitlistBackupType;
-  const [selectedInventoryItem, setSelectedInventoryItem] = useState<{
-    type: 'room' | 'locker';
-    id: string;
-    number: string;
-    tier: string;
-  } | null>(null);
+  const inventory = useInventorySelectionController({
+    customerSelectedType,
+    onRequireCustomerConfirmation: ({ requested, selected, number }) => {
+      setCustomerConfirmationType({ requested, selected, number });
+      setShowCustomerConfirmationPending(true);
+    },
+  });
   const proposedRentalType = registerState.proposedRentalType;
   const proposedBy = registerState.proposedBy;
   const selectionConfirmed = registerState.selectionConfirmed;
@@ -334,11 +317,6 @@ export function AppRoot() {
   const [documentsForSession, setDocumentsForSession] = useState<SessionDocument[] | null>(null);
 
   // Keep WebSocket handlers stable while still reading the latest values.
-  const selectedCheckoutRequestRef = useRef<string | null>(null);
-  useEffect(() => {
-    selectedCheckoutRequestRef.current = selectedCheckoutRequest;
-  }, [selectedCheckoutRequest]);
-
   const currentSessionIdRef = useRef<string | null>(null);
   useEffect(() => {
     currentSessionIdRef.current = currentSessionId;
@@ -358,7 +336,7 @@ export function AppRoot() {
 
   useEffect(() => {
     if (registerState.clearEpoch > 0) {
-      setSelectedInventoryItem(null);
+      inventory.clearSelection();
       setShowMembershipIdPrompt(false);
       setMembershipIdInput('');
       setMembershipIdError(null);
@@ -429,7 +407,6 @@ export function AppRoot() {
     desiredTier: 'STANDARD' | 'DOUBLE' | 'SPECIAL';
     customerLabel?: string;
   } | null>(null);
-  const [inventoryHasLate, setInventoryHasLate] = useState(false);
 
   // Customer info (server-authoritative view-model)
   const customerPrimaryLanguage = registerState.customerPrimaryLanguage ?? undefined;
@@ -449,22 +426,6 @@ export function AppRoot() {
   const paymentIntentCreateInFlightRef = useRef(false);
   const fetchWaitlistRef = useRef<(() => Promise<void>) | null>(null);
   const fetchInventoryAvailableRef = useRef<(() => Promise<void>) | null>(null);
-  const searchAbortRef = useRef<AbortController | null>(null);
-  const [customerSearch, setCustomerSearch] = useState('');
-  const [customerSuggestions, setCustomerSuggestions] = useState<
-    Array<{
-      id: string;
-      name: string;
-      firstName: string;
-      lastName: string;
-      dobMonthDay?: string;
-      membershipNumber?: string;
-      disambiguator: string;
-    }>
-  >([]);
-  const [customerSearchLoading, setCustomerSearchLoading] = useState(false);
-  const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
-  const [selectedCustomerLabel, setSelectedCustomerLabel] = useState<string | null>(null);
 
   // Assignment completion (server-authoritative view-model)
   const assignedResourceType = registerState.assignedResourceType;
@@ -561,105 +522,15 @@ export function AppRoot() {
     if (!confirmed) return;
     await handleLogout();
   };
-  const runCustomerSearch = useCallback(
-    debounce(async (query: string) => {
-      if (!session?.sessionToken || query.trim().length < 3) {
-        setCustomerSuggestions([]);
-        setCustomerSearchLoading(false);
-        return;
-      }
-
-      if (searchAbortRef.current) {
-        searchAbortRef.current.abort();
-      }
-      const controller = new AbortController();
-      searchAbortRef.current = controller;
-
-      setCustomerSearchLoading(true);
-      try {
-        const data = await searchCustomers({
-          sessionToken: session.sessionToken,
-          query,
-          limit: 10,
-          signal: controller.signal,
-        });
-        setCustomerSuggestions(data.suggestions || []);
-      } catch (error) {
-        if (!(error instanceof DOMException && error.name === 'AbortError')) {
-          console.error('Customer search failed:', error);
-          setCustomerSuggestions([]);
-        }
-      } finally {
-        setCustomerSearchLoading(false);
-      }
-    }, 200),
-    [session?.sessionToken]
-  );
-
-  useEffect(() => {
-    if (customerSearch.trim().length >= 3) {
-      setSelectedCustomerId(null);
-      setSelectedCustomerLabel(null);
-      runCustomerSearch(customerSearch);
-    } else {
-      setCustomerSuggestions([]);
-      setSelectedCustomerId(null);
-      setSelectedCustomerLabel(null);
-    }
-  }, [customerSearch, runCustomerSearch]);
-
-  const handleConfirmCustomerSelection = async () => {
-    if (!session?.sessionToken || !selectedCustomerId) return;
-    setIsSubmitting(true);
-    try {
-      setAlreadyCheckedIn(null);
-      // Customer search selection should attach to the *check-in lane session* system
-      // (lane_sessions), not legacy sessions, so downstream kiosk endpoints (set-language, etc.)
-      // can resolve the active session.
-      let data: {
-        sessionId?: string;
-        customerName?: string;
-        membershipNumber?: string;
-        mode?: 'INITIAL' | 'RENEWAL';
-        blockEndsAt?: string;
-        activeAssignedResourceType?: 'room' | 'locker';
-        activeAssignedResourceNumber?: string;
-      };
-      try {
-        data = await apiStartLaneSession({
-          sessionToken: session.sessionToken,
-          lane,
-          body: { customerId: selectedCustomerId },
-        });
-      } catch (err) {
-        if (isApiError(err) && err.status === 409) {
-          if (tryOpenAlreadyCheckedInModal(err.body, selectedCustomerLabel || selectedCustomerId)) {
-            return;
-          }
-        }
-        throw err;
-      }
-      if (data.customerName) patchRegister({ customerName: data.customerName });
-      if (data.membershipNumber) patchRegister({ membershipNumber: data.membershipNumber });
-      if (data.sessionId) patchRegister({ sessionId: data.sessionId });
-      if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType)
-          patchRegister({ assignedResourceType: data.activeAssignedResourceType });
-        if (data.activeAssignedResourceNumber)
-          patchRegister({ assignedResourceNumber: data.activeAssignedResourceNumber });
-        patchRegister({ checkoutAt: data.blockEndsAt });
-      }
-
-      // Clear search UI
-      setCustomerSearch('');
-      setCustomerSuggestions([]);
-    } catch (error) {
-      console.error('Failed to confirm customer:', error);
-      showAlert(error instanceof Error ? error.message : 'Failed to confirm customer', 'Error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const customerSearchCtrl = useCustomerSearchController({
+    sessionToken: session?.sessionToken ?? null,
+    lane,
+    patchRegister,
+    setIsSubmitting,
+    showAlert,
+    clearAlreadyCheckedIn: () => setAlreadyCheckedIn(null),
+    tryOpenAlreadyCheckedInModal,
+  });
 
   // Load staff session from localStorage (created after register sign-in)
   useEffect(() => {
@@ -812,8 +683,8 @@ export function AppRoot() {
       }
 
       // Clear manual entry mode if active
-      if (manualEntry) {
-        setManualEntry(false);
+      if (manual.manualEntry) {
+        manual.setManualEntry(false);
       }
       return { outcome: 'matched' };
     } catch (error) {
@@ -826,10 +697,10 @@ export function AppRoot() {
     }
   };
 
-  const startLaneSessionByCustomerId = async (
+  async function startLaneSessionByCustomerId(
     customerId: string,
     opts?: { suppressAlerts?: boolean }
-  ): Promise<ScanResult> => {
+  ): Promise<ScanResult> {
     if (!session?.sessionToken) {
       const msg = 'Not authenticated';
       if (!opts?.suppressAlerts) showAlert(msg, 'Error');
@@ -874,7 +745,6 @@ export function AppRoot() {
         patchRegister({ checkoutAt: data.blockEndsAt });
       }
 
-      if (manualEntry) setManualEntry(false);
       return { outcome: 'matched' };
     } catch (error) {
       console.error('Failed to start session by customerId:', error);
@@ -884,87 +754,7 @@ export function AppRoot() {
     } finally {
       setIsSubmitting(false);
     }
-  };
-
-  const handleManualSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const firstName = manualFirstName.trim();
-    const lastName = manualLastName.trim();
-    const dobIso = parseDobDigitsToIso(manualDobDigits);
-    if (!firstName || !lastName || !dobIso) {
-      showAlert('Please enter First Name, Last Name, and a valid Date of Birth (MM/DD/YYYY).', 'Validation');
-      return;
-    }
-    if (!session?.sessionToken) {
-      showAlert('Not authenticated', 'Error');
-      return;
-    }
-
-    setManualEntrySubmitting(true);
-    setManualExistingPromptError(null);
-    try {
-      // First: check for existing customer match (name + dob).
-      let data: {
-        matchCount?: number;
-        bestMatch?: { id?: string; name?: string; membershipNumber?: string | null; dob?: string | null } | null;
-      };
-      try {
-        data = await customersMatchIdentity({
-          sessionToken: session.sessionToken,
-          firstName,
-          lastName,
-          dob: dobIso,
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to check for existing customer';
-        setManualExistingPromptError(msg);
-        return;
-      }
-      const best = data.bestMatch;
-      const matchCount = typeof data.matchCount === 'number' ? data.matchCount : 0;
-      if (best && typeof best.id === 'string' && typeof best.name === 'string') {
-        // Show confirmation prompt instead of creating a duplicate immediately.
-        setManualExistingPrompt({
-          firstName,
-          lastName,
-          dobIso,
-          matchCount,
-          bestMatch: { id: best.id, name: best.name, membershipNumber: best.membershipNumber, dob: best.dob },
-        });
-        return;
-      }
-
-      // No match: create new customer then load it.
-      let created: { customer?: { id?: string } };
-      try {
-        created = await customersCreateManual({
-          sessionToken: session.sessionToken,
-          firstName,
-          lastName,
-          dob: dobIso,
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Failed to create customer';
-        setManualExistingPromptError(msg);
-        return;
-      }
-      const newId = created.customer?.id;
-      if (!newId) {
-        setManualExistingPromptError('Create returned no customer id');
-        return;
-      }
-
-      const result = await startLaneSessionByCustomerId(newId, { suppressAlerts: true });
-      if (result.outcome === 'matched') {
-        setManualEntry(false);
-        setManualFirstName('');
-        setManualLastName('');
-        setManualDobDigits('');
-      }
-    } finally {
-      setManualEntrySubmitting(false);
-    }
-  };
+  }
 
   const onBarcodeCaptured = async (rawScanText: string): Promise<ScanResult> => {
     if (!session?.sessionToken) {
@@ -1065,10 +855,14 @@ export function AppRoot() {
     !!offerUpgradeModal ||
     (showWaitlistModal && !!waitlistDesiredTier && !!waitlistBackupType) ||
     (showCustomerConfirmationPending && !!customerConfirmationType) ||
-    !!selectedCheckoutRequest;
+    !!checkout.selectedCheckoutRequest;
 
   const passiveScanEnabled =
-    !!session?.sessionToken && !passiveScanProcessing && !isSubmitting && !manualEntry && !blockingModalOpen;
+    !!session?.sessionToken &&
+    !passiveScanProcessing &&
+    !isSubmitting &&
+    !manual.manualEntry &&
+    !blockingModalOpen;
 
   const showScanOverlay = useCallback(() => {
     if (scanOverlayHideTimerRef.current) {
@@ -1282,9 +1076,9 @@ export function AppRoot() {
         pastDueBlocked: false,
         pastDueBalance: 0,
       });
-      setManualEntry(false);
+      manual.setManualEntry(false);
       setSelectedRentalType(null);
-      setSelectedInventoryItem(null);
+      inventory.clearSelection();
       setShowCustomerConfirmationPending(false);
       setCustomerConfirmationType(null);
       setShowWaitlistModal(false);
@@ -1292,95 +1086,6 @@ export function AppRoot() {
     } catch (error) {
       console.error('Failed to clear session:', error);
       showAlert('Failed to clear session', 'Error');
-    }
-  };
-
-  const handleClaimCheckout = async (requestId: string) => {
-    if (!session?.sessionToken) {
-      showAlert('Not authenticated', 'Error');
-      return;
-    }
-
-    try {
-      await checkoutClaim({ sessionToken: session.sessionToken, requestId });
-      setSelectedCheckoutRequest(requestId);
-
-      // Fetch the checkout request details to get checklist
-      // For now, we'll get it from the request summary
-      const request = checkoutRequests.get(requestId);
-      if (request) {
-        // We'll need to fetch the full request details to get the checklist
-        // For now, initialize empty checklist
-        setCheckoutChecklist({});
-        setCheckoutItemsConfirmed(false);
-        setCheckoutFeePaid(false);
-      }
-    } catch (error) {
-      console.error('Failed to claim checkout:', error);
-      showAlert(error instanceof Error ? error.message : 'Failed to claim checkout', 'Error');
-    }
-  };
-
-  const handleConfirmItems = async (requestId: string) => {
-    if (!session?.sessionToken) {
-      showAlert('Not authenticated', 'Error');
-      return;
-    }
-
-    try {
-      await checkoutConfirmItems({ sessionToken: session.sessionToken, requestId });
-      setCheckoutItemsConfirmed(true);
-    } catch (error) {
-      console.error('Failed to confirm items:', error);
-      showAlert(error instanceof Error ? error.message : 'Failed to confirm items', 'Error');
-    }
-  };
-
-  const handleMarkFeePaid = async (requestId: string) => {
-    if (!session?.sessionToken) {
-      showAlert('Not authenticated', 'Error');
-      return;
-    }
-
-    try {
-      await checkoutMarkFeePaid({ sessionToken: session.sessionToken, requestId });
-      setCheckoutFeePaid(true);
-    } catch (error) {
-      console.error('Failed to mark fee as paid:', error);
-      showAlert(error instanceof Error ? error.message : 'Failed to mark fee as paid', 'Error');
-    }
-  };
-
-  const handleCompleteCheckout = async (requestId: string) => {
-    if (!session?.sessionToken) {
-      showAlert('Not authenticated', 'Error');
-      return;
-    }
-
-    if (!checkoutItemsConfirmed) {
-      showAlert('Please confirm items returned first', 'Validation');
-      return;
-    }
-
-    const request = checkoutRequests.get(requestId);
-    if (request && request.lateFeeAmount > 0 && !checkoutFeePaid) {
-      showAlert('Please mark late fee as paid first', 'Validation');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await checkoutComplete({ sessionToken: session.sessionToken, requestId });
-      // Reset checkout state
-      setSelectedCheckoutRequest(null);
-      setCheckoutChecklist({});
-      setCheckoutItemsConfirmed(false);
-      setCheckoutFeePaid(false);
-    } catch (error) {
-      console.error('Failed to complete checkout:', error);
-      showAlert(error instanceof Error ? error.message : 'Failed to complete checkout', 'Error');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -1679,17 +1384,15 @@ export function AppRoot() {
   const ws = useEmployeeRegisterWs({
     lane,
     dispatchRegister,
-    selectedCheckoutRequestRef,
+    selectedCheckoutRequestRef: checkout.wsDeps.selectedCheckoutRequestRef,
     currentSessionIdRef,
     customerSelectedTypeRef,
-    setCheckoutRequests,
-    setSelectedCheckoutRequest,
-    setCheckoutChecklist,
-    setCheckoutItemsConfirmed,
-    setCheckoutFeePaid,
-    setSelectedInventoryItem,
-    setShowCustomerConfirmationPending,
-    setCustomerConfirmationType,
+    setCheckoutRequests: checkout.wsDeps.setCheckoutRequests,
+    setSelectedCheckoutRequest: checkout.wsDeps.setSelectedCheckoutRequest,
+    setCheckoutChecklist: checkout.wsDeps.setCheckoutChecklist,
+    setCheckoutItemsConfirmed: checkout.wsDeps.setCheckoutItemsConfirmed,
+    setCheckoutFeePaid: checkout.wsDeps.setCheckoutFeePaid,
+    setSelectedInventoryItem: inventory.setSelectedInventoryItem,
     fetchWaitlist: () => void fetchWaitlistRef.current?.(),
     fetchInventoryAvailable: () => void fetchInventoryAvailableRef.current?.(),
   });
@@ -1697,90 +1400,6 @@ export function AppRoot() {
   useEffect(() => {
     setWsConnected(ws.connected);
   }, [ws.connected]);
-
-  const handleInventorySelect = (
-    type: 'room' | 'locker',
-    id: string,
-    number: string,
-    tier: string
-  ) => {
-    // Check if employee selected different type than customer requested
-    if (customerSelectedType && tier !== customerSelectedType) {
-      // Require customer confirmation
-      setCustomerConfirmationType({
-        requested: customerSelectedType,
-        selected: tier,
-        number,
-      });
-      setShowCustomerConfirmationPending(true);
-
-      // Send confirmation request to customer kiosk via WebSocket
-      // This would be handled by the API/WebSocket broadcaster
-      // For now, we'll show a modal
-    }
-
-    setSelectedInventoryItem({ type, id, number, tier });
-  };
-
-  const handleProposeSelection = async (rentalType: string) => {
-    if (!currentSessionId || !session?.sessionToken) {
-      return;
-    }
-
-    // Second tap on same rental forces selection
-    if (proposedRentalType === rentalType && !selectionConfirmed) {
-      await handleConfirmSelection();
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await proposeSelection({
-        sessionToken: session.sessionToken,
-        lane,
-        rentalType,
-        proposedBy: 'EMPLOYEE',
-      });
-      patchRegister({ proposedRentalType: rentalType, proposedBy: 'EMPLOYEE' });
-    } catch (error) {
-      console.error('Failed to propose selection:', error);
-      showAlert(
-        error instanceof Error ? error.message : 'Failed to propose selection. Please try again.',
-        'Error'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleConfirmSelection = async () => {
-    if (!currentSessionId || !session?.sessionToken || !proposedRentalType) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      await confirmSelection({
-        sessionToken: session.sessionToken,
-        lane,
-        confirmedBy: 'EMPLOYEE',
-      });
-      patchRegister({
-        selectionConfirmed: true,
-        selectionConfirmedBy: 'EMPLOYEE',
-        selectionAcknowledged: true,
-        customerSelectedType: proposedRentalType,
-      });
-    } catch (error) {
-      console.error('Failed to confirm selection:', error);
-      showAlert(
-        error instanceof Error ? error.message : 'Failed to confirm selection. Please try again.',
-        'Error'
-      );
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // Corrected demo flow: once selection is confirmed/locked, create payment intent (no assignment required).
   useEffect(() => {
@@ -1795,78 +1414,42 @@ export function AppRoot() {
     });
   }, [currentSessionId, session?.sessionToken, selectionConfirmed, paymentIntentId, paymentStatus]);
 
-  const handleAssign = async () => {
-    if (!selectedInventoryItem || !currentSessionId || !session?.sessionToken) {
-      showAlert('Please select an item to assign', 'Validation');
-      return;
-    }
-
-    // Guardrails: Prevent assignment if conditions not met
-    if (showCustomerConfirmationPending) {
-      showAlert('Please wait for customer confirmation before assigning', 'Validation');
-      return;
-    }
-
-    if (!agreementSigned) {
-      showAlert(
-        'Agreement must be signed before assignment. Please wait for customer to sign the agreement.',
-        'Validation'
-      );
-      return;
-    }
-
-    if (paymentStatus !== 'PAID') {
-      showAlert(
-        'Payment must be marked as paid before assignment. Please mark payment as paid in Square first.',
-        'Validation'
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      // Use new check-in assign endpoint
-      let data: { needsConfirmation?: boolean };
-      try {
-        data = await assignResource({
-          sessionToken: session.sessionToken,
-          lane,
-          resourceType: selectedInventoryItem.type,
-          resourceId: selectedInventoryItem.id,
-        });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : null;
-        const body = isApiError(err) ? err.body : null;
-        if (
-          isRecord(body) &&
-          (body.raceLost === true || (typeof msg === 'string' && msg.includes('already assigned')))
-        ) {
-          // Race condition - refresh inventory and re-select
-          showAlert('Item no longer available. Refreshing inventory...', 'Error');
-          setSelectedInventoryItem(null);
-          // InventorySelector will auto-refresh and re-select
-          return;
-        }
-        throw err;
-      }
-
-      console.log('Assignment successful:', data);
-
-      // If cross-type assignment, wait for customer confirmation
-      if (data.needsConfirmation === true) {
-        setShowCustomerConfirmationPending(true);
-        setIsSubmitting(false);
-        return;
-      }
-
-      // Assignment occurs after payment + agreement in the corrected flow; nothing payment-related here.
-    } catch (error) {
-      console.error('Failed to assign:', error);
-      showAlert(error instanceof Error ? error.message : 'Failed to assign', 'Error');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
+  const registerMainViewProps = useRegisterMainViewProps({
+    lane,
+    sessionToken: session?.sessionToken ?? null,
+    registerState,
+    patchRegister,
+    isSubmitting,
+    setIsSubmitting,
+    showAlert,
+    inventory,
+    showCustomerConfirmationPending,
+    setShowCustomerConfirmationPending,
+    inventoryAvailable,
+    onAddNote: () => setShowAddNoteModal(true),
+    onManualSignatureOverride: () => void handleManualSignatureOverride(),
+    onMarkPaid: () => void handleMarkPaid(),
+    customerSearch: customerSearchCtrl.customerSearch,
+    setCustomerSearch: customerSearchCtrl.setCustomerSearch,
+    customerSearchLoading: customerSearchCtrl.customerSearchLoading,
+    customerSuggestions: customerSearchCtrl.customerSuggestions,
+    selectedCustomerId: customerSearchCtrl.selectedCustomerId,
+    selectedCustomerLabel: customerSearchCtrl.selectedCustomerLabel,
+    setSelectedCustomerId: customerSearchCtrl.setSelectedCustomerId,
+    setSelectedCustomerLabel: customerSearchCtrl.setSelectedCustomerLabel,
+    onConfirmCustomerSelection: () => void customerSearchCtrl.onConfirmCustomerSelection(),
+    manualEntry: manual.manualEntry,
+    setManualEntry: manual.setManualEntry,
+    manualFirstName: manual.manualFirstName,
+    setManualFirstName: manual.setManualFirstName,
+    manualLastName: manual.manualLastName,
+    setManualLastName: manual.setManualLastName,
+    manualDobDigits: manual.manualDobDigits,
+    setManualDobDigits: manual.setManualDobDigits,
+    onManualSubmit: (e) => void manual.onManualSubmit(e),
+    manualEntrySubmitting: manual.manualEntrySubmitting,
+    onClearSession: () => void handleClearSession(),
+  });
 
   const handleCreatePaymentIntent = async () => {
     if (!currentSessionId || !session?.sessionToken) {
@@ -1989,10 +1572,6 @@ export function AppRoot() {
     setMembershipIdError(null);
     setMembershipIdPromptedForSessionId(null);
   }, [membershipPurchaseIntent, showMembershipIdPrompt]);
-
-  const handleClearSelection = () => {
-    setSelectedInventoryItem(null);
-  };
 
   const handleManualSignatureOverride = async () => {
     if (!session?.sessionToken || !currentSessionId) {
@@ -2198,7 +1777,7 @@ export function AppRoot() {
         pastDueBalance: 0,
       });
       setSelectedRentalType(null);
-      setSelectedInventoryItem(null);
+      inventory.clearSelection();
       setPaymentDeclineError(null);
     } catch (error) {
       console.error('Failed to complete transaction:', error);
@@ -2246,13 +1825,13 @@ export function AppRoot() {
               if (next) dismissUpgradePulse();
               setIsUpgradesDrawerOpen(next);
             }}
-            inventoryOpen={isInventoryDrawerOpen}
-            onInventoryOpenChange={setIsInventoryDrawerOpen}
+            inventoryOpen={inventory.isInventoryDrawerOpen}
+            onInventoryOpenChange={inventory.setIsInventoryDrawerOpen}
             upgradesAttention={false}
             upgradesTabVariant={hasEligibleEntries ? 'success' : 'secondary'}
             upgradesTabPulseVariant={hasEligibleEntries ? 'success' : null}
-            inventoryTabVariant={inventoryHasLate ? 'danger' : 'secondary'}
-            inventoryTabPulseVariant={inventoryHasLate ? 'danger' : null}
+            inventoryTabVariant={inventory.inventoryHasLate ? 'danger' : 'secondary'}
+            inventoryTabPulseVariant={inventory.inventoryHasLate ? 'danger' : null}
             upgradesContent={
               <UpgradesDrawerContent
                 waitlistEntries={waitlistEntries}
@@ -2286,17 +1865,17 @@ export function AppRoot() {
               <InventoryDrawer
                 lane={lane}
                 sessionToken={session.sessionToken}
-                forcedExpandedSection={inventoryForcedSection}
-                onExpandedSectionChange={setInventoryForcedSection}
+                forcedExpandedSection={inventory.inventoryForcedSection}
+                onExpandedSectionChange={inventory.setInventoryForcedSection}
                 customerSelectedType={customerSelectedType}
                 waitlistDesiredTier={waitlistDesiredTier}
                 waitlistBackupType={waitlistBackupType}
-                onSelect={handleInventorySelect}
-                onClearSelection={() => setSelectedInventoryItem(null)}
-                selectedItem={selectedInventoryItem}
+                onSelect={inventory.onSelect}
+                onClearSelection={inventory.clearSelection}
+                selectedItem={inventory.selectedInventoryItem}
                 sessionId={currentSessionId}
                 disableSelection={false}
-                onAlertSummaryChange={({ hasLate }) => setInventoryHasLate(hasLate)}
+                onAlertSummaryChange={({ hasLate }) => inventory.setInventoryHasLate(hasLate)}
               />
             }
           />
@@ -2318,37 +1897,7 @@ export function AppRoot() {
             </div>
           )}
 
-          {/* Checkout Request Notifications */}
-          {checkoutRequests.size > 0 && !selectedCheckoutRequest && (
-            <CheckoutRequestsBanner
-              requests={Array.from(checkoutRequests.values())}
-              onClaim={(id) => void handleClaimCheckout(id)}
-            />
-          )}
-
-          {/* Checkout Verification Screen */}
-          {selectedCheckoutRequest &&
-            (() => {
-              const request = checkoutRequests.get(selectedCheckoutRequest);
-              if (!request) return null;
-              return (
-                <CheckoutVerificationModal
-                  request={request}
-                  isSubmitting={isSubmitting}
-                  checkoutItemsConfirmed={checkoutItemsConfirmed}
-                  checkoutFeePaid={checkoutFeePaid}
-                  onConfirmItems={() => void handleConfirmItems(selectedCheckoutRequest)}
-                  onMarkFeePaid={() => void handleMarkFeePaid(selectedCheckoutRequest)}
-                  onComplete={() => void handleCompleteCheckout(selectedCheckoutRequest)}
-                  onCancel={() => {
-                    setSelectedCheckoutRequest(null);
-                    setCheckoutChecklist({});
-                    setCheckoutItemsConfirmed(false);
-                    setCheckoutFeePaid(false);
-                  }}
-                />
-              );
-            })()}
+          <CheckoutRequestsLayer controller={checkout} isSubmitting={isSubmitting} />
 
           <RegisterHeader
             health={health}
@@ -2365,62 +1914,7 @@ export function AppRoot() {
             onRoomCleaning={topActions.openRoomCleaning}
           />
 
-          <RegisterMainView
-            currentSessionId={currentSessionId}
-            customerName={customerName}
-            customerPrimaryLanguage={customerPrimaryLanguage ?? null}
-            customerDobMonthDay={customerDobMonthDay ?? null}
-            customerLastVisitAt={customerLastVisitAt ?? null}
-            pastDueBalance={pastDueBalance}
-            customerNotes={customerNotes ?? null}
-            onAddNote={() => setShowAddNoteModal(true)}
-            waitlistDesiredTier={waitlistDesiredTier}
-            waitlistBackupType={waitlistBackupType}
-            proposedRentalType={proposedRentalType}
-            proposedBy={proposedBy}
-            selectionConfirmed={selectionConfirmed}
-            selectionConfirmedBy={selectionConfirmedBy}
-            onConfirmSelection={() => void handleConfirmSelection()}
-            pastDueBlocked={pastDueBlocked}
-            isSubmitting={isSubmitting}
-            onProposeSelection={(rentalType) => void handleProposeSelection(rentalType)}
-            inventoryAvailable={inventoryAvailable}
-            onOpenInventorySection={(section) => {
-              setInventoryForcedSection(section);
-              setIsInventoryDrawerOpen(true);
-            }}
-            selectedInventoryItem={selectedInventoryItem}
-            customerSelectedType={customerSelectedType}
-            showCustomerConfirmationPending={showCustomerConfirmationPending}
-            agreementSigned={agreementSigned}
-            paymentStatus={paymentStatus}
-            paymentQuote={paymentQuote}
-            onAssign={() => void handleAssign()}
-            onManualSignatureOverride={() => void handleManualSignatureOverride()}
-            onClearSelection={handleClearSelection}
-            onMarkPaid={() => void handleMarkPaid()}
-            customerSearch={customerSearch}
-            setCustomerSearch={setCustomerSearch}
-            customerSearchLoading={customerSearchLoading}
-            customerSuggestions={customerSuggestions}
-            selectedCustomerId={selectedCustomerId}
-            selectedCustomerLabel={selectedCustomerLabel}
-            setSelectedCustomerId={setSelectedCustomerId}
-            setSelectedCustomerLabel={setSelectedCustomerLabel}
-            onConfirmCustomerSelection={() => void handleConfirmCustomerSelection()}
-            manualEntry={manualEntry}
-            setManualEntry={setManualEntry}
-            manualFirstName={manualFirstName}
-            setManualFirstName={setManualFirstName}
-            manualLastName={manualLastName}
-            setManualLastName={setManualLastName}
-            manualDobDigits={manualDobDigits}
-            setManualDobDigits={setManualDobDigits}
-            onManualSubmit={(e) => void handleManualSubmit(e)}
-            manualEntrySubmitting={manualEntrySubmitting}
-            onClearSession={() => void handleClearSession()}
-            membershipNumber={membershipNumber}
-          />
+          <RegisterMainView {...registerMainViewProps} />
 
           <footer className="footer">
             <p>Employee-facing tablet • Runs alongside Square POS</p>
@@ -2463,7 +1957,7 @@ export function AppRoot() {
                 ? () => {
                     setShowCustomerConfirmationPending(false);
                     setCustomerConfirmationType(null);
-                    setSelectedInventoryItem(null);
+                    inventory.clearSelection();
                   }
                 : undefined
             }
@@ -2481,154 +1975,16 @@ export function AppRoot() {
             onSelect={(customerId) => void resolvePendingScanSelection(customerId)}
           />
 
-          <ModalFrame
-            isOpen={!!manualExistingPrompt}
-            title="Existing customer found"
-            onClose={() => {
-              setManualExistingPrompt(null);
-              setManualExistingPromptError(null);
-              setManualExistingPromptSubmitting(false);
-            }}
-            maxWidth="640px"
-            closeOnOverlayClick={false}
-          >
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              <div style={{ color: '#94a3b8' }}>
-                An existing customer already matches this First Name, Last Name, and Date of Birth. Do you want to continue?
-              </div>
-
-              {manualExistingPrompt?.matchCount && manualExistingPrompt.matchCount > 1 ? (
-                <div style={{ color: '#f59e0b', fontWeight: 800 }}>
-                  {manualExistingPrompt.matchCount} matching customers found. Showing best match:
-                </div>
-              ) : null}
-
-              {manualExistingPrompt ? (
-                <Card padding="md" className="bg-slate-900/70 text-white ring-slate-700">
-                  <div style={{ fontWeight: 900, fontSize: '1.1rem' }}>{manualExistingPrompt.bestMatch.name}</div>
-                  <div style={{ marginTop: '0.25rem', color: '#94a3b8', display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-                    <span>
-                      DOB:{' '}
-                      <strong style={{ color: 'white' }}>
-                        {manualExistingPrompt.bestMatch.dob || manualExistingPrompt.dobIso}
-                      </strong>
-                    </span>
-                    {manualExistingPrompt.bestMatch.membershipNumber ? (
-                      <span>
-                        Membership:{' '}
-                        <strong style={{ color: 'white' }}>{manualExistingPrompt.bestMatch.membershipNumber}</strong>
-                      </span>
-                    ) : null}
-                  </div>
-                </Card>
-              ) : null}
-
-              {manualExistingPromptError ? (
-                <div
-                  style={{
-                    padding: '0.75rem',
-                    background: 'rgba(239, 68, 68, 0.18)',
-                    border: '1px solid rgba(239, 68, 68, 0.35)',
-                    borderRadius: 12,
-                    color: '#fecaca',
-                    fontWeight: 800,
-                  }}
-                >
-                  {manualExistingPromptError}
-                </div>
-              ) : null}
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem', flexWrap: 'wrap' }}>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={manualExistingPromptSubmitting || isSubmitting}
-                  onClick={() => {
-                    setManualExistingPrompt(null);
-                    setManualExistingPromptError(null);
-                  }}
-                >
-                  Cancel
-                </Button>
-
-                <Button
-                  type="button"
-                  variant="secondary"
-                  disabled={manualExistingPromptSubmitting || isSubmitting || !manualExistingPrompt}
-                  onClick={() => {
-                    if (!manualExistingPrompt) return;
-                    void (async () => {
-                      setManualExistingPromptSubmitting(true);
-                      setManualExistingPromptError(null);
-                      try {
-                        const result = await startLaneSessionByCustomerId(manualExistingPrompt.bestMatch.id, {
-                          suppressAlerts: true,
-                        });
-                        if (result.outcome === 'matched') {
-                          setManualExistingPrompt(null);
-                          setManualEntry(false);
-                          setManualFirstName('');
-                          setManualLastName('');
-                          setManualDobDigits('');
-                        }
-                      } catch (err) {
-                        setManualExistingPromptError(err instanceof Error ? err.message : 'Failed to load existing customer');
-                      } finally {
-                        setManualExistingPromptSubmitting(false);
-                      }
-                    })();
-                  }}
-                >
-                  Existing Customer
-                </Button>
-
-                <Button
-                  type="button"
-                  disabled={manualExistingPromptSubmitting || isSubmitting || !manualExistingPrompt || !session?.sessionToken}
-                  onClick={() => {
-                    if (!manualExistingPrompt || !session?.sessionToken) return;
-                    void (async () => {
-                      setManualExistingPromptSubmitting(true);
-                      setManualExistingPromptError(null);
-                      try {
-                        const { firstName, lastName, dobIso } = manualExistingPrompt;
-                        let created: { customer?: { id?: string } };
-                        try {
-                          created = await customersCreateManual({
-                            sessionToken: session.sessionToken,
-                            firstName,
-                            lastName,
-                            dob: dobIso,
-                          });
-                        } catch (err) {
-                          const msg = err instanceof Error ? err.message : 'Failed to create customer';
-                          setManualExistingPromptError(msg);
-                          return;
-                        }
-                        const newId = created.customer?.id;
-                        if (!newId) {
-                          setManualExistingPromptError('Create returned no customer id');
-                          return;
-                        }
-                        const result = await startLaneSessionByCustomerId(newId, { suppressAlerts: true });
-                        if (result.outcome === 'matched') {
-                          setManualExistingPrompt(null);
-                          setManualEntry(false);
-                          setManualFirstName('');
-                          setManualLastName('');
-                          setManualDobDigits('');
-                        }
-                      } finally {
-                        setManualExistingPromptSubmitting(false);
-                      }
-                    })();
-                  }}
-                >
-                  Add Customer
-                </Button>
-              </div>
-            </div>
-          </ModalFrame>
+          <ManualExistingCustomerModal
+            open={!!manual.manualExistingPrompt}
+            prompt={manual.manualExistingPrompt}
+            error={manual.manualExistingPromptError}
+            isSubmitting={manual.manualExistingPromptSubmitting}
+            isBusy={isSubmitting}
+            onClose={manual.closeExistingPrompt}
+            onChooseExisting={() => void manual.chooseExistingCustomer()}
+            onCreateNew={() => void manual.createNewCustomer()}
+          />
 
           <ModalFrame
             isOpen={showCreateFromScanPrompt && !!pendingCreateFromScan}

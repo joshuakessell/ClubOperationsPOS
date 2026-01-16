@@ -6,6 +6,7 @@ import type { Broadcaster } from '../websocket/broadcaster.js';
 import type { SessionUpdatedPayload } from '@club-ops/shared';
 import { roundUpToQuarterHour } from '../time/rounding.js';
 import { broadcastInventoryUpdate } from './sessions.js';
+import { getAllowedRentals } from '../checkin/allowedRentals.js';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -395,35 +396,7 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
         );
         const customer = customerResult.rows[0]!;
 
-        // Determine allowed rentals (simplified - reuse logic from sessions.ts)
-        const allowedRentals = ['STANDARD', 'DOUBLE', 'SPECIAL'];
-        if (customer.membership_number) {
-          // Check gym locker eligibility (simplified)
-          const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
-          if (rangesEnv.trim()) {
-            const membershipNum = parseInt(customer.membership_number, 10);
-            if (!isNaN(membershipNum)) {
-              const ranges = rangesEnv
-                .split(',')
-                .map((range) => range.trim())
-                .filter(Boolean);
-              for (const range of ranges) {
-                const [startStr, endStr] = range.split('-').map((s) => s.trim());
-                const start = parseInt(startStr || '', 10);
-                const end = parseInt(endStr || '', 10);
-                if (
-                  !isNaN(start) &&
-                  !isNaN(end) &&
-                  membershipNum >= start &&
-                  membershipNum <= end
-                ) {
-                  allowedRentals.push('GYM_LOCKER');
-                  break;
-                }
-              }
-            }
-          }
-        }
+        const allowedRentals = getAllowedRentals(customer.membership_number);
 
         const payload: SessionUpdatedPayload = {
           sessionId: result.sessionId,
@@ -693,33 +666,7 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
           );
           const customer = customerResult.rows[0]!;
 
-          const allowedRentals = ['STANDARD', 'DOUBLE', 'SPECIAL'];
-          if (customer.membership_number) {
-            const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
-            if (rangesEnv.trim()) {
-              const membershipNum = parseInt(customer.membership_number, 10);
-              if (!isNaN(membershipNum)) {
-                const ranges = rangesEnv
-                  .split(',')
-                  .map((range) => range.trim())
-                  .filter(Boolean);
-                for (const range of ranges) {
-                  const [startStr, endStr] = range.split('-').map((s) => s.trim());
-                  const start = parseInt(startStr || '', 10);
-                  const end = parseInt(endStr || '', 10);
-                  if (
-                    !isNaN(start) &&
-                    !isNaN(end) &&
-                    membershipNum >= start &&
-                    membershipNum <= end
-                  ) {
-                    allowedRentals.push('GYM_LOCKER');
-                    break;
-                  }
-                }
-              }
-            }
-          }
+          const allowedRentals = getAllowedRentals(customer.membership_number);
 
           const payload: SessionUpdatedPayload = {
             sessionId: result.sessionId,

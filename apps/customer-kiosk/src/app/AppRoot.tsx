@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type {
-  CustomerConfirmationRequiredPayload,
-} from '@club-ops/shared';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
 import { useReconnectingWebSocket, isRecord, getErrorMessage, readJson } from '@club-ops/ui';
 import { t, type Language } from '../i18n';
@@ -13,7 +10,6 @@ import { PaymentScreen } from '../screens/PaymentScreen';
 import { AgreementScreen, type Agreement } from '../screens/AgreementScreen';
 import { CompleteScreen } from '../screens/CompleteScreen';
 import { UpgradeDisclaimerModal } from '../components/modals/UpgradeDisclaimerModal';
-import { CustomerConfirmationModal } from '../components/modals/CustomerConfirmationModal';
 import { WaitlistModal } from '../components/modals/WaitlistModal';
 import { RenewalDisclaimerModal } from '../components/modals/RenewalDisclaimerModal';
 import { MembershipModal } from '../components/modals/MembershipModal';
@@ -49,9 +45,6 @@ export function AppRoot() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [checkinMode, setCheckinMode] = useState<'INITIAL' | 'RENEWAL' | null>(null);
   const [showRenewalDisclaimer, setShowRenewalDisclaimer] = useState(false);
-  const [showCustomerConfirmation, setShowCustomerConfirmation] = useState(false);
-  const [customerConfirmationData, setCustomerConfirmationData] =
-    useState<CustomerConfirmationRequiredPayload | null>(null);
   const [inventory, setInventory] = useState<{
     rooms: Record<string, number>;
     lockers: number;
@@ -339,13 +332,6 @@ export function AppRoot() {
         }
       } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
         setSelectionAcknowledged(true);
-      } else if (message.type === 'CUSTOMER_CONFIRMATION_REQUIRED') {
-        setCustomerConfirmationData(message.payload);
-        setShowCustomerConfirmation(true);
-      } else if (message.type === 'ASSIGNMENT_CREATED') {
-        const payload = message.payload;
-        // Assignment successful - could show confirmation message
-        console.log('Assignment created:', payload);
       } else if (message.type === 'INVENTORY_UPDATED') {
         const payload = message.payload;
         // Update inventory counts for availability warnings
@@ -380,11 +366,9 @@ export function AppRoot() {
           'SESSION_UPDATED',
           'SELECTION_PROPOSED',
           'SELECTION_LOCKED',
+          'SELECTION_FORCED',
           'SELECTION_ACKNOWLEDGED',
-          'CUSTOMER_CONFIRMATION_REQUIRED',
-          'ASSIGNMENT_CREATED',
           'INVENTORY_UPDATED',
-          'WAITLIST_CREATED',
         ],
       },
     ],
@@ -808,30 +792,6 @@ export function AppRoot() {
     }
   };
 
-  const handleCustomerConfirmSelection = async (confirmed: boolean) => {
-    if (!customerConfirmationData?.sessionId) return;
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/customer-confirm`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          sessionId: customerConfirmationData.sessionId,
-          confirmed,
-        }),
-      });
-      if (response.ok) {
-        setShowCustomerConfirmation(false);
-        setCustomerConfirmationData(null);
-      }
-    } catch (error) {
-      console.error('Failed to confirm selection:', error);
-      alert(t(session.customerPrimaryLanguage, 'error.confirmSelection'));
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const openMembershipModal = (intent: 'PURCHASE' | 'RENEW') => {
     setMembershipModalIntent(intent);
     setShowMembershipModal(true);
@@ -1070,16 +1030,6 @@ export function AppRoot() {
             onAcknowledge={() => void handleDisclaimerAcknowledge()}
             isSubmitting={isSubmitting}
           />
-          {customerConfirmationData && (
-            <CustomerConfirmationModal
-              isOpen={showCustomerConfirmation}
-              customerPrimaryLanguage={session.customerPrimaryLanguage}
-              data={customerConfirmationData}
-              onAccept={() => void handleCustomerConfirmSelection(true)}
-              onDecline={() => void handleCustomerConfirmSelection(false)}
-              isSubmitting={isSubmitting}
-            />
-          )}
           {waitlistDesiredType && (
             <WaitlistModal
               isOpen={showWaitlistModal}

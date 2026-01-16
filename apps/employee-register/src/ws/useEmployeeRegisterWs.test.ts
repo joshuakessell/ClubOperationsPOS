@@ -14,8 +14,6 @@ function makeDeps() {
     setCheckoutItemsConfirmed: vi.fn(),
     setCheckoutFeePaid: vi.fn(),
     setSelectedInventoryItem: vi.fn(),
-    setShowCustomerConfirmationPending: vi.fn(),
-    setCustomerConfirmationType: vi.fn(),
     fetchWaitlist: vi.fn(),
     fetchInventoryAvailable: vi.fn(),
   };

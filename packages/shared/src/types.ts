@@ -50,18 +50,11 @@ export type WebSocketEventType =
   | 'ROOM_STATUS_CHANGED'
   | 'INVENTORY_UPDATED'
   | 'ROOM_ASSIGNED'
-  | 'ROOM_RELEASED'
   | 'SESSION_UPDATED'
   | 'SELECTION_PROPOSED'
   | 'SELECTION_FORCED'
   | 'SELECTION_LOCKED'
   | 'SELECTION_ACKNOWLEDGED'
-  | 'WAITLIST_CREATED'
-  | 'ASSIGNMENT_CREATED'
-  | 'ASSIGNMENT_FAILED'
-  | 'CUSTOMER_CONFIRMATION_REQUIRED'
-  | 'CUSTOMER_CONFIRMED'
-  | 'CUSTOMER_DECLINED'
   | 'CHECKOUT_REQUESTED'
   | 'CHECKOUT_CLAIMED'
   | 'CHECKOUT_UPDATED'
@@ -210,65 +203,6 @@ export interface SelectionAcknowledgedPayload {
 /**
  * Waitlist created event payload.
  */
-export interface WaitlistCreatedPayload {
-  sessionId: string;
-  waitlistId: string;
-  desiredType: string;
-  backupType: string;
-  position: number;
-  estimatedReadyAt?: string;
-  upgradeFee?: number;
-}
-
-/**
- * Assignment created event payload.
- */
-export interface AssignmentCreatedPayload {
-  sessionId: string;
-  roomId?: string;
-  roomNumber?: string;
-  lockerId?: string;
-  lockerNumber?: string;
-  rentalType: string;
-}
-
-/**
- * Assignment failed event payload.
- */
-export interface AssignmentFailedPayload {
-  sessionId: string;
-  reason: string;
-  requestedRoomId?: string;
-  requestedLockerId?: string;
-}
-
-/**
- * Customer confirmation required event payload.
- */
-export interface CustomerConfirmationRequiredPayload {
-  sessionId: string;
-  requestedType: string;
-  selectedType: string;
-  selectedNumber: string;
-}
-
-/**
- * Customer confirmed event payload.
- */
-export interface CustomerConfirmedPayload {
-  sessionId: string;
-  confirmedType: string;
-  confirmedNumber: string;
-}
-
-/**
- * Customer declined event payload.
- */
-export interface CustomerDeclinedPayload {
-  sessionId: string;
-  requestedType: string;
-}
-
 // Additional types for visits, checkouts, etc.
 export interface Visit {
   id: string;

@@ -5,6 +5,7 @@ import type { Broadcaster } from '../websocket/broadcaster.js';
 import type { SessionUpdatedPayload } from '@club-ops/shared';
 import { roundUpToQuarterHour } from '../time/rounding.js';
 import { computeInventoryAvailable } from '../inventory/available.js';
+import { getAllowedRentals } from '../checkin/allowedRentals.js';
 
 /**
  * Schema for creating a new session.
@@ -75,59 +76,6 @@ declare module 'fastify' {
   interface FastifyInstance {
     broadcaster: Broadcaster;
   }
-}
-
-/**
- * Check if a membership number is eligible for Gym Locker rental.
- * Eligibility is determined by configurable numeric ranges in GYM_LOCKER_ELIGIBLE_RANGES.
- * Format: "1000-1999,5000-5999" (comma-separated ranges)
- */
-function isGymLockerEligible(membershipNumber: string | null | undefined): boolean {
-  if (!membershipNumber) {
-    return false;
-  }
-
-  const rangesEnv = process.env.GYM_LOCKER_ELIGIBLE_RANGES || '';
-  if (!rangesEnv.trim()) {
-    return false;
-  }
-
-  // Parse membership number as integer
-  const membershipNum = parseInt(membershipNumber, 10);
-  if (isNaN(membershipNum)) {
-    return false;
-  }
-
-  // Parse ranges (e.g., "1000-1999,5000-5999")
-  const ranges = rangesEnv
-    .split(',')
-    .map((range) => range.trim())
-    .filter(Boolean);
-
-  for (const range of ranges) {
-    const [startStr, endStr] = range.split('-').map((s) => s.trim());
-    const start = parseInt(startStr || '', 10);
-    const end = parseInt(endStr || '', 10);
-
-    if (!isNaN(start) && !isNaN(end) && membershipNum >= start && membershipNum <= end) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-/**
- * Determine allowed rentals based on membership eligibility.
- */
-function getAllowedRentals(membershipNumber: string | null | undefined): string[] {
-  const allowed: string[] = ['STANDARD', 'DOUBLE', 'SPECIAL'];
-
-  if (isGymLockerEligible(membershipNumber)) {
-    allowed.push('GYM_LOCKER');
-  }
-
-  return allowed;
 }
 
 /**
