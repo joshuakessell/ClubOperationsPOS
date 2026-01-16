@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { LogEvent, onEvent } from '../lib/eventBus';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { LogEvent, onEvent } from '@club-ops/app-kit';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import { Input } from '../ui/Input';

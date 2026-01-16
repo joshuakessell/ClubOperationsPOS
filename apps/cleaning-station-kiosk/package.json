@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@club-ops/app-kit": "workspace:*",
     "@club-ops/shared": "workspace:*",
     "@club-ops/ui": "workspace:*",
     "@zxing/library": "^0.21.0",

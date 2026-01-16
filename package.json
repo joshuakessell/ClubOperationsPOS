@@ -11,7 +11,7 @@
     "db:reset": "pnpm --filter @club-ops/api db:reset",
     "db:migrate": "pnpm --filter @club-ops/api db:migrate",
     "db:seed": "pnpm --filter @club-ops/api seed",
-    "build:deps": "pnpm --filter @club-ops/shared build && pnpm --filter @club-ops/ui build",
+    "build:deps": "pnpm --filter @club-ops/shared build && pnpm --filter @club-ops/ui build && pnpm --filter @club-ops/app-kit build",
     "predev": "pnpm build:deps",
     "pretest": "pnpm build:deps",
     "prebuild": "pnpm build:deps",

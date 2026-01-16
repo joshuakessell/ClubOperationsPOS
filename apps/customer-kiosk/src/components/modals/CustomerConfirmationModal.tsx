@@ -22,7 +22,7 @@ export function CustomerConfirmationModal({
   isSubmitting,
 }: CustomerConfirmationModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={() => {}} title={t(customerPrimaryLanguage, 'confirmDifferent.title')} width="2xl">
+    <Modal open={isOpen} onClose={() => {}} title={t(customerPrimaryLanguage, 'confirmDifferent.title')} width="2xl">
       <div className="grid gap-6">
         <div className="grid gap-3 text-lg text-gray-700">
           <p>

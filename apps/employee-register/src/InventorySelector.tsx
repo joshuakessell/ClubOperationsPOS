@@ -1,13 +1,18 @@
 import { useState, useEffect, useMemo } from 'react';
 import { RoomStatus, getRoomTierFromRoomNumber } from '@club-ops/shared';
 import { safeJsonParse, useReconnectingWebSocket } from '@club-ops/ui';
-import { ModalFrame } from './components/register/modals/ModalFrame';
-import { ManualCheckoutModal } from './components/register/modals/ManualCheckoutModal';
-import type { DetailedInventory, DetailedLocker, DetailedRoom, SelectedInventoryItem } from './components/inventory/selector/types';
-import { InventorySection } from './components/inventory/selector/InventorySection';
-import { LockerSection } from './components/inventory/selector/LockerSection';
-import { groupRooms, sortGroupedRooms } from './components/inventory/selector/grouping';
-import { alertLevelFromMsUntil, getMsUntil } from './components/inventory/selector/time';
+import { ModalFrame } from './features/register/modals/ModalFrame';
+import { ManualCheckoutModal } from './features/register/modals/ManualCheckoutModal';
+import type {
+  DetailedInventory,
+  DetailedLocker,
+  DetailedRoom,
+  SelectedInventoryItem,
+} from './features/inventory/selector/types';
+import { InventorySection } from './features/inventory/selector/InventorySection';
+import { LockerSection } from './features/inventory/selector/LockerSection';
+import { groupRooms, sortGroupedRooms } from './features/inventory/selector/grouping';
+import { alertLevelFromMsUntil, getMsUntil } from './features/inventory/selector/time';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 import { Input } from './ui/Input';

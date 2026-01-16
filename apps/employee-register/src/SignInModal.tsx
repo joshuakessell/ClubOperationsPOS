@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { PinInput } from '@club-ops/ui';
-import { ModalFrame } from './components/register/modals/ModalFrame';
+import { ModalFrame } from './features/register/modals/ModalFrame';
 import { Button } from './ui/Button';
 import { Card } from './ui/Card';
 

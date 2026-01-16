@@ -102,6 +102,9 @@ importers:
 
   apps/cleaning-station-kiosk:
     dependencies:
+      '@club-ops/app-kit':
+        specifier: workspace:*
+        version: link:../../packages/app-kit
       '@club-ops/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -157,6 +160,9 @@ importers:
 
   apps/customer-kiosk:
     dependencies:
+      '@club-ops/app-kit':
+        specifier: workspace:*
+        version: link:../../packages/app-kit
       '@club-ops/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -209,6 +215,9 @@ importers:
 
   apps/employee-register:
     dependencies:
+      '@club-ops/app-kit':
+        specifier: workspace:*
+        version: link:../../packages/app-kit
       '@club-ops/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -319,6 +328,12 @@ importers:
       vitest:
         specifier: ^1.1.0
         version: 1.6.1(@types/node@20.19.27)(jsdom@23.2.0)
+
+  packages/app-kit:
+    devDependencies:
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
 
   packages/shared:
     dependencies:

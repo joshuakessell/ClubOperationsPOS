@@ -1,8 +1,22 @@
 /**
  * WebAuthn client utilities for passkey authentication.
+ *
+ * This module is intentionally framework-agnostic and relies only on Web APIs (fetch + WebAuthn).
  */
 
-const API_BASE = '/api';
+export type WebAuthnClientConfig = {
+  /**
+   * Base path for API requests (defaults to '/api').
+   * Example: '/api', 'https://example.com/api'
+   */
+  apiBase?: string;
+};
+
+const DEFAULT_API_BASE = '/api';
+
+function apiBase(cfg?: WebAuthnClientConfig): string {
+  return cfg?.apiBase ?? DEFAULT_API_BASE;
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -52,9 +66,10 @@ export interface AuthenticationOptions {
  */
 export async function requestRegistrationOptions(
   staffId: string,
-  deviceId: string
+  deviceId: string,
+  cfg?: WebAuthnClientConfig
 ): Promise<RegistrationOptions> {
-  const response = await fetch(`${API_BASE}/v1/auth/webauthn/registration/options`, {
+  const response = await fetch(`${apiBase(cfg)}/v1/auth/webauthn/registration/options`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ staffId, deviceId }),
@@ -150,9 +165,10 @@ export function credentialToJSON(credential: PublicKeyCredential): {
  */
 export async function requestAuthenticationOptions(
   staffLookup: string,
-  deviceId: string
+  deviceId: string,
+  cfg?: WebAuthnClientConfig
 ): Promise<AuthenticationOptions> {
-  const response = await fetch(`${API_BASE}/v1/auth/webauthn/authentication/options`, {
+  const response = await fetch(`${apiBase(cfg)}/v1/auth/webauthn/authentication/options`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ staffLookup, deviceId }),
@@ -240,9 +256,10 @@ export function authenticationCredentialToJSON(credential: PublicKeyCredential):
 export async function verifyRegistration(
   staffId: string,
   deviceId: string,
-  credentialResponse: ReturnType<typeof credentialToJSON>
+  credentialResponse: ReturnType<typeof credentialToJSON>,
+  cfg?: WebAuthnClientConfig
 ): Promise<{ verified: boolean; credentialId: string }> {
-  const response = await fetch(`${API_BASE}/v1/auth/webauthn/registration/verify`, {
+  const response = await fetch(`${apiBase(cfg)}/v1/auth/webauthn/registration/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ staffId, deviceId, credentialResponse }),
@@ -262,7 +279,8 @@ export async function verifyRegistration(
  */
 export async function verifyAuthentication(
   deviceId: string,
-  credentialResponse: ReturnType<typeof authenticationCredentialToJSON>
+  credentialResponse: ReturnType<typeof authenticationCredentialToJSON>,
+  cfg?: WebAuthnClientConfig
 ): Promise<{
   verified: boolean;
   staffId: string;
@@ -270,7 +288,7 @@ export async function verifyAuthentication(
   role: string;
   sessionToken: string;
 }> {
-  const response = await fetch(`${API_BASE}/v1/auth/webauthn/authentication/verify`, {
+  const response = await fetch(`${apiBase(cfg)}/v1/auth/webauthn/authentication/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ deviceId, credentialResponse }),
@@ -305,6 +323,32 @@ export function isWebAuthnSupported(): boolean {
 }
 
 /**
+ * Optional ergonomic wrapper if an app wants to pre-configure API routing once.
+ */
+export function createWebAuthnClient(cfg: WebAuthnClientConfig = {}) {
+  return {
+    requestRegistrationOptions: (staffId: string, deviceId: string) =>
+      requestRegistrationOptions(staffId, deviceId, cfg),
+    createCredential,
+    credentialToJSON,
+    requestAuthenticationOptions: (staffLookup: string, deviceId: string) =>
+      requestAuthenticationOptions(staffLookup, deviceId, cfg),
+    getCredential,
+    authenticationCredentialToJSON,
+    verifyRegistration: (
+      staffId: string,
+      deviceId: string,
+      credentialResponse: ReturnType<typeof credentialToJSON>
+    ) => verifyRegistration(staffId, deviceId, credentialResponse, cfg),
+    verifyAuthentication: (
+      deviceId: string,
+      credentialResponse: ReturnType<typeof authenticationCredentialToJSON>
+    ) => verifyAuthentication(deviceId, credentialResponse, cfg),
+    isWebAuthnSupported,
+  };
+}
+
+/**
  * Helper to convert ArrayBuffer to base64url string.
  */
 function arrayBufferToBase64URL(buffer: ArrayBuffer): string {
@@ -315,3 +359,4 @@ function arrayBufferToBase64URL(buffer: ArrayBuffer): string {
   }
   return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 }
+

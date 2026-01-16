@@ -214,10 +214,10 @@ export function AgreementScreen({
         </div>
 
         <Modal
-          isOpen={signatureModalOpen}
+          open={signatureModalOpen}
           onClose={() => setSignatureModalOpen(false)}
           title={t(customerPrimaryLanguage, 'signatureRequired')}
-          width="5xl"
+          width="4xl"
           panelClassName="p-6"
         >
           <div className="grid gap-6">

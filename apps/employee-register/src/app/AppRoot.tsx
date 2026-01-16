@@ -6,6 +6,7 @@ import {
   getCustomerMembershipStatus,
 } from '@club-ops/shared';
 import { isRecord } from '@club-ops/ui';
+import { parseStaffSession, type StaffSession } from '@club-ops/app-kit';
 
 import { RegisterSignIn } from '../RegisterSignIn';
 import type { IdScanPayload } from '@club-ops/shared';
@@ -16,41 +17,41 @@ type ScanResult =
 import { debounce } from '../utils/debounce';
 import { extractDobDigits, formatDobMmDdYyyy, parseDobDigitsToIso } from '../utils/dob';
 import { OfferUpgradeModal } from '../components/OfferUpgradeModal';
-import { CheckoutRequestsBanner } from '../components/register/CheckoutRequestsBanner';
-import { CheckoutVerificationModal } from '../components/register/CheckoutVerificationModal';
-import { AgreementArtifactsModal } from '../components/register/AgreementArtifactsModal';
-import { RegisterHeader } from '../components/register/RegisterHeader';
-import { RegisterTopActionsBar } from '../components/register/RegisterTopActionsBar';
+import { CheckoutRequestsBanner } from '../features/register/CheckoutRequestsBanner';
+import { CheckoutVerificationModal } from '../features/register/CheckoutVerificationModal';
+import { AgreementArtifactsModal } from '../features/register/AgreementArtifactsModal';
+import { RegisterHeader } from '../features/register/RegisterHeader';
+import { RegisterTopActionsBar } from '../features/register/RegisterTopActionsBar';
 import { useEmployeeRegisterTabletUiTweaks } from '../hooks/useEmployeeRegisterTabletUiTweaks';
-import { RequiredTenderOutcomeModal } from '../components/register/modals/RequiredTenderOutcomeModal';
-import { WaitlistNoticeModal } from '../components/register/modals/WaitlistNoticeModal';
+import { RequiredTenderOutcomeModal } from '../features/register/modals/RequiredTenderOutcomeModal';
+import { WaitlistNoticeModal } from '../features/register/modals/WaitlistNoticeModal';
 import {
   AlreadyCheckedInModal,
   type ActiveCheckinDetails,
-} from '../components/register/modals/AlreadyCheckedInModal';
-import { CustomerConfirmationPendingModal } from '../components/register/modals/CustomerConfirmationPendingModal';
-import { PastDuePaymentModal } from '../components/register/modals/PastDuePaymentModal';
-import { ManagerBypassModal } from '../components/register/modals/ManagerBypassModal';
-import { UpgradePaymentModal } from '../components/register/modals/UpgradePaymentModal';
-import { AddNoteModal } from '../components/register/modals/AddNoteModal';
-import { AlertModal } from '../components/register/modals/AlertModal';
-import { MembershipIdPromptModal } from '../components/register/modals/MembershipIdPromptModal';
-import { ModalFrame } from '../components/register/modals/ModalFrame';
-import { TransactionCompleteModal } from '../components/register/modals/TransactionCompleteModal';
+} from '../features/register/modals/AlreadyCheckedInModal';
+import { CustomerConfirmationPendingModal } from '../features/register/modals/CustomerConfirmationPendingModal';
+import { PastDuePaymentModal } from '../features/register/modals/PastDuePaymentModal';
+import { ManagerBypassModal } from '../features/register/modals/ManagerBypassModal';
+import { UpgradePaymentModal } from '../features/register/modals/UpgradePaymentModal';
+import { AddNoteModal } from '../features/register/modals/AddNoteModal';
+import { AlertModal } from '../features/register/modals/AlertModal';
+import { MembershipIdPromptModal } from '../features/register/modals/MembershipIdPromptModal';
+import { ModalFrame } from '../features/register/modals/ModalFrame';
+import { TransactionCompleteModal } from '../features/register/modals/TransactionCompleteModal';
 import { Button } from '../ui/Button';
 import { Card } from '../ui/Card';
 import {
   MultipleMatchesModal,
   type MultipleMatchCandidate,
-} from '../components/register/modals/MultipleMatchesModal';
-import { PaymentDeclineToast } from '../components/register/toasts/PaymentDeclineToast';
+} from '../features/register/modals/MultipleMatchesModal';
+import { PaymentDeclineToast } from '../features/register/toasts/PaymentDeclineToast';
 import { ScanToastOverlay } from '../components/ScanToastOverlay';
 import { RegisterSideDrawers } from '../components/drawers/RegisterSideDrawers';
-import { UpgradesDrawerContent } from '../components/upgrades/UpgradesDrawerContent';
-import { InventoryDrawer, type InventoryDrawerSection } from '../components/inventory/InventoryDrawer';
-import { useRegisterTopActionsOverlays } from '../components/register/useRegisterTopActionsOverlays';
+import { UpgradesDrawerContent } from '../features/upgrades/UpgradesDrawerContent';
+import { InventoryDrawer, type InventoryDrawerSection } from '../features/inventory/InventoryDrawer';
+import { useRegisterTopActionsOverlays } from '../features/register/useRegisterTopActionsOverlays';
 import { usePassiveScannerInput } from '../usePassiveScannerInput';
-import { RegisterMainView } from '../views/RegisterMainView';
+import { RegisterMainView } from '../features/register/views/RegisterMainView';
 import {
   initialRegisterSessionState,
   type RegisterSessionState,
@@ -102,26 +103,6 @@ interface HealthStatus {
 }
 
 type SessionDocument = ApiSessionDocument;
-
-interface StaffSession {
-  staffId: string;
-  name: string;
-  role: 'STAFF' | 'ADMIN';
-  sessionToken: string;
-}
-
-function parseStaffSession(value: unknown): StaffSession | null {
-  if (!isRecord(value)) return null;
-  const staffId = value['staffId'];
-  const name = value['name'];
-  const role = value['role'];
-  const sessionToken = value['sessionToken'];
-  if (typeof staffId !== 'string') return null;
-  if (typeof name !== 'string') return null;
-  if (role !== 'STAFF' && role !== 'ADMIN') return null;
-  if (typeof sessionToken !== 'string') return null;
-  return { staffId, name, role, sessionToken };
-}
 
 /**
  * Generate a UUID. Falls back to a simple random string if crypto.randomUUID() is not available.

@@ -35,7 +35,7 @@ export function WaitlistModal({
   onClose,
 }: WaitlistModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'waitlist.modalTitle')} width="3xl">
+    <Modal open={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'waitlist.modalTitle')} width="3xl">
       <div className="grid gap-6">
         <div className="grid gap-4 text-lg text-gray-700">
           <p>

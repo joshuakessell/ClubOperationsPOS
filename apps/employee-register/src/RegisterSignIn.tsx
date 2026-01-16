@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { SignInModal } from './SignInModal';
 import { safeParseWebSocketEventJson } from '@club-ops/shared';
-import { useReconnectingWebSocket } from '@club-ops/ui';
+import { isRecord, useReconnectingWebSocket } from '@club-ops/ui';
 import { Button } from './ui/Button';
 
 const API_BASE = '/api';

@@ -20,7 +20,7 @@ export function MembershipModal({
   isSubmitting,
 }: MembershipModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'membership.modal.title')} width="2xl">
+    <Modal open={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'membership.modal.title')} width="2xl">
       <div className="grid gap-6">
         <div className="text-lg text-gray-700">
           {intent === 'PURCHASE'

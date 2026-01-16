@@ -1,7 +1,2 @@
-export default {
-  plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
-  },
-};
+export { default } from '../../configs/postcss.base.js';
 

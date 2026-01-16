@@ -20,7 +20,7 @@ export function RenewalDisclaimerModal({
   isSubmitting,
 }: RenewalDisclaimerModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'renewal.title')} width="2xl">
+    <Modal open={isOpen} onClose={onClose} title={t(customerPrimaryLanguage, 'renewal.title')} width="2xl">
       <div className="grid gap-6">
         <div className="text-left">
           <ul className="list-disc space-y-3 pl-6 text-lg text-gray-700">

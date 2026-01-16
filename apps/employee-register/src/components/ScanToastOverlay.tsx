@@ -1,5 +1,5 @@
 import { Button } from '../ui/Button';
-import { ModalFrame } from './register/modals/ModalFrame';
+import { ModalFrame } from '../features/register/modals/ModalFrame';
 
 export type ScanToastOverlayProps = {
   message: string | null;

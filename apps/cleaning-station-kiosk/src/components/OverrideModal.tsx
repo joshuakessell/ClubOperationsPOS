@@ -24,7 +24,7 @@ export function OverrideModal({
   onCancel,
 }: OverrideModalProps) {
   return (
-    <Modal isOpen={isOpen} onClose={onCancel} title="Override Required" width="lg">
+    <Modal open={isOpen} onClose={onCancel} title="Override Required" width="lg">
       <div className="grid gap-4">
         <p className="text-sm text-gray-600">
           Room <span className="font-semibold">{roomNumber}</span>: {fromStatus} → {toStatus}

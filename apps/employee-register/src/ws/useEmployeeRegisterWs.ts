@@ -53,6 +53,10 @@ export function buildEmployeeRegisterWsUrl(lane: string): string {
   return `${wsScheme}//${window.location.host}/ws?lane=${encodeURIComponent(lane)}`;
 }
 
+function toDate(value: Date | string): Date {
+  return value instanceof Date ? value : new Date(value);
+}
+
 export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegisterWsDeps): void {
   const message = safeParseWebSocketEventJson(String(raw));
   if (!message) return;
@@ -65,7 +69,12 @@ export function handleEmployeeRegisterWsMessage(raw: unknown, deps: EmployeeRegi
     const payload = message.payload;
     deps.setCheckoutRequests((prev) => {
       const next = new Map(prev);
-      next.set(payload.request.requestId, payload.request);
+      const request: CheckoutRequestSummary = {
+        ...payload.request,
+        scheduledCheckoutAt: toDate(payload.request.scheduledCheckoutAt),
+        currentTime: toDate(payload.request.currentTime),
+      };
+      next.set(request.requestId, request);
       return next;
     });
     return;

@@ -1,9 +1,13 @@
 import type { FormEvent } from 'react';
-import { AssignmentBar, type PaymentQuote, type SelectedInventoryItem } from '../components/register/AssignmentBar';
-import { CustomerInfoPanel } from '../components/register/CustomerInfoPanel';
-import { LaneSessionPanel } from '../components/register/LaneSessionPanel';
-import { InventorySummaryBar, type InventoryAvailableCounts, type InventorySummarySection } from '../components/inventory/InventorySummaryBar';
-import { Button } from '../ui/Button';
+import { AssignmentBar, type PaymentQuote, type SelectedInventoryItem } from '../AssignmentBar';
+import { CustomerInfoPanel } from '../CustomerInfoPanel';
+import { LaneSessionPanel } from '../LaneSessionPanel';
+import {
+  InventorySummaryBar,
+  type InventoryAvailableCounts,
+  type InventorySummarySection,
+} from '../../inventory/InventorySummaryBar';
+import { Button } from '../../../ui/Button';
 
 export function RegisterMainView(props: {
   currentSessionId: string | null;
