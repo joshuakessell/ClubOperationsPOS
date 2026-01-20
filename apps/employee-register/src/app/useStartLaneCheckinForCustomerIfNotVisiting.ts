@@ -30,6 +30,10 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
   onStarted?: (data: StartLaneResponse) => void;
 }) {
   const { lane, sessionToken, customerId, currentLaneSession, onStarted } = params;
+  const onStartedRef = useRef<typeof onStarted>(onStarted);
+  useEffect(() => {
+    onStartedRef.current = onStarted;
+  }, [onStarted]);
 
   const key = useMemo(() => `${lane}::${customerId ?? ''}`, [lane, customerId]);
   const [retryNonce, setRetryNonce] = useState(0);
@@ -106,7 +110,7 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
 
         if (!cancelled) {
           setState({ mode: 'CHECKING_IN', isStarting: false });
-          if (onStarted && isRecord(payload)) onStarted(payload as StartLaneResponse);
+          if (isRecord(payload)) onStartedRef.current?.(payload as StartLaneResponse);
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : 'Failed to start check-in';
@@ -117,7 +121,7 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
     return () => {
       cancelled = true;
     };
-  }, [customerId, sessionToken, lane, key, retryNonce, currentLaneSession.currentSessionId, currentLaneSession.customerId, onStarted]);
+  }, [customerId, sessionToken, lane, key, retryNonce, currentLaneSession.currentSessionId, currentLaneSession.customerId]);
 
   const retry = useCallback(() => {
     setRetryNonce((n) => n + 1);
