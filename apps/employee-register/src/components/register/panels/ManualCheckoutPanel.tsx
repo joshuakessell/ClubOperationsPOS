@@ -130,18 +130,6 @@ export function ManualCheckoutPanel({
     };
   }, [entryMode, sessionToken, candidatesReloadNonce]);
 
-  const attemptExit = () => {
-    if (entryMode === 'direct-confirm') {
-      onExit();
-      return;
-    }
-    if (step === 'confirm') {
-      setShowCancelWarning(true);
-      return;
-    }
-    onExit();
-  };
-
   const handleContinue = useCallback(async () => {
     if (!canContinue) return;
     setIsSubmitting(true);

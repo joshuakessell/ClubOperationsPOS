@@ -1,15 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
-  type ActiveVisit,
   type CheckoutRequestSummary,
   type CheckoutChecklist,
-  type SessionUpdatedPayload,
   type AssignmentFailedPayload,
   getCustomerMembershipStatus,
 } from '@club-ops/shared';
-import { safeJsonParse, isRecord, getErrorMessage, readJson } from '@club-ops/ui';
+import { isRecord, getErrorMessage, readJson } from '@club-ops/ui';
 import { RegisterSignIn } from '../RegisterSignIn';
-import type { IdScanPayload } from '@club-ops/shared';
 type ScanResult =
   | { outcome: 'matched' }
   | { outcome: 'no_match'; message: string; canCreate?: boolean }
@@ -22,10 +19,6 @@ import { CheckoutVerificationModal } from '../components/register/CheckoutVerifi
 import { useEmployeeRegisterTabletUiTweaks } from '../hooks/useEmployeeRegisterTabletUiTweaks';
 import { RequiredTenderOutcomeModal } from '../components/register/modals/RequiredTenderOutcomeModal';
 import { WaitlistNoticeModal } from '../components/register/modals/WaitlistNoticeModal';
-import {
-  AlreadyCheckedInModal,
-  type ActiveCheckinDetails,
-} from '../components/register/modals/AlreadyCheckedInModal';
 import { CustomerConfirmationPendingModal } from '../components/register/modals/CustomerConfirmationPendingModal';
 import { PastDuePaymentModal } from '../components/register/modals/PastDuePaymentModal';
 import { ManagerBypassModal } from '../components/register/modals/ManagerBypassModal';
@@ -51,7 +44,6 @@ import { EmployeeAssistPanel } from '../components/register/EmployeeAssistPanel'
 import { CustomerAccountPanel } from '../components/register/panels/CustomerAccountPanel';
 import { UpgradesDrawerContent } from '../components/upgrades/UpgradesDrawerContent';
 import { InventoryDrawer, type InventoryDrawerSection } from '../components/inventory/InventoryDrawer';
-import { InventorySummaryBar } from '../components/inventory/InventorySummaryBar';
 import { usePassiveScannerInput } from '../usePassiveScannerInput';
 import { useRegisterLaneSessionState } from './useRegisterLaneSessionState';
 import { useRegisterWebSocketEvents } from './useRegisterWebSocketEvents';
@@ -116,69 +108,6 @@ function generateUUID(): string {
 export function AppRoot() {
   // Tablet usability tweaks (Employee Register ONLY): measure baseline typography before applying CSS bumps.
   useEmployeeRegisterTabletUiTweaks();
-  const tryOpenAlreadyCheckedInModal = (payload: unknown, customerLabel?: string | null): boolean => {
-    if (!isRecord(payload)) return false;
-    if (payload['code'] !== 'ALREADY_CHECKED_IN') return false;
-    const ac = payload['activeCheckin'];
-    if (!isRecord(ac)) return false;
-
-    const visitId = ac['visitId'];
-    if (typeof visitId !== 'string') return false;
-
-    const rentalTypeRaw = ac['rentalType'];
-    const rentalType = typeof rentalTypeRaw === 'string' ? rentalTypeRaw : null;
-
-    const assignedResourceTypeRaw = ac['assignedResourceType'];
-    const assignedResourceType =
-      assignedResourceTypeRaw === 'room' || assignedResourceTypeRaw === 'locker'
-        ? assignedResourceTypeRaw
-        : null;
-
-    const assignedResourceNumberRaw = ac['assignedResourceNumber'];
-    const assignedResourceNumber =
-      typeof assignedResourceNumberRaw === 'string' ? assignedResourceNumberRaw : null;
-
-    const checkinAtRaw = ac['checkinAt'];
-    const checkinAt = typeof checkinAtRaw === 'string' ? checkinAtRaw : null;
-
-    const checkoutAtRaw = ac['checkoutAt'];
-    const checkoutAt = typeof checkoutAtRaw === 'string' ? checkoutAtRaw : null;
-
-    const overdueRaw = ac['overdue'];
-    const overdue = typeof overdueRaw === 'boolean' ? overdueRaw : null;
-
-    const wlRaw = ac['waitlist'];
-    let waitlist: ActiveCheckinDetails['waitlist'] = null;
-    if (isRecord(wlRaw)) {
-      const id = wlRaw['id'];
-      const desiredTier = wlRaw['desiredTier'];
-      const backupTier = wlRaw['backupTier'];
-      const status = wlRaw['status'];
-      if (
-        typeof id === 'string' &&
-        typeof desiredTier === 'string' &&
-        typeof backupTier === 'string' &&
-        typeof status === 'string'
-      ) {
-        waitlist = { id, desiredTier, backupTier, status };
-      }
-    }
-
-    setAlreadyCheckedIn({
-      customerLabel: customerLabel || null,
-      activeCheckin: {
-        visitId,
-        rentalType,
-        assignedResourceType,
-        assignedResourceNumber,
-        checkinAt,
-        checkoutAt,
-        overdue,
-        waitlist,
-      },
-    });
-    return true;
-  };
 
   const [session, setSession] = useState<StaffSession | null>(() => {
     // Load session from localStorage on mount
@@ -336,8 +265,6 @@ export function AppRoot() {
     proposedRentalType,
     proposedBy,
     selectionConfirmed,
-    selectionConfirmedBy,
-    selectionAcknowledged,
     paymentIntentId,
     paymentQuote,
     paymentStatus,
@@ -390,24 +317,8 @@ export function AppRoot() {
     (value: string | null) => laneSessionActions.patch({ waitlistBackupType: value }),
     [laneSessionActions]
   );
-  const setProposedRentalType = useCallback(
-    (value: string | null) => laneSessionActions.patch({ proposedRentalType: value }),
-    [laneSessionActions]
-  );
-  const setProposedBy = useCallback(
-    (value: 'CUSTOMER' | 'EMPLOYEE' | null) => laneSessionActions.patch({ proposedBy: value }),
-    [laneSessionActions]
-  );
   const setSelectionConfirmed = useCallback(
     (value: boolean) => laneSessionActions.patch({ selectionConfirmed: value }),
-    [laneSessionActions]
-  );
-  const setSelectionConfirmedBy = useCallback(
-    (value: 'CUSTOMER' | 'EMPLOYEE' | null) => laneSessionActions.patch({ selectionConfirmedBy: value }),
-    [laneSessionActions]
-  );
-  const setSelectionAcknowledged = useCallback(
-    (value: boolean) => laneSessionActions.patch({ selectionAcknowledged: value }),
     [laneSessionActions]
   );
   const setPaymentIntentId = useCallback(
@@ -423,7 +334,7 @@ export function AppRoot() {
             lineItems: Array<{ description: string; amount: number }>;
             messages: string[];
           }
-        | ((prev: any) => any)
+        | ((prev: typeof laneSession.paymentQuote) => typeof laneSession.paymentQuote)
     ) => {
       if (typeof value === 'function') {
         laneSessionActions.patch({ paymentQuote: value(laneSession.paymentQuote) });
@@ -435,30 +346,6 @@ export function AppRoot() {
   );
   const setPaymentStatus = useCallback(
     (value: 'DUE' | 'PAID' | null) => laneSessionActions.patch({ paymentStatus: value }),
-    [laneSessionActions]
-  );
-  const setMembershipPurchaseIntent = useCallback(
-    (value: 'PURCHASE' | 'RENEW' | null) => laneSessionActions.patch({ membershipPurchaseIntent: value }),
-    [laneSessionActions]
-  );
-  const setMembershipChoice = useCallback(
-    (value: 'ONE_TIME' | 'SIX_MONTH' | null) => laneSessionActions.patch({ membershipChoice: value }),
-    [laneSessionActions]
-  );
-  const setCustomerMembershipValidUntil = useCallback(
-    (value: string | null) => laneSessionActions.patch({ customerMembershipValidUntil: value }),
-    [laneSessionActions]
-  );
-  const setAllowedRentals = useCallback(
-    (value: string[]) => laneSessionActions.patch({ allowedRentals: value }),
-    [laneSessionActions]
-  );
-  const setPastDueBlocked = useCallback(
-    (value: boolean) => laneSessionActions.patch({ pastDueBlocked: value }),
-    [laneSessionActions]
-  );
-  const setPastDueBalance = useCallback(
-    (value: number) => laneSessionActions.patch({ pastDueBalance: value }),
     [laneSessionActions]
   );
   const setCustomerPrimaryLanguage = useCallback(
@@ -587,7 +474,7 @@ export function AppRoot() {
   const [scanToastMessage, setScanToastMessage] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Check-in mode is now auto-detected server-side based on active visits/assignments.
-  const [selectedRentalType, setSelectedRentalType] = useState<string | null>(null);
+  const [, setSelectedRentalType] = useState<string | null>(null);
   const [checkoutRequests, setCheckoutRequests] = useState<Map<string, CheckoutRequestSummary>>(
     new Map()
   );
@@ -602,15 +489,10 @@ export function AppRoot() {
     tier: string;
   } | null>(null);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
-  const [alreadyCheckedIn, setAlreadyCheckedIn] = useState<null | {
-    customerLabel: string | null;
-    activeCheckin: ActiveCheckinDetails;
-  }>(null);
   const openCustomerAccount = useCallback(
     (customerId: string, label?: string | null) => {
       setAccountCustomerId(customerId);
       setAccountCustomerLabel(label ?? null);
-      setAlreadyCheckedIn(null);
       selectHomeTab('account');
     },
     [selectHomeTab]
@@ -693,7 +575,7 @@ export function AppRoot() {
     waitlistDemand: Record<string, number>;
     lockers: number;
   }>(null);
-  const [selectedWaitlistEntry, setSelectedWaitlistEntry] = useState<string | null>(null);
+  const [, setSelectedWaitlistEntry] = useState<string | null>(null);
   const [upgradePaymentIntentId, setUpgradePaymentIntentId] = useState<string | null>(null);
   const [upgradeFee, setUpgradeFee] = useState<number | null>(null);
   const [upgradePaymentStatus, setUpgradePaymentStatus] = useState<'DUE' | 'PAID' | null>(null);
@@ -708,7 +590,7 @@ export function AppRoot() {
     offeredRoomNumber?: string | null;
     newRoomNumber?: string | null;
   } | null>(null);
-  const [showUpgradePulse, setShowUpgradePulse] = useState(false);
+  const [, setShowUpgradePulse] = useState(false);
   const [offerUpgradeModal, setOfferUpgradeModal] = useState<{
     waitlistId: string;
     desiredTier: 'STANDARD' | 'DOUBLE' | 'SPECIAL';
@@ -913,7 +795,7 @@ export function AppRoot() {
     }
   }, [customerSearch, runCustomerSearch]);
 
-  const handleConfirmCustomerSelection = async () => {
+  const handleConfirmCustomerSelection = () => {
     if (!session?.sessionToken || !selectedCustomerId) return;
     setIsSubmitting(true);
     try {
@@ -970,164 +852,26 @@ export function AppRoot() {
     [setRegisterSession, setSession]
   );
 
-  const handleIdScan = async (
-    payload: IdScanPayload,
-    opts?: { suppressAlerts?: boolean }
-  ): Promise<ScanResult> => {
-    if (!session?.sessionToken) {
-      const msg = 'Not authenticated';
-      if (!opts?.suppressAlerts) alert(msg);
-      return { outcome: 'error', message: msg };
-    }
-
-    setIsSubmitting(true);
-    try {
-      setAlreadyCheckedIn(null);
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/scan-id`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (response.status === 409 && tryOpenAlreadyCheckedInModal(errorPayload, customerName || null)) {
-          return { outcome: 'matched' };
-        }
-        const msg = getErrorMessage(errorPayload) || 'Failed to scan ID';
-        if (!opts?.suppressAlerts) alert(msg);
-        // Treat 400 as "no match / invalid ID data", keep scan mode open.
-        if (response.status === 400) return { outcome: 'no_match', message: msg };
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = await readJson<{
-        customerName?: string;
-        membershipNumber?: string;
-        sessionId?: string;
-        mode?: 'INITIAL' | 'RENEWAL';
-        blockEndsAt?: string;
-        activeAssignedResourceType?: 'room' | 'locker';
-        activeAssignedResourceNumber?: string;
-      }>(response);
-      console.log('ID scanned, session updated:', data);
-
-      // Update local state
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
-      if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
-      }
-
-      return { outcome: 'matched' };
-    } catch (error) {
-      console.error('Failed to scan ID:', error);
-      const msg = error instanceof Error ? error.message : 'Failed to scan ID';
-      if (!opts?.suppressAlerts) alert(msg);
-      return { outcome: 'error', message: msg };
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const startLaneSession = async (
-    idScanValue: string,
-    membershipScanValue?: string | null,
-    opts?: { suppressAlerts?: boolean }
-  ): Promise<ScanResult> => {
-    if (!session?.sessionToken) {
-      const msg = 'Not authenticated';
-      if (!opts?.suppressAlerts) alert(msg);
-      return { outcome: 'error', message: msg };
-    }
-
-    setIsSubmitting(true);
-    try {
-      setAlreadyCheckedIn(null);
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          idScanValue,
-          membershipScanValue: membershipScanValue || undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (response.status === 409 && tryOpenAlreadyCheckedInModal(errorPayload, idScanValue)) {
-          return { outcome: 'matched' };
-        }
-        const msg = getErrorMessage(errorPayload) || 'Failed to start session';
-        if (!opts?.suppressAlerts) alert(msg);
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = await readJson<{
-        customerName?: string;
-        membershipNumber?: string;
-        sessionId?: string;
-        mode?: 'INITIAL' | 'RENEWAL';
-        blockEndsAt?: string;
-        activeAssignedResourceType?: 'room' | 'locker';
-        activeAssignedResourceNumber?: string;
-      }>(response);
-      console.log('Session started:', data);
-
-      // Update local state
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
-      if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
-      }
-
-      // Clear manual entry mode if active
-      if (manualEntry) {
-        setManualEntry(false);
-      }
-      return { outcome: 'matched' };
-    } catch (error) {
-      console.error('Failed to start session:', error);
-      const msg = error instanceof Error ? error.message : 'Failed to start session';
-      if (!opts?.suppressAlerts) alert(msg);
-      return { outcome: 'error', message: msg };
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const startLaneSessionByCustomerId = async (
+  const startLaneSessionByCustomerId = (
     customerId: string,
     opts?: { suppressAlerts?: boolean; customerLabel?: string | null }
   ): Promise<ScanResult> => {
     if (!session?.sessionToken) {
       const msg = 'Not authenticated';
       if (!opts?.suppressAlerts) alert(msg);
-      return { outcome: 'error', message: msg };
+      return Promise.resolve({ outcome: 'error', message: msg });
     }
 
     setIsSubmitting(true);
     try {
       openCustomerAccount(customerId, opts?.customerLabel ?? null);
       if (manualEntry) setManualEntry(false);
-      return { outcome: 'matched' };
+      return Promise.resolve({ outcome: 'matched' });
     } catch (error) {
       console.error('Failed to open customer account:', error);
       const msg = error instanceof Error ? error.message : 'Failed to open customer account';
       if (!opts?.suppressAlerts) alert(msg);
-      return { outcome: 'error', message: msg };
+      return Promise.resolve({ outcome: 'error', message: msg });
     } finally {
       setIsSubmitting(false);
     }
@@ -1346,7 +1090,6 @@ export function AppRoot() {
   const blockingModalOpen =
     !!pendingScanResolution ||
     showCreateFromScanPrompt ||
-    !!alreadyCheckedIn ||
     showPastDueModal ||
     showManagerBypassModal ||
     showMembershipIdPrompt ||
@@ -2394,8 +2137,7 @@ export function AppRoot() {
       }
 
       setSelectionConfirmed(true);
-      setSelectionConfirmedBy('EMPLOYEE');
-      setSelectionAcknowledged(true);
+      laneSessionActions.patch({ selectionConfirmedBy: 'EMPLOYEE', selectionAcknowledged: true });
       setCustomerSelectedType(proposedRentalType);
     } catch (error) {
       console.error('Failed to confirm selection:', error);
@@ -2419,83 +2161,6 @@ export function AppRoot() {
       paymentIntentCreateInFlightRef.current = false;
     });
   }, [currentSessionId, session?.sessionToken, selectionConfirmed, paymentIntentId, paymentStatus]);
-
-  const handleAssign = async () => {
-    if (!selectedInventoryItem || !currentSessionId || !session?.sessionToken) {
-      alert('Please select an item to assign');
-      return;
-    }
-
-    // Guardrails: Prevent assignment if conditions not met
-    if (showCustomerConfirmationPending) {
-      alert('Please wait for customer confirmation before assigning');
-      return;
-    }
-
-    if (!agreementSigned) {
-      alert(
-        'Agreement must be signed before assignment. Please wait for customer to sign the agreement.'
-      );
-      return;
-    }
-
-    if (paymentStatus !== 'PAID') {
-      alert(
-        'Payment must be marked as paid before assignment. Please mark payment as paid in Square first.'
-      );
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      // Use new check-in assign endpoint
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/assign`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          resourceType: selectedInventoryItem.type,
-          resourceId: selectedInventoryItem.id,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        const msg = getErrorMessage(errorPayload);
-        if (
-          isRecord(errorPayload) &&
-          (errorPayload.raceLost === true ||
-            (typeof msg === 'string' && msg.includes('already assigned')))
-        ) {
-          // Race condition - refresh inventory and re-select
-          alert('Item no longer available. Refreshing inventory...');
-          setSelectedInventoryItem(null);
-          // InventorySelector will auto-refresh and re-select
-        } else {
-          throw new Error(msg || 'Failed to assign');
-        }
-      } else {
-        const data = await readJson<{ needsConfirmation?: boolean }>(response);
-        console.log('Assignment successful:', data);
-
-        // If cross-type assignment, wait for customer confirmation
-        if (data.needsConfirmation === true) {
-          setShowCustomerConfirmationPending(true);
-          setIsSubmitting(false);
-          return;
-        }
-
-        // Assignment occurs after payment + agreement in the corrected flow; nothing payment-related here.
-      }
-    } catch (error) {
-      console.error('Failed to assign:', error);
-      alert(error instanceof Error ? error.message : 'Failed to assign');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   const handleCreatePaymentIntent = async () => {
     if (!currentSessionId || !session?.sessionToken) {
@@ -2531,39 +2196,6 @@ export function AppRoot() {
     } catch (error) {
       console.error('Failed to create payment intent:', error);
       alert(error instanceof Error ? error.message : 'Failed to create payment intent');
-    }
-  };
-
-  const handleMarkPaid = async () => {
-    if (!paymentIntentId || !session?.sessionToken) {
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`${API_BASE}/v1/payments/${paymentIntentId}/mark-paid`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          squareTransactionId: undefined, // Would come from Square POS integration
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to mark payment as paid');
-      }
-
-      setPaymentStatus('PAID');
-      // Payment marked paid - customer can now sign agreement
-    } catch (error) {
-      console.error('Failed to mark payment as paid:', error);
-      alert(error instanceof Error ? error.message : 'Failed to mark payment as paid');
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -2664,49 +2296,6 @@ export function AppRoot() {
     setMembershipIdError(null);
     setMembershipIdPromptedForSessionId(null);
   }, [membershipPurchaseIntent, showMembershipIdPrompt]);
-
-  const handleClearSelection = () => {
-    setSelectedInventoryItem(null);
-  };
-
-  const handleManualSignatureOverride = async () => {
-    if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
-      return;
-    }
-
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(
-        `${API_BASE}/v1/checkin/lane/${lane}/manual-signature-override`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-          body: JSON.stringify({
-            sessionId: currentSessionId,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        throw new Error(
-          getErrorMessage(errorPayload) || 'Failed to process manual signature override'
-        );
-      }
-
-      // Success - WebSocket will update the UI
-      await response.json();
-    } catch (error) {
-      console.error('Failed to process manual signature override:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process manual signature override');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // Past-due payment handlers
   const handlePastDuePayment = async (
@@ -3587,13 +3176,6 @@ export function AppRoot() {
             desiredTier={waitlistDesiredTier || ''}
             backupType={waitlistBackupType || ''}
             onClose={() => setShowWaitlistModal(false)}
-          />
-
-          <AlreadyCheckedInModal
-            isOpen={!!alreadyCheckedIn}
-            customerLabel={alreadyCheckedIn?.customerLabel || null}
-            activeCheckin={alreadyCheckedIn?.activeCheckin || null}
-            onClose={() => setAlreadyCheckedIn(null)}
           />
 
           {offerUpgradeModal && session?.sessionToken && (

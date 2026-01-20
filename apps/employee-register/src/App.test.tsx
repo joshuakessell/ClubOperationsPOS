@@ -50,7 +50,7 @@ describe('App', () => {
     });
   });
 
-  it('renders lock screen when not authenticated', async () => {
+  it('renders lock screen when not authenticated', () => {
     act(() => {
       render(<App />);
     });
@@ -929,7 +929,7 @@ describe('App', () => {
       })
     );
 
-    const calls: Array<{ url: string; body?: any }> = [];
+    const calls: Array<{ url: string; body?: unknown }> = [];
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
       const u =
         typeof url === 'string'
@@ -940,7 +940,10 @@ describe('App', () => {
               ? url.url
               : '';
 
-      const body = init?.body ? JSON.parse(String(init.body)) : undefined;
+      let body: unknown = undefined;
+      if (typeof init?.body === 'string') {
+        body = JSON.parse(init.body) as unknown;
+      }
       calls.push({ url: u, body });
 
       if (u.includes('/v1/registers/status')) {
@@ -1011,7 +1014,12 @@ describe('App', () => {
     await waitFor(() => {
       const startCall = calls.find((c) => c.url.includes('/v1/checkin/lane/lane-1/start'));
       expect(startCall).toBeDefined();
-      expect(startCall?.body?.customerId).toBe('cust-1');
+      const b = startCall?.body;
+      expect(b).toBeDefined();
+      if (!b || typeof b !== 'object' || !('customerId' in b)) {
+        throw new Error('Expected start call body to include customerId');
+      }
+      expect((b as { customerId?: unknown }).customerId).toBe('cust-1');
     });
   });
 });

@@ -49,9 +49,9 @@ export function CustomerAccountPanel(props: {
   }) => void;
 
   // employee-side lane actions
-  onHighlightLanguage: (lang: 'EN' | 'ES') => void;
+  onHighlightLanguage: (lang: 'EN' | 'ES' | null) => void;
   onConfirmLanguage: (lang: 'EN' | 'ES') => void;
-  onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH') => void;
+  onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) => void;
   onConfirmMembershipOneTime: () => void;
   onConfirmMembershipSixMonth: () => void;
   onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
