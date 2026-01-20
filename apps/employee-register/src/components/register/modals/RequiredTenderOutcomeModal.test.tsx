@@ -14,7 +14,7 @@ describe('RequiredTenderOutcomeModal', () => {
       />
     );
 
-    const continueBtn = screen.getByRole('button', { name: 'Continue' });
+    const continueBtn = screen.getByRole<HTMLButtonElement>('button', { name: 'Continue' });
     expect(continueBtn.disabled).toBe(true);
 
     fireEvent.click(screen.getByRole('button', { name: 'Credit Success' }));
