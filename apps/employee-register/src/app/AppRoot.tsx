@@ -48,6 +48,7 @@ import { ManualCheckoutPanel } from '../components/register/panels/ManualCheckou
 import { RoomCleaningPanel } from '../components/register/panels/RoomCleaningPanel';
 import { CustomerProfileCard, type CheckinStage } from '../components/register/CustomerProfileCard';
 import { EmployeeAssistPanel } from '../components/register/EmployeeAssistPanel';
+import { CustomerAccountPanel } from '../components/register/panels/CustomerAccountPanel';
 import { UpgradesDrawerContent } from '../components/upgrades/UpgradesDrawerContent';
 import { InventoryDrawer, type InventoryDrawerSection } from '../components/inventory/InventoryDrawer';
 import { InventorySummaryBar } from '../components/inventory/InventorySummaryBar';
@@ -203,6 +204,7 @@ export function AppRoot() {
   const SCAN_OVERLAY_MIN_VISIBLE_MS = 300;
 
   type HomeTab =
+    | 'account'
     | 'scan'
     | 'search'
     | 'inventory'
@@ -212,6 +214,8 @@ export function AppRoot() {
     | 'firstTime'
     | 'clearSession';
   const [homeTab, setHomeTab] = useState<HomeTab>('scan');
+  const [accountCustomerId, setAccountCustomerId] = useState<string | null>(null);
+  const [accountCustomerLabel, setAccountCustomerLabel] = useState<string | null>(null);
   const [successToastMessage, setSuccessToastMessage] = useState<string | null>(null);
   const successToastTimerRef = useRef<number | null>(null);
 
@@ -364,6 +368,10 @@ export function AppRoot() {
   );
   const setCurrentSessionId = useCallback(
     (value: string | null) => laneSessionActions.patch({ currentSessionId: value }),
+    [laneSessionActions]
+  );
+  const setCurrentSessionCustomerId = useCallback(
+    (value: string | null) => laneSessionActions.patch({ customerId: value }),
     [laneSessionActions]
   );
   const setAgreementSigned = useCallback(
@@ -598,6 +606,15 @@ export function AppRoot() {
     customerLabel: string | null;
     activeCheckin: ActiveCheckinDetails;
   }>(null);
+  const openCustomerAccount = useCallback(
+    (customerId: string, label?: string | null) => {
+      setAccountCustomerId(customerId);
+      setAccountCustomerLabel(label ?? null);
+      setAlreadyCheckedIn(null);
+      selectHomeTab('account');
+    },
+    [selectHomeTab]
+  );
   const [showCustomerConfirmationPending, setShowCustomerConfirmationPending] = useState(false);
   const [customerConfirmationType, setCustomerConfirmationType] = useState<{
     requested: string;
@@ -624,15 +641,18 @@ export function AppRoot() {
   }, [currentSessionId]);
 
   // When a session becomes active via any entry path (scan/search/first-time),
-  // bring the operator to the check-in panel (Scan tab) automatically.
+  // bring the operator to the Customer Account panel automatically.
   const prevSessionIdForTabRef = useRef<string | null>(null);
   useEffect(() => {
     const prev = prevSessionIdForTabRef.current;
     prevSessionIdForTabRef.current = currentSessionId;
     if (!prev && currentSessionId) {
-      selectHomeTab('scan');
+      if (laneSession.customerId && !accountCustomerId) {
+        setAccountCustomerId(laneSession.customerId);
+      }
+      selectHomeTab('account');
     }
-  }, [currentSessionId, selectHomeTab]);
+  }, [accountCustomerId, currentSessionId, laneSession.customerId, selectHomeTab]);
 
   const customerSelectedTypeRef = useRef<string | null>(null);
   useEffect(() => {
@@ -897,56 +917,16 @@ export function AppRoot() {
     if (!session?.sessionToken || !selectedCustomerId) return;
     setIsSubmitting(true);
     try {
-      setAlreadyCheckedIn(null);
-      // Customer search selection should attach to the *check-in lane session* system
-      // (lane_sessions), not legacy sessions, so downstream kiosk endpoints (set-language, etc.)
-      // can resolve the active session.
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({
-          customerId: selectedCustomerId,
-        }),
-      });
-
-      const payload: unknown = await response.json().catch(() => null);
-      if (!response.ok) {
-        if (
-          response.status === 409 &&
-          tryOpenAlreadyCheckedInModal(payload, selectedCustomerLabel || selectedCustomerId)
-        ) {
-          return;
-        }
-        throw new Error(getErrorMessage(payload) || 'Failed to start session');
-      }
-
-      const data = payload as {
-        sessionId?: string;
-        customerName?: string;
-        membershipNumber?: string;
-        mode?: 'INITIAL' | 'RENEWAL';
-        blockEndsAt?: string;
-        activeAssignedResourceType?: 'room' | 'locker';
-        activeAssignedResourceNumber?: string;
-      };
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
-      if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
-      }
+      // The Customer Account page owns the "start lane check-in if not visiting" behavior.
+      // This keeps 200 vs 409 handling consistent across scan/search/first-time.
+      openCustomerAccount(selectedCustomerId, selectedCustomerLabel || selectedCustomerId);
 
       // Clear search UI
       setCustomerSearch('');
       setCustomerSuggestions([]);
     } catch (error) {
-      console.error('Failed to confirm customer:', error);
-      alert(error instanceof Error ? error.message : 'Failed to confirm customer');
+      console.error('Failed to open customer account:', error);
+      alert(error instanceof Error ? error.message : 'Failed to open customer account');
     } finally {
       setIsSubmitting(false);
     }
@@ -1130,7 +1110,7 @@ export function AppRoot() {
 
   const startLaneSessionByCustomerId = async (
     customerId: string,
-    opts?: { suppressAlerts?: boolean }
+    opts?: { suppressAlerts?: boolean; customerLabel?: string | null }
   ): Promise<ScanResult> => {
     if (!session?.sessionToken) {
       const msg = 'Not authenticated';
@@ -1140,50 +1120,12 @@ export function AppRoot() {
 
     setIsSubmitting(true);
     try {
-      setAlreadyCheckedIn(null);
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/start`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ customerId }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (response.status === 409 && tryOpenAlreadyCheckedInModal(errorPayload, null)) {
-          return { outcome: 'matched' };
-        }
-        const msg = getErrorMessage(errorPayload) || 'Failed to start session';
-        if (!opts?.suppressAlerts) alert(msg);
-        return { outcome: 'error', message: msg };
-      }
-
-      const data = await readJson<{
-        sessionId?: string;
-        customerName?: string;
-        membershipNumber?: string;
-        mode?: 'INITIAL' | 'RENEWAL';
-        blockEndsAt?: string;
-        activeAssignedResourceType?: 'room' | 'locker';
-        activeAssignedResourceNumber?: string;
-      }>(response);
-
-      if (data.customerName) setCustomerName(data.customerName);
-      if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-      if (data.sessionId) setCurrentSessionId(data.sessionId);
-      if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-        if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-        if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-        setCheckoutAt(data.blockEndsAt);
-      }
-
+      openCustomerAccount(customerId, opts?.customerLabel ?? null);
       if (manualEntry) setManualEntry(false);
       return { outcome: 'matched' };
     } catch (error) {
-      console.error('Failed to start session by customerId:', error);
-      const msg = error instanceof Error ? error.message : 'Failed to start session';
+      console.error('Failed to open customer account:', error);
+      const msg = error instanceof Error ? error.message : 'Failed to open customer account';
       if (!opts?.suppressAlerts) alert(msg);
       return { outcome: 'error', message: msg };
     } finally {
@@ -1648,6 +1590,9 @@ export function AppRoot() {
       setCustomerName('');
       setMembershipNumber('');
       setCurrentSessionId(null);
+      setCurrentSessionCustomerId(null);
+      setAccountCustomerId(null);
+      setAccountCustomerLabel(null);
       setAgreementSigned(false);
       setManualEntry(false);
       setSelectedRentalType(null);
@@ -2224,6 +2169,10 @@ export function AppRoot() {
       setMembershipIdError(null);
       setMembershipIdPromptedForSessionId(null);
       setShowWaitlistModal(false);
+      setCurrentSessionCustomerId(null);
+      setAccountCustomerId(null);
+      setAccountCustomerLabel(null);
+      selectHomeTab('scan');
       // Any additional per-session UI state resets remain here (outside reducer).
     },
     pushBottomToast,
@@ -2958,6 +2907,9 @@ export function AppRoot() {
       setCustomerName('');
       setMembershipNumber('');
       setCurrentSessionId(null);
+      setCurrentSessionCustomerId(null);
+      setAccountCustomerId(null);
+      setAccountCustomerLabel(null);
       setAgreementSigned(false);
       setSelectedRentalType(null);
       setCustomerSelectedType(null);
@@ -3075,7 +3027,7 @@ export function AppRoot() {
             })()}
 
           <main className="main">
-            {/* Check-in UI lives inside the right-side panel (Scan tab), so it never overflows past the left rail. */}
+            {/* Customer Account embeds the check-in UI (lane session driven). */}
 
             <section className="actions-panel">
               <div className="er-home-layout">
@@ -3101,6 +3053,20 @@ export function AppRoot() {
                     onClick={() => selectHomeTab('search')}
                   >
                     Search Customer
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!accountCustomerId && !(currentSessionId && customerName)}
+                    className={[
+                      'er-home-tab-btn',
+                      'cs-liquid-button',
+                      homeTab === 'account' ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+                    ].join(' ')}
+                    onClick={() => selectHomeTab('account')}
+                    style={{ opacity: !accountCustomerId && !(currentSessionId && customerName) ? 0.6 : 1 }}
+                    title={!accountCustomerId && !(currentSessionId && customerName) ? 'Select a customer first' : undefined}
+                  >
+                    Customer Account
                   </button>
                   <button
                     type="button"
@@ -3185,20 +3151,88 @@ export function AppRoot() {
 
                 <div className="er-home-content">
                   {homeTab === 'scan' && (
-                    currentSessionId && customerName ? (
+                    <div className="er-home-panel er-home-panel--center cs-liquid-card" style={{ padding: '1rem' }}>
+                      <div style={{ fontSize: '4rem', lineHeight: 1 }} aria-hidden="true">
+                        📷
+                      </div>
+                      <div style={{ marginTop: '0.75rem', fontWeight: 950, fontSize: '1.6rem' }}>Scan Now</div>
+                      <div className="er-text-sm" style={{ marginTop: '0.5rem', color: '#94a3b8', fontWeight: 700 }}>
+                        Scan a membership ID or driver license.
+                      </div>
+                      {currentSessionId && customerName ? (
+                        <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem' }}>
+                          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                            Active lane session: <span style={{ color: '#e2e8f0' }}>{customerName}</span>
+                          </div>
+                          <button
+                            type="button"
+                            className="cs-liquid-button"
+                            onClick={() => selectHomeTab('account')}
+                            style={{ width: '100%', padding: '0.75rem', fontWeight: 900 }}
+                          >
+                            Open Customer Account
+                          </button>
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+
+                  {homeTab === 'account' && (
+                    accountCustomerId ? (
+                      <CustomerAccountPanel
+                        lane={lane}
+                        sessionToken={session?.sessionToken}
+                        customerId={accountCustomerId}
+                        customerLabel={accountCustomerLabel}
+                        currentSessionId={currentSessionId}
+                        currentSessionCustomerId={laneSession.customerId}
+                        customerName={customerName}
+                        membershipNumber={membershipNumber}
+                        customerMembershipValidUntil={customerMembershipValidUntil}
+                        membershipPurchaseIntent={membershipPurchaseIntent}
+                        membershipChoice={membershipChoice}
+                        allowedRentals={allowedRentals}
+                        proposedRentalType={proposedRentalType}
+                        proposedBy={proposedBy}
+                        selectionConfirmed={selectionConfirmed}
+                        customerPrimaryLanguage={customerPrimaryLanguage}
+                        customerDobMonthDay={customerDobMonthDay}
+                        customerLastVisitAt={customerLastVisitAt}
+                        hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
+                        waitlistDesiredTier={waitlistDesiredTier}
+                        waitlistBackupType={waitlistBackupType}
+                        inventoryAvailable={
+                          inventoryAvailable ? { rooms: inventoryAvailable.rooms, lockers: inventoryAvailable.lockers } : null
+                        }
+                        isSubmitting={isSubmitting}
+                        checkinStage={checkinStage}
+                        onStartedSession={(data) => {
+                          setCurrentSessionCustomerId(accountCustomerId);
+                          if (data.customerName) setCustomerName(data.customerName);
+                          if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
+                          if (data.sessionId) setCurrentSessionId(data.sessionId);
+                          if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
+                            if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
+                            if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
+                            setCheckoutAt(data.blockEndsAt);
+                          }
+                        }}
+                        onHighlightLanguage={(lang) => void highlightKioskOption({ step: 'LANGUAGE', option: lang })}
+                        onConfirmLanguage={(lang) => void handleConfirmLanguage(lang)}
+                        onHighlightMembership={(choice) => void highlightKioskOption({ step: 'MEMBERSHIP', option: choice })}
+                        onConfirmMembershipOneTime={() => void handleConfirmMembershipOneTime()}
+                        onConfirmMembershipSixMonth={() => void handleConfirmMembershipSixMonth()}
+                        onHighlightRental={(rental) => void handleProposeSelection(rental)}
+                        onSelectRentalAsCustomer={(rental) => void handleCustomerSelectRental(rental)}
+                        onApproveRental={() => void handleConfirmSelection()}
+                      />
+                    ) : currentSessionId && customerName ? (
                       <div
                         className="er-home-panel er-home-panel--top er-home-panel--no-scroll cs-liquid-card"
-                        style={{ padding: '0.75rem' }}
+                        style={{ padding: '0.9rem' }}
                       >
-                        <div
-                          style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            gap: '0.75rem',
-                            height: '100%',
-                            minHeight: 0,
-                          }}
-                        >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', minHeight: 0 }}>
+                          <div style={{ fontWeight: 950, fontSize: '1.05rem' }}>Customer Account</div>
                           <CustomerProfileCard
                             name={customerName}
                             preferredLanguage={customerPrimaryLanguage || null}
@@ -3211,7 +3245,6 @@ export function AppRoot() {
                             waitlistDesiredTier={waitlistDesiredTier}
                             waitlistBackupType={waitlistBackupType}
                           />
-
                           <EmployeeAssistPanel
                             sessionId={currentSessionId}
                             customerName={customerName}
@@ -3227,18 +3260,12 @@ export function AppRoot() {
                             waitlistDesiredTier={waitlistDesiredTier}
                             waitlistBackupType={waitlistBackupType}
                             inventoryAvailable={
-                              inventoryAvailable
-                                ? { rooms: inventoryAvailable.rooms, lockers: inventoryAvailable.lockers }
-                                : null
+                              inventoryAvailable ? { rooms: inventoryAvailable.rooms, lockers: inventoryAvailable.lockers } : null
                             }
                             isSubmitting={isSubmitting}
-                            onHighlightLanguage={(lang) =>
-                              void highlightKioskOption({ step: 'LANGUAGE', option: lang })
-                            }
+                            onHighlightLanguage={(lang) => void highlightKioskOption({ step: 'LANGUAGE', option: lang })}
                             onConfirmLanguage={(lang) => void handleConfirmLanguage(lang)}
-                            onHighlightMembership={(choice) =>
-                              void highlightKioskOption({ step: 'MEMBERSHIP', option: choice })
-                            }
+                            onHighlightMembership={(choice) => void highlightKioskOption({ step: 'MEMBERSHIP', option: choice })}
                             onConfirmMembershipOneTime={() => void handleConfirmMembershipOneTime()}
                             onConfirmMembershipSixMonth={() => void handleConfirmMembershipSixMonth()}
                             onHighlightRental={(rental) => void handleProposeSelection(rental)}
@@ -3249,12 +3276,9 @@ export function AppRoot() {
                       </div>
                     ) : (
                       <div className="er-home-panel er-home-panel--center cs-liquid-card" style={{ padding: '1rem' }}>
-                        <div style={{ fontSize: '4rem', lineHeight: 1 }} aria-hidden="true">
-                          📷
-                        </div>
-                        <div style={{ marginTop: '0.75rem', fontWeight: 950, fontSize: '1.6rem' }}>Scan Now</div>
+                        <div style={{ fontWeight: 950, fontSize: '1.35rem' }}>Customer Account</div>
                         <div className="er-text-sm" style={{ marginTop: '0.5rem', color: '#94a3b8', fontWeight: 700 }}>
-                          Scan a membership ID or driver license.
+                          Select a customer (scan, search, or first-time) to view their account.
                         </div>
                       </div>
                     )
