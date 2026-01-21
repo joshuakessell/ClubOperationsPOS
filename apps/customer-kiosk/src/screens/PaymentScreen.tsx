@@ -2,6 +2,7 @@ import { ReactNode } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
 import { getPaymentLineItemDisplayDescription } from '../utils/display';
+import { KioskPage } from '../ui/layout/KioskPage';
 
 export interface PaymentScreenProps {
   customerPrimaryLanguage: Language | null | undefined;
@@ -25,7 +26,7 @@ export function PaymentScreen({
       <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="active-content">
+        <KioskPage className="active-content">
           <main className="main-content">
             <div className="payment-pending-screen">
               {paymentLineItems && paymentLineItems.length > 0 && (
@@ -59,7 +60,7 @@ export function PaymentScreen({
               )}
             </div>
           </main>
-        </div>
+        </KioskPage>
       </ScreenShell>
     </I18nProvider>
   );

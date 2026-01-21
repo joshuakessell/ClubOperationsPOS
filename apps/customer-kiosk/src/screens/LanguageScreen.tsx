@@ -1,6 +1,7 @@
 import { ReactNode } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { KioskPage } from '../ui/layout/KioskPage';
 
 export interface LanguageScreenProps {
   customerPrimaryLanguage: Language | null | undefined;
@@ -24,7 +25,7 @@ export function LanguageScreen({
       <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="active-content">
+        <KioskPage className="active-content">
           <main className="main-content">
             <div className="language-selection-screen">
               <h1 className="language-title">{t(null, 'selectLanguage')}</h1>
@@ -60,7 +61,7 @@ export function LanguageScreen({
               </div>
             </div>
           </main>
-        </div>
+        </KioskPage>
       </ScreenShell>
     </I18nProvider>
   );

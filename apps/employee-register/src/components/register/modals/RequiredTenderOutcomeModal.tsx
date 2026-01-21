@@ -15,6 +15,7 @@ export function RequiredTenderOutcomeModal({
 }) {
   const [choice, setChoice] = useState<TenderOutcomeChoice | null>(null);
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const prevFocusRef = useRef<HTMLElement | null>(null);
   const continueDisabled = isSubmitting || !choice;
 
   useEffect(() => {
@@ -27,6 +28,9 @@ export function RequiredTenderOutcomeModal({
 
     const root = modalRef.current;
     if (!root) return;
+
+    // Restore focus to the opener when this modal closes.
+    prevFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
 
     // Focus the first option for tablet usability.
     const first = root.querySelector<HTMLElement>('button[data-choice]');
@@ -57,7 +61,12 @@ export function RequiredTenderOutcomeModal({
     };
 
     document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      const prev = prevFocusRef.current;
+      if (prev && document.contains(prev)) prev.focus();
+      prevFocusRef.current = null;
+    };
   }, [isOpen]);
 
   const options = useMemo(

@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client';
 import { installTelemetry, TelemetryErrorBoundary } from '@club-ops/ui';
 import App from './App';
 import '@club-ops/ui/styles/index.css';
+import './ui/foundation/ipadTokens.css';
+import './ui/foundation/ipadBase.css';
 import './styles.css';
 import { OrientationGuard } from './ui/orientation/OrientationGuard';
 import './ui/orientation/orientation.css';

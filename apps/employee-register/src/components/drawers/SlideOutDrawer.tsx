@@ -1,5 +1,7 @@
 import { ReactNode, useEffect, useId, useMemo, useRef, useState } from 'react';
 import './slideOutDrawer.css';
+import { AutoFocusRegion } from '@/ui/focus/AutoFocusRegion';
+import { trapFocusOnTab } from '@/ui/focus/focusUtils';
 
 export type SlideOutDrawerSide = 'left' | 'right';
 
@@ -51,6 +53,7 @@ export function SlideOutDrawer({
   children,
 }: SlideOutDrawerProps) {
   const panelId = useId();
+  const panelRef = useRef<HTMLDivElement | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragTranslatePx, setDragTranslatePx] = useState(0);
   const dragTranslateRef = useRef(0);
@@ -82,6 +85,17 @@ export function SlideOutDrawer({
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isOpen, onOpenChange]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const panel = panelRef.current;
+      if (!panel) return;
+      trapFocusOnTab(e, panel);
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [isOpen]);
 
   // Prevent underlying page scroll while drawer is open.
   useEffect(() => {
@@ -222,8 +236,9 @@ export function SlideOutDrawer({
           aria-label={label}
           hidden={!isOpen && !isDragging}
           aria-hidden={!isOpen && !isDragging}
+          ref={panelRef}
         >
-          {children}
+          <AutoFocusRegion active={isOpen}>{children}</AutoFocusRegion>
         </div>
       </aside>
     </>

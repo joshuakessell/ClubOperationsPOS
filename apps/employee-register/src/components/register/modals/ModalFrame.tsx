@@ -1,5 +1,7 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
+import { AutoFocusRegion } from '@/ui/focus/AutoFocusRegion';
+import { trapFocusOnTab } from '@/ui/focus/focusUtils';
 
 export interface ModalFrameProps {
   isOpen: boolean;
@@ -22,6 +24,19 @@ export function ModalFrame({
 }: ModalFrameProps) {
   if (!isOpen) return null;
 
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      const card = cardRef.current;
+      if (!card) return;
+      // Trap Tab within the modal. (Escape close behavior varies by modal; don't introduce it here.)
+      trapFocusOnTab(e, card);
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, []);
+
   const modal = (
     <div
       style={{
@@ -39,8 +54,10 @@ export function ModalFrame({
         zIndex: 4000,
       }}
       onClick={closeOnOverlayClick ? onClose : undefined}
+      role="presentation"
     >
       <div
+        ref={cardRef}
         className="cs-liquid-card"
         style={{
           maxWidth,
@@ -50,44 +67,49 @@ export function ModalFrame({
           flexDirection: 'column',
         }}
         onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
       >
-        <div style={{ padding: '2rem', paddingBottom: '1rem', flex: '0 0 auto' }}>
+        <AutoFocusRegion active={isOpen}>
+          <div style={{ padding: '2rem', paddingBottom: '1rem', flex: '0 0 auto' }}>
+            <div
+              style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}
+            >
+              <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>{title}</h2>
+              <button
+                onClick={onClose}
+                className="cs-liquid-button cs-liquid-button--secondary"
+                style={{
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  padding: '0.25rem 0.5rem',
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
+          </div>
           <div
             style={{
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
+              padding: '0 2rem 2rem',
+              overflowY: maxHeight ? 'auto' : undefined,
+              flex: maxHeight ? '1 1 auto' : undefined,
+              minHeight: maxHeight ? 0 : undefined,
             }}
           >
-            <h2 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 600 }}>{title}</h2>
-            <button
-              onClick={onClose}
-              className="cs-liquid-button cs-liquid-button--secondary"
-              style={{
-                fontSize: '1.5rem',
-                cursor: 'pointer',
-                padding: '0.25rem 0.5rem',
-                lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              aria-label="Close"
-            >
-              ×
-            </button>
+            {children}
           </div>
-        </div>
-        <div
-          style={{
-            padding: '0 2rem 2rem',
-            overflowY: maxHeight ? 'auto' : undefined,
-            flex: maxHeight ? '1 1 auto' : undefined,
-            minHeight: maxHeight ? 0 : undefined,
-          }}
-        >
-          {children}
-        </div>
+        </AutoFocusRegion>
       </div>
     </div>
   );

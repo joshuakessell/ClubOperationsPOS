@@ -108,7 +108,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  /* Padding is driven by iPad base tokens (see ui/foundation/ipadBase.css). */
 }
 
 /* Welcome overlay (black overlay with white logo + localized welcome message) */
@@ -197,7 +197,7 @@ body {
 .active-content {
   display: flex;
   flex-direction: column;
-  gap: 2rem;
+  gap: var(--stack-gap, 2rem);
   width: 100%;
   max-width: 800px;
   animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);

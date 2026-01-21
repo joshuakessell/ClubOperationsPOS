@@ -4,6 +4,7 @@ import type { WebSocketEvent, RegisterSessionUpdatedPayload } from '@club-ops/sh
 import { closeLaneSessionClient, useLaneSession } from '@club-ops/shared';
 import { safeJsonParse } from '@club-ops/ui';
 import { getApiUrl, getWebSocketUrl } from '@/lib/apiBase';
+import { RegisterPage } from '@/ui/layout/RegisterPage';
 
 const API_BASE = getApiUrl('/api');
 
@@ -205,7 +206,7 @@ export function RegisterSignIn({
   // If not signed in, show initial state
   if (!registerSession) {
     return (
-      <div className="register-sign-in-container">
+      <RegisterPage className="register-sign-in-container">
         <button
           className="register-sign-in-button cs-liquid-button"
           onClick={() => setShowSignInModal(true)}
@@ -218,13 +219,13 @@ export function RegisterSignIn({
           onSignIn={(s) => void handleSignIn(s)}
           deviceId={deviceId}
         />
-      </div>
+      </RegisterPage>
     );
   }
 
   // Signed in state
   return (
-    <div className="register-sign-in-container">
+    <RegisterPage className="register-sign-in-container">
       <div className="register-top-bar">
         <div className="register-top-bar-left">
           <div className="register-top-bar-title">{topTitle}</div>
@@ -272,7 +273,7 @@ export function RegisterSignIn({
 
       {signedInWs}
       {children}
-    </div>
+    </RegisterPage>
   );
 }
 

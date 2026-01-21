@@ -1,0 +1,18 @@
+:root {
+  /* iPad-first layout + touch tokens (employee-register, landscape) */
+  --screen-pad: 20px;
+  --gutter: 12px;
+  --stack-gap: 12px;
+  /* App already exceeds minimums in many places; keep defaults aligned with existing UI. */
+  --touch-min: 56px;
+  --touch-min-compact: 48px;
+  --radius: 14px;
+  --font-base: 18px;
+
+  /* Safe area insets */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
+}
+

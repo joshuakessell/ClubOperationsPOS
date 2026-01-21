@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { getApiUrl } from '@/lib/apiBase';
+import { AutoFocusRegion } from '@/ui/focus/AutoFocusRegion';
+import { trapFocusOnTab } from '@/ui/focus/focusUtils';
 
 const API_BASE = getApiUrl('/api');
 
@@ -33,6 +35,7 @@ export function OfferUpgradeModal(props: {
   disabled?: boolean;
   onOffered: () => void;
 }) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const {
     isOpen,
     onClose,
@@ -99,6 +102,17 @@ export function OfferUpgradeModal(props: {
 
   if (!isOpen) return null;
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      trapFocusOnTab(e, dialog);
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [isOpen]);
+
   const handleConfirm = async () => {
     if (!selectedRoomId) return;
     setIsLoading(true);
@@ -134,8 +148,15 @@ export function OfferUpgradeModal(props: {
   };
 
   return (
-    <div className="offer-upgrade-modal-overlay" role="dialog" aria-label="Offer upgrade modal">
-      <div className="offer-upgrade-modal cs-liquid-card">
+    <div className="offer-upgrade-modal-overlay" role="presentation">
+      <div
+        ref={dialogRef}
+        className="offer-upgrade-modal cs-liquid-card"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Offer upgrade modal"
+      >
+        <AutoFocusRegion active={isOpen}>
         <div className="offer-upgrade-modal-header">
           <div className="offer-upgrade-modal-title">{title}</div>
           <button
@@ -192,6 +213,7 @@ export function OfferUpgradeModal(props: {
             {heldRoom ? 'Confirm Offer (Extend Hold)' : 'Offer Selected Room'}
           </button>
         </div>
+        </AutoFocusRegion>
       </div>
     </div>
   );

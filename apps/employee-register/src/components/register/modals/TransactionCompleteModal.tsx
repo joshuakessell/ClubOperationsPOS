@@ -26,9 +26,12 @@ export function TransactionCompleteModal({
   onCompleteTransaction: () => void;
 }) {
   const modalRef = useRef<HTMLDivElement | null>(null);
+  const prevFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!isOpen) return;
+    // Restore focus to the opener when this modal closes.
+    prevFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const root = modalRef.current;
     if (!root) return;
     const first = root.querySelector<HTMLElement>('button');
@@ -63,7 +66,12 @@ export function TransactionCompleteModal({
     };
 
     document.addEventListener('keydown', onKeyDown, true);
-    return () => document.removeEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+      const prev = prevFocusRef.current;
+      if (prev && document.contains(prev)) prev.focus();
+      prevFocusRef.current = null;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;

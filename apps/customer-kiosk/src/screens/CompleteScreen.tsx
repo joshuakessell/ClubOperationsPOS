@@ -1,6 +1,7 @@
 import { ReactNode, useEffect, useRef } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { KioskPage } from '../ui/layout/KioskPage';
 
 export interface CompleteScreenProps {
   customerPrimaryLanguage: Language | null | undefined;
@@ -47,7 +48,7 @@ export function CompleteScreen({
       <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true}>
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="active-content">
+        <KioskPage className="active-content">
           <main className="main-content">
             <div className="complete-screen">
               {assignedResourceType && assignedResourceNumber ? (
@@ -72,7 +73,7 @@ export function CompleteScreen({
               )}
             </div>
           </main>
-        </div>
+        </KioskPage>
       </ScreenShell>
     </I18nProvider>
   );

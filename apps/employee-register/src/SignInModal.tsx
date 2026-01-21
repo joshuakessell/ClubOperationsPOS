@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { LiquidGlassPinInput } from '@club-ops/ui';
 import { getApiUrl } from '@/lib/apiBase';
+import { AutoFocusRegion } from '@/ui/focus/AutoFocusRegion';
+import { trapFocusOnTab } from '@/ui/focus/focusUtils';
 
 const API_BASE = getApiUrl('/api');
 
@@ -55,6 +57,7 @@ type RegisterAvailability = {
 };
 
 export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModalProps) {
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const [step, setStep] = useState<SignInStep>('select-employee');
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
@@ -261,9 +264,28 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
 
   if (!isOpen) return null;
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      const dialog = dialogRef.current;
+      if (!dialog) return;
+      trapFocusOnTab(e, dialog);
+    };
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [isOpen]);
+
   return (
-    <div className="sign-in-modal-overlay" onClick={onClose}>
-      <div className="sign-in-modal cs-liquid-card" onClick={(e) => e.stopPropagation()}>
+    <div className="sign-in-modal-overlay" onClick={onClose} role="presentation">
+      <div
+        ref={dialogRef}
+        className="sign-in-modal cs-liquid-card"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Sign in"
+      >
+        <AutoFocusRegion active={isOpen}>
         <button
           className="sign-in-modal-close cs-liquid-button cs-liquid-button--secondary"
           onClick={onClose}
@@ -397,6 +419,7 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
             </div>
           </div>
         )}
+        </AutoFocusRegion>
       </div>
     </div>
   );

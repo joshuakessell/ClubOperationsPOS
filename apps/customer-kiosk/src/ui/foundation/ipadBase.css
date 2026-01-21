@@ -1,0 +1,56 @@
+/* Customer kiosk: iPad-first base rules (scoped; avoid global element overrides) */
+
+:root {
+  /* Ensure shared components can key off our preferred rounding */
+  --cs-radius-md: var(--radius);
+}
+
+/* Keep content away from edges + safe areas */
+#root .cs-kiosk-stage {
+  padding-top: max(var(--screen-pad), var(--safe-top));
+  padding-right: max(var(--screen-pad), var(--safe-right));
+  padding-bottom: max(var(--screen-pad), var(--safe-bottom));
+  padding-left: max(var(--screen-pad), var(--safe-left));
+}
+
+/* Touch targets for shared liquid button/input primitives */
+#root .cs-liquid-button,
+#root .cs-liquid-input,
+#root input.cs-liquid-input,
+#root textarea.cs-liquid-input {
+  min-height: var(--touch-min);
+}
+
+/* Kiosk: consistent gaps in common button grids/stacks */
+#root .membership-buttons,
+#root .experience-options,
+#root .package-options,
+#root .rental-grid,
+#root .signature-modal-actions,
+#root .language-options {
+  gap: var(--gutter);
+}
+
+/* Page wrapper: keep a consistent stack rhythm and readable max width. */
+#root .ck-page {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--stack-gap);
+  max-width: 900px;
+  margin-inline: auto;
+}
+
+/* Focus-visible: present but not distracting on kiosk */
+#root :focus-visible {
+  outline: 3px solid rgba(255, 255, 255, 0.55);
+  outline-offset: 3px;
+}
+
+/* If a full-screen idle surface is a <button>, remove native chrome. */
+#root button.idle-content {
+  background: transparent;
+  border: 0;
+  width: 100%;
+}
+

@@ -7,6 +7,7 @@ import {
 } from '@club-ops/shared';
 import { isRecord, getErrorMessage, readJson } from '@club-ops/ui';
 import { RegisterSignIn } from '../RegisterSignIn';
+import { RegisterPage } from '@/ui/layout/RegisterPage';
 type ScanResult =
   | { outcome: 'matched' }
   | { outcome: 'no_match'; message: string; canCreate?: boolean }

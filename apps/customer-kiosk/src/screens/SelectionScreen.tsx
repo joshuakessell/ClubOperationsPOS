@@ -3,6 +3,7 @@ import { I18nProvider, t } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
 import { getRentalDisplayName } from '../utils/display';
 import { getMembershipStatus, type SessionState } from '../utils/membership';
+import { KioskPage } from '../ui/layout/KioskPage';
 
 function formatMembershipDate(yyyyMmDd: string, lang: SessionState['customerPrimaryLanguage']): string {
   const locale = lang === 'ES' ? 'es-US' : 'en-US';
@@ -76,7 +77,7 @@ export function SelectionScreen({
       <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="active-content">
+        <KioskPage className="active-content">
           <main className="main-content">
             <div className="customer-info">
               <h1 className="customer-name">
@@ -281,7 +282,7 @@ export function SelectionScreen({
             </div>
 
           </main>
-        </div>
+        </KioskPage>
 
         {showPendingApprovalOverlay && (
           <div className="ck-pending-overlay" role="status" aria-live="polite">

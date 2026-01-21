@@ -21,7 +21,12 @@ export function IdleScreen({
     <I18nProvider lang={customerPrimaryLanguage}>
       <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">
         {orientationOverlay}
-        <div className="idle-content" onClick={() => locked && alert(t(lang, 'kiosk.locked.body'))}>
+        <button
+          type="button"
+          className="idle-content"
+          onClick={() => locked && alert(t(lang, 'kiosk.locked.body'))}
+          disabled={!locked}
+        >
           {locked && (
             <div
               style={{
@@ -41,7 +46,7 @@ export function IdleScreen({
               <div style={{ fontSize: '1.05rem', opacity: 0.9 }}>{t(lang, 'kiosk.locked.body')}</div>
             </div>
           )}
-        </div>
+        </button>
       </ScreenShell>
     </I18nProvider>
   );
