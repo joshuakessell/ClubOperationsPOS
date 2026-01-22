@@ -46,7 +46,7 @@ interface SignInModalProps {
 type SignInStep = 'select-employee' | 'enter-pin' | 'assign-register' | 'confirm';
 
 type RegisterAvailability = {
-  registerNumber: 1 | 2;
+  registerNumber: 1 | 2 | 3;
   occupied: boolean;
   deviceId?: string;
   employee?: {
@@ -163,7 +163,7 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
     }
   };
 
-  const handleAssignRegister = async (requestedRegisterNumber?: 1 | 2) => {
+  const handleAssignRegister = async (requestedRegisterNumber?: 1 | 2 | 3) => {
     if (!selectedEmployee) return;
 
     setIsLoading(true);
@@ -199,7 +199,7 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
     }
   };
 
-  const handleSelectRegister = async (num: 1 | 2) => {
+  const handleSelectRegister = async (num: 1 | 2 | 3) => {
     await handleAssignRegister(num);
   };
 
@@ -355,7 +355,7 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
               <div className="sign-in-subtitle">Loading registers...</div>
             ) : (
               <div className="register-buttons">
-                {([1, 2] as const).map((num) => {
+                {([1, 2, 3] as const).map((num) => {
                   const reg = registers.find((r) => r.registerNumber === num);
                   const occupied = reg?.occupied ?? false;
                   const occupiedBySelectedEmployee = reg?.employee?.id === selectedEmployee?.id;

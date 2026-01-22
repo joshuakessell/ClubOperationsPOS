@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   safeParseWebSocketEvent,
   type CustomerConfirmationRequiredPayload,
+  deriveCheckinStage,
+  type SessionUpdatedPayload,
 } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared';
 import { safeJsonParse, isRecord, getErrorMessage, readJson } from '@club-ops/ui';
@@ -18,6 +20,9 @@ import { CustomerConfirmationModal } from '../components/modals/CustomerConfirma
 import { WaitlistModal } from '../components/modals/WaitlistModal';
 import { RenewalDisclaimerModal } from '../components/modals/RenewalDisclaimerModal';
 import { MembershipModal } from '../components/modals/MembershipModal';
+import { AddOnsPromptModal } from '../components/modals/AddOnsPromptModal';
+import { StorefrontModal } from '../components/modals/StorefrontModal';
+import { type StoreCart } from '@club-ops/shared';
 import { getApiUrl } from '@/lib/apiBase';
 
 interface HealthStatus {
@@ -91,6 +96,14 @@ export function AppRoot() {
   const [highlightedMembershipChoice, setHighlightedMembershipChoice] = useState<
     'ONE_TIME' | 'SIX_MONTH' | null
   >(null);
+  const [pendingSelection, setPendingSelection] = useState<{
+    rentalType: string;
+    waitlistDesiredType?: string;
+    backupRentalType?: string;
+  } | null>(null);
+  const [addOnCart, setAddOnCart] = useState<StoreCart>({});
+  const [showAddOnsPrompt, setShowAddOnsPrompt] = useState(false);
+  const [showStorefront, setShowStorefront] = useState(false);
 
   // Inject pulse animation for proposal highlight
   useEffect(() => {
@@ -255,6 +268,10 @@ export function AppRoot() {
     setHasScrolledAgreement(false);
     setHighlightedLanguage(null);
     setHighlightedMembershipChoice(null);
+    setPendingSelection(null);
+    setAddOnCart({});
+    setShowAddOnsPrompt(false);
+    setShowStorefront(false);
   }, []);
 
   const applySessionUpdatedPayload = useCallback(
@@ -298,21 +315,9 @@ export function AppRoot() {
         return;
       }
 
-      // If we have assignment, show complete view (highest priority after reset)
-      if (payload.assignedResourceType && payload.assignedResourceNumber) {
-        setView('complete');
-        return;
-      }
-
       // If kiosk acknowledged, stay idle (lane still locked until employee-register completes/reset).
       if (payload.kioskAcknowledgedAt && payload.status !== 'COMPLETED') {
         setView('idle');
-        return;
-      }
-
-      // Language selection (first visit). This should happen before any other customer-facing step.
-      if (payload.sessionId && payload.status !== 'COMPLETED' && !payload.customerPrimaryLanguage) {
-        setView('language');
         return;
       }
 
@@ -322,25 +327,37 @@ export function AppRoot() {
         return;
       }
 
-      // Agreement screen (after payment is PAID, before assignment)
-      if (
-        payload.paymentStatus === 'PAID' &&
-        !payload.agreementSigned &&
-        (payload.mode === 'INITIAL' || payload.mode === 'RENEWAL')
-      ) {
-        setView('agreement');
-        return;
-      }
-
-      // Payment pending screen (after selection confirmed, before payment)
-      if (payload.selectionConfirmed && payload.paymentStatus === 'DUE') {
-        setView('payment');
-        return;
-      }
-
-      // Selection view (default active session state)
-      if (payload.sessionId && payload.status !== 'COMPLETED') {
-        setView('selection');
+      // Use shared deriveCheckinStage logic to determine view
+      const stage = deriveCheckinStage(payload as SessionUpdatedPayload);
+      if (stage) {
+        switch (stage.key) {
+          case 'COMPLETE':
+            setView('complete');
+            break;
+          case 'AGREEMENT':
+            setView('agreement');
+            break;
+          case 'PAYMENT':
+            setView('payment');
+            break;
+          case 'LANGUAGE':
+            setView('language');
+            break;
+          case 'MEMBERSHIP':
+          case 'RENTAL':
+          case 'APPROVAL':
+          default:
+            // Selection view (default active session state)
+            if (payload.sessionId && payload.status !== 'COMPLETED') {
+              setView('selection');
+            }
+            break;
+        }
+      } else {
+        // No active session - should not happen here but fallback to selection
+        if (payload.sessionId && payload.status !== 'COMPLETED') {
+          setView('selection');
+        }
       }
 
       // Update selection state
@@ -381,7 +398,7 @@ export function AppRoot() {
           setSelectionConfirmedBy('EMPLOYEE');
           setSelectedRental(payload.rentalType);
           setSelectionAcknowledged(true);
-          setView('payment');
+          // View will be updated via SESSION_UPDATED event and deriveCheckinStage
         }
       } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
         setSelectionAcknowledged(true);
@@ -656,46 +673,12 @@ export function AppRoot() {
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
-      // Propose selection (customer proposes)
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
-        body: JSON.stringify({
-          rentalType: rental,
-          proposedBy: 'CUSTOMER',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (
-          response.status === 409 &&
-          isRecord(errorPayload) &&
-          errorPayload.code === 'LANGUAGE_REQUIRED'
-        ) {
-          setView('language');
-          alert(t('EN', 'selectLanguage'));
-          return;
-        }
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to propose selection');
-      }
-
-      await response.json().catch(() => null);
-      setProposedRentalType(rental);
-      setProposedBy('CUSTOMER');
-      setIsSubmitting(false);
-    } catch (error) {
-      console.error('Failed to propose selection:', error);
-      // Customer-facing UI: keep it generic (server errors may not be localized).
-      alert(t(session.customerPrimaryLanguage, 'error.processSelection'));
-      setIsSubmitting(false);
-    }
+    // Set pending selection and show add-ons prompt instead of proposing immediately
+    setPendingSelection({
+      rentalType: rental,
+    });
+    setShowAddOnsPrompt(true);
+    setIsSubmitting(false);
   };
 
   const handleDisclaimerAcknowledge = async () => {
@@ -706,40 +689,16 @@ export function AppRoot() {
     try {
       const backupType = waitlistBackupType || selectedRental || 'LOCKER';
 
-      // Propose the backup rental type with waitlist info
-      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
-        body: JSON.stringify({
-          rentalType: backupType,
-          proposedBy: 'CUSTOMER',
-          waitlistDesiredType: waitlistDesiredType || undefined,
-          backupRentalType: backupType,
-        }),
+      // Set pending selection with waitlist info and show add-ons prompt
+      setPendingSelection({
+        rentalType: backupType,
+        waitlistDesiredType: waitlistDesiredType || undefined,
+        backupRentalType: backupType,
       });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (
-          response.status === 409 &&
-          isRecord(errorPayload) &&
-          errorPayload.code === 'LANGUAGE_REQUIRED'
-        ) {
-          setView('language');
-          alert(t('EN', 'selectLanguage'));
-          return;
-        }
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to process waitlist selection');
-      }
-
       setUpgradeDisclaimerAcknowledged(true);
       setShowUpgradeDisclaimer(false);
       setUpgradeAction(null);
-      setProposedRentalType(backupType);
-      setProposedBy('CUSTOMER');
+      setShowAddOnsPrompt(true);
 
       // After acknowledging upgrade disclaimer, customer should confirm the backup selection
       // Then proceed to agreement if INITIAL/RENEWAL
@@ -1036,6 +995,57 @@ export function AppRoot() {
     }
   };
 
+  const submitPendingSelection = async () => {
+    if (!session.sessionId || !pendingSelection) {
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...kioskAuthHeaders(),
+        },
+        body: JSON.stringify({
+          rentalType: pendingSelection.rentalType,
+          proposedBy: 'CUSTOMER',
+          waitlistDesiredType: pendingSelection.waitlistDesiredType,
+          backupRentalType: pendingSelection.backupRentalType,
+          storeCart: addOnCart,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        if (
+          response.status === 409 &&
+          isRecord(errorPayload) &&
+          errorPayload.code === 'LANGUAGE_REQUIRED'
+        ) {
+          setView('language');
+          alert(t('EN', 'selectLanguage'));
+          return;
+        }
+        throw new Error(getErrorMessage(errorPayload) || 'Failed to propose selection');
+      }
+
+      await response.json().catch(() => null);
+      setProposedRentalType(pendingSelection.rentalType);
+      setProposedBy('CUSTOMER');
+      setPendingSelection(null);
+      setShowAddOnsPrompt(false);
+      setShowStorefront(false);
+      setIsSubmitting(false);
+    } catch (error) {
+      console.error('Failed to propose selection:', error);
+      alert(t(session.customerPrimaryLanguage, 'error.processSelection'));
+      setIsSubmitting(false);
+    }
+  };
+
   const handleMembershipContinue = async () => {
     if (!membershipModalIntent || !session.sessionId) return;
     const lang = session.customerPrimaryLanguage;
@@ -1170,46 +1180,7 @@ export function AppRoot() {
           orientationOverlay={orientationOverlay}
           welcomeOverlay={welcomeOverlayNode}
           onComplete={() => {
-            void (async () => {
-              setIsSubmitting(true);
-              try {
-                // Kiosk acknowledgement: UI-only. Must NOT end/clear the lane session.
-                await fetch(`${API_BASE}/v1/checkin/lane/${lane}/kiosk-ack`, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', ...kioskAuthHeaders() },
-                  body: JSON.stringify({}),
-                });
-              } catch (error) {
-                console.error('Failed to kiosk-ack completion:', error);
-                // Continue to local UI reset even if server call fails; WS will reconcile when possible.
-              } finally {
-                // Local reset (immediate UX): hide customer flow and return kiosk to idle,
-                // but keep session data so the kiosk remains "locked" until employee-register completes.
-                setView('idle');
-                setSession((prev) => ({
-                  ...prev,
-                  kioskAcknowledgedAt: new Date().toISOString(),
-                }));
-                setSelectedRental(null);
-                setAgreed(false);
-                setSignatureData(null);
-                setShowUpgradeDisclaimer(false);
-                setUpgradeAction(null);
-                setShowRenewalDisclaimer(false);
-                setCheckinMode(null);
-                setShowWaitlistModal(false);
-                setWaitlistDesiredType(null);
-                setWaitlistBackupType(null);
-                setProposedRentalType(null);
-                setProposedBy(null);
-                setSelectionConfirmed(false);
-                setSelectionConfirmedBy(null);
-                setSelectionAcknowledged(false);
-                setUpgradeDisclaimerAcknowledged(false);
-                setHasScrolledAgreement(false);
-                setIsSubmitting(false);
-              }
-            })();
+            // Do nothing - screen stays visible until employee completes transaction
           }}
         />
       );
@@ -1253,7 +1224,6 @@ export function AppRoot() {
               customerPrimaryLanguage={session.customerPrimaryLanguage}
               data={customerConfirmationData}
               onAccept={() => void handleCustomerConfirmSelection(true)}
-              onDecline={() => void handleCustomerConfirmSelection(false)}
               isSubmitting={isSubmitting}
             />
           )}
@@ -1296,6 +1266,43 @@ export function AppRoot() {
               isSubmitting={isSubmitting}
             />
           )}
+          <AddOnsPromptModal
+            isOpen={showAddOnsPrompt}
+            customerPrimaryLanguage={session.customerPrimaryLanguage}
+            cart={addOnCart}
+            onAddItem={(itemId) => {
+              setAddOnCart((prev) => ({
+                ...prev,
+                [itemId]: (prev[itemId] || 0) + 1,
+              }));
+            }}
+            onSeeMore={() => {
+              setShowAddOnsPrompt(false);
+              setShowStorefront(true);
+            }}
+            onContinue={() => void submitPendingSelection()}
+          />
+          <StorefrontModal
+            isOpen={showStorefront}
+            customerPrimaryLanguage={session.customerPrimaryLanguage}
+            cart={addOnCart}
+            onUpdateQuantity={(itemId, delta) => {
+              setAddOnCart((prev) => {
+                const newQty = Math.max(0, (prev[itemId] || 0) + delta);
+                const newCart = { ...prev };
+                if (newQty > 0) {
+                  newCart[itemId] = newQty;
+                } else {
+                  delete newCart[itemId];
+                }
+                return newCart;
+              });
+            }}
+            onClose={() => {
+              setShowStorefront(false);
+              setShowAddOnsPrompt(true);
+            }}
+          />
         </>
       );}
 

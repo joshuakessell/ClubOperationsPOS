@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useReducer } from 'react';
-import type { SessionUpdatedPayload } from '@club-ops/shared';
+import type { SessionUpdatedPayload, StoreCart } from '@club-ops/shared';
 
 export type PaymentQuoteViewModel = {
   total: number;
@@ -51,6 +51,7 @@ export type RegisterLaneSessionState = {
 
   pastDueBlocked: boolean;
   pastDueBalance: number;
+  storeCart: StoreCart;
 };
 
 const initialState: RegisterLaneSessionState = {
@@ -92,6 +93,7 @@ const initialState: RegisterLaneSessionState = {
 
   pastDueBlocked: false,
   pastDueBalance: 0,
+  storeCart: {},
 };
 
 type Action =
@@ -204,6 +206,10 @@ function reducer(state: RegisterLaneSessionState, action: Action): RegisterLaneS
       if (p.pastDueBlocked !== undefined) {
         next.pastDueBlocked = p.pastDueBlocked;
         if (p.pastDueBalance !== undefined) next.pastDueBalance = p.pastDueBalance || 0;
+      }
+
+      if (p.storeCart !== undefined) {
+        next.storeCart = p.storeCart ?? {};
       }
 
       return next;

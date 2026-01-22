@@ -86,6 +86,7 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
     assignedResourceType: z.enum(['room', 'locker']).optional(),
     assignedResourceNumber: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
     checkoutAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+    storeCart: z.record(z.string(), z.number()).optional(),
   })
   .passthrough();
 

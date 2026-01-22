@@ -23,7 +23,14 @@ import type {
   CheckinOptionHighlightedPayload,
 } from '@club-ops/shared';
 import { calculatePriceQuote, type PricingInput } from '../pricing/engine';
-import { AGREEMENT_LEGAL_BODY_HTML_BY_LANG, IdScanPayloadSchema, type IdScanPayload } from '@club-ops/shared';
+import {
+  AGREEMENT_LEGAL_BODY_HTML_BY_LANG,
+  IdScanPayloadSchema,
+  type IdScanPayload,
+  normalizeStoreCart,
+  storeCartToLineItems,
+  sumLineItems,
+} from '@club-ops/shared';
 import {
   calculateAge,
   computeSha256Hex,
@@ -59,6 +66,7 @@ interface LaneSessionRow {
   assigned_resource_type: string | null;
   price_quote_json: unknown;
   disclaimers_ack_json: unknown;
+  store_cart_json: unknown;
   payment_intent_id: string | null;
   membership_purchase_intent?: 'PURCHASE' | 'RENEW' | null;
   membership_purchase_requested_at?: Date | null;
@@ -111,7 +119,7 @@ interface LockerRow {
 
 interface PaymentIntentRow {
   id: string;
-  lane_session_id: string;
+  lane_session_id: string | null;
   amount: number | string;
   status: string;
   quote_json: unknown;
@@ -1587,6 +1595,7 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
       proposedBy: 'CUSTOMER' | 'EMPLOYEE';
       waitlistDesiredType?: string;
       backupRentalType?: string;
+      storeCart?: Record<string, number>;
     };
   }>(
     '/v1/checkin/lane/:laneId/propose-selection',
@@ -1595,7 +1604,7 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
     },
     async (request, reply) => {
       const { laneId } = request.params;
-      const { rentalType, proposedBy, waitlistDesiredType, backupRentalType } = request.body;
+      const { rentalType, proposedBy, waitlistDesiredType, backupRentalType, storeCart } = request.body;
 
       // Validate proposedBy
       if (proposedBy !== 'CUSTOMER' && proposedBy !== 'EMPLOYEE') {
@@ -1642,20 +1651,70 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
             throw { statusCode: 400, message: 'Selection is already locked' };
           }
 
+          // Normalize store cart
+          const normalizedCart = normalizeStoreCart(storeCart);
+
+          // Get customer info for pricing preview
+          let customerAge: number | undefined;
+          let membershipCardType: 'NONE' | 'SIX_MONTH' | undefined;
+          let membershipValidUntil: Date | undefined;
+
+          if (session.customer_id) {
+            const customerResult = await client.query<CustomerRow>(
+              `SELECT dob, membership_card_type, membership_valid_until FROM customers WHERE id = $1`,
+              [session.customer_id]
+            );
+            if (customerResult.rows.length > 0) {
+              const customer = customerResult.rows[0]!;
+              customerAge = calculateAge(customer.dob);
+              membershipCardType =
+                (customer.membership_card_type as 'NONE' | 'SIX_MONTH') || undefined;
+              membershipValidUntil = toDate(customer.membership_valid_until) || undefined;
+            }
+          }
+
+          // Determine rental type for pricing
+          const pricingRentalType = (rentalType ||
+            session.desired_rental_type ||
+            session.backup_rental_type ||
+            'LOCKER') as 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | 'GYM_LOCKER';
+
+          // Calculate preview quote
+          const pricingInput: PricingInput = {
+            rentalType: pricingRentalType,
+            customerAge,
+            checkInTime: new Date(),
+            membershipCardType,
+            membershipValidUntil,
+            includeSixMonthMembershipPurchase: !!session.membership_purchase_intent,
+          };
+
+          const quote = calculatePriceQuote(pricingInput);
+
+          // Add store line items to quote
+          const storeLineItems = storeCartToLineItems(normalizedCart);
+          quote.lineItems.push(...storeLineItems);
+          quote.total += sumLineItems(storeLineItems);
+
+          // Update session with proposed selection, store cart, and preview quote
           const updateResult = await client.query<LaneSessionRow>(
             `UPDATE lane_sessions
            SET proposed_rental_type = $1,
                proposed_by = $2,
                waitlist_desired_type = COALESCE($3, waitlist_desired_type),
                backup_rental_type = COALESCE($4, backup_rental_type),
+               store_cart_json = $5,
+               price_quote_json = $6,
                updated_at = NOW()
-           WHERE id = $5
+           WHERE id = $7
            RETURNING *`,
             [
               rentalType,
               proposedBy,
               waitlistDesiredType || null,
               backupRentalType || null,
+              JSON.stringify(normalizedCart),
+              JSON.stringify(quote),
               session.id,
             ]
           );
@@ -1703,6 +1762,138 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.status(500).send({
           error: 'Internal Server Error',
           message: 'Failed to propose selection',
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /v1/checkin/lane/:laneId/store-cart
+   *
+   * Update store cart for a lane session and recompute preview quote.
+   * Auth required (employee only).
+   */
+  fastify.post<{
+    Params: { laneId: string };
+    Body: {
+      sessionId?: string;
+      storeCart?: Record<string, number>;
+    };
+  }>(
+    '/v1/checkin/lane/:laneId/store-cart',
+    {
+      preHandler: [requireAuth],
+    },
+    async (request, reply) => {
+      if (!request.staff) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { laneId } = request.params;
+      const { sessionId: bodySessionId, storeCart } = request.body;
+
+      try {
+        const result = await transaction(async (client) => {
+          // Get active session
+          const sessionResult = await client.query<LaneSessionRow>(
+            `SELECT * FROM lane_sessions
+           WHERE lane_id = $1 AND status IN ('ACTIVE', 'AWAITING_ASSIGNMENT')
+           ORDER BY created_at DESC
+           LIMIT 1`,
+            [laneId]
+          );
+
+          if (sessionResult.rows.length === 0) {
+            throw { statusCode: 404, message: 'No active session found' };
+          }
+
+          const session = sessionResult.rows[0]!;
+
+          // If sessionId provided, verify it matches
+          if (bodySessionId && session.id !== bodySessionId) {
+            throw { statusCode: 400, message: 'Session ID mismatch' };
+          }
+
+          // Normalize store cart
+          const normalizedCart = normalizeStoreCart(storeCart);
+
+          // Get customer info for pricing preview
+          let customerAge: number | undefined;
+          let membershipCardType: 'NONE' | 'SIX_MONTH' | undefined;
+          let membershipValidUntil: Date | undefined;
+
+          if (session.customer_id) {
+            const customerResult = await client.query<CustomerRow>(
+              `SELECT dob, membership_card_type, membership_valid_until FROM customers WHERE id = $1`,
+              [session.customer_id]
+            );
+            if (customerResult.rows.length > 0) {
+              const customer = customerResult.rows[0]!;
+              customerAge = calculateAge(customer.dob);
+              membershipCardType =
+                (customer.membership_card_type as 'NONE' | 'SIX_MONTH') || undefined;
+              membershipValidUntil = toDate(customer.membership_valid_until) || undefined;
+            }
+          }
+
+          // Determine rental type for pricing
+          const pricingRentalType = (session.proposed_rental_type ||
+            session.desired_rental_type ||
+            session.backup_rental_type ||
+            'LOCKER') as 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | 'GYM_LOCKER';
+
+          // Calculate preview quote
+          const pricingInput: PricingInput = {
+            rentalType: pricingRentalType,
+            customerAge,
+            checkInTime: new Date(),
+            membershipCardType,
+            membershipValidUntil,
+            includeSixMonthMembershipPurchase: !!session.membership_purchase_intent,
+          };
+
+          const quote = calculatePriceQuote(pricingInput);
+
+          // Add store line items to quote
+          const storeLineItems = storeCartToLineItems(normalizedCart);
+          quote.lineItems.push(...storeLineItems);
+          quote.total += sumLineItems(storeLineItems);
+
+          // Update session with store cart and preview quote
+          await client.query(
+            `UPDATE lane_sessions
+           SET store_cart_json = $1,
+               price_quote_json = $2,
+               updated_at = NOW()
+           WHERE id = $3`,
+            [JSON.stringify(normalizedCart), JSON.stringify(quote), session.id]
+          );
+
+          return {
+            sessionId: session.id,
+            storeCart: normalizedCart,
+            quote,
+          };
+        });
+
+        // Broadcast full session update (stable payload)
+        const { payload } = await transaction((client) =>
+          buildFullSessionUpdatedPayload(client, result.sessionId)
+        );
+        fastify.broadcaster.broadcastSessionUpdated(payload, laneId);
+
+        return reply.send(result);
+      } catch (error: unknown) {
+        request.log.error(error, 'Failed to update store cart');
+        const httpErr = getHttpError(error);
+        if (httpErr) {
+          return reply.status(httpErr.statusCode).send({
+            error: httpErr.message ?? 'Failed to update store cart',
+          });
+        }
+        return reply.status(500).send({
+          error: 'Internal Server Error',
+          message: 'Failed to update store cart',
         });
       }
     }
@@ -2384,6 +2575,12 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
 
           const quote = calculatePriceQuote(pricingInput);
 
+          // Add store line items to quote
+          const normalizedCart = normalizeStoreCart(session.store_cart_json);
+          const storeLineItems = storeCartToLineItems(normalizedCart);
+          quote.lineItems.push(...storeLineItems);
+          quote.total += sumLineItems(storeLineItems);
+
           // Ensure at most one active DUE payment intent for this lane session.
           // - If one exists, reuse newest DUE and cancel extras.
           // - Otherwise create a new one.
@@ -2477,7 +2674,11 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
    */
   fastify.post<{
     Params: { id: string };
-    Body: { squareTransactionId?: string };
+    Body: {
+      squareTransactionId?: string;
+      paymentMethod?: 'CASH' | 'CARD';
+      registerNumber?: number;
+    };
   }>(
     '/v1/payments/:id/mark-paid',
     {
@@ -2490,7 +2691,7 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
       const staffId = request.staff.staffId;
 
       const { id } = request.params;
-      const { squareTransactionId } = request.body;
+      const { squareTransactionId, paymentMethod, registerNumber } = request.body;
 
       try {
         const result = await transaction(async (client) => {
@@ -2510,15 +2711,22 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
             return { paymentIntentId: intent.id, status: 'PAID', alreadyPaid: true };
           }
 
-          // Mark as paid
+          // Mark as paid (with optional payment method and register number)
           await client.query(
             `UPDATE payment_intents
            SET status = 'PAID',
                paid_at = NOW(),
                square_transaction_id = $1,
+               payment_method = COALESCE($2, payment_method),
+               register_number = COALESCE($3, register_number),
                updated_at = NOW()
-           WHERE id = $2`,
-            [squareTransactionId || null, id]
+           WHERE id = $4`,
+            [
+              squareTransactionId || null,
+              paymentMethod || null,
+              registerNumber || null,
+              id,
+            ]
           );
 
           // Check payment intent type from quote_json
@@ -2529,6 +2737,31 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
             blockId?: string;
           };
           const paymentType = quote.type;
+
+          // Handle store purchase payment completion
+          if (paymentType === 'STORE_PURCHASE' && quote.visitId) {
+            // Find latest checkin_block for the visit
+            const blockResult = await client.query<{ id: string }>(
+              `SELECT id FROM checkin_blocks WHERE visit_id = $1 ORDER BY ends_at DESC LIMIT 1`,
+              [quote.visitId]
+            );
+
+            const checkinBlockId = blockResult.rows.length > 0 ? blockResult.rows[0]!.id : null;
+
+            // Insert charge
+            const amount = typeof intent.amount === 'string' ? parseFloat(intent.amount) : intent.amount;
+            await client.query(
+              `INSERT INTO charges (visit_id, checkin_block_id, type, amount, payment_intent_id)
+             VALUES ($1, $2, 'STORE_PURCHASE', $3, $4)
+             ON CONFLICT (payment_intent_id) DO NOTHING`,
+              [quote.visitId, checkinBlockId, amount, id]
+            );
+
+            return {
+              paymentIntentId: intent.id,
+              status: 'PAID',
+            };
+          }
 
           // Handle upgrade payment completion
           if (paymentType === 'UPGRADE' && quote.waitlistId) {
@@ -5121,6 +5354,7 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
                selection_confirmed_by = NULL,
                selection_locked_at = NULL,
                disclaimers_ack_json = NULL,
+               store_cart_json = '{}'::jsonb,
                updated_at = NOW()
            WHERE id = $1`,
             [session.id]

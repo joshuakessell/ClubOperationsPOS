@@ -188,6 +188,7 @@ export interface SessionUpdatedPayload {
   assignedResourceType?: 'room' | 'locker';
   assignedResourceNumber?: string;
   checkoutAt?: string;
+  storeCart?: Record<string, number>;
 }
 
 /**

@@ -27,7 +27,7 @@ export function PaymentScreen({
         {welcomeOverlay}
         <div className="active-content">
           <main className="main-content">
-            <div className="payment-pending-screen">
+            <div className="cs-liquid-card payment-pending-screen">
               {paymentLineItems && paymentLineItems.length > 0 && (
                 <div className="payment-breakdown">
                   <p className="breakdown-title">

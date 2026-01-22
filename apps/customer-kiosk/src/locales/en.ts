@@ -142,6 +142,12 @@ export const en = {
   'waitlist.selectBackup': 'Select backup rental:',
   'waitlist.unavailableSuffix': '(Unavailable)',
 
+  // Add-ons
+  'addOns.prompt.title': 'Would you like any add-ons?',
+  'addOns.prompt.seeMore': 'See more',
+  'addOns.storefront.title': 'Add-ons',
+  'addOns.storefront.selectedItems': 'Selected items',
+
   // Upgrade disclaimer
   'upgrade.title': 'Upgrade Disclaimer',
   'upgrade.bullet.feesApplyToRemaining':

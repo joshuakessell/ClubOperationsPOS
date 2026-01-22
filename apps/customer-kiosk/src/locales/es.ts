@@ -138,6 +138,12 @@ export const es: Record<keyof typeof en, string> = {
   'waitlist.selectBackup': 'Elige respaldo:',
   'waitlist.unavailableSuffix': '(No hay)',
 
+  // Add-ons
+  'addOns.prompt.title': '¿Deseas algún complemento?',
+  'addOns.prompt.seeMore': 'Ver más',
+  'addOns.storefront.title': 'Complementos',
+  'addOns.storefront.selectedItems': 'Artículos seleccionados',
+
   // Upgrade disclaimer
   'upgrade.title': 'Aviso de mejora',
   'upgrade.bullet.feesApplyToRemaining':

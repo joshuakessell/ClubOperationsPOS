@@ -1,7 +1,12 @@
+import { useState, useEffect } from 'react';
 import type { CheckinStage } from '../CustomerProfileCard';
 import { CustomerProfileCard } from '../CustomerProfileCard';
 import { EmployeeAssistPanel } from '../EmployeeAssistPanel';
 import { useStartLaneCheckinForCustomerIfNotVisiting } from '../../../app/useStartLaneCheckinForCustomerIfNotVisiting';
+import { StorePurchaseModal } from '../modals/StorePurchaseModal';
+import { getApiUrl } from '@/lib/apiBase';
+import type { StoreCart } from '@club-ops/shared';
+import type { PaymentQuoteViewModel } from '../../../app/useRegisterLaneSessionState';
 
 function formatLocal(value: string | null): string {
   if (!value) return '—';
@@ -60,7 +65,26 @@ export function CustomerAccountPanel(props: {
   onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onSelectRentalAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onApproveRental: () => void;
+
+  registerNumber: number;
+  paymentQuote?: PaymentQuoteViewModel | null;
+  storeCart?: StoreCart;
+  onEditAddOns?: () => void;
 }) {
+  const [ledgerEntries, setLedgerEntries] = useState<
+    Array<{
+      id: string;
+      createdAt: string;
+      amount: number;
+      type: string;
+      paymentMethod: string | null;
+      registerNumber: number | null;
+      lineItems: Array<{ description: string; amount: number }>;
+    }>
+  >([]);
+  const [isLoadingLedger, setIsLoadingLedger] = useState(false);
+  const [showStorePurchaseModal, setShowStorePurchaseModal] = useState(false);
+
   const { state, retry } = useStartLaneCheckinForCustomerIfNotVisiting({
     lane: props.lane,
     sessionToken: props.sessionToken,
@@ -68,6 +92,71 @@ export function CustomerAccountPanel(props: {
     currentLaneSession: { currentSessionId: props.currentSessionId, customerId: props.currentSessionCustomerId },
     onStarted: props.onStartedSession,
   });
+
+  const API_BASE = getApiUrl('/api');
+
+  // Load ledger when in ALREADY_VISITING mode
+  useEffect(() => {
+    if (state.mode === 'ALREADY_VISITING' && state.activeCheckin.visitId) {
+      setIsLoadingLedger(true);
+      const headers: Record<string, string> = {};
+      if (props.sessionToken) {
+        headers['Authorization'] = `Bearer ${props.sessionToken}`;
+      }
+
+      fetch(`${API_BASE}/v1/visits/${encodeURIComponent(state.activeCheckin.visitId)}/ledger`, {
+        headers,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to load ledger');
+          return res.json();
+        })
+        .then((data: { entries?: unknown[] }) => {
+          if (Array.isArray(data.entries)) {
+            setLedgerEntries(data.entries as typeof ledgerEntries);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load ledger:', err);
+          setLedgerEntries([]);
+        })
+        .finally(() => {
+          setIsLoadingLedger(false);
+        });
+    } else {
+      setLedgerEntries([]);
+    }
+  }, [state.mode, state.mode === 'ALREADY_VISITING' ? state.activeCheckin.visitId : null, props.sessionToken, API_BASE]);
+
+  const handlePurchaseComplete = () => {
+    // Reload ledger after purchase
+    if (state.mode === 'ALREADY_VISITING' && state.activeCheckin.visitId) {
+      setIsLoadingLedger(true);
+      const headers: Record<string, string> = {};
+      if (props.sessionToken) {
+        headers['Authorization'] = `Bearer ${props.sessionToken}`;
+      }
+
+      fetch(`${API_BASE}/v1/visits/${encodeURIComponent(state.activeCheckin.visitId)}/ledger`, {
+        headers,
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error('Failed to load ledger');
+          return res.json();
+        })
+        .then((data: { entries?: unknown[] }) => {
+          if (Array.isArray(data.entries)) {
+            setLedgerEntries(data.entries as typeof ledgerEntries);
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to load ledger:', err);
+        })
+        .finally(() => {
+          setIsLoadingLedger(false);
+        });
+    }
+  };
 
   return (
     <div className="er-home-panel er-home-panel--top er-home-panel--no-scroll cs-liquid-card er-main-panel-card">
@@ -163,6 +252,102 @@ export function CustomerAccountPanel(props: {
               ) : null}
             </div>
           </div>
+
+          <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
+            <div style={{ fontWeight: 950, marginBottom: '0.75rem' }}>Ledger (Current Visit)</div>
+            {isLoadingLedger ? (
+              <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                Loading...
+              </div>
+            ) : ledgerEntries.length === 0 ? (
+              <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                No charges yet
+              </div>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {ledgerEntries.map((entry) => (
+                  <div
+                    key={entry.id}
+                    style={{
+                      padding: '0.75rem',
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      borderRadius: '0.5rem',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'baseline',
+                        marginBottom: '0.5rem',
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontWeight: 900, fontSize: '0.9rem' }}>{entry.type}</div>
+                        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 700 }}>
+                          {new Date(entry.createdAt).toLocaleString()}
+                        </div>
+                      </div>
+                      <div style={{ fontWeight: 950, fontSize: '1rem' }}>${entry.amount.toFixed(2)}</div>
+                    </div>
+                    {entry.lineItems.length > 0 && (
+                      <div style={{ display: 'grid', gap: '0.3rem', marginTop: '0.5rem' }}>
+                        {entry.lineItems.map((item, idx) => (
+                          <div
+                            key={idx}
+                            style={{
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              fontSize: '0.85rem',
+                              fontWeight: 800,
+                              color: '#cbd5e1',
+                            }}
+                          >
+                            <span>{item.description}</span>
+                            <span>${item.amount.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <div
+                      className="er-text-sm"
+                      style={{
+                        marginTop: '0.5rem',
+                        paddingTop: '0.5rem',
+                        borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                        color: '#94a3b8',
+                        fontWeight: 700,
+                      }}
+                    >
+                      Settled
+                      {entry.paymentMethod && ` • ${entry.paymentMethod}`}
+                      {entry.registerNumber && ` • Register ${entry.registerNumber}`}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="button"
+            className="cs-liquid-button"
+            onClick={() => setShowStorePurchaseModal(true)}
+            style={{ width: '100%', padding: '0.75rem', fontWeight: 900 }}
+          >
+            New Purchase
+          </button>
+
+          {state.activeCheckin.visitId && (
+            <StorePurchaseModal
+              isOpen={showStorePurchaseModal}
+              visitId={state.activeCheckin.visitId}
+              sessionToken={props.sessionToken}
+              registerNumber={props.registerNumber}
+              onClose={() => setShowStorePurchaseModal(false)}
+              onPurchaseComplete={handlePurchaseComplete}
+            />
+          )}
         </div>
       ) : state.mode === 'ERROR' ? (
         <div style={{ marginTop: '0.75rem' }}>
@@ -240,6 +425,9 @@ export function CustomerAccountPanel(props: {
                 onHighlightRental={props.onHighlightRental}
                 onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
                 onApproveRental={props.onApproveRental}
+                paymentQuote={props.paymentQuote}
+                storeCart={props.storeCart}
+                onEditAddOns={props.onEditAddOns}
               />
             </>
           ) : (

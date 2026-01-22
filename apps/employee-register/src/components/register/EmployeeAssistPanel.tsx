@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getCustomerMembershipStatus } from '@club-ops/shared';
+import { getCustomerMembershipStatus, type StoreCart } from '@club-ops/shared';
+import type { PaymentQuoteViewModel } from '../../app/useRegisterLaneSessionState';
 
 export type EmployeeAssistStep = 'LANGUAGE' | 'MEMBERSHIP' | 'RENTAL' | 'APPROVAL' | 'DONE';
 
@@ -44,6 +45,10 @@ export interface EmployeeAssistPanelProps {
   onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => Promise<void> | void;
   onSelectRentalAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
+
+  paymentQuote?: PaymentQuoteViewModel | null;
+  storeCart?: StoreCart;
+  onEditAddOns?: () => void;
 }
 
 function remainingCountLabel(count: number): { label: string; tone: 'ok' | 'low' | 'none' } {
@@ -75,6 +80,9 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     onHighlightRental,
     onSelectRentalAsCustomer,
     onApproveRental,
+    paymentQuote,
+    storeCart,
+    onEditAddOns,
   } = props;
 
   const [pending, setPending] = useState<Pending>(null);
@@ -291,6 +299,55 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
             <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
               Customer selection is ready for approval.
             </div>
+            {paymentQuote && (
+              <div className="cs-liquid-card" style={{ padding: '0.85rem', background: 'rgba(59, 130, 246, 0.1)' }}>
+                <div style={{ fontWeight: 950, marginBottom: '0.5rem', fontSize: '0.95rem' }}>
+                  Quote / Ledger
+                </div>
+                {paymentQuote.lineItems && paymentQuote.lineItems.length > 0 && (
+                  <div style={{ display: 'grid', gap: '0.4rem', marginBottom: '0.5rem' }}>
+                    {paymentQuote.lineItems.map((item: { description: string; amount: number }, idx: number) => (
+                      <div
+                        key={idx}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          fontSize: '0.9rem',
+                          fontWeight: 800,
+                        }}
+                      >
+                        <span>{item.description}</span>
+                        <span>${item.amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    fontWeight: 950,
+                    fontSize: '1rem',
+                    paddingTop: '0.5rem',
+                    borderTop: '1px solid rgba(255, 255, 255, 0.2)',
+                  }}
+                >
+                  <span>Total</span>
+                  <span>${paymentQuote.total.toFixed(2)}</span>
+                </div>
+              </div>
+            )}
+            {onEditAddOns && (
+              <button
+                type="button"
+                className="cs-liquid-button cs-liquid-button--secondary"
+                disabled={isSubmitting}
+                onClick={onEditAddOns}
+                style={{ width: '100%', padding: '0.75rem', fontWeight: 900 }}
+              >
+                Edit add-ons
+              </button>
+            )}
             <button
               type="button"
               className="cs-liquid-button cs-liquid-button--success"

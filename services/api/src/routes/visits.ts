@@ -1,12 +1,13 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { serializableTransaction, query } from '../db';
+import { serializableTransaction, query, transaction } from '../db';
 import { requireAuth, requireReauth } from '../auth/middleware';
 import type { Broadcaster } from '../websocket/broadcaster';
 import type { SessionUpdatedPayload } from '@club-ops/shared';
 import { roundUpToQuarterHour } from '../time/rounding';
 import { broadcastInventoryUpdate } from './sessions';
 import { insertAuditLog } from '../audit/auditLog';
+import { normalizeStoreCart, storeCartToLineItems, sumLineItems } from '@club-ops/shared';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -1132,6 +1133,208 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
           return reply.status(err.statusCode).send({ error: err.message });
         }
         fastify.log.error(error, 'Failed to create final extension');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * GET /v1/visits/:visitId/ledger
+   *
+   * Get ledger entries for a visit (all charges with line items).
+   */
+  fastify.get<{ Params: { visitId: string } }>(
+    '/v1/visits/:visitId/ledger',
+    {
+      preHandler: [requireAuth],
+    },
+    async (request, reply) => {
+      if (!request.staff) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { visitId } = request.params;
+
+      try {
+        const result = await transaction(async (client) => {
+          // Verify visit exists
+          const visitResult = await client.query<VisitRow>(
+            `SELECT id FROM visits WHERE id = $1`,
+            [visitId]
+          );
+
+          if (visitResult.rows.length === 0) {
+            throw { statusCode: 404, message: 'Visit not found' };
+          }
+
+          // Query charges for the visit
+          const chargesResult = await client.query<{
+            id: string;
+            created_at: Date;
+            amount: number | string;
+            type: string;
+            payment_intent_id: string | null;
+          }>(`SELECT id, created_at, amount, type, payment_intent_id FROM charges WHERE visit_id = $1 ORDER BY created_at ASC`, [
+            visitId,
+          ]);
+
+          const entries = await Promise.all(
+            chargesResult.rows.map(async (charge) => {
+              let lineItems: Array<{ description: string; amount: number }> = [];
+              let paymentMethod: string | null = null;
+              let registerNumber: number | null = null;
+
+              if (charge.payment_intent_id) {
+                // Fetch payment intent
+                const intentResult = await client.query<{
+                  amount: number | string;
+                  payment_method: string | null;
+                  register_number: number | null;
+                  quote_json: unknown;
+                }>(
+                  `SELECT amount, payment_method, register_number, quote_json FROM payment_intents WHERE id = $1`,
+                  [charge.payment_intent_id]
+                );
+
+                if (intentResult.rows.length > 0) {
+                  const intent = intentResult.rows[0]!;
+                  paymentMethod = intent.payment_method;
+                  registerNumber = intent.register_number;
+
+                  // Extract line items from quote_json
+                  const quote = intent.quote_json;
+                  if (
+                    quote &&
+                    typeof quote === 'object' &&
+                    'lineItems' in quote &&
+                    Array.isArray(quote.lineItems)
+                  ) {
+                    lineItems = quote.lineItems as Array<{ description: string; amount: number }>;
+                  }
+                }
+              }
+
+              // Fallback to single line item if no payment intent or no line items
+              if (lineItems.length === 0) {
+                const amount =
+                  typeof charge.amount === 'string' ? parseFloat(charge.amount) : charge.amount;
+                lineItems = [{ description: charge.type, amount }];
+              }
+
+              const amount =
+                typeof charge.amount === 'string' ? parseFloat(charge.amount) : charge.amount;
+
+              return {
+                id: charge.id,
+                createdAt: charge.created_at.toISOString(),
+                amount,
+                type: charge.type,
+                paymentMethod,
+                registerNumber,
+                lineItems,
+              };
+            })
+          );
+
+          return {
+            visitId,
+            entries,
+          };
+        });
+
+        return reply.send(result);
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'statusCode' in error) {
+          const err = error as { statusCode: number; message: string };
+          return reply.status(err.statusCode).send({ error: err.message });
+        }
+        fastify.log.error(error, 'Failed to get visit ledger');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * POST /v1/visits/:visitId/store/create-payment-intent
+   *
+   * Create a payment intent for a store purchase during an active visit.
+   */
+  fastify.post<{
+    Params: { visitId: string };
+    Body: { storeCart: Record<string, number> };
+  }>(
+    '/v1/visits/:visitId/store/create-payment-intent',
+    {
+      preHandler: [requireAuth],
+    },
+    async (request, reply) => {
+      if (!request.staff) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const { visitId } = request.params;
+      const { storeCart } = request.body;
+
+      try {
+        const result = await transaction(async (client) => {
+          // Verify visit exists and is active
+          const visitResult = await client.query<VisitRow>(
+            `SELECT id, ended_at FROM visits WHERE id = $1`,
+            [visitId]
+          );
+
+          if (visitResult.rows.length === 0) {
+            throw { statusCode: 404, message: 'Visit not found' };
+          }
+
+          const visit = visitResult.rows[0]!;
+          if (visit.ended_at) {
+            throw { statusCode: 400, message: 'Visit has already ended' };
+          }
+
+          // Normalize store cart
+          const normalizedCart = normalizeStoreCart(storeCart);
+
+          // Build quote
+          const lineItems = storeCartToLineItems(normalizedCart);
+          const total = sumLineItems(lineItems);
+
+          const quoteJson = {
+            type: 'STORE_PURCHASE',
+            visitId,
+            storeCart: normalizedCart,
+            lineItems,
+            total,
+            messages: ['No refunds'],
+          };
+
+          // Insert payment intent
+          const intentResult = await client.query<{
+            id: string;
+            amount: number | string;
+          }>(
+            `INSERT INTO payment_intents (amount, status, quote_json)
+           VALUES ($1, 'DUE', $2)
+           RETURNING id, amount`,
+            [total, JSON.stringify(quoteJson)]
+          );
+
+          const intent = intentResult.rows[0]!;
+
+          return {
+            paymentIntentId: intent.id,
+            total,
+            lineItems,
+          };
+        });
+
+        return reply.send(result);
+      } catch (error: unknown) {
+        if (error && typeof error === 'object' && 'statusCode' in error) {
+          const err = error as { statusCode: number; message: string };
+          return reply.status(err.statusCode).send({ error: err.message });
+        }
+        fastify.log.error(error, 'Failed to create store payment intent');
         return reply.status(500).send({ error: 'Internal server error' });
       }
     }

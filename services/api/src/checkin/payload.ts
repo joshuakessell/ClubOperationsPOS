@@ -1,4 +1,5 @@
 import type { SessionUpdatedPayload } from '@club-ops/shared';
+import { normalizeStoreCart } from '@club-ops/shared';
 import type { transaction } from '../db';
 
 type PoolClient = Parameters<Parameters<typeof transaction>[0]>[0];
@@ -18,6 +19,7 @@ interface LaneSessionRow {
   assigned_resource_type: string | null;
   price_quote_json: unknown;
   disclaimers_ack_json: unknown;
+  store_cart_json: unknown;
   payment_intent_id: string | null;
   membership_purchase_intent?: 'PURCHASE' | 'RENEW' | null;
   membership_purchase_requested_at?: Date | null;
@@ -289,7 +291,17 @@ export async function buildFullSessionUpdatedPayload(
     paymentIntent = intentResult.rows[0];
   }
 
-  const paymentTotal = toNumber(paymentIntent?.amount);
+  // Payment total: prefer payment intent amount, fall back to price quote total
+  let paymentTotal: number | undefined;
+  if (paymentIntent) {
+    paymentTotal = toNumber(paymentIntent.amount);
+  } else {
+    const quote = session.price_quote_json;
+    if (quote && typeof quote === 'object' && 'total' in quote) {
+      paymentTotal = toNumber(quote.total);
+    }
+  }
+
   const paymentLineItems =
     extractPaymentLineItems(session.price_quote_json) ??
     extractPaymentLineItems(paymentIntent?.quote_json);
@@ -342,6 +354,7 @@ export async function buildFullSessionUpdatedPayload(
       ? blockForSession.ends_at.toISOString()
       : activeBlockEndsAt,
     checkoutAt: blockForSession?.ends_at ? blockForSession.ends_at.toISOString() : undefined,
+    storeCart: normalizeStoreCart(session.store_cart_json),
   };
 
   return { laneId, payload };

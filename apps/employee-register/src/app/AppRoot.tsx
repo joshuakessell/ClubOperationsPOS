@@ -40,8 +40,10 @@ import {
 import { ManualCheckoutPanel } from '../components/register/panels/ManualCheckoutPanel';
 import { RoomCleaningPanel } from '../components/register/panels/RoomCleaningPanel';
 import { CustomerProfileCard, type CheckinStage } from '../components/register/CustomerProfileCard';
+import { deriveCheckinStage, type CheckinStage as SharedCheckinStage } from '@club-ops/shared';
 import { EmployeeAssistPanel } from '../components/register/EmployeeAssistPanel';
 import { CustomerAccountPanel } from '../components/register/panels/CustomerAccountPanel';
+import { EditAddOnsModal } from '../components/register/modals/EditAddOnsModal';
 import { UpgradesDrawerContent } from '../components/upgrades/UpgradesDrawerContent';
 import { InventoryDrawer, type InventoryDrawerSection } from '../components/inventory/InventoryDrawer';
 import { usePassiveScannerInput } from '../usePassiveScannerInput';
@@ -295,6 +297,7 @@ export function AppRoot() {
     assignedResourceNumber,
     checkoutAt,
     paymentDeclineError,
+    storeCart,
   } = laneSession;
 
   // Keep naming stable throughout the existing component by providing setter wrappers.
@@ -385,60 +388,63 @@ export function AppRoot() {
     [laneSessionActions]
   );
 
-  const checkinStage: CheckinStage | null = useMemo(() => {
-    if (!currentSessionId || !customerName) return null;
-
-    // 6 - Assigned
-    if (assignedResourceType && assignedResourceNumber) {
-      return { number: 6, label: 'Locker/Room Assigned' };
-    }
-
-    // 5 - Signing agreement (after rental confirmation, before assignment)
-    if (agreementSigned) {
-      // In practice assignment follows immediately; treat as stage 6 when agreement is already signed.
-      return { number: 6, label: 'Locker/Room Assigned' };
-    }
-    if (selectionConfirmed) {
-      return { number: 5, label: 'Signing Member Agreement' };
-    }
-
-    // 4 - Employee confirms customer selection
-    if (proposedBy === 'CUSTOMER' && proposedRentalType) {
-      return { number: 4, label: 'Employee Rental Confirmation' };
-    }
-
-    // 1 - Language selection
-    if (!customerPrimaryLanguage) {
-      return { number: 1, label: 'Language Selection' };
-    }
-
-    // 2 - Membership options (only when needed)
-    const membershipStatus = getCustomerMembershipStatus(
-      { membershipNumber: membershipNumber || null, membershipValidUntil: customerMembershipValidUntil || null },
-      new Date()
-    );
-    const isMember = membershipPurchaseIntent ? true : membershipStatus === 'ACTIVE';
-    if (!isMember && !membershipChoice) {
-      return { number: 2, label: 'Membership Options' };
-    }
-
-    // 3 - Rental options
-    return { number: 3, label: 'Rental Options' };
+  // Build a SessionUpdatedPayload-like object from lane session state for deriveCheckinStage
+  const laneSessionPayload = useMemo(() => {
+    return {
+      sessionId: currentSessionId || '',
+      customerName: customerName || '',
+      allowedRentals: allowedRentals || [],
+      membershipNumber: membershipNumber || undefined,
+      customerMembershipValidUntil: customerMembershipValidUntil || undefined,
+      membershipChoice: membershipChoice || undefined,
+      membershipPurchaseIntent: membershipPurchaseIntent || undefined,
+      customerPrimaryLanguage: customerPrimaryLanguage || undefined,
+      proposedRentalType: proposedRentalType || undefined,
+      proposedBy: proposedBy || undefined,
+      selectionConfirmed: selectionConfirmed || undefined,
+      paymentStatus: paymentStatus || undefined,
+      agreementSigned: agreementSigned || undefined,
+      assignedResourceNumber: assignedResourceNumber || undefined,
+      assignedResourceType: assignedResourceType || undefined,
+      status: agreementSigned && !assignedResourceNumber ? 'AWAITING_SIGNATURE' : selectionConfirmed && !agreementSigned && !assignedResourceNumber ? 'AWAITING_SIGNATURE' : undefined,
+    };
   }, [
+    currentSessionId,
+    customerName,
+    membershipNumber,
+    customerMembershipValidUntil,
+    membershipChoice,
+    membershipPurchaseIntent,
+    customerPrimaryLanguage,
+    proposedRentalType,
+    proposedBy,
+    selectionConfirmed,
+    paymentStatus,
     agreementSigned,
     assignedResourceNumber,
     assignedResourceType,
-    customerMembershipValidUntil,
-    customerName,
-    customerPrimaryLanguage,
-    currentSessionId,
-    membershipChoice,
-    membershipNumber,
-    membershipPurchaseIntent,
-    proposedBy,
-    proposedRentalType,
-    selectionConfirmed,
   ]);
+
+  const checkinStage: CheckinStage | null = useMemo(() => {
+    const sharedStage = deriveCheckinStage(laneSessionPayload);
+    if (!sharedStage) return null;
+
+    // Map shared stage to employee-register CheckinStage with labels
+    const labelMap: Record<SharedCheckinStage['key'], string> = {
+      LANGUAGE: 'Language Selection',
+      MEMBERSHIP: 'Membership Options',
+      RENTAL: 'Rental Options',
+      APPROVAL: 'Employee Rental Confirmation',
+      PAYMENT: 'Payment',
+      AGREEMENT: 'Signing Member Agreement',
+      COMPLETE: 'Locker/Room Assigned',
+    };
+
+    return {
+      number: sharedStage.number as 1 | 2 | 3 | 4 | 5 | 6,
+      label: labelMap[sharedStage.key],
+    };
+  }, [laneSessionPayload]);
   const [pendingCreateFromScan, setPendingCreateFromScan] = useState<{
     idScanValue: string;
     idScanHash: string | null;
@@ -698,6 +704,7 @@ export function AppRoot() {
     registerNumber: number;
     deviceId: string;
   } | null>(null);
+  const [showEditAddOnsModal, setShowEditAddOnsModal] = useState(false);
 
   // Derive lane from register number
   const lane = registerSession ? `lane-${registerSession.registerNumber}` : 'lane-1';
@@ -2850,60 +2857,80 @@ export function AppRoot() {
 
                   {homeTab === 'account' && (
                     accountCustomerId ? (
-                      <CustomerAccountPanel
-                        lane={lane}
-                        sessionToken={session?.sessionToken}
-                        customerId={accountCustomerId}
-                        customerLabel={accountCustomerLabel}
-                        onStartCheckout={startCheckoutFromCustomerAccount}
-                        onClearSession={() => void handleClearSession().then(() => selectHomeTab('scan'))}
-                        currentSessionId={currentSessionId}
-                        currentSessionCustomerId={laneSession.customerId}
-                        customerName={customerName}
-                        membershipNumber={membershipNumber}
-                        customerMembershipValidUntil={customerMembershipValidUntil}
-                        membershipPurchaseIntent={membershipPurchaseIntent}
-                        membershipChoice={membershipChoice}
-                        allowedRentals={allowedRentals}
-                        proposedRentalType={proposedRentalType}
-                        proposedBy={proposedBy}
-                        selectionConfirmed={selectionConfirmed}
-                        customerPrimaryLanguage={customerPrimaryLanguage}
-                        customerDobMonthDay={customerDobMonthDay}
-                        customerLastVisitAt={customerLastVisitAt}
-                        hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
-                        waitlistDesiredTier={waitlistDesiredTier}
-                        waitlistBackupType={waitlistBackupType}
-                        inventoryAvailable={
-                          inventoryAvailable ? { rooms: inventoryAvailable.rooms, lockers: inventoryAvailable.lockers } : null
-                        }
-                        isSubmitting={isSubmitting}
-                        checkinStage={checkinStage}
-                        onStartedSession={(data) => {
-                          setCurrentSessionCustomerId(accountCustomerId);
-                          if (data.customerName) setCustomerName(data.customerName);
-                          if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
-                          if (data.sessionId) setCurrentSessionId(data.sessionId);
-                          if (data.customerHasEncryptedLookupMarker !== undefined) {
-                            laneSessionActions.patch({
-                              customerHasEncryptedLookupMarker: Boolean(data.customerHasEncryptedLookupMarker),
-                            });
+                      <>
+                        <CustomerAccountPanel
+                          lane={lane}
+                          sessionToken={session?.sessionToken}
+                          customerId={accountCustomerId}
+                          customerLabel={accountCustomerLabel}
+                          onStartCheckout={startCheckoutFromCustomerAccount}
+                          onClearSession={() => void handleClearSession().then(() => selectHomeTab('scan'))}
+                          currentSessionId={currentSessionId}
+                          currentSessionCustomerId={laneSession.customerId}
+                          customerName={customerName}
+                          membershipNumber={membershipNumber}
+                          customerMembershipValidUntil={customerMembershipValidUntil}
+                          membershipPurchaseIntent={membershipPurchaseIntent}
+                          membershipChoice={membershipChoice}
+                          allowedRentals={allowedRentals}
+                          proposedRentalType={proposedRentalType}
+                          proposedBy={proposedBy}
+                          selectionConfirmed={selectionConfirmed}
+                          customerPrimaryLanguage={customerPrimaryLanguage}
+                          customerDobMonthDay={customerDobMonthDay}
+                          customerLastVisitAt={customerLastVisitAt}
+                          hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
+                          waitlistDesiredTier={waitlistDesiredTier}
+                          waitlistBackupType={waitlistBackupType}
+                          inventoryAvailable={
+                            inventoryAvailable ? { rooms: inventoryAvailable.rooms, lockers: inventoryAvailable.lockers } : null
                           }
-                          if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-                            if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
-                            if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
-                            setCheckoutAt(data.blockEndsAt);
-                          }
-                        }}
-                        onHighlightLanguage={(lang) => void highlightKioskOption({ step: 'LANGUAGE', option: lang })}
-                        onConfirmLanguage={(lang) => void handleConfirmLanguage(lang)}
-                        onHighlightMembership={(choice) => void highlightKioskOption({ step: 'MEMBERSHIP', option: choice })}
-                        onConfirmMembershipOneTime={() => void handleConfirmMembershipOneTime()}
-                        onConfirmMembershipSixMonth={() => void handleConfirmMembershipSixMonth()}
-                        onHighlightRental={(rental) => void handleProposeSelection(rental)}
-                        onSelectRentalAsCustomer={(rental) => void handleCustomerSelectRental(rental)}
-                        onApproveRental={() => void handleConfirmSelection()}
-                      />
+                          isSubmitting={isSubmitting}
+                          checkinStage={checkinStage}
+                          onStartedSession={(data) => {
+                            setCurrentSessionCustomerId(accountCustomerId);
+                            if (data.customerName) setCustomerName(data.customerName);
+                            if (data.membershipNumber) setMembershipNumber(data.membershipNumber);
+                            if (data.sessionId) setCurrentSessionId(data.sessionId);
+                            if (data.customerHasEncryptedLookupMarker !== undefined) {
+                              laneSessionActions.patch({
+                                customerHasEncryptedLookupMarker: Boolean(data.customerHasEncryptedLookupMarker),
+                              });
+                            }
+                            if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
+                              if (data.activeAssignedResourceType) setAssignedResourceType(data.activeAssignedResourceType);
+                              if (data.activeAssignedResourceNumber) setAssignedResourceNumber(data.activeAssignedResourceNumber);
+                              setCheckoutAt(data.blockEndsAt);
+                            }
+                          }}
+                          onHighlightLanguage={(lang) => void highlightKioskOption({ step: 'LANGUAGE', option: lang })}
+                          onConfirmLanguage={(lang) => void handleConfirmLanguage(lang)}
+                          onHighlightMembership={(choice) => void highlightKioskOption({ step: 'MEMBERSHIP', option: choice })}
+                          onConfirmMembershipOneTime={() => void handleConfirmMembershipOneTime()}
+                          onConfirmMembershipSixMonth={() => void handleConfirmMembershipSixMonth()}
+                          onHighlightRental={(rental) => void handleProposeSelection(rental)}
+                          onSelectRentalAsCustomer={(rental) => void handleCustomerSelectRental(rental)}
+                          onApproveRental={() => void handleConfirmSelection()}
+                          registerNumber={registerSession?.registerNumber || 1}
+                          paymentQuote={paymentQuote}
+                          storeCart={storeCart}
+                          onEditAddOns={() => setShowEditAddOnsModal(true)}
+                        />
+                        {showEditAddOnsModal && currentSessionId && (
+                          <EditAddOnsModal
+                            isOpen={showEditAddOnsModal}
+                            lane={lane}
+                            sessionId={currentSessionId}
+                            sessionToken={session?.sessionToken}
+                            initialCart={storeCart}
+                            onClose={() => setShowEditAddOnsModal(false)}
+                            onSaved={() => {
+                              // Session update will refresh quote via WebSocket
+                              setShowEditAddOnsModal(false);
+                            }}
+                          />
+                        )}
+                      </>
                     ) : currentSessionId && customerName ? (
                       <div
                         className="er-home-panel er-home-panel--top er-home-panel--no-scroll cs-liquid-card er-main-panel-card"
@@ -2960,7 +2987,24 @@ export function AppRoot() {
                             onHighlightRental={(rental) => void handleProposeSelection(rental)}
                             onSelectRentalAsCustomer={(rental) => void handleCustomerSelectRental(rental)}
                             onApproveRental={() => void handleConfirmSelection()}
+                            paymentQuote={paymentQuote}
+                            storeCart={storeCart}
+                            onEditAddOns={() => setShowEditAddOnsModal(true)}
                           />
+                          {showEditAddOnsModal && currentSessionId && (
+                            <EditAddOnsModal
+                              isOpen={showEditAddOnsModal}
+                              lane={lane}
+                              sessionId={currentSessionId}
+                              sessionToken={session?.sessionToken}
+                              initialCart={storeCart}
+                              onClose={() => setShowEditAddOnsModal(false)}
+                              onSaved={() => {
+                                // Session update will refresh quote via WebSocket
+                                setShowEditAddOnsModal(false);
+                              }}
+                            />
+                          )}
                         </div>
                       </div>
                     ) : (

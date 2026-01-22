@@ -7,7 +7,6 @@ export interface CustomerConfirmationModalProps {
   customerPrimaryLanguage: Language | null | undefined;
   data: CustomerConfirmationRequiredPayload;
   onAccept: () => void;
-  onDecline: () => void;
   isSubmitting: boolean;
 }
 
@@ -16,7 +15,6 @@ export function CustomerConfirmationModal({
   customerPrimaryLanguage,
   data,
   onAccept,
-  onDecline,
   isSubmitting,
 }: CustomerConfirmationModalProps) {
   if (!isOpen) return null;
@@ -46,14 +44,7 @@ export function CustomerConfirmationModal({
             onClick={() => void onAccept()}
             disabled={isSubmitting}
           >
-            {t(customerPrimaryLanguage, 'common.accept')}
-          </button>
-          <button
-            className="cs-liquid-button cs-liquid-button--danger modal-ok-btn"
-            onClick={() => void onDecline()}
-            disabled={isSubmitting}
-          >
-            {t(customerPrimaryLanguage, 'common.decline')}
+            {t(customerPrimaryLanguage, 'common.ok')}
           </button>
         </div>
       </div>

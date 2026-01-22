@@ -12,6 +12,9 @@ export {
   type CheckoutDeltaStatus,
 } from './checkoutDelta.js';
 
+// Checkin stage derivation
+export { deriveCheckinStage, type CheckinStage, type CheckinStageKey } from './checkinStage.js';
+
 // Types
 export type {
   Room,
@@ -53,6 +56,16 @@ export type {
 // Membership helpers (shared business logic)
 export type { CustomerMembershipStatus, MembershipStatusInput } from './membership.js';
 export { getCustomerMembershipStatus } from './membership.js';
+
+// Store catalog (shared store items and cart helpers)
+export {
+  STORE_CATALOG,
+  normalizeStoreCart,
+  storeCartToLineItems,
+  sumLineItems,
+  type StoreItem,
+  type StoreCart,
+} from './storeCatalog.js';
 
 // Zod schemas
 export {

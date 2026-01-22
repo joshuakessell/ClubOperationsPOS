@@ -22,7 +22,7 @@ type VerifyPinInput = z.infer<typeof VerifyPinSchema>;
 const AssignRegisterSchema = z.object({
   employeeId: z.string().uuid(),
   deviceId: z.string().min(1),
-  registerNumber: z.number().int().min(1).max(2).optional(),
+  registerNumber: z.number().int().min(1).max(3).optional(),
 });
 
 type AssignRegisterInput = z.infer<typeof AssignRegisterSchema>;
@@ -33,7 +33,7 @@ type AssignRegisterInput = z.infer<typeof AssignRegisterSchema>;
 const ConfirmRegisterSchema = z.object({
   employeeId: z.string().uuid(),
   deviceId: z.string().min(1),
-  registerNumber: z.number().int().min(1).max(2),
+  registerNumber: z.number().int().min(1).max(3),
 });
 
 type ConfirmRegisterInput = z.infer<typeof ConfirmRegisterSchema>;
@@ -188,13 +188,13 @@ export async function registerRoutes(
           byRegister.set(row.register_number, row);
         }
 
-        const registers = [1, 2].map((num) => {
+        const registers = [1, 2, 3].map((num) => {
           const row = byRegister.get(num);
           if (!row) {
-            return { registerNumber: num as 1 | 2, occupied: false };
+            return { registerNumber: num as 1 | 2 | 3, occupied: false };
           }
           return {
-            registerNumber: num as 1 | 2,
+            registerNumber: num as 1 | 2 | 3,
             occupied: true,
             deviceId: row.device_id,
             employee: {
@@ -364,11 +364,17 @@ export async function registerRoutes(
             registerNumber = body.registerNumber;
           } else {
             // Auto-assign remaining register
-            if (occupiedNumbers.size >= 2) {
+            if (occupiedNumbers.size >= 3) {
               throw new Error('All registers are occupied');
             }
-            // Assign register 1 if available, otherwise register 2
-            registerNumber = occupiedNumbers.has(1) ? 2 : 1;
+            // Assign first available register from [1,2,3]
+            registerNumber = 1; // Default fallback
+            for (const num of [1, 2, 3] as const) {
+              if (!occupiedNumbers.has(num)) {
+                registerNumber = num;
+                break;
+              }
+            }
           }
 
           return {
@@ -527,7 +533,7 @@ export async function registerRoutes(
 
           // Broadcast REGISTER_SESSION_UPDATED event
           const payload = {
-            registerNumber: session.register_number as 1 | 2,
+            registerNumber: session.register_number as 1 | 2 | 3,
             active: true,
             sessionId: session.id,
             employee: {
@@ -728,7 +734,7 @@ export async function registerRoutes(
 
           // Broadcast REGISTER_SESSION_UPDATED event
           const payload = {
-            registerNumber: session.register_number as 1 | 2,
+            registerNumber: session.register_number as 1 | 2 | 3,
             active: false,
             sessionId: null,
             employee: null,
@@ -801,7 +807,7 @@ export async function registerRoutes(
             });
 
             const payload = {
-              registerNumber: session.register_number as 1 | 2,
+              registerNumber: session.register_number as 1 | 2 | 3,
               active: false,
               sessionId: null,
               employee: null,
@@ -967,7 +973,7 @@ export async function cleanupAbandonedRegisterSessions(
     if (fastify?.broadcaster) {
       for (const session of expiredSessions.rows) {
         const payload = {
-          registerNumber: session.register_number as 1 | 2,
+          registerNumber: session.register_number as 1 | 2 | 3,
           active: false,
           sessionId: null,
           employee: null,
