@@ -1298,6 +1298,7 @@ export function AppRoot() {
                 return newCart;
               });
             }}
+            onContinue={() => void submitPendingSelection()}
             onClose={() => {
               setShowStorefront(false);
               setShowAddOnsPrompt(true);

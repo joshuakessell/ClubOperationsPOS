@@ -1,4 +1,5 @@
-import { getCustomerMembershipStatus, type SessionUpdatedPayload } from './index.js';
+import { getCustomerMembershipStatus } from './membership.js';
+import type { SessionUpdatedPayload } from './types.js';
 
 export type CheckinStageKey = 'LANGUAGE' | 'MEMBERSHIP' | 'RENTAL' | 'APPROVAL' | 'PAYMENT' | 'AGREEMENT' | 'COMPLETE';
 

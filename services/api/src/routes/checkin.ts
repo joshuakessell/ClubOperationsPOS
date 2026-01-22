@@ -2676,7 +2676,7 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
     Params: { id: string };
     Body: {
       squareTransactionId?: string;
-      paymentMethod?: 'CASH' | 'CARD';
+      paymentMethod?: 'CASH' | 'CREDIT';
       registerNumber?: number;
     };
   }>(

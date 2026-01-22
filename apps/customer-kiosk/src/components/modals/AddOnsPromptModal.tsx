@@ -33,7 +33,7 @@ export function AddOnsPromptModal({
               className="cs-liquid-button addon-quick-pick-btn"
               onClick={() => onAddItem(item.id)}
             >
-              {item.name}
+              {`${item.name} — $${item.price.toFixed(2)}`}
               {(cart[item.id] ?? 0) > 0 && <span className="addon-qty-badge">{cart[item.id]}</span>}
             </button>
           ))}

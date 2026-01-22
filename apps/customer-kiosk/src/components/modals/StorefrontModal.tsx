@@ -6,6 +6,7 @@ export interface StorefrontModalProps {
   customerPrimaryLanguage: Language | null | undefined;
   cart: StoreCart;
   onUpdateQuantity: (itemId: string, delta: number) => void;
+  onContinue: () => void;
   onClose: () => void;
 }
 
@@ -14,6 +15,7 @@ export function StorefrontModal({
   customerPrimaryLanguage,
   cart,
   onUpdateQuantity,
+  onContinue,
   onClose,
 }: StorefrontModalProps) {
   if (!isOpen) return null;
@@ -67,7 +69,7 @@ export function StorefrontModal({
           </div>
         )}
         <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', marginTop: '1.5rem' }}>
-          <button className="cs-liquid-button modal-ok-btn" onClick={onClose}>
+          <button className="cs-liquid-button modal-ok-btn" onClick={onContinue}>
             {t(customerPrimaryLanguage, 'common.continue')}
           </button>
         </div>

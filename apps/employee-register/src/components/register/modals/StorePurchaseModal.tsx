@@ -96,7 +96,7 @@ export function StorePurchaseModal({
     }
   };
 
-  const handleMarkPaid = async (paymentMethod: 'CASH' | 'CARD') => {
+  const handleMarkPaid = async (paymentMethod: 'CASH' | 'CREDIT') => {
     if (!paymentIntentId) return;
 
     setIsSubmitting(true);
@@ -292,7 +292,7 @@ export function StorePurchaseModal({
               <button
                 type="button"
                 className="cs-liquid-button"
-                onClick={() => handleMarkPaid('CARD')}
+                onClick={() => handleMarkPaid('CREDIT')}
                 disabled={isSubmitting}
                 style={{ flex: 1, padding: '1rem', fontWeight: 950 }}
               >
