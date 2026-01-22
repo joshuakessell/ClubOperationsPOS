@@ -444,6 +444,50 @@ export async function registerRoutes(
             throw new Error('Device already signed into a register');
           }
 
+          const existingEmployee = await client.query<RegisterSessionRow>(
+            `SELECT * FROM register_sessions
+           WHERE employee_id = $1
+           AND signed_out_at IS NULL`,
+            [body.employeeId]
+          );
+
+          if (existingEmployee.rows.length > 0) {
+            const currentSession = existingEmployee.rows[0]!;
+            if (currentSession.register_number !== body.registerNumber) {
+              throw new Error(
+                `Employee already signed into register ${currentSession.register_number}`
+              );
+            }
+
+            // Take over the same register on a new device by signing out the old session.
+            await client.query(
+              `UPDATE register_sessions
+               SET signed_out_at = NOW()
+               WHERE id = $1`,
+              [currentSession.id]
+            );
+
+            await insertAuditLog(client, {
+              staffId: body.employeeId,
+              action: 'REGISTER_SIGN_OUT',
+              entityType: 'register_session',
+              entityId: currentSession.id,
+            });
+
+            const takeoverPayload = {
+              registerNumber: currentSession.register_number as 1 | 2 | 3,
+              active: false,
+              sessionId: null,
+              employee: null,
+              deviceId: null,
+              createdAt: null,
+              lastHeartbeatAt: null,
+              reason: 'TAKEOVER' as const,
+            };
+
+            fastify.broadcaster.broadcastRegisterSessionUpdated(takeoverPayload);
+          }
+
           const existingRegister = await client.query<RegisterSessionRow>(
             `SELECT * FROM register_sessions
            WHERE register_number = $1
