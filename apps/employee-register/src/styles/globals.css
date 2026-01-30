@@ -1,0 +1,71 @@
+@import url('https://fonts.googleapis.com/css2?family=Sora:wght@300;400;500;600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 210 40% 98%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222 47% 11%;
+    --primary: 213 89% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 215 20% 92%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 215 20% 94%;
+    --muted-foreground: 215 16% 46%;
+    --accent: 210 90% 45%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 74% 50%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 25% 88%;
+    --input: 214 25% 88%;
+    --ring: 213 89% 52%;
+    --radius: 1rem;
+
+    --sidebar: 222 55% 16%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-active: 213 89% 52%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    margin: 0;
+  }
+}
+
+@layer utilities {
+  .bg-soft-grid {
+    background-image:
+      radial-gradient(rgba(59, 130, 246, 0.08) 1px, transparent 1px),
+      radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+    background-size: 32px 32px, 24px 24px;
+    background-position: 0 0, 12px 12px;
+  }
+
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+  }
+
+  .shadow-soft {
+    box-shadow:
+      0 22px 45px rgba(15, 23, 42, 0.08),
+      0 4px 12px rgba(15, 23, 42, 0.06);
+  }
+}

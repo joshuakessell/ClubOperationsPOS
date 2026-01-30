@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
+import { RotateCw } from 'lucide-react';
 import { useOrientation, type DeviceOrientation } from './useOrientation';
 
 export type OrientationGuardProps = {
@@ -40,13 +41,17 @@ export function OrientationGuard({
   if (!mismatch) return <>{children}</>;
 
   return (
-    <div className="orientation-overlay" role="alert" aria-live="assertive">
-      <div className="orientation-card">
-        <div className="orientation-icon" aria-hidden="true">
-          <div className="orientation-icon-home" />
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/90 px-6 text-center text-white"
+      role="alert"
+      aria-live="assertive"
+    >
+      <div className="w-full max-w-sm rounded-3xl border border-white/20 bg-white/5 p-6 shadow-soft backdrop-blur">
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white/10">
+          <RotateCw className="h-7 w-7 text-white" />
         </div>
-        <div className="orientation-title">{resolvedTitle}</div>
-        <div className="orientation-message">{resolvedMessage}</div>
+        <div className="text-xl font-semibold">{resolvedTitle}</div>
+        <div className="mt-2 text-sm text-white/80">{resolvedMessage}</div>
       </div>
     </div>
   );

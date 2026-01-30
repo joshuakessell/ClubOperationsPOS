@@ -17,7 +17,7 @@ export function useHomeNavigationState({
   currentSessionId,
   laneSessionCustomerId,
 }: UseHomeNavigationStateParams) {
-  const [homeTab, setHomeTab] = useState<HomeTab>('scan');
+  const [homeTab, setHomeTab] = useState<HomeTab>('dashboard');
   const [accountCustomerId, setAccountCustomerId] = useState<string | null>(null);
   const [accountCustomerLabel, setAccountCustomerLabel] = useState<string | null>(null);
   const [checkoutPrefill, setCheckoutPrefill] = useState<CheckoutPrefill | null>(null);
@@ -58,7 +58,7 @@ export function useHomeNavigationState({
 
   const startCheckoutFromCustomerAccount = useCallback(
     (prefill?: { number?: string | null }) => {
-      const returnTo: HomeTab = currentSessionId ? 'account' : 'scan';
+      const returnTo: HomeTab = currentSessionId ? 'account' : 'dashboard';
       checkoutReturnToTabRef.current = returnTo;
       const number = prefill?.number ?? null;
       setCheckoutEntryMode(number ? 'direct-confirm' : 'default');
@@ -81,7 +81,7 @@ export function useHomeNavigationState({
       selectHomeTab(returnTo);
       return;
     }
-    selectHomeTab('scan');
+    selectHomeTab('dashboard');
   }, [selectHomeTab]);
 
   const openCustomerAccount = useCallback(

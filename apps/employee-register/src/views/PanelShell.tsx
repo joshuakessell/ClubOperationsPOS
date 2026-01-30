@@ -1,6 +1,5 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
-import './PanelCard.css';
-import './PanelShell.css';
+import { cn } from '../lib/utils';
 
 type PanelAlign = 'top' | 'center';
 type PanelScroll = 'auto' | 'hidden';
@@ -24,15 +23,13 @@ export function PanelShell<T extends ElementType = 'div'>({
   ...rest
 }: PanelShellProps<T>) {
   const Component = as ?? 'div';
-  const classes = [
-    'er-panel-shell',
-    align === 'center' ? 'er-panel-shell--center' : 'er-panel-shell--top',
-    scroll === 'hidden' ? 'er-panel-shell--no-scroll' : '',
-    card ? 'cs-liquid-card er-panel-card' : '',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const classes = cn(
+    'flex h-full w-full flex-col gap-4 rounded-3xl border border-border bg-card p-6 text-card-foreground shadow-soft',
+    align === 'center' ? 'items-center justify-center text-center' : 'items-stretch',
+    scroll === 'hidden' ? 'overflow-hidden' : 'overflow-auto',
+    card ? '' : 'border-none bg-transparent shadow-none p-0',
+    className
+  );
 
   return (
     <Component className={classes} {...rest}>

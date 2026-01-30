@@ -1,4 +1,5 @@
 export type HomeTab =
+  | 'dashboard'
   | 'account'
   | 'scan'
   | 'search'

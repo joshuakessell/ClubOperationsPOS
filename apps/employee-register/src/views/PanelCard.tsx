@@ -1,5 +1,5 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
-import './PanelCard.css';
+import { cn } from '../lib/utils';
 
 export type PanelCardProps<T extends ElementType = 'div'> = {
   as?: T;
@@ -14,7 +14,7 @@ export function PanelCard<T extends ElementType = 'div'>({
   ...rest
 }: PanelCardProps<T>) {
   const Component = as ?? 'div';
-  const classes = ['cs-liquid-card', 'er-panel-card', className].filter(Boolean).join(' ');
+  const classes = cn('rounded-3xl border bg-card text-card-foreground shadow-soft', className);
 
   return (
     <Component className={classes} {...rest}>
