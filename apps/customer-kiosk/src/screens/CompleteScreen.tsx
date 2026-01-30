@@ -1,6 +1,8 @@
 import { ReactNode } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { Card } from '../components/ui/card';
+import { Button } from '../components/ui/button';
 
 export interface CompleteScreenProps {
   customerPrimaryLanguage: Language | null | undefined;
@@ -37,68 +39,47 @@ export function CompleteScreen({
 
   return (
     <I18nProvider lang={lang}>
-      <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true}>
+      <ScreenShell title={t(lang, 'complete')} activeNav="complete">
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="active-content">
-          <main className="main-content">
-            <div className="complete-screen">
-              {assignedResourceType && assignedResourceNumber ? (
-                <>
-                  <div className="assignment-info cs-liquid-card">
-                    <div className="assignment-row">
-                      <div className="assignment-label">{t(lang, assignedResourceType)}</div>
-                      <div className="assignment-value">{assignedResourceNumber}</div>
-                    </div>
+        <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 text-center">
+          {assignedResourceType && assignedResourceNumber ? (
+            <Card className="w-full p-6 text-left">
+              <div className="flex items-center justify-between">
+                <div className="text-sm font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                  {t(lang, assignedResourceType)}
+                </div>
+                <div className="text-4xl font-semibold">{assignedResourceNumber}</div>
+              </div>
 
-                    {checkoutAt && (
-                      <div className="assignment-row assignment-row--checkout">
-                        <div className="assignment-label">{t(lang, 'checkoutAt')}</div>
-                        <div className="assignment-value assignment-value--time">
-                          {checkoutTimeText ?? new Date(checkoutAt).toLocaleString(locale)}
-                        </div>
-                        {checkoutDateText && (
-                          <div className="assignment-subvalue">{checkoutDateText}</div>
-                        )}
-                      </div>
-                    )}
+              {checkoutAt && (
+                <div className="mt-4 rounded-2xl border border-border bg-muted/50 px-4 py-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+                    {t(lang, 'checkoutAt')}
                   </div>
-                  <button
-                    type="button"
-                    className={[
-                      'cs-liquid-button',
-                      'complete-ok-btn',
-                      isSubmitting ? 'cs-liquid-button--disabled' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={onAcknowledge}
-                    disabled={isSubmitting}
-                  >
-                    OK
-                  </button>
-                </>
-              ) : (
-                <>
-                  <p>{t(lang, 'assignmentComplete')}</p>
-                  <button
-                    type="button"
-                    className={[
-                      'cs-liquid-button',
-                      'complete-ok-btn',
-                      isSubmitting ? 'cs-liquid-button--disabled' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={onAcknowledge}
-                    disabled={isSubmitting}
-                  >
-                    OK
-                  </button>
-                </>
+                  <div className="mt-1 text-lg font-semibold">
+                    {checkoutTimeText ?? new Date(checkoutAt).toLocaleString(locale)}
+                  </div>
+                  {checkoutDateText && (
+                    <div className="text-sm text-muted-foreground">{checkoutDateText}</div>
+                  )}
+                </div>
               )}
-            </div>
-          </main>
+            </Card>
+          ) : (
+            <Card className="w-full p-6">
+              <p className="text-lg font-semibold">{t(lang, 'assignmentComplete')}</p>
+            </Card>
+          )}
+
+          <Button
+            type="button"
+            className="w-40 rounded-2xl text-lg"
+            onClick={onAcknowledge}
+            disabled={isSubmitting}
+          >
+            OK
+          </Button>
         </div>
       </ScreenShell>
     </I18nProvider>

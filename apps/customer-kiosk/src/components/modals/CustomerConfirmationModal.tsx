@@ -3,6 +3,7 @@ import { getRentalDisplayName } from '../../utils/display';
 import type { CustomerConfirmationRequiredPayload } from '@club-ops/shared';
 import { KioskModal } from '../../views/KioskModal';
 import { KioskModalActions } from '../../views/KioskModalActions';
+import { Button } from '../ui/button';
 
 export interface CustomerConfirmationModalProps {
   isOpen: boolean;
@@ -39,20 +40,16 @@ export function CustomerConfirmationModal({
       </p>
       <p>{t(customerPrimaryLanguage, 'confirmDifferent.question')}</p>
       <KioskModalActions>
-        <button
-          className="cs-liquid-button ck-modal-btn"
-          onClick={() => void onAccept()}
-          disabled={isSubmitting}
-        >
+        <Button onClick={() => void onAccept()} disabled={isSubmitting}>
           {t(customerPrimaryLanguage, 'common.accept')}
-        </button>
-        <button
-          className="cs-liquid-button cs-liquid-button--danger ck-modal-btn"
+        </Button>
+        <Button
+          variant="destructive"
           onClick={() => void onDecline()}
           disabled={isSubmitting}
         >
           {t(customerPrimaryLanguage, 'common.decline')}
-        </button>
+        </Button>
       </KioskModalActions>
     </KioskModal>
   );

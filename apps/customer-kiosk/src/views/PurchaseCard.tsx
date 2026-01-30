@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import './PurchaseCard.css';
+import { cn } from '../lib/utils';
+import { Card } from '../components/ui/card';
 
 export interface PurchaseCardProps {
   title: ReactNode;
@@ -18,23 +19,27 @@ export function PurchaseCard({
   className,
   children,
 }: PurchaseCardProps) {
-  const classes = [
-    'cs-liquid-card',
-    'purchase-card',
-    variant ? `purchase-card--${variant}` : '',
-    active ? 'ck-step-active' : '',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const tone =
+    variant === 'membership'
+      ? 'border-blue-200/70'
+      : variant === 'rental'
+        ? 'border-emerald-200/70'
+        : 'border-border';
 
   return (
-    <section className={classes}>
-      <div className="purchase-card__header">
-        <div className="purchase-card__title">{title}</div>
-        {status ? <div className="purchase-card__status">{status}</div> : null}
+    <Card
+      className={cn(
+        'shadow-soft transition-all',
+        tone,
+        active ? 'ring-2 ring-primary/40' : '',
+        className
+      )}
+    >
+      <div className="flex items-center justify-between gap-4 px-6 pt-6">
+        <div className="text-lg font-semibold">{title}</div>
+        {status ? <div className="text-sm text-muted-foreground">{status}</div> : null}
       </div>
-      <div className="purchase-card__body">{children}</div>
-    </section>
+      <div className="px-6 pb-6 pt-4">{children}</div>
+    </Card>
   );
 }

@@ -576,8 +576,8 @@ describe('App', () => {
     const locker = screen.getByRole('button', { name: /Locker/i });
 
     // No default selection on either membership option.
-    expect(oneTime.className.includes('cs-liquid-button--selected')).toBe(false);
-    expect(sixMonth.className.includes('cs-liquid-button--selected')).toBe(false);
+    expect(oneTime.getAttribute('aria-pressed')).toBe('false');
+    expect(sixMonth.getAttribute('aria-pressed')).toBe('false');
     // Rental buttons gated until membership choice is made.
     expect(locker).toHaveProperty('disabled', true);
 

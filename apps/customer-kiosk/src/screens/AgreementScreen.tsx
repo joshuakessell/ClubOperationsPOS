@@ -1,6 +1,16 @@
 import { ReactNode, RefObject, useEffect, useMemo, useState } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { Button } from '../components/ui/button';
+import { Card } from '../components/ui/card';
+import { Checkbox } from '../components/ui/checkbox';
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
 
 export interface Agreement {
   id: string;
@@ -77,162 +87,93 @@ export function AgreementScreen({
 
   return (
     <I18nProvider lang={customerPrimaryLanguage}>
-      <ScreenShell backgroundVariant="none" showLogoWatermark={false}>
+      <ScreenShell title={t(customerPrimaryLanguage, 'agreementTitle')} activeNav="agreement">
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="agreement-screen-container">
-          {/* Liquid-glass panel */}
-          <div className="agreement-paper-panel cs-liquid-card">
-            <h1 className="agreement-title">
+        <div className="mx-auto max-w-4xl space-y-6">
+          <Card className="p-6">
+            <h1 className="text-2xl font-semibold">
               {agreement?.title || t(customerPrimaryLanguage, 'agreementTitle')}
             </h1>
 
-            {/* Scroll region (must flex) */}
-            <div className="ck-agreement-scroll-region">
+            <div className="mt-4 space-y-3">
               {!hasScrolledAgreement && (
-                <div className="ck-glow-text ck-agreement-helper-text">
+                <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm font-semibold text-amber-900">
                   {t(customerPrimaryLanguage, 'agreement.readAndScrollToContinue')}
                 </div>
               )}
 
-              <div className="ck-agreement-scroll-shell">
-                <div className="ck-arrow-slot" aria-hidden="true">
-                  {!hasScrolledAgreement && (
-                    <div className="ck-arrow ck-arrow--down ck-arrow--bounce-y">↓</div>
-                  )}
-                </div>
-
-                <div className="agreement-scroll-wrap">
-                  <div ref={agreementScrollRef} className="agreement-scroll-area">
-                    {agreement?.bodyText ? (
-                      <div
-                        className="agreement-body"
-                        dangerouslySetInnerHTML={{ __html: agreement.bodyText }}
-                      />
-                    ) : (
-                      <p className="agreement-placeholder">
-                        {t(customerPrimaryLanguage, 'agreementPlaceholder')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="ck-arrow-slot" aria-hidden="true">
-                  {!hasScrolledAgreement && (
-                    <div className="ck-arrow ck-arrow--down ck-arrow--bounce-y">↓</div>
+              <div className="rounded-2xl border border-border bg-white/70 p-4">
+                <div
+                  ref={agreementScrollRef}
+                  className="max-h-[320px] overflow-y-auto pr-3 text-sm leading-relaxed text-slate-700"
+                >
+                  {agreement?.bodyText ? (
+                    <div
+                      className="text-sm leading-relaxed text-slate-700 [&_p]:mt-3 [&_p:first-child]:mt-0 [&_ul]:mt-3 [&_ul]:list-disc [&_ul]:pl-5 [&_li]:mt-2"
+                      dangerouslySetInnerHTML={{ __html: agreement.bodyText }}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground">
+                      {t(customerPrimaryLanguage, 'agreementPlaceholder')}
+                    </p>
                   )}
                 </div>
               </div>
-
-              {!hasScrolledAgreement && (
-                <div className="ck-glow-text ck-agreement-helper-text ck-agreement-helper-text--bottom">
-                  {t(customerPrimaryLanguage, 'agreement.readAndScrollToContinue')}
-                </div>
-              )}
             </div>
 
-            <div className="agreement-actions">
-              {/* Checkbox step */}
-              <div className="ck-action-row">
-                <div className="ck-action-indicator" aria-hidden="true">
-                  {hasScrolledAgreement && !agreed && (
-                    <div className="ck-arrow ck-arrow--checkbox ck-arrow--bounce-x">▶</div>
-                  )}
-                </div>
-                <div className="ck-action-content ck-action-content--checkbox">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={agreed}
-                      onChange={(e) => onAgreeChange(e.target.checked)}
-                      disabled={!hasScrolledAgreement}
-                    />
-                    <span>{t(customerPrimaryLanguage, 'iAgree')}</span>
-                  </label>
-                </div>
+            <div className="mt-6 space-y-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-border bg-muted/50 px-4 py-3">
+                <Checkbox
+                  checked={agreed}
+                  onCheckedChange={(checked) => onAgreeChange(Boolean(checked))}
+                  disabled={!hasScrolledAgreement}
+                />
+                <span className="text-sm font-medium">{t(customerPrimaryLanguage, 'iAgree')}</span>
               </div>
 
               {!hasScrolledAgreement && (
-                <p className="scroll-warning">{t(customerPrimaryLanguage, 'scrollRequired')}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t(customerPrimaryLanguage, 'scrollRequired')}
+                </p>
               )}
 
               {hasScrolledAgreement && !agreed && (
-                <div className="ck-glow-text ck-checkbox-helper-text">
+                <p className="text-xs text-muted-foreground">
                   {t(customerPrimaryLanguage, 'agreement.pleaseCheckToContinue')}
-                </div>
+                </p>
               )}
 
-              {/* Signature step (arrow moves here after checkbox is checked) */}
-              <div className="ck-action-row">
-                <div className="ck-action-indicator" aria-hidden="true">
-                  {hasScrolledAgreement && agreed && !signatureData && !isSubmitting && (
-                    <div className="ck-arrow ck-arrow--checkbox ck-arrow--bounce-x">▶</div>
-                  )}
-                </div>
-                <div className="ck-action-content ck-action-content--center">
-                  <button
-                    type="button"
-                    className={[
-                      'cs-liquid-button',
-                      'agreement-signature-button',
-                      pulseSignButton ? 'pulse-bright' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ')}
-                    onClick={() => setSignatureModalOpen(true)}
-                    disabled={!hasScrolledAgreement || !!signatureData}
-                  >
-                    {signatureData ? (
-                      <span className="agreement-signature-button__content">
-                        <span className="agreement-signature-check" aria-hidden="true">
-                          ✓
-                        </span>
-                        <span>{t(customerPrimaryLanguage, 'agreement.signed')}</span>
-                      </span>
-                    ) : (
-                      t(customerPrimaryLanguage, 'agreement.tapToSign')
-                    )}
-                  </button>
-                </div>
-              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                className={`w-full rounded-2xl ${pulseSignButton ? 'animate-pulse-soft' : ''}`}
+                onClick={() => setSignatureModalOpen(true)}
+                disabled={!hasScrolledAgreement || !!signatureData}
+              >
+                {signatureData ? t(customerPrimaryLanguage, 'agreement.signed') : t(customerPrimaryLanguage, 'agreement.tapToSign')}
+              </Button>
 
-              <div className="agreement-submit-container">
-                <button
-                  className={[
-                    'cs-liquid-button',
-                    'submit-agreement-btn',
-                    pulseSubmitButton ? 'pulse-bright' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                  onClick={onSubmit}
-                  disabled={!agreed || !signatureData || !hasScrolledAgreement || isSubmitting}
-                >
-                  {isSubmitting
-                    ? t(customerPrimaryLanguage, 'submitting')
-                    : t(customerPrimaryLanguage, 'submit')}
-                </button>
-              </div>
+              <Button
+                className={`w-full rounded-2xl text-base ${pulseSubmitButton ? 'animate-pulse-soft' : ''}`}
+                onClick={onSubmit}
+                disabled={!agreed || !signatureData || !hasScrolledAgreement || isSubmitting}
+              >
+                {isSubmitting ? t(customerPrimaryLanguage, 'submitting') : t(customerPrimaryLanguage, 'submit')}
+              </Button>
             </div>
-          </div>
+          </Card>
         </div>
 
-        {signatureModalOpen && (
-          <div
-            className="signature-modal-overlay"
-            role="dialog"
-            aria-label={t(customerPrimaryLanguage, 'a11y.signatureDialog')}
-          >
-            <div className="signature-modal cs-liquid-card" onClick={(e) => e.stopPropagation()}>
-              <div className="signature-modal-header">
-                <div className="signature-modal-title">
-                  {t(customerPrimaryLanguage, 'signatureRequired')}
-                </div>
-              </div>
-
+        <Dialog open={signatureModalOpen} onOpenChange={setSignatureModalOpen}>
+          <DialogContent aria-label={t(customerPrimaryLanguage, 'a11y.signatureDialog')}>
+            <DialogHeader>
+              <DialogTitle>{t(customerPrimaryLanguage, 'signatureRequired')}</DialogTitle>
+            </DialogHeader>
+            <div className="mt-3 rounded-2xl border border-border bg-white p-3">
               <canvas
                 ref={signatureCanvasRef}
-                className="signature-modal-canvas"
+                className="h-64 w-full touch-none rounded-xl border border-dashed border-border"
                 width={900}
                 height={320}
                 onMouseDown={onSignatureStart}
@@ -243,30 +184,28 @@ export function AgreementScreen({
                 onTouchMove={onSignatureMove}
                 onTouchEnd={onSignatureEnd}
               />
-
-              <div className="signature-modal-actions">
-                <button
-                  type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
-                  onClick={() => {
-                    onClearSignature();
-                    setSignatureModalOpen(false);
-                  }}
-                >
-                  {t(customerPrimaryLanguage, 'common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  className="cs-liquid-button"
-                  disabled={!signatureData}
-                  onClick={() => setSignatureModalOpen(false)}
-                >
-                  {t(customerPrimaryLanguage, 'agreement.sign')}
-                </button>
-              </div>
             </div>
-          </div>
-        )}
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => {
+                  onClearSignature();
+                  setSignatureModalOpen(false);
+                }}
+              >
+                {t(customerPrimaryLanguage, 'common.cancel')}
+              </Button>
+              <Button
+                type="button"
+                disabled={!signatureData}
+                onClick={() => setSignatureModalOpen(false)}
+              >
+                {t(customerPrimaryLanguage, 'agreement.sign')}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </ScreenShell>
     </I18nProvider>
   );

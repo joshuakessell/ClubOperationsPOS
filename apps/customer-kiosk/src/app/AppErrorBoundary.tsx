@@ -1,4 +1,5 @@
 import React from 'react';
+import { Button } from '../components/ui/button';
 
 type Props = {
   children: React.ReactNode;
@@ -26,12 +27,14 @@ export class AppErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       return (
         this.props.fallback ?? (
-          <div className="u-font-sans u-p-24">
-            <h2 className="u-mt-0">Something went wrong</h2>
-            <p>Please reload the page. If the issue persists, contact support.</p>
-            <button className="cs-liquid-button" onClick={() => window.location.reload()}>
+          <div className="max-w-xl p-10 font-sans">
+            <h2 className="text-2xl font-semibold">Something went wrong</h2>
+            <p className="mt-3 text-sm text-muted-foreground">
+              Please reload the page. If the issue persists, contact support.
+            </p>
+            <Button className="mt-6" onClick={() => window.location.reload()}>
               Reload
-            </button>
+            </Button>
           </div>
         )
       );

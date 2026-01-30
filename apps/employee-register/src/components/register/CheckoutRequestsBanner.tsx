@@ -31,7 +31,6 @@ export function CheckoutRequestsBanner({
                   {canOpenCustomer ? (
                     <button
                       type="button"
-                      className="cs-liquid-button cs-liquid-button--secondary"
                       onClick={(e) => {
                         e.stopPropagation();
                         onOpenCustomerAccount?.(request.customerId!, request.customerName);

@@ -2,6 +2,8 @@ import { t, type Language } from '../../i18n';
 import { getRentalDisplayName } from '../../utils/display';
 import { KioskModal } from '../../views/KioskModal';
 import { KioskModalActions } from '../../views/KioskModalActions';
+import { Button } from '../ui/button';
+import { Card } from '../ui/card';
 
 export interface WaitlistModalProps {
   isOpen: boolean;
@@ -47,9 +49,11 @@ export function WaitlistModal({
         })}
       </p>
       {position !== null && (
-        <div className="ck-modal-info-box">
-          <p className="ck-modal-info-title">{t(customerPrimaryLanguage, 'waitlist.infoTitle')}</p>
-          <p>
+        <Card className="mt-3 border-dashed p-4 text-sm">
+          <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
+            {t(customerPrimaryLanguage, 'waitlist.infoTitle')}
+          </p>
+          <p className="mt-2">
             {t(customerPrimaryLanguage, 'waitlist.position')}: <strong>#{position}</strong>
           </p>
           {eta ? (
@@ -64,20 +68,24 @@ export function WaitlistModal({
             </p>
           )}
           {upgradeFee !== null && upgradeFee > 0 && (
-            <p className="ck-modal-info-warning">
+            <p className="mt-2 text-amber-600">
               {t(customerPrimaryLanguage, 'waitlist.upgradeFee')}:{' '}
               <strong>${upgradeFee.toFixed(2)}</strong>
             </p>
           )}
-        </div>
+        </Card>
       )}
-      <p className="ck-modal-spaced">{t(customerPrimaryLanguage, 'waitlist.instructions')}</p>
-      <p className="ck-modal-note">{t(customerPrimaryLanguage, 'waitlist.noteChargedBackup')}</p>
-      <div className="ck-modal-section">
-        <p className="ck-modal-section-title">
+      <p className="mt-4 text-sm text-muted-foreground">
+        {t(customerPrimaryLanguage, 'waitlist.instructions')}
+      </p>
+      <p className="mt-2 text-xs text-muted-foreground">
+        {t(customerPrimaryLanguage, 'waitlist.noteChargedBackup')}
+      </p>
+      <div className="mt-4">
+        <p className="text-sm font-semibold">
           {t(customerPrimaryLanguage, 'waitlist.selectBackup')}
         </p>
-        <div className="ck-modal-stack">
+        <div className="mt-3 grid gap-2">
           {allowedRentals
             .filter((rental) => rental !== desiredType)
             .map((rental) => {
@@ -88,33 +96,24 @@ export function WaitlistModal({
               const isAvailable = availableCount > 0;
 
               return (
-                <button
+                <Button
                   key={rental}
-                  className={[
-                    'cs-liquid-button',
-                    'ck-modal-btn',
-                    highlightedBackupRental === rental ? 'ck-option-highlight' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
+                  variant="secondary"
+                  className={highlightedBackupRental === rental ? 'ring-2 ring-primary/40' : ''}
                   onClick={() => onBackupSelection(rental)}
                   disabled={!isAvailable || isSubmitting}
                 >
                   {getRentalDisplayName(rental, customerPrimaryLanguage)}
                   {!isAvailable && ` ${t(customerPrimaryLanguage, 'waitlist.unavailableSuffix')}`}
-                </button>
+                </Button>
               );
             })}
         </div>
       </div>
       <KioskModalActions>
-        <button
-          className="cs-liquid-button cs-liquid-button--secondary ck-modal-btn"
-          onClick={onClose}
-          disabled={isSubmitting}
-        >
+        <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
           {t(customerPrimaryLanguage, 'common.cancel')}
-        </button>
+        </Button>
       </KioskModalActions>
     </KioskModal>
   );

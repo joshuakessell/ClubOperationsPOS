@@ -16,16 +16,14 @@ export function AgreementBypassScreen({
 }: AgreementBypassScreenProps) {
   return (
     <I18nProvider lang={customerPrimaryLanguage}>
-      <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">
+      <ScreenShell title={t(customerPrimaryLanguage, 'agreementTitle')} activeNav="agreement">
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="active-content agreement-bypass-screen">
-          <main className="main-content">
-            <KioskMessageCard
-              title={t(customerPrimaryLanguage, 'agreementTitle')}
-              body="Please wait while staff completes a physical agreement signature."
-            />
-          </main>
+        <div className="mx-auto max-w-2xl">
+          <KioskMessageCard
+            title={t(customerPrimaryLanguage, 'agreementTitle')}
+            body={t(customerPrimaryLanguage, 'agreement.bypassMessage')}
+          />
         </div>
       </ScreenShell>
     </I18nProvider>

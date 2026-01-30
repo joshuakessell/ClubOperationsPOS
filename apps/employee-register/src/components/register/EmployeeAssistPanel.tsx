@@ -271,10 +271,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
                 <button
                   key={opt.id}
                   type="button"
-                  className={[
-                    'cs-liquid-button',
-                    isPending ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                  ].join(' ')}
                   disabled={isSubmitting}
                   onClick={() => {
                     if (isSubmitting) return;
@@ -315,10 +311,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
                 <button
                   key={opt.id}
                   type="button"
-                  className={[
-                    'cs-liquid-button',
-                    isPending ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                  ].join(' ')}
                   disabled={isSubmitting}
                   onClick={() => {
                       if (directSelect) {
@@ -379,10 +371,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
                   <button
                     key={btn.id}
                     type="button"
-                    className={[
-                      'cs-liquid-button',
-                      isPending ? 'cs-liquid-button--selected' : toneClass,
-                    ].join(' ')}
                     disabled={disabled}
                     onClick={() => {
                       if (disabled) return;
@@ -450,10 +438,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
                   <button
                     key={btn.id}
                     type="button"
-                    className={[
-                      'cs-liquid-button',
-                      isPending ? 'cs-liquid-button--selected' : toneClass,
-                    ].join(' ')}
                     disabled={disabled}
                     onClick={() => {
                       if (disabled) return;

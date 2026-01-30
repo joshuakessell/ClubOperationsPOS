@@ -1,6 +1,7 @@
 import { t, type Language } from '../../i18n';
 import { KioskModal } from '../../views/KioskModal';
 import { KioskModalActions } from '../../views/KioskModalActions';
+import { Button } from '../ui/button';
 
 export interface IdScanBlockedModalProps {
   isOpen: boolean;
@@ -26,13 +27,9 @@ export function IdScanBlockedModal({
     <KioskModal isOpen={isOpen} title={t(customerPrimaryLanguage, titleKey)} onClose={onAcknowledge}>
       <p>{t(customerPrimaryLanguage, bodyKey)}</p>
       <KioskModalActions>
-        <button
-          className="cs-liquid-button ck-modal-btn"
-          onClick={onAcknowledge}
-          disabled={isSubmitting}
-        >
+        <Button onClick={onAcknowledge} disabled={isSubmitting}>
           {t(customerPrimaryLanguage, 'common.ok')}
-        </button>
+        </Button>
       </KioskModalActions>
     </KioskModal>
   );

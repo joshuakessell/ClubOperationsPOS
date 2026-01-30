@@ -537,7 +537,6 @@ export function InventorySelector({
 
         {!occupancyLookupMode && !disableSelection && selectedItem && onClearSelection && (
           <button
-            className="cs-liquid-button cs-liquid-button--secondary"
             onClick={onClearSelection}
             className="cs-liquid-button cs-liquid-button--secondary er-inv-clear-btn"
           >
@@ -693,7 +692,6 @@ export function InventorySelector({
               {occupancyDetails.customerId && onOpenCustomerAccount ? (
                 <button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
                   className="cs-liquid-button cs-liquid-button--secondary er-compact-pill"
                   onClick={() =>
                     onOpenCustomerAccount(

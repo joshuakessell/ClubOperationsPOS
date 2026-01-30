@@ -316,12 +316,6 @@ export function ManualCheckoutModal({
                           <button
                             key={c.occupancyId}
                             type="button"
-                            className={[
-                              'cs-liquid-button',
-                              selected
-                                ? 'cs-liquid-button--selected'
-                                : 'cs-liquid-button--secondary',
-                            ].join(' ')}
                             aria-pressed={selected}
                             onClick={() => {
                               setTypedNumber('');

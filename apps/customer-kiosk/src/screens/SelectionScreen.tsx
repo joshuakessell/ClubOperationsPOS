@@ -4,6 +4,7 @@ import { ScreenShell } from '../components/ScreenShell';
 import { KioskNoticeBanner } from '../views/KioskNoticeBanner';
 import { KioskOptionButton } from '../views/KioskOptionButton';
 import { PurchaseCard } from '../views/PurchaseCard';
+import { Badge } from '../components/ui/badge';
 import { getRentalDisplayName } from '../utils/display';
 import { getMembershipStatus, type SessionState } from '../utils/membership';
 
@@ -87,221 +88,198 @@ export function SelectionScreen({
 
   return (
     <I18nProvider lang={session.customerPrimaryLanguage}>
-      <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">
+      <ScreenShell title={t(lang, 'checkIn')} activeNav="checkin">
         {orientationOverlay}
         {welcomeOverlay}
-        <div className="active-content">
-          <main className="main-content">
-            <div className="customer-info">
-              <h1 className="customer-name">
-                {session.customerName
-                  ? t(session.customerPrimaryLanguage, 'selection.welcomeWithName', {
-                      name: session.customerName,
-                    })
-                  : t(session.customerPrimaryLanguage, 'welcome')}
-              </h1>
-            </div>
+        <div className="space-y-6">
+          <div className="flex flex-col gap-2">
+            <h2 className="text-3xl font-semibold">
+              {session.customerName
+                ? t(session.customerPrimaryLanguage, 'selection.welcomeWithName', {
+                    name: session.customerName,
+                  })
+                : t(session.customerPrimaryLanguage, 'welcome')}
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              {t(lang, 'selection.subtitle')}
+            </p>
+          </div>
 
-            {/* Defensive fallback: if language isn't selected yet, block interactions and instruct the customer. */}
-            {!session.customerPrimaryLanguage && (
-              <div className="past-due-block-message">
-                <p>{t('EN', 'selectLanguage')}</p>
-              </div>
-            )}
+          {!session.customerPrimaryLanguage && (
+            <KioskNoticeBanner tone="info" title={t('EN', 'selectLanguage')} />
+          )}
 
-            {/* Past-due block message */}
-            {session.pastDueBlocked && (
-              <div className="past-due-block-message">
-                <p>{t(session.customerPrimaryLanguage, 'pastDueBlocked')}</p>
-              </div>
-            )}
+          {session.pastDueBlocked && (
+            <KioskNoticeBanner tone="muted" title={t(session.customerPrimaryLanguage, 'pastDueBlocked')} />
+          )}
 
-            {/* Staff suggestion: membership */}
-            {highlightedMembershipChoice && !membershipChoice && (
-              <KioskNoticeBanner
-                tone="info"
-                title={
-                  <>
-                    {t(session.customerPrimaryLanguage, 'proposed')}:{' '}
-                    {t(
-                      session.customerPrimaryLanguage,
-                      highlightedMembershipChoice === 'ONE_TIME'
-                        ? 'membership.oneTimeOption'
-                        : 'membership.sixMonthOption'
-                    )}{' '}
-                    ({t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})
-                  </>
-                }
-              />
-            )}
+          {highlightedMembershipChoice && !membershipChoice && (
+            <KioskNoticeBanner
+              tone="info"
+              title={
+                <>
+                  {t(session.customerPrimaryLanguage, 'proposed')}:{' '}
+                  {t(
+                    session.customerPrimaryLanguage,
+                    highlightedMembershipChoice === 'ONE_TIME'
+                      ? 'membership.oneTimeOption'
+                      : 'membership.sixMonthOption'
+                  )}{' '}
+                  ({t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})
+                </>
+              }
+            />
+          )}
 
-            {/* Selection State Display */}
-            {proposedRentalType && (
-              <KioskNoticeBanner
-                tone={selectionTone}
-                title={
-                  selectionConfirmed
-                    ? `✓ ${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${selectionConfirmedBy === 'CUSTOMER' ? t(session.customerPrimaryLanguage, 'common.you') : t(session.customerPrimaryLanguage, 'common.staff')})`
-                    : proposedBy === 'EMPLOYEE'
-                      ? `${t(session.customerPrimaryLanguage, 'proposed')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})`
-                      : `${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'common.you')})`
-                }
-              />
-            )}
+          {proposedRentalType && (
+            <KioskNoticeBanner
+              tone={selectionTone}
+              title={
+                selectionConfirmed
+                  ? `✓ ${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${selectionConfirmedBy === 'CUSTOMER' ? t(session.customerPrimaryLanguage, 'common.you') : t(session.customerPrimaryLanguage, 'common.staff')})`
+                  : proposedBy === 'EMPLOYEE'
+                    ? `${t(session.customerPrimaryLanguage, 'proposed')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})`
+                    : `${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'common.you')})`
+              }
+            />
+          )}
 
-            <div className="purchase-cards">
-              {/* Membership card */}
-              <div className="ck-step-wrap">
-                {activeStep === 'MEMBERSHIP' && (
-                  <>
-                    <div className="ck-step-helper-text ck-glow-text">
-                      {t(lang, 'guidance.pleaseSelectOne')}
-                    </div>
-                    <div className="ck-arrow ck-arrow--step ck-arrow--bounce-x" aria-hidden="true">
-                      ▶
-                    </div>
-                  </>
-                )}
-                <PurchaseCard
-                  variant="membership"
-                  active={activeStep === 'MEMBERSHIP'}
-                  title={t(lang, 'membership')}
-                  status={isMember ? t(lang, 'membership.member') : t(lang, 'membership.nonMember')}
-                >
-                  {isMember ? (
-                    <>
-                      <p className="purchase-card__message">
-                        {t(lang, 'membership.thankYouMember')}
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="relative">
+              {activeStep === 'MEMBERSHIP' && (
+                <Badge className="absolute -top-3 left-6">
+                  {t(lang, 'common.step', { n: 1 })}
+                </Badge>
+              )}
+              <PurchaseCard
+                variant="membership"
+                active={activeStep === 'MEMBERSHIP'}
+                title={t(lang, 'membership')}
+                status={isMember ? t(lang, 'membership.member') : t(lang, 'membership.nonMember')}
+              >
+                {isMember ? (
+                  <div className="space-y-2 text-sm text-muted-foreground">
+                    <p>{t(lang, 'membership.thankYouMember')}</p>
+                    {session.membershipValidUntil && (
+                      <p>
+                        {t(lang, 'membership.expiresOn', {
+                          date: formatMembershipDate(session.membershipValidUntil, lang),
+                        })}
                       </p>
-                      {session.membershipValidUntil && (
-                        <p className="purchase-card__message">
-                          {t(lang, 'membership.expiresOn', {
-                            date: formatMembershipDate(session.membershipValidUntil, lang),
-                          })}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="membership-option-stack">
-                      <KioskOptionButton
-                        title={t(lang, 'membership.oneTimeOption')}
-                        selected={membershipChoice === 'ONE_TIME'}
-                        staffProposed={highlightedMembershipChoice === 'ONE_TIME'}
-                        highlight={highlightedMembershipChoice === 'ONE_TIME'}
-                        onClick={() => {
-                          if (!canInteract) return;
-                          onSelectOneTimeMembership();
-                        }}
-                        disabled={!canInteract}
-                      />
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <KioskOptionButton
+                      title={t(lang, 'membership.oneTimeOption')}
+                      selected={membershipChoice === 'ONE_TIME'}
+                      staffProposed={highlightedMembershipChoice === 'ONE_TIME'}
+                      highlight={highlightedMembershipChoice === 'ONE_TIME'}
+                      onClick={() => {
+                        if (!canInteract) return;
+                        onSelectOneTimeMembership();
+                      }}
+                      disabled={!canInteract}
+                    />
 
-                      <KioskOptionButton
-                        title={t(lang, 'membership.sixMonthOption')}
-                        selected={membershipChoice === 'SIX_MONTH'}
-                        staffProposed={highlightedMembershipChoice === 'SIX_MONTH'}
-                        highlight={highlightedMembershipChoice === 'SIX_MONTH'}
-                        onClick={() => {
-                          if (!canInteract) return;
-                          onSelectSixMonthMembership();
-                        }}
-                        disabled={!canInteract}
-                      />
-                    </div>
-                  )}
-                </PurchaseCard>
-              </div>
-
-              {/* Rental card */}
-              <div className="ck-step-wrap">
-                {activeStep === 'RENTAL' && (
-                  <>
-                    <div className="ck-step-helper-text ck-glow-text">
-                      {t(lang, 'guidance.pleaseSelectOne')}
-                    </div>
-                    <div className="ck-arrow ck-arrow--step ck-arrow--bounce-x" aria-hidden="true">
-                      ▶
-                    </div>
-                  </>
+                    <KioskOptionButton
+                      title={t(lang, 'membership.sixMonthOption')}
+                      selected={membershipChoice === 'SIX_MONTH'}
+                      staffProposed={highlightedMembershipChoice === 'SIX_MONTH'}
+                      highlight={highlightedMembershipChoice === 'SIX_MONTH'}
+                      onClick={() => {
+                        if (!canInteract) return;
+                        onSelectSixMonthMembership();
+                      }}
+                      disabled={!canInteract}
+                    />
+                  </div>
                 )}
-                <PurchaseCard
-                  variant="rental"
-                  active={activeStep === 'RENTAL'}
-                  title={t(lang, 'rental.title')}
-                >
-                  {rentalsToShow.length > 0 ? (
-                    <div className="rental-grid">
-                      {rentalsToShow.map((rental) => {
-                        const availableCount =
-                          inventory?.rooms?.[rental] ??
-                          (rental === 'LOCKER' || rental === 'GYM_LOCKER'
-                            ? inventory?.lockers
-                            : undefined);
-                        const showWarning =
-                          typeof availableCount === 'number' &&
-                          availableCount > 0 &&
-                          availableCount <= 5;
-                        const isUnavailable = availableCount === 0;
-                        const isDisabled =
-                          !session.customerPrimaryLanguage ||
-                          session.pastDueBlocked ||
-                          (isNonMember && !membershipChoice) ||
-                          selectionConfirmed;
-                        // Show the customer's chosen rental as selected even while waiting for attendant approval,
-                        // so the UI gives immediate visual feedback before/under the pending overlay.
-                        const isSelected =
-                          proposedRentalType === rental &&
-                          (selectionConfirmed || proposedBy === 'CUSTOMER');
-                        const isStaffProposed =
-                          proposedBy === 'EMPLOYEE' &&
-                          proposedRentalType === rental &&
-                          !selectionConfirmed &&
-                          prereqsSatisfied;
-                        const isPulsing = isStaffProposed;
-                        const isForced =
-                          selectedRental === rental &&
-                          selectionConfirmed &&
-                          selectionConfirmedBy === 'EMPLOYEE';
-
-                        const displayName = getRentalDisplayName(rental, lang);
-                        const span2 =
-                          rental === 'LOCKER' || rental === 'GYM_LOCKER' || rental === 'STANDARD';
-                        const subtext =
-                          showWarning && !isUnavailable && typeof availableCount === 'number'
-                            ? t(lang, 'availability.onlyAvailable', { count: availableCount })
-                            : isUnavailable && typeof availableCount === 'number'
-                              ? t(lang, 'availability.joinWaitlist')
-                              : null;
-
-                        return (
-                          <KioskOptionButton
-                            key={rental}
-                            span={span2 ? 2 : 1}
-                            selected={isSelected}
-                            staffProposed={isStaffProposed}
-                            disabled={isDisabled}
-                            disabledStyle={isDisabled}
-                            pulse={isPulsing}
-                            stacked={true}
-                            data-forced={isForced}
-                            onClick={() => {
-                              if (isDisabled) return;
-                              void onSelectRental(rental);
-                            }}
-                            title={displayName}
-                            subtext={subtext}
-                          />
-                        );
-                      })}
-                    </div>
-                  ) : (
-                    <div className="cs-liquid-button cs-liquid-button--disabled">
-                      {t(lang, 'noOptionsAvailable')}
-                    </div>
-                  )}
-                </PurchaseCard>
-              </div>
+              </PurchaseCard>
             </div>
-          </main>
+
+            <div className="relative">
+              {activeStep === 'RENTAL' && (
+                <Badge className="absolute -top-3 left-6">
+                  {t(lang, 'common.step', { n: 2 })}
+                </Badge>
+              )}
+              <PurchaseCard
+                variant="rental"
+                active={activeStep === 'RENTAL'}
+                title={t(lang, 'rental.title')}
+              >
+                {rentalsToShow.length > 0 ? (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    {rentalsToShow.map((rental) => {
+                      const availableCount =
+                        inventory?.rooms?.[rental] ??
+                        (rental === 'LOCKER' || rental === 'GYM_LOCKER'
+                          ? inventory?.lockers
+                          : undefined);
+                      const showWarning =
+                        typeof availableCount === 'number' &&
+                        availableCount > 0 &&
+                        availableCount <= 5;
+                      const isUnavailable = availableCount === 0;
+                      const isDisabled =
+                        !session.customerPrimaryLanguage ||
+                        session.pastDueBlocked ||
+                        (isNonMember && !membershipChoice) ||
+                        selectionConfirmed;
+                      const isSelected =
+                        proposedRentalType === rental &&
+                        (selectionConfirmed || proposedBy === 'CUSTOMER');
+                      const isStaffProposed =
+                        proposedBy === 'EMPLOYEE' &&
+                        proposedRentalType === rental &&
+                        !selectionConfirmed &&
+                        prereqsSatisfied;
+                      const isPulsing = isStaffProposed;
+                      const isForced =
+                        selectedRental === rental &&
+                        selectionConfirmed &&
+                        selectionConfirmedBy === 'EMPLOYEE';
+
+                      const displayName = getRentalDisplayName(rental, lang);
+                      const span2 =
+                        rental === 'LOCKER' || rental === 'GYM_LOCKER' || rental === 'STANDARD';
+                      const subtext =
+                        showWarning && !isUnavailable && typeof availableCount === 'number'
+                          ? t(lang, 'availability.onlyAvailable', { count: availableCount })
+                          : isUnavailable && typeof availableCount === 'number'
+                            ? t(lang, 'availability.joinWaitlist')
+                            : null;
+
+                      return (
+                        <KioskOptionButton
+                          key={rental}
+                          span={span2 ? 2 : 1}
+                          selected={isSelected}
+                          staffProposed={isStaffProposed}
+                          disabled={isDisabled}
+                          disabledStyle={isDisabled}
+                          pulse={isPulsing}
+                          stacked={true}
+                          data-forced={isForced}
+                          onClick={() => {
+                            if (isDisabled) return;
+                            void onSelectRental(rental);
+                          }}
+                          title={displayName}
+                          subtext={subtext}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+                    {t(lang, 'noOptionsAvailable')}
+                  </div>
+                )}
+              </PurchaseCard>
+            </div>
+          </div>
         </div>
       </ScreenShell>
     </I18nProvider>

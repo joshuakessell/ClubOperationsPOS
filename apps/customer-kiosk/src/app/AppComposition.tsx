@@ -101,6 +101,7 @@ export function AppComposition() {
         <IdleScreen
           customerPrimaryLanguage={session.customerPrimaryLanguage}
           orientationOverlay={orientationOverlay}
+          inventory={inventory}
         />
       );
       break;

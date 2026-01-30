@@ -1,5 +1,6 @@
 import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import './KioskOptionButton.css';
+import { cn } from '../lib/utils';
+import { Button } from '../components/ui/button';
 
 export interface KioskOptionButtonProps extends Omit<
   ButtonHTMLAttributes<HTMLButtonElement>,
@@ -34,31 +35,41 @@ export function KioskOptionButton({
   ...rest
 }: KioskOptionButtonProps) {
   const showStack = stacked || Boolean(subtext) || Boolean(price);
-  const classes = [
-    'cs-liquid-button',
-    'kiosk-option-button',
-    span === 2 ? 'span-2' : '',
-    selected ? 'cs-liquid-button--selected' : '',
-    staffProposed ? 'cs-liquid-button--staff-proposed' : '',
-    disabledStyle ? 'cs-liquid-button--disabled' : '',
-    highlight ? 'ck-option-highlight' : '',
-    pulse ? 'pulse-bright' : '',
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const tone = selected
+    ? 'bg-primary text-primary-foreground border-transparent shadow-soft'
+    : staffProposed
+      ? 'border-primary/40 bg-primary/10 text-foreground'
+      : 'border-border bg-card/90 text-foreground';
 
   return (
-    <button className={classes} disabled={disabled} {...rest}>
+    <Button
+      variant="outline"
+      className={cn(
+        'h-auto min-h-[92px] w-full rounded-2xl border px-5 py-4 text-center text-base font-semibold transition-all',
+        'hover:-translate-y-0.5 hover:shadow-soft',
+        span === 2 ? 'md:col-span-2' : '',
+        tone,
+        highlight ? 'ring-2 ring-primary/50 ring-offset-2 ring-offset-background' : '',
+        pulse ? 'animate-pulse-soft' : '',
+        disabledStyle ? 'opacity-60' : '',
+        className
+      )}
+      disabled={disabled}
+      aria-pressed={selected}
+      data-selected={selected ? 'true' : 'false'}
+      {...rest}
+    >
       {showStack ? (
-        <div className="kiosk-option-stack">
-          <span className="kiosk-option-title">{title}</span>
-          {subtext ? <span className="kiosk-option-subtext">{subtext}</span> : null}
-          {price ? <span className="kiosk-option-price">{price}</span> : null}
+        <div className="flex flex-col items-center gap-1">
+          <span className="text-lg font-semibold leading-tight">{title}</span>
+          {subtext ? (
+            <span className="text-sm text-muted-foreground/90">{subtext}</span>
+          ) : null}
+          {price ? <span className="text-xl font-extrabold">{price}</span> : null}
         </div>
       ) : (
-        <span className="kiosk-option-title">{title}</span>
+        <span className="text-lg font-semibold">{title}</span>
       )}
-    </button>
+    </Button>
   );
 }

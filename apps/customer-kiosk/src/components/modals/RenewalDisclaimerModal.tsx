@@ -1,6 +1,7 @@
 import { t, type Language } from '../../i18n';
 import { KioskModal } from '../../views/KioskModal';
 import { KioskModalActions } from '../../views/KioskModalActions';
+import { Button } from '../ui/button';
 
 export interface RenewalDisclaimerModalProps {
   isOpen: boolean;
@@ -25,7 +26,7 @@ export function RenewalDisclaimerModal({
       title={t(customerPrimaryLanguage, 'renewal.title')}
       onClose={onClose}
     >
-      <ul className="ck-modal-list">
+      <ul className="space-y-2 text-sm text-muted-foreground">
         <li>
           {t(customerPrimaryLanguage, 'renewal.bullet.extendsStay')}
           {blockEndsAt && (
@@ -37,20 +38,16 @@ export function RenewalDisclaimerModal({
             </span>
           )}
         </li>
-        <li className="ck-modal-list__warning">
+        <li className="font-semibold text-amber-600">
           {t(customerPrimaryLanguage, 'renewal.bullet.approachingMax')}
         </li>
         <li>{t(customerPrimaryLanguage, 'renewal.bullet.finalExtension')}</li>
         <li>{t(customerPrimaryLanguage, 'renewal.bullet.feeNotChargedNow')}</li>
       </ul>
       <KioskModalActions>
-        <button
-          className="cs-liquid-button ck-modal-btn"
-          onClick={() => void onProceed()}
-          disabled={isSubmitting}
-        >
+        <Button onClick={() => void onProceed()} disabled={isSubmitting}>
           {t(customerPrimaryLanguage, 'common.ok')}
-        </button>
+        </Button>
       </KioskModalActions>
     </KioskModal>
   );

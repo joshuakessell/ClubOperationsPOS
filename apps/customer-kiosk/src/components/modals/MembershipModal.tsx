@@ -1,6 +1,7 @@
 import { t, type Language } from '../../i18n';
 import { KioskModal } from '../../views/KioskModal';
 import { KioskModalActions } from '../../views/KioskModalActions';
+import { Button } from '../ui/button';
 
 export interface MembershipModalProps {
   isOpen: boolean;
@@ -31,20 +32,12 @@ export function MembershipModal({
           : t(customerPrimaryLanguage, 'membership.modal.body.renew')}
       </p>
       <KioskModalActions>
-        <button
-          className="cs-liquid-button ck-modal-btn"
-          onClick={() => void onContinue()}
-          disabled={isSubmitting}
-        >
+        <Button onClick={() => void onContinue()} disabled={isSubmitting}>
           {t(customerPrimaryLanguage, 'common.continue')}
-        </button>
-        <button
-          className="cs-liquid-button cs-liquid-button--secondary ck-modal-btn"
-          onClick={onClose}
-          disabled={isSubmitting}
-        >
+        </Button>
+        <Button variant="secondary" onClick={onClose} disabled={isSubmitting}>
           {t(customerPrimaryLanguage, 'common.cancel')}
-        </button>
+        </Button>
       </KioskModalActions>
     </KioskModal>
   );

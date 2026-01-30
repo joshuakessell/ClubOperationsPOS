@@ -4,10 +4,10 @@ type FatalEnvScreenProps = {
 
 export function FatalEnvScreen({ message }: FatalEnvScreenProps) {
   return (
-    <div className="u-font-sans u-p-24 u-max-w-720">
-      <h1 className="u-mt-0 u-text-22">Fatal configuration error</h1>
-      <p className="u-mt-12 u-leading-relaxed">{message}</p>
-      <pre className="u-mt-12 u-p-12 u-bg-ink u-text-white u-radius-8">
+    <div className="max-w-2xl p-10 font-sans">
+      <h1 className="text-2xl font-semibold">Fatal configuration error</h1>
+      <p className="mt-4 text-sm text-muted-foreground">{message}</p>
+      <pre className="mt-6 rounded-2xl bg-slate-900 p-4 text-xs text-white">
         {'Required: VITE_KIOSK_TOKEN\nFix: set it in your .env / env vars and restart dev server.'}
       </pre>
     </div>

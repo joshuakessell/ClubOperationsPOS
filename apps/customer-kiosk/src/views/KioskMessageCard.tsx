@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
-import './KioskMessageCard.css';
+import { cn } from '../lib/utils';
+import { Card } from '../components/ui/card';
 
 type MessageCardTone = 'glass' | 'muted';
 type MessageCardSize = 'compact' | 'wide';
@@ -23,35 +24,26 @@ export function KioskMessageCard({
   titleClassName,
   bodyClassName,
 }: KioskMessageCardProps) {
-  const surfaceClasses = 'cs-liquid-card';
-  const classes = [
-    'ck-message-card',
-    `ck-message-card--${tone}`,
-    `ck-message-card--${size}`,
-    surfaceClasses,
-    className,
-  ]
-    .filter(Boolean)
-    .join(' ');
+  const toneClasses =
+    tone === 'glass'
+      ? 'glass-panel border-white/40'
+      : 'bg-muted/70 border-muted text-muted-foreground';
+  const sizeClasses = size === 'compact' ? 'px-5 py-4' : 'px-8 py-6';
+  const titleClasses = size === 'compact' ? 'text-lg' : 'text-2xl';
+  const bodyClasses = size === 'compact' ? 'text-sm' : 'text-base';
 
   return (
-    <div className={classes}>
+    <Card className={cn('shadow-soft', toneClasses, sizeClasses, className)}>
       <div
-        className={['ck-message-title', `ck-message-title--${size}`, titleClassName]
-          .filter(Boolean)
-          .join(' ')}
+        className={cn('font-semibold text-foreground', titleClasses, titleClassName)}
       >
         {title}
       </div>
       {body ? (
-        <div
-          className={['ck-message-body', `ck-message-body--${size}`, bodyClassName]
-            .filter(Boolean)
-            .join(' ')}
-        >
+        <div className={cn('mt-2 text-foreground/80', bodyClasses, bodyClassName)}>
           {body}
         </div>
       ) : null}
-    </div>
+    </Card>
   );
 }

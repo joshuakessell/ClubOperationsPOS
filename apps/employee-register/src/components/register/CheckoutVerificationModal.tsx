@@ -110,7 +110,6 @@ export function CheckoutVerificationModal({
               {canOpenCustomer ? (
                 <button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
                   onClick={() => onOpenCustomerAccount?.(request.customerId!, request.customerName)}
                   className="cs-liquid-button cs-liquid-button--secondary er-compact-pill"
                   title="Open Customer Account"

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import './KioskModal.css';
+import { cn } from '../lib/utils';
 
 export interface KioskModalActionsProps {
   children: ReactNode;
@@ -7,7 +7,5 @@ export interface KioskModalActionsProps {
 }
 
 export function KioskModalActions({ children, className }: KioskModalActionsProps) {
-  return (
-    <div className={['ck-modal-actions', className].filter(Boolean).join(' ')}>{children}</div>
-  );
+  return <div className={cn('mt-4 flex flex-col gap-3 sm:flex-row', className)}>{children}</div>;
 }

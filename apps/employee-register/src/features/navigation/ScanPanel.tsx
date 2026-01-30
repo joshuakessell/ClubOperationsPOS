@@ -47,7 +47,6 @@ export function ScanPanel() {
           </div>
           <button
             type="button"
-            className="cs-liquid-button"
             onClick={() => selectHomeTab('account')}
             className="cs-liquid-button er-scan-action-btn"
           >

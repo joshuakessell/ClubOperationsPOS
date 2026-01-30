@@ -1,6 +1,7 @@
 import { t, type Language } from '../../i18n';
 import { KioskModal } from '../../views/KioskModal';
 import { KioskModalActions } from '../../views/KioskModalActions';
+import { Button } from '../ui/button';
 
 export interface UpgradeDisclaimerModalProps {
   isOpen: boolean;
@@ -26,22 +27,18 @@ export function UpgradeDisclaimerModal({
       <p>
         <strong>{t(customerPrimaryLanguage, 'upgrade.title')}</strong>
       </p>
-      <ul className="ck-modal-list ck-modal-list--spaced">
+      <ul className="mt-3 space-y-2 text-sm text-muted-foreground">
         <li>{t(customerPrimaryLanguage, 'upgrade.bullet.feesApplyToRemaining')}</li>
         <li>{t(customerPrimaryLanguage, 'upgrade.bullet.noExtension')}</li>
-        <li className="ck-modal-list__danger">
+        <li className="font-semibold text-rose-600">
           {t(customerPrimaryLanguage, 'upgrade.bullet.noRefunds')}
         </li>
         <li>{t(customerPrimaryLanguage, 'upgrade.bullet.chargedWhenAccepted')}</li>
       </ul>
       <KioskModalActions>
-        <button
-          className="cs-liquid-button ck-modal-btn"
-          onClick={() => void onAcknowledge()}
-          disabled={isSubmitting}
-        >
+        <Button onClick={() => void onAcknowledge()} disabled={isSubmitting}>
           {t(customerPrimaryLanguage, 'common.ok')}
-        </button>
+        </Button>
       </KioskModalActions>
     </KioskModal>
   );

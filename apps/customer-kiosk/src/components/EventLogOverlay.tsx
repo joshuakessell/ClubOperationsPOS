@@ -1,5 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { LogEvent, onEvent } from '../lib/eventBus';
+import { cn } from '../lib/utils';
 
 const MAX_EVENTS = 500;
 
@@ -62,76 +63,87 @@ export default function EventLogOverlay() {
   if (!show) return null;
 
   return (
-    <div className="cs-event-log">
-      <div className="cs-event-log__header">
-        <strong>Event Log</strong>
-        <div className="cs-event-log__controls">
+    <div className="fixed inset-6 z-50 flex flex-col rounded-3xl border border-white/10 bg-slate-950/90 text-white shadow-soft">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+        <strong className="text-lg">Event Log</strong>
+        <div className="flex flex-wrap items-center gap-2 text-xs">
           <input
             placeholder="Search…"
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            className="cs-event-log__input"
+            className="h-9 w-40 rounded-full border border-white/10 bg-white/5 px-3 text-white placeholder:text-white/40 focus:outline-none"
           />
-          <label className="cs-event-log__pill">
+          <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
             <input
               type="checkbox"
               checked={filterWSIn}
               onChange={(e) => setFilterWSIn(e.target.checked)}
-            />{' '}
+            />
             WS In
           </label>
-          <label className="cs-event-log__pill">
+          <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
             <input
               type="checkbox"
               checked={filterWSOut}
               onChange={(e) => setFilterWSOut(e.target.checked)}
-            />{' '}
+            />
             WS Out
           </label>
-          <label className="cs-event-log__pill">
+          <label className="flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1">
             <input
               type="checkbox"
               checked={filterDB}
               onChange={(e) => setFilterDB(e.target.checked)}
-            />{' '}
+            />
             DB
           </label>
-          <button onClick={() => setPaused((p) => !p)} className="cs-event-log__button">
+          <button
+            onClick={() => setPaused((p) => !p)}
+            className="rounded-full border border-white/10 bg-white/10 px-3 py-1"
+          >
             {paused ? 'Resume' : 'Pause'}
           </button>
           <button
             onClick={() => void navigator.clipboard.writeText(JSON.stringify(filtered, null, 2))}
-            className="cs-event-log__button"
+            className="rounded-full border border-white/10 bg-white/10 px-3 py-1"
           >
             Copy
           </button>
-          <button onClick={() => setEvents([])} className="cs-event-log__button">
+          <button
+            onClick={() => setEvents([])}
+            className="rounded-full border border-white/10 bg-white/10 px-3 py-1"
+          >
             Clear
           </button>
-          <button onClick={() => setShow(false)} className="cs-event-log__button">
+          <button
+            onClick={() => setShow(false)}
+            className="rounded-full border border-white/10 bg-white/10 px-3 py-1"
+          >
             Hide
           </button>
         </div>
       </div>
 
-      <div className="cs-event-log__list">
+      <div className="flex-1 overflow-y-auto p-4 text-sm">
         {filtered.map((e) => (
           <div
             key={e.id}
-            className="cs-event-log__row"
-            style={{ '--event-color': colorFor(e.kind) } as React.CSSProperties}
+            className={cn(
+              'mb-3 rounded-2xl border border-white/10 bg-white/5 p-3',
+              colorFor(e.kind)
+            )}
           >
-            <div className="cs-event-log__row-top">
-              <span className="cs-event-log__tag">{e.kind}</span>
-              <span className="cs-event-log__meta">
-                {new Date(e.ts).toLocaleTimeString()}
-              </span>
-              {e.channel && <span className="cs-event-log__meta">· {e.channel}</span>}
-              <strong>· {e.title}</strong>
+            <div className="flex flex-wrap items-center gap-2 text-xs uppercase tracking-wide">
+              <span className="rounded-full border border-current px-2 py-0.5">{e.kind}</span>
+              <span className="text-white/60">{new Date(e.ts).toLocaleTimeString()}</span>
+              {e.channel && <span className="text-white/60">· {e.channel}</span>}
+              <strong className="text-white">· {e.title}</strong>
             </div>
 
             {e.payload !== undefined && (
-              <pre className="cs-event-log__payload">{safeStringify(e.payload)}</pre>
+              <pre className="mt-2 whitespace-pre-wrap text-xs text-white/70">
+                {safeStringify(e.payload)}
+              </pre>
             )}
           </div>
         ))}
@@ -142,9 +154,9 @@ export default function EventLogOverlay() {
 }
 
 function colorFor(k: LogEvent['kind']) {
-  if (k === 'ws-in') return '#79ffa1';
-  if (k === 'ws-out') return '#7db3ff';
-  return '#ffd279';
+  if (k === 'ws-in') return 'text-emerald-300';
+  if (k === 'ws-out') return 'text-sky-300';
+  return 'text-amber-300';
 }
 
 function safeStringify(v: unknown) {

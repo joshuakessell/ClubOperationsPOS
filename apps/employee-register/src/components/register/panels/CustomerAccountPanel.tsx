@@ -175,7 +175,6 @@ export function CustomerAccountPanel(props: {
                 >
                   <button
                     type="button"
-                    className="cs-liquid-button"
                     onClick={() =>
                       props.onStartCheckout({ number: state.activeCheckin.assignedResourceNumber })
                     }
@@ -186,7 +185,6 @@ export function CustomerAccountPanel(props: {
                   {showRenewal && props.onStartRenewal ? (
                     <button
                       type="button"
-                      className="cs-liquid-button cs-liquid-button--secondary"
                       onClick={() => props.onStartRenewal?.(state.activeCheckin)}
                       className="cs-liquid-button cs-liquid-button--secondary er-account-action-btn"
                     >
@@ -247,7 +245,6 @@ export function CustomerAccountPanel(props: {
                   props.checkinStage ? (
                     <button
                       type="button"
-                      className="cs-liquid-button cs-liquid-button--danger"
                       onClick={props.onClearSession}
                       className="cs-liquid-button cs-liquid-button--danger er-account-action-btn er-account-action-btn--wide"
                     >

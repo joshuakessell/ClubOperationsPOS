@@ -68,7 +68,6 @@ export function PastDuePaymentModal({
         <button
           onClick={() => onPayInSquare('CREDIT_SUCCESS')}
           disabled={isSubmitting}
-          className="cs-liquid-button"
           className="cs-liquid-button er-modal-button"
         >
           Credit Success
@@ -76,7 +75,6 @@ export function PastDuePaymentModal({
         <button
           onClick={() => onPayInSquare('CASH_SUCCESS')}
           disabled={isSubmitting}
-          className="cs-liquid-button"
           className="cs-liquid-button er-modal-button"
         >
           Cash Success
@@ -84,7 +82,6 @@ export function PastDuePaymentModal({
         <button
           onClick={() => onPayInSquare('CREDIT_DECLINE', 'Card declined')}
           disabled={isSubmitting}
-          className="cs-liquid-button cs-liquid-button--danger"
           className="cs-liquid-button cs-liquid-button--danger er-modal-button"
         >
           Credit Decline
@@ -92,7 +89,6 @@ export function PastDuePaymentModal({
         <button
           onClick={onManagerBypass}
           disabled={isSubmitting}
-          className="cs-liquid-button cs-liquid-button--secondary"
           className="cs-liquid-button cs-liquid-button--secondary er-modal-button"
         >
           Manager Bypass

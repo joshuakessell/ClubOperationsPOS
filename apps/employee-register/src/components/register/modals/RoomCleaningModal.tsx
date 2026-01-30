@@ -165,10 +165,6 @@ export function RoomCleaningModal({
                     <button
                       key={r.id}
                       type="button"
-                      className={[
-                        'cs-liquid-button',
-                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                      ].join(' ')}
                       aria-pressed={selected}
                       disabled={disabled}
                       onClick={() => toggleRoom(r.id, 'DIRTY')}
@@ -204,10 +200,6 @@ export function RoomCleaningModal({
                     <button
                       key={r.id}
                       type="button"
-                      className={[
-                        'cs-liquid-button',
-                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                      ].join(' ')}
                       aria-pressed={selected}
                       disabled={disabled}
                       onClick={() => toggleRoom(r.id, 'CLEANING')}

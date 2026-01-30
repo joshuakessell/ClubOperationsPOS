@@ -2,17 +2,8 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { installTelemetry, setCurrentRouteProvider, TelemetryErrorBoundary } from '@club-ops/ui';
 import App from './App';
-import '@club-ops/ui/styles/index.css';
-import './styles.base.css';
-import './styles.animations.css';
-import './styles.state.css';
-import './styles.layout.css';
-import './styles.flow.css';
-import './styles.agreement.css';
-import './styles.overlays.css';
-import './styles.screens.css';
+import './styles/globals.css';
 import { OrientationGuard } from './ui/orientation/OrientationGuard';
-import './ui/orientation/orientation.css';
 import { FatalEnvScreen } from './components/FatalEnvScreen';
 import { getApiUrl } from '@club-ops/shared';
 
