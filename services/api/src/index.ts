@@ -138,8 +138,20 @@ async function main() {
     })();
   }, 60000);
 
-  // Periodic upgrade hold/offer processing (every 5 seconds)
-  const upgradeHoldInterval = setInterval(() => {
+// Helper: DB is configured only if SKIP_DB is not true and we have DATABASE_URL or all DB_* vars.
+const isDbConfigured = () => {
+  if (process.env.SKIP_DB === 'true') return false;
+  if ((process.env.DATABASE_URL ?? '').trim()) return true;
+
+  const required = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'] as const;
+  return required.every((k) => (process.env[k] ?? '').trim());
+};
+
+// Periodic upgrade hold/offer processing (every 5 seconds)
+let upgradeHoldInterval: NodeJS.Timeout | undefined;
+
+if (isDbConfigured()) {
+  upgradeHoldInterval = setInterval(() => {
     void (async () => {
       try {
         const { expired, held } = await processUpgradeHoldsTick(fastify);
@@ -151,6 +163,9 @@ async function main() {
       }
     })();
   }, 5000);
+} else {
+  fastify.log.warn('DB not configured (or SKIP_DB=true); skipping upgrade hold processing.');
+}
 
   // Register routes
   await fastify.register(healthRoutes);
