@@ -54,24 +54,25 @@ jobs:
           APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
           KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          DB_HOST: ${{ secrets.DB_HOST }},
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD}}
           SKIP_DB: "true"
         run: scripts/aws/deploy-api.sh
 
       - name: Deploy employee-register
         env:
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_KIOSK_TOKEN: ${{ secrets.VITE_KIOSK_TOKEN }}
-          EMPLOYEE_BUCKET: ${{ secrets.EMPLOYEE_BUCKET }}
-          EMPLOYEE_DISTRIBUTION_ID: ${{ secrets.EMPLOYEE_DISTRIBUTION_ID }}
+          VITE_KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
+          EMPLOYEE_BUCKET: ${{ vars.EMPLOYEE_BUCKET }}
+          EMPLOYEE_DISTRIBUTION_ID: ${{ vars.EMPLOYEE_DISTRIBUTION_ID }}
         run: scripts/aws/deploy-employee-register.sh
 
       - name: Deploy customer-kiosk
         env:
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_KIOSK_TOKEN: ${{ secrets.VITE_KIOSK_TOKEN }}
-          CUSTOMER_BUCKET: ${{ secrets.CUSTOMER_BUCKET }}
-          CUSTOMER_DISTRIBUTION_ID: ${{ secrets.CUSTOMER_DISTRIBUTION_ID }}
+          VITE_KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
+          CUSTOMER_BUCKET: ${{ vars.CUSTOMER_BUCKET }}
+          CUSTOMER_DISTRIBUTION_ID: ${{ vars.CUSTOMER_DISTRIBUTION_ID }}
         run: scripts/aws/deploy-customer-kiosk.sh
 
       - name: Deployment summary
