@@ -32,13 +32,21 @@ IMAGE_TAG_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
 IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG_SHA}"
 IMAGE_LATEST_TAG="${ECR_REPO_URI}:dev-latest"
 
-# DB config: prefer DATABASE_URL, otherwise require discrete DB_* vars
-if [[ -z "${DATABASE_URL:-}" ]]; then
+# DB config:
+# - If SKIP_DB=true, do not require DB vars
+# - Else prefer DATABASE_URL, otherwise require discrete DB_* vars
+if [[ "${SKIP_DB:-}" == "true" ]]; then
+  :
+elif [[ -z "${DATABASE_URL:-}" ]]; then
   required DB_HOST
   required DB_PORT
   required DB_NAME
   required DB_USER
   required DB_PASSWORD
+fi
+
+if [[ -n "${SKIP_DB:-}" ]]; then
+  runtime_env_vars+=("SKIP_DB=${SKIP_DB}")
 fi
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
