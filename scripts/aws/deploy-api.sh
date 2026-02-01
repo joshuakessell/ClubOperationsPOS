@@ -34,10 +34,10 @@ IMAGE_LATEST_TAG="${ECR_REPO_URI}:dev-latest"
 
 # DB config:
 # - If SKIP_DB=true, do not require DB vars
-# - Else prefer DATABASE_URL, otherwise require discrete DB_* vars
+# - Else prefer DB_HOST, otherwise require discrete DB_* vars
 if [[ "${SKIP_DB:-}" == "true" ]]; then
   :
-elif [[ -z "${DATABASE_URL:-}" ]]; then
+elif [[ -z "${DB_HOST:-}" ]]; then
   required DB_HOST
   required DB_PORT
   required DB_NAME
@@ -72,8 +72,8 @@ runtime_env_vars=(
   "KIOSK_TOKEN=${KIOSK_TOKEN}"
 )
 
-if [[ -n "${DATABASE_URL:-}" ]]; then
-  runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
+if [[ -n "${DB_HOST:-}" ]]; then
+  runtime_env_vars+=("DB_HOST=${DB_HOST}")
 else
   runtime_env_vars+=("DB_HOST=${DB_HOST}")
   runtime_env_vars+=("DB_PORT=${DB_PORT}")
