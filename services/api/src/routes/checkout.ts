@@ -10,7 +10,6 @@ declare module 'fastify' {
   }
 }
 
-
 /**
  * Checkout routes for customer-operated checkout kiosk and employee verification.
  */

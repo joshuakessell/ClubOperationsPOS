@@ -119,10 +119,22 @@ export function createMockStore(): MockStore {
     timeclockSessions: clone(shiftsFixture.timeclockSessions ?? []),
     breaks: clone(breaks),
     counters: {
-      customer: findNextSequence(customers.map((item) => item.externalId), 'mock-cust-'),
-      payment: findNextSequence(payments.map((item) => item.externalId), 'mock-pay-'),
-      refund: findNextSequence(refunds.map((item) => item.externalId), 'mock-refund-'),
-      order: findNextSequence(orders.map((item) => item.externalId), 'mock-order-'),
+      customer: findNextSequence(
+        customers.map((item) => item.externalId),
+        'mock-cust-'
+      ),
+      payment: findNextSequence(
+        payments.map((item) => item.externalId),
+        'mock-pay-'
+      ),
+      refund: findNextSequence(
+        refunds.map((item) => item.externalId),
+        'mock-refund-'
+      ),
+      order: findNextSequence(
+        orders.map((item) => item.externalId),
+        'mock-order-'
+      ),
     },
   };
 

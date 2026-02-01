@@ -12,13 +12,7 @@ type InventoryState = {
   lockers: number;
 } | null;
 
-export function useKioskInventory({
-  apiBase,
-  enabled,
-}: {
-  apiBase: string;
-  enabled: boolean;
-}) {
+export function useKioskInventory({ apiBase, enabled }: { apiBase: string; enabled: boolean }) {
   const [, setHealth] = useState<HealthStatus | null>(null);
   const [inventory, setInventory] = useState<InventoryState>(null);
 

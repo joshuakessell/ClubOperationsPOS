@@ -86,10 +86,7 @@ async function loadDemoState(): Promise<{
 } | null> {
   const res = await query<{
     value_json: { seedAnchorIso?: string; snapshotVersion?: number; lastShiftedIso?: string };
-  }>(
-    `SELECT value_json FROM demo_state WHERE key = $1`,
-    [DEMO_STATE_KEY]
-  );
+  }>(`SELECT value_json FROM demo_state WHERE key = $1`, [DEMO_STATE_KEY]);
   if (res.rows.length === 0) return null;
   const value = res.rows[0]!.value_json || {};
   if (!value.seedAnchorIso || typeof value.snapshotVersion !== 'number') return null;
@@ -173,9 +170,7 @@ async function shiftDemoTimestamps(client: DbClient, deltaMs: number): Promise<v
       [table]
     );
     if (cols.rows.length === 0) continue;
-    const assignments = cols.rows.map(
-      (c) => `${c.column_name} = ${c.column_name} + $1::interval`
-    );
+    const assignments = cols.rows.map((c) => `${c.column_name} = ${c.column_name} + $1::interval`);
     await client.query(`UPDATE public.${table} SET ${assignments.join(', ')}`, [interval]);
   }
 }

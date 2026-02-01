@@ -257,8 +257,7 @@ export function registerLaneSessionReducer(
 
       if (p.mode !== undefined) next.mode = p.mode ?? null;
       if (p.renewalHours !== undefined) {
-        next.renewalHours =
-          p.renewalHours === 2 || p.renewalHours === 6 ? p.renewalHours : null;
+        next.renewalHours = p.renewalHours === 2 || p.renewalHours === 6 ? p.renewalHours : null;
       }
       if (p.ledgerLineItems !== undefined) {
         next.ledgerLineItems = Array.isArray(p.ledgerLineItems) ? p.ledgerLineItems : [];

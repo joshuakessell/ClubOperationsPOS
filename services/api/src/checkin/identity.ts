@@ -366,7 +366,10 @@ export function passesFuzzyThresholds(score: {
   );
 }
 
-export function calculateAge(dob: Date | string | null, now: Date = new Date()): number | undefined {
+export function calculateAge(
+  dob: Date | string | null,
+  now: Date = new Date()
+): number | undefined {
   const d = toDate(dob);
   if (!d) {
     return undefined;

@@ -13,9 +13,7 @@ function getRenewalEligibility(activeCheckin: ActiveCheckinDetails | null) {
   }
   const checkoutAt = new Date(activeCheckin.checkoutAt);
   const totalHours =
-    typeof activeCheckin.currentTotalHours === 'number'
-      ? activeCheckin.currentTotalHours
-      : null;
+    typeof activeCheckin.currentTotalHours === 'number' ? activeCheckin.currentTotalHours : null;
   const diffMs = Math.abs(checkoutAt.getTime() - Date.now());
   const withinWindow = Number.isFinite(diffMs) && diffMs <= 60 * 60 * 1000;
   const allowTwoHour = withinWindow && totalHours !== null && totalHours + 2 <= 14;
@@ -31,8 +29,14 @@ export function RenewCheckinModal(props: {
   onClose: () => void;
   onSelectHours: (hours: 2 | 6) => void;
 }) {
-  const { isOpen, activeCheckin, errorMessage, isSubmitting = false, onClose, onSelectHours } =
-    props;
+  const {
+    isOpen,
+    activeCheckin,
+    errorMessage,
+    isSubmitting = false,
+    onClose,
+    onSelectHours,
+  } = props;
 
   const eligibility = getRenewalEligibility(activeCheckin);
   const totalHoursLabel =

@@ -123,7 +123,10 @@ async function run(direction: 'up' | 'down'): Promise<void> {
   const originalQuery = client.query.bind(client);
 
   client.query = ((queryTextOrConfig: string | QueryConfig, values?: unknown[]) =>
-    originalQuery(patchQueryText(queryTextOrConfig) as string | QueryConfig, values)) as typeof client.query;
+    originalQuery(
+      patchQueryText(queryTextOrConfig) as string | QueryConfig,
+      values
+    )) as typeof client.query;
 
   await client.connect();
 

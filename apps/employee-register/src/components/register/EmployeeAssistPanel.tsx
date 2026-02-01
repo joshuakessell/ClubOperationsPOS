@@ -344,29 +344,29 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
                   ].join(' ')}
                   disabled={isSubmitting}
                   onClick={() => {
-                      if (directSelect) {
+                    if (directSelect) {
+                      if (opt.id === 'ONE_TIME') {
+                        void onConfirmMembershipOneTime();
+                        return;
+                      }
+                      void onConfirmMembershipSixMonth();
+                      return;
+                    }
+                    runTwoStep(
+                      'MEMBERSHIP',
+                      opt.id,
+                      isPending,
+                      () => onHighlightMembership(opt.id),
+                      () => {
                         if (opt.id === 'ONE_TIME') {
                           void onConfirmMembershipOneTime();
                           return;
                         }
                         void onConfirmMembershipSixMonth();
-                        return;
-                      }
-                      runTwoStep(
-                        'MEMBERSHIP',
-                        opt.id,
-                        isPending,
-                        () => onHighlightMembership(opt.id),
-                        () => {
-                          if (opt.id === 'ONE_TIME') {
-                            void onConfirmMembershipOneTime();
-                            return;
-                          }
-                          void onConfirmMembershipSixMonth();
-                        },
-                        () => onHighlightMembership(null)
-                      );
-                    }}
+                      },
+                      () => onHighlightMembership(null)
+                    );
+                  }}
                   style={{ width: '100%', padding: '0.9rem 1rem', fontWeight: 900 }}
                 >
                   {opt.label}

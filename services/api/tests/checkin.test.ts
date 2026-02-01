@@ -751,6 +751,4 @@ describe('Check-in Flow', () => {
       })
     );
   });
-
-
 });

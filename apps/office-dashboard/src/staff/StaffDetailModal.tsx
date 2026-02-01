@@ -172,7 +172,8 @@ export function StaffDetailModal({
               padding: '0.75rem 1.5rem',
               background: activeTab === 'passkeys' ? '#374151' : 'transparent',
               border: 'none',
-              borderBottom: activeTab === 'passkeys' ? '2px solid #10b981' : '2px solid transparent',
+              borderBottom:
+                activeTab === 'passkeys' ? '2px solid #10b981' : '2px solid transparent',
               color: '#f9fafb',
               cursor: 'pointer',
               fontSize: '1rem',

@@ -72,74 +72,75 @@ export async function cashDrawerRoutes(fastify: FastifyInstance): Promise<void> 
    *
    * Open a cash drawer session for a register session.
    */
-  fastify.post(
-    '/v1/cash-drawers/open',
-    { preHandler: [requireAuth] },
-    async (request, reply) => {
-      if (!request.staff) return reply.status(401).send({ error: 'Unauthorized' });
+  fastify.post('/v1/cash-drawers/open', { preHandler: [requireAuth] }, async (request, reply) => {
+    if (!request.staff) return reply.status(401).send({ error: 'Unauthorized' });
 
-      let body: z.infer<typeof CashDrawerOpenSchema>;
-      try {
-        body = CashDrawerOpenSchema.parse(request.body);
-      } catch (error) {
-        return reply.status(400).send({
-          error: 'Validation failed',
-          details: error instanceof z.ZodError ? error.errors : 'Invalid input',
-        });
-      }
+    let body: z.infer<typeof CashDrawerOpenSchema>;
+    try {
+      body = CashDrawerOpenSchema.parse(request.body);
+    } catch (error) {
+      return reply.status(400).send({
+        error: 'Validation failed',
+        details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+      });
+    }
 
-      try {
-        const session = await transaction(async (client) => {
-          const registerResult = await client.query<{ id: string; signed_out_at: Date | null }>(
-            `SELECT id, signed_out_at
+    try {
+      const session = await transaction(async (client) => {
+        const registerResult = await client.query<{ id: string; signed_out_at: Date | null }>(
+          `SELECT id, signed_out_at
              FROM register_sessions
              WHERE id = $1`,
-            [body.registerSessionId]
-          );
-          if (registerResult.rows.length === 0) {
-            throw { statusCode: 404, message: 'Register session not found' };
-          }
+          [body.registerSessionId]
+        );
+        if (registerResult.rows.length === 0) {
+          throw { statusCode: 404, message: 'Register session not found' };
+        }
 
-          const activeDrawer = await client.query<{ id: string }>(
-            `SELECT id FROM cash_drawer_sessions
+        const activeDrawer = await client.query<{ id: string }>(
+          `SELECT id FROM cash_drawer_sessions
              WHERE register_session_id = $1 AND status = 'OPEN'
              LIMIT 1`,
-            [body.registerSessionId]
-          );
-          if (activeDrawer.rows.length > 0) {
-            throw { statusCode: 409, message: 'Cash drawer session already open' };
-          }
+          [body.registerSessionId]
+        );
+        if (activeDrawer.rows.length > 0) {
+          throw { statusCode: 409, message: 'Cash drawer session already open' };
+        }
 
-          const insertResult = await client.query<CashDrawerSessionRow>(
-            `INSERT INTO cash_drawer_sessions
+        const insertResult = await client.query<CashDrawerSessionRow>(
+          `INSERT INTO cash_drawer_sessions
              (register_session_id, opened_by_staff_id, opening_float_cents, notes, status)
              VALUES ($1, $2, $3, $4, 'OPEN')
              RETURNING *`,
-            [body.registerSessionId, request.staff!.staffId, body.openingFloatCents, body.notes || null]
-          );
+          [
+            body.registerSessionId,
+            request.staff!.staffId,
+            body.openingFloatCents,
+            body.notes || null,
+          ]
+        );
 
-          return insertResult.rows[0]!;
-        });
+        return insertResult.rows[0]!;
+      });
 
-        return reply.send({
-          sessionId: session.id,
-          registerSessionId: session.register_session_id,
-          openedByStaffId: session.opened_by_staff_id,
-          openedAt: session.opened_at.toISOString(),
-          openingFloatCents: session.opening_float_cents,
-          status: session.status,
-          notes: session.notes,
-        });
-      } catch (error) {
-        if (error && typeof error === 'object' && 'statusCode' in error) {
-          const err = error as { statusCode: number; message?: string };
-          return reply.status(err.statusCode).send({ error: err.message || 'Request failed' });
-        }
-        request.log.error(error, 'Failed to open cash drawer session');
-        return reply.status(500).send({ error: 'Internal server error' });
+      return reply.send({
+        sessionId: session.id,
+        registerSessionId: session.register_session_id,
+        openedByStaffId: session.opened_by_staff_id,
+        openedAt: session.opened_at.toISOString(),
+        openingFloatCents: session.opening_float_cents,
+        status: session.status,
+        notes: session.notes,
+      });
+    } catch (error) {
+      if (error && typeof error === 'object' && 'statusCode' in error) {
+        const err = error as { statusCode: number; message?: string };
+        return reply.status(err.statusCode).send({ error: err.message || 'Request failed' });
       }
+      request.log.error(error, 'Failed to open cash drawer session');
+      return reply.status(500).send({ error: 'Internal server error' });
     }
-  );
+  });
 
   /**
    * POST /v1/cash-drawers/:sessionId/events
@@ -260,7 +261,10 @@ export async function cashDrawerRoutes(fastify: FastifyInstance): Promise<void> 
 
           const sumByType = new Map<string, number>();
           for (const row of sums.rows) {
-            const amount = typeof row.amount_cents === 'number' ? row.amount_cents : Number(row.amount_cents ?? 0);
+            const amount =
+              typeof row.amount_cents === 'number'
+                ? row.amount_cents
+                : Number(row.amount_cents ?? 0);
             sumByType.set(row.type, amount);
           }
 

@@ -12,15 +12,18 @@ export class MockLaborProvider implements LaborProvider {
 
   async listShifts(range: { from: Date | string; to: Date | string }, filters?: LaborFilters) {
     return this.store.shifts.filter(
-      (shift) =>
-        matchEmployee(shift, filters) && overlapsRange(shift.startsAt, shift.endsAt, range)
+      (shift) => matchEmployee(shift, filters) && overlapsRange(shift.startsAt, shift.endsAt, range)
     );
   }
 
-  async listTimeclockSessions(range: { from: Date | string; to: Date | string }, filters?: LaborFilters) {
+  async listTimeclockSessions(
+    range: { from: Date | string; to: Date | string },
+    filters?: LaborFilters
+  ) {
     return this.store.timeclockSessions.filter(
       (session) =>
-        matchEmployee(session, filters) && overlapsRange(session.clockInAt, session.clockOutAt, range)
+        matchEmployee(session, filters) &&
+        overlapsRange(session.clockInAt, session.clockOutAt, range)
     );
   }
 

@@ -8,17 +8,8 @@ export interface PanelContentProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function PanelContent({
-  padding = 'lg',
-  className,
-  children,
-  ...rest
-}: PanelContentProps) {
-  const classes = [
-    'panel-content',
-    padding !== 'lg' ? `panel-content--${padding}` : '',
-    className,
-  ]
+export function PanelContent({ padding = 'lg', className, children, ...rest }: PanelContentProps) {
+  const classes = ['panel-content', padding !== 'lg' ? `panel-content--${padding}` : '', className]
     .filter(Boolean)
     .join(' ');
 

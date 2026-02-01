@@ -1072,11 +1072,7 @@ export async function registerRoutes(
           }
 
           for (const session of sessionResult.rows) {
-            const closeoutSummary = await buildRegisterCloseoutSummary(
-              client,
-              session,
-              closeoutAt
-            );
+            const closeoutSummary = await buildRegisterCloseoutSummary(client, session, closeoutAt);
             await client.query(
               `UPDATE register_sessions
                SET closeout_summary_json = COALESCE(closeout_summary_json, $1::jsonb)

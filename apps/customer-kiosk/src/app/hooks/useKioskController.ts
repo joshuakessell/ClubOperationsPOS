@@ -29,7 +29,9 @@ export function useKioskController() {
 
   const { lane, handleLaneSelection } = useKioskLane();
   const sessionState = useKioskSessionState();
-  const { orientationOverlay } = useOrientationOverlay(sessionState.session.customerPrimaryLanguage);
+  const { orientationOverlay } = useOrientationOverlay(
+    sessionState.session.customerPrimaryLanguage
+  );
   const inventoryState = useKioskInventory({ apiBase, enabled: Boolean(lane) });
 
   useKioskWebSocket({

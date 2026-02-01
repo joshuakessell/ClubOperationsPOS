@@ -158,13 +158,9 @@ export function RequiredTenderOutcomeModal({
         : roundToCents(splitBaseTotal - parsedCardAmount)
       : parsedCashAmount;
   const cardAmountValid =
-    resolvedCardAmount !== null &&
-    resolvedCardAmount > 0 &&
-    resolvedCardAmount < splitBaseTotal;
+    resolvedCardAmount !== null && resolvedCardAmount > 0 && resolvedCardAmount < splitBaseTotal;
   const cashAmountValid =
-    resolvedCashAmount !== null &&
-    resolvedCashAmount > 0 &&
-    resolvedCashAmount < effectiveTotal;
+    resolvedCashAmount !== null && resolvedCashAmount > 0 && resolvedCashAmount < effectiveTotal;
   const splitTotalsMatch = splitCommitted
     ? resolvedCashAmount !== null &&
       roundToCents(resolvedCashAmount) === roundToCents(effectiveTotal)
@@ -252,7 +248,11 @@ export function RequiredTenderOutcomeModal({
           style={{ transform: `translateX(-${stepIndex * 100}%)` }}
         >
           <div className="er-required-modal__panel">
-            <div className="er-required-modal__options" role="radiogroup" aria-label="Tender outcome">
+            <div
+              className="er-required-modal__options"
+              role="radiogroup"
+              aria-label="Tender outcome"
+            >
               {options.map((o) => {
                 const selected = choice === o.value;
                 return (
@@ -429,7 +429,11 @@ export function RequiredTenderOutcomeModal({
                     !splitTotalsMatch
                   }
                 >
-                  {isProcessingCard ? 'Processing Card...' : splitCommitted ? 'Card Approved' : 'Process Card'}
+                  {isProcessingCard
+                    ? 'Processing Card...'
+                    : splitCommitted
+                      ? 'Card Approved'
+                      : 'Process Card'}
                 </button>
                 <button
                   type="button"

@@ -7,7 +7,10 @@ export interface LaneSelectionScreenProps {
   onSelectLane: (lane: 'lane-1' | 'lane-2') => void;
 }
 
-export function LaneSelectionScreen({ orientationOverlay, onSelectLane }: LaneSelectionScreenProps) {
+export function LaneSelectionScreen({
+  orientationOverlay,
+  onSelectLane,
+}: LaneSelectionScreenProps) {
   return (
     <I18nProvider lang={null}>
       <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">

@@ -94,18 +94,18 @@ Copy `.env.example` to `.env` and configure as needed:
 cp .env.example .env
 ```
 
-| Variable         | Default         | Description                                      |
-| ---------------- | --------------- | ------------------------------------------------ |
-| `PORT`           | 3000            | API server port                                  |
-| `HOST`           | 0.0.0.0         | API server host                                  |
-| `DB_HOST`        | localhost       | PostgreSQL host                                  |
-| `DB_PORT`        | 5432            | PostgreSQL port                                  |
-| `DB_NAME`        | club_operations | Database name                                    |
-| `DB_USER`        | clubops         | Database user                                    |
-| `DB_PASSWORD`    | "$PASSWORD"     | Database password                                |
-| `DB_SSL`         | false           | Enable SSL for database                          |
-| `DB_POOL_MAX`    | 20              | Max connections in pool                          |
-| `DB_LOG_QUERIES` | false           | Log all database queries                         |
+| Variable         | Default         | Description              |
+| ---------------- | --------------- | ------------------------ |
+| `PORT`           | 3000            | API server port          |
+| `HOST`           | 0.0.0.0         | API server host          |
+| `DB_HOST`        | localhost       | PostgreSQL host          |
+| `DB_PORT`        | 5432            | PostgreSQL port          |
+| `DB_NAME`        | club_operations | Database name            |
+| `DB_USER`        | clubops         | Database user            |
+| `DB_PASSWORD`    | "$PASSWORD"     | Database password        |
+| `DB_SSL`         | false           | Enable SSL for database  |
+| `DB_POOL_MAX`    | 20              | Max connections in pool  |
+| `DB_LOG_QUERIES` | false           | Log all database queries |
 
 ## Database Schema
 

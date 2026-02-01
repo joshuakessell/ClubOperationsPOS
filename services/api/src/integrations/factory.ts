@@ -23,7 +23,9 @@ export function getProviderIdFromEnv(env: NodeJS.ProcessEnv = process.env): Prov
   throw new Error(`Unsupported INTEGRATIONS_PROVIDER: ${env.INTEGRATIONS_PROVIDER}`);
 }
 
-export function createIntegrationProviders(providerId = getProviderIdFromEnv()): IntegrationProviders {
+export function createIntegrationProviders(
+  providerId = getProviderIdFromEnv()
+): IntegrationProviders {
   if (providerId === 'mock') {
     const providers = createMockProviders();
     return { providerId, ...providers };

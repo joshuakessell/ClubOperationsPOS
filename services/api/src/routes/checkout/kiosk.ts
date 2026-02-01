@@ -15,7 +15,11 @@ import type {
   LockerRow,
   RoomRow,
 } from '../../checkout/types';
-import type { CheckoutRequestSummary, CheckoutRequestedPayload, ResolvedCheckoutKey } from '@club-ops/shared';
+import type {
+  CheckoutRequestSummary,
+  CheckoutRequestedPayload,
+  ResolvedCheckoutKey,
+} from '@club-ops/shared';
 import { calculateLateFee } from '../../checkout/utils';
 
 export function registerCheckoutKioskRoutes(fastify: FastifyInstance): void {

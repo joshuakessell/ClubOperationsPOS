@@ -4,7 +4,7 @@ services:
     platform: ${DOCKER_DEFAULT_PLATFORM:-linux/arm64}
     container_name: club-ops-demo-db
     ports:
-      - "5433:5432"
+      - '5433:5432'
     environment:
       POSTGRES_DB: club_operations
       POSTGRES_USER: clubops
@@ -12,7 +12,7 @@ services:
     volumes:
       - club_ops_demo_db:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U clubops -d club_operations"]
+      test: ['CMD-SHELL', 'pg_isready -U clubops -d club_operations']
       interval: 5s
       timeout: 3s
       retries: 10

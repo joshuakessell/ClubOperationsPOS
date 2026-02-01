@@ -194,7 +194,8 @@ function mockAuthenticatedFetch() {
     if (u.includes('/health')) {
       return Promise.resolve({
         ok: true,
-        json: () => Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
+        json: () =>
+          Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
       } as unknown as Response);
     }
 

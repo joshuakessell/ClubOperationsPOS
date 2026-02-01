@@ -155,7 +155,15 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
     } finally {
       setLoading(false);
     }
-  }, [dateFrom, dateTo, employeeFilter, employees, limitedAccess, session.name, session.sessionToken]);
+  }, [
+    dateFrom,
+    dateTo,
+    employeeFilter,
+    employees,
+    limitedAccess,
+    session.name,
+    session.sessionToken,
+  ]);
 
   useEffect(() => {
     if (!limitedAccess) {

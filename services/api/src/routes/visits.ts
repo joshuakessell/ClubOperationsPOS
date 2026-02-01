@@ -8,7 +8,11 @@ import { broadcastInventoryUpdate } from '../inventory/broadcast';
 import { insertAuditLog } from '../audit/auditLog';
 import { registerVisitActiveRoutes } from './visits/active';
 import type { CheckinBlockRow, VisitRow } from '../visits/types';
-import { calculateTotalHours, calculateTotalHoursWithExtension, getLatestBlockEnd } from '../visits/utils';
+import {
+  calculateTotalHours,
+  calculateTotalHoursWithExtension,
+  getLatestBlockEnd,
+} from '../visits/utils';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -444,9 +448,7 @@ export async function visitRoutes(fastify: FastifyInstance): Promise<void> {
           const renewalEndsAt =
             requestedRenewalHours === 2
               ? new Date(renewalStartsAt.getTime() + 2 * 60 * 60 * 1000)
-              : roundUpToQuarterHour(
-                  new Date(renewalStartsAt.getTime() + 6 * 60 * 60 * 1000)
-                ); // 6 hours from previous checkout, rounded up to next 15m boundary
+              : roundUpToQuarterHour(new Date(renewalStartsAt.getTime() + 6 * 60 * 60 * 1000)); // 6 hours from previous checkout, rounded up to next 15m boundary
 
           // 6. Handle room assignment if requested
           let assignedRoomId: string | null = null;
