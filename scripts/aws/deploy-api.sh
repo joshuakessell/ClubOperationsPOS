@@ -112,15 +112,17 @@ if ! has_secret "KIOSK_TOKEN" && [[ -n "${KIOSK_TOKEN:-}" ]]; then
   runtime_env_vars+=("KIOSK_TOKEN=${KIOSK_TOKEN}")
 fi
 
-if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
-  runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
-else
-  runtime_env_vars+=("DB_HOST=${DB_HOST}")
-  runtime_env_vars+=("DB_PORT=${DB_PORT}")
-  runtime_env_vars+=("DB_NAME=${DB_NAME}")
-  runtime_env_vars+=("DB_USER=${DB_USER}")
-  if ! has_secret "DB_PASSWORD" && [[ -n "${DB_PASSWORD:-}" ]]; then
-    runtime_env_vars+=("DB_PASSWORD=${DB_PASSWORD}")
+if [[ "${SKIP_DB:-}" != "true" ]]; then
+  if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
+    runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
+  else
+    runtime_env_vars+=("DB_HOST=${DB_HOST}")
+    runtime_env_vars+=("DB_PORT=${DB_PORT}")
+    runtime_env_vars+=("DB_NAME=${DB_NAME}")
+    runtime_env_vars+=("DB_USER=${DB_USER}")
+    if ! has_secret "DB_PASSWORD" && [[ -n "${DB_PASSWORD:-}" ]]; then
+      runtime_env_vars+=("DB_PASSWORD=${DB_PASSWORD}")
+    fi
   fi
 fi
 
