@@ -4,6 +4,10 @@
 node_modules
 **/node_modules
 **/dist
+!packages/shared/dist
+!packages/shared/dist/**
+!services/api/dist
+!services/api/dist/**
 **/build
 **/.turbo
 **/.cache

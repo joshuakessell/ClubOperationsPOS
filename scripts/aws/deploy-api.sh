@@ -21,6 +21,7 @@ need_cmd() {
 need_cmd aws
 need_cmd docker
 need_cmd git
+need_cmd pnpm
 
 aws sts get-caller-identity >/dev/null
 
@@ -55,6 +56,13 @@ aws ecr get-login-password --region "$AWS_REGION" | \
   docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
 
 cd "$ROOT_DIR"
+
+if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
+  pnpm install --frozen-lockfile
+fi
+
+# Build API + shared outputs for prebuilt Dockerfile copy
+pnpm turbo run build --filter @club-ops/shared --filter @club-ops/api
 
 docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
 docker tag "$IMAGE_SHA_TAG" "$IMAGE_LATEST_TAG"
