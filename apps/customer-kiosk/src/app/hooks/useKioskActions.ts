@@ -22,7 +22,16 @@ export function useKioskActions({
   session: SessionState;
   isSubmitting: boolean;
   setIsSubmitting: (value: boolean) => void;
-  setView: (view: 'idle' | 'language' | 'selection' | 'payment' | 'agreement' | 'agreement-bypass' | 'complete') => void;
+  setView: (
+    view:
+      | 'idle'
+      | 'language'
+      | 'selection'
+      | 'payment'
+      | 'agreement'
+      | 'agreement-bypass'
+      | 'complete'
+  ) => void;
   resetToIdle: () => void;
 }) {
   const handleLanguageSelection = useCallback(

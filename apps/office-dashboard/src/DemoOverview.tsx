@@ -136,13 +136,10 @@ export function DemoOverview({ session }: { session: StaffSession }) {
       lastSearchTermRef.current = trimmed;
       setDocLookupBusy(true);
       setDocLookupError(null);
-      apiJson<{ customers: any[] }>(
-        `/v1/documents/customers?name=${encodeURIComponent(trimmed)}`,
-        {
-          sessionToken: session.sessionToken,
-          signal: controller.signal,
-        }
-      )
+      apiJson<{ customers: any[] }>(`/v1/documents/customers?name=${encodeURIComponent(trimmed)}`, {
+        sessionToken: session.sessionToken,
+        signal: controller.signal,
+      })
         .then((data) => {
           if (searchSeqRef.current !== seq) return;
           setDocLookup({
@@ -380,9 +377,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                     >
                       {docLookupBusy ? 'Searching…' : 'Search'}
                     </button>
-                    {docLookupBusy && (
-                      <div className="inline-spinner" aria-label="Searching" />
-                    )}
+                    {docLookupBusy && <div className="inline-spinner" aria-label="Searching" />}
                   </div>
                   {docLookupError && (
                     <div style={{ marginTop: '0.75rem', color: '#fecaca', fontWeight: 700 }}>

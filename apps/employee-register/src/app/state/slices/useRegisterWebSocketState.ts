@@ -11,8 +11,14 @@ import type { HomeTab } from '../shared/types';
 
 type LaneSessionActions = {
   applySessionUpdated: (payload: SessionUpdatedPayload) => void;
-  applySelectionProposed: (payload: { rentalType: string; proposedBy: 'CUSTOMER' | 'EMPLOYEE' }) => void;
-  applySelectionLocked: (payload: { rentalType: string; confirmedBy: 'CUSTOMER' | 'EMPLOYEE' }) => void;
+  applySelectionProposed: (payload: {
+    rentalType: string;
+    proposedBy: 'CUSTOMER' | 'EMPLOYEE';
+  }) => void;
+  applySelectionLocked: (payload: {
+    rentalType: string;
+    confirmedBy: 'CUSTOMER' | 'EMPLOYEE';
+  }) => void;
   applySelectionForced: (payload: { rentalType: string }) => void;
   selectionAcknowledged: () => void;
 };

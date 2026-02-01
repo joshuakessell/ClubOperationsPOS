@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useRef, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  type Dispatch,
+  type MutableRefObject,
+  type SetStateAction,
+} from 'react';
 import {
   safeParseWebSocketEvent,
   SessionUpdatedPayloadSchema,
@@ -48,7 +55,16 @@ export function useKioskWebSocket({
   setCustomerConfirmationData: (value: CustomerConfirmationRequiredPayload | null) => void;
   setShowCustomerConfirmation: (value: boolean) => void;
   setSession: Dispatch<SetStateAction<SessionState>>;
-  setView: (view: 'idle' | 'language' | 'selection' | 'payment' | 'agreement' | 'agreement-bypass' | 'complete') => void;
+  setView: (
+    view:
+      | 'idle'
+      | 'language'
+      | 'selection'
+      | 'payment'
+      | 'agreement'
+      | 'agreement-bypass'
+      | 'complete'
+  ) => void;
   applyInventoryUpdate: (payload: unknown) => void;
   resetToIdle: () => void;
   apiBase: string;

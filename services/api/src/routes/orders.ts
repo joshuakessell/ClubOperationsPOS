@@ -218,13 +218,7 @@ export async function orderRoutes(fastify: FastifyInstance): Promise<void> {
                  tax_cents = $3,
                  total_cents = $4
              WHERE id = $5`,
-            [
-              subtotalCents,
-              discountCents,
-              taxCents,
-              itemsTotalCents + order.tip_cents,
-              order.id,
-            ]
+            [subtotalCents, discountCents, taxCents, itemsTotalCents + order.tip_cents, order.id]
           );
 
           return { order, inserted, subtotalCents, discountCents, taxCents, itemsTotalCents };
@@ -317,14 +311,7 @@ export async function orderRoutes(fastify: FastifyInstance): Promise<void> {
                  total_cents = $5
              WHERE id = $6
              RETURNING *`,
-            [
-              subtotalCents,
-              discountCents,
-              taxCents,
-              tipCents,
-              totalCents,
-              order.id,
-            ]
+            [subtotalCents, discountCents, taxCents, tipCents, totalCents, order.id]
           );
 
           return updated.rows[0]!;

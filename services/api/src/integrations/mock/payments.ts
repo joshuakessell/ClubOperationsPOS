@@ -20,11 +20,9 @@ function nextPaymentId(store: MockStore, prefix: 'mock-pay' | 'mock-refund'): st
   return `${prefix}-${next}`;
 }
 
-function extractSource(metadata?: Record<string, unknown> | null):
-  | 'CARD'
-  | 'CASH'
-  | 'OTHER'
-  | undefined {
+function extractSource(
+  metadata?: Record<string, unknown> | null
+): 'CARD' | 'CASH' | 'OTHER' | undefined {
   const value = getMetadataString(metadata, 'source');
   if (value === 'CARD' || value === 'CASH' || value === 'OTHER') return value;
   return undefined;
@@ -119,7 +117,8 @@ export class MockPaymentsProvider implements PaymentsProvider {
       metadata: mergeMetadata(params.metadata ?? null, {
         paymentExternalId: params.paymentExternalId,
         orderExternalId: getMetadataString(original?.metadata ?? null, 'orderExternalId') ?? null,
-        customerExternalId: getMetadataString(original?.metadata ?? null, 'customerExternalId') ?? null,
+        customerExternalId:
+          getMetadataString(original?.metadata ?? null, 'customerExternalId') ?? null,
         reason: params.reason ?? null,
         source: 'OTHER',
       }),

@@ -27,9 +27,9 @@ function buildIdempotencyKey(params: CreateCardPaymentParams, internalPaymentId?
     .createHash('sha256')
     .update(
       JSON.stringify({
-      amount: params.amount,
-      orderExternalId: params.orderExternalId ?? null,
-      customerExternalId: params.customerExternalId ?? null,
+        amount: params.amount,
+        orderExternalId: params.orderExternalId ?? null,
+        customerExternalId: params.customerExternalId ?? null,
         internalPaymentId: internalPaymentId ?? null,
       })
     )
@@ -72,7 +72,9 @@ function matchesFilters(record: PaymentRecord, filters?: PaymentFilters): boolea
       ? metadata['customerExternalId']
       : null;
   const orderExternalId =
-    metadata && typeof metadata['orderExternalId'] === 'string' ? metadata['orderExternalId'] : null;
+    metadata && typeof metadata['orderExternalId'] === 'string'
+      ? metadata['orderExternalId']
+      : null;
   const source = metadata && typeof metadata['source'] === 'string' ? metadata['source'] : null;
 
   if (filters.customerExternalId && filters.customerExternalId !== customerExternalId) return false;

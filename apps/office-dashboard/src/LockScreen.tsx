@@ -141,9 +141,7 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
             {error && <div className="lock-screen-error">{error}</div>}
 
             {isLoadingEmployees ? (
-              <div className="lock-screen-loading">
-                Loading staff...
-              </div>
+              <div className="lock-screen-loading">Loading staff...</div>
             ) : employees.length === 0 ? (
               <div className="lock-screen-empty">
                 No active staff members found. Please contact an administrator.

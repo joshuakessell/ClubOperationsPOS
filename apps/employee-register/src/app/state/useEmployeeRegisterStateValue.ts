@@ -66,8 +66,15 @@ export function useEmployeeRegisterStateValue() {
     customerName,
     checkoutAt,
   });
-  const { session, registerSession, deviceId, lane, handleRegisterSignIn, handleLogout, handleCloseOut } =
-    staffSessionState;
+  const {
+    session,
+    registerSession,
+    deviceId,
+    lane,
+    handleRegisterSignIn,
+    handleLogout,
+    handleCloseOut,
+  } = staffSessionState;
 
   const { health } = useHealthStatus(lane);
 

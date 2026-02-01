@@ -23,7 +23,11 @@ export function IdScanBlockedModal({
   const bodyKey = issue === 'ID_EXPIRED' ? 'idScan.expired.body' : 'idScan.underage.body';
 
   return (
-    <KioskModal isOpen={isOpen} title={t(customerPrimaryLanguage, titleKey)} onClose={onAcknowledge}>
+    <KioskModal
+      isOpen={isOpen}
+      title={t(customerPrimaryLanguage, titleKey)}
+      onClose={onAcknowledge}
+    >
       <p>{t(customerPrimaryLanguage, bodyKey)}</p>
       <KioskModalActions>
         <button

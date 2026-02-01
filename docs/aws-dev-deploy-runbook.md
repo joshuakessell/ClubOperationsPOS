@@ -1,6 +1,7 @@
 # AWS Dev Deploy Runbook (Option B)
 
 This runbook covers the **dev-only** AWS deployment for:
+
 - API: App Runner
 - Frontends: S3 + CloudFront
 - CI/CD: GitHub Actions with OIDC
@@ -11,6 +12,7 @@ All resources are prefixed with `club-ops-dev-` and tagged with:
 ## One-time Setup
 
 ### 1) Terraform apply (local state)
+
 From repo root:
 
 ```bash
@@ -23,9 +25,11 @@ terraform apply tfplan
 Note: Terraform state is **local** for now. Do **not** commit `terraform.tfstate`. Plan a remote backend later.
 
 ### 2) Cloudflare DNS (DNS-only, proxy OFF)
+
 Terraform outputs the DNS validation records for ACM and App Runner.
 
 Add these CNAME records in Cloudflare (DNS only, no proxy):
+
 - ACM validation records from `acm_frontend_validation_records`
 - App Runner validation records from `apprunner_custom_domain_validation_records`
 
@@ -37,12 +41,15 @@ terraform apply
 ```
 
 ### 3) GitHub Actions secrets
+
 Add these in GitHub repo settings → Secrets:
 
 **AWS / IAM**
+
 - `AWS_ROLE_ARN` = Terraform output `github_actions_role_arn`
 
 **App Runner / API**
+
 - `APP_RUNNER_SERVICE_ARN` = Terraform output `apprunner_service_arn`
 - `ECR_REPO_URI` = `146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api`
 - `KIOSK_TOKEN` = required by API
@@ -50,6 +57,7 @@ Add these in GitHub repo settings → Secrets:
   - Alternatively, use discrete DB vars and update the API deploy script, but DATABASE_URL is simplest.
 
 **Frontends**
+
 - `VITE_KIOSK_TOKEN` = required by both frontends
 - `EMPLOYEE_BUCKET` = Terraform output `employee_bucket_name`
 - `EMPLOYEE_DISTRIBUTION_ID` = Terraform output `employee_cloudfront_distribution_id`
@@ -58,9 +66,9 @@ Add these in GitHub repo settings → Secrets:
 
 ## Day-to-Day Workflow
 
-1) Create a feature branch and open PR to `main`.
-2) CI runs automatically (lint + build + typecheck).
-3) Merge to `main` triggers **deploy**:
+1. Create a feature branch and open PR to `main`.
+2. CI runs automatically (lint + build + typecheck).
+3. Merge to `main` triggers **deploy**:
    - API image build + push → App Runner update
    - Frontend build → S3 sync → CloudFront invalidation
 
@@ -73,26 +81,33 @@ Add these in GitHub repo settings → Secrets:
 ## Verification
 
 API:
+
 ```bash
 curl https://api-demo.joshuakessell.com/health
 ```
+
 Expected: JSON with `status: ok` and current timestamp.
 
 Employee register:
+
 ```bash
 curl -I https://employee-demo.joshuakessell.com
 ```
+
 Expected: HTTP 200 from CloudFront.
 
 Customer kiosk:
+
 ```bash
 curl -I https://customer-demo.joshuakessell.com
 ```
+
 Expected: HTTP 200 from CloudFront.
 
 ## Rollback
 
 **API**
+
 - Re-deploy a previous ECR tag:
   - Update the image tag in the deploy script or run:
     ```bash
@@ -104,6 +119,7 @@ Expected: HTTP 200 from CloudFront.
     ```
 
 **Frontends**
+
 - Rebuild from a previous commit and redeploy:
   ```bash
   git checkout <commit>
@@ -121,6 +137,7 @@ Expected: HTTP 200 from CloudFront.
 ## Branch Protection Guidance
 
 Enable branch protection on `main` in GitHub:
+
 - Require status checks: CI + Lint
 - Require PR reviews
 - Require signed commits (optional)

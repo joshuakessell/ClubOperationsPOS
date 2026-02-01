@@ -8,12 +8,7 @@ export interface RaisedCardProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function RaisedCard({
-  padding = 'md',
-  className,
-  children,
-  ...rest
-}: RaisedCardProps) {
+export function RaisedCard({ padding = 'md', className, children, ...rest }: RaisedCardProps) {
   const classes = [
     'csRaisedCard',
     'cs-liquid-card',

@@ -46,7 +46,8 @@ export const en = {
   'idScan.expired.title': 'ID Expired',
   'idScan.expired.body': 'This ID is expired. Please provide an unexpired ID.',
   'idScan.underage.title': 'Under 18',
-  'idScan.underage.body': 'Customer is under 18. Please provide an ID showing they are 18 or older.',
+  'idScan.underage.body':
+    'Customer is under 18. Please provide an ID showing they are 18 or older.',
   'kiosk.locked.title': 'Please see attendant',
   'kiosk.locked.body':
     'This lane is still being completed. Please see attendant to finish checkout.',

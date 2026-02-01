@@ -13,7 +13,6 @@ import { TelemetryView } from '../TelemetryView';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { getApiUrl } from '@club-ops/shared';
 
-
 export function AppComposition() {
   const [session, setSession] = useState<StaffSession | null>(() => {
     // Load session from localStorage on mount
@@ -203,34 +202,53 @@ export function AppComposition() {
       <Route element={<OfficeShell session={session} onLogout={handleLogout} />}>
         <Route
           path="/overview"
-          element={isAdmin ? <DemoOverview session={session} /> : <Navigate to="/schedule" replace />}
+          element={
+            isAdmin ? <DemoOverview session={session} /> : <Navigate to="/schedule" replace />
+          }
         />
         <Route
           path="/monitor"
-          element={isAdmin ? <LaneMonitorView session={session} /> : <Navigate to="/schedule" replace />}
+          element={
+            isAdmin ? <LaneMonitorView session={session} /> : <Navigate to="/schedule" replace />
+          }
         />
         <Route
           path="/waitlist"
           element={
-            isAdmin ? <WaitlistManagementView session={session} /> : <Navigate to="/schedule" replace />
+            isAdmin ? (
+              <WaitlistManagementView session={session} />
+            ) : (
+              <Navigate to="/schedule" replace />
+            )
           }
         />
         <Route
           path="/reports"
-          element={isAdmin ? <ReportsDemoView session={session} /> : <Navigate to="/schedule" replace />}
+          element={
+            isAdmin ? <ReportsDemoView session={session} /> : <Navigate to="/schedule" replace />
+          }
         />
         <Route
           path="/customers"
           element={
-            isAdmin ? <CustomerAdminToolsView session={session} /> : <Navigate to="/schedule" replace />
+            isAdmin ? (
+              <CustomerAdminToolsView session={session} />
+            ) : (
+              <Navigate to="/schedule" replace />
+            )
           }
         />
         <Route
           path="/telemetry"
-          element={isAdmin ? <TelemetryView session={session} /> : <Navigate to="/schedule" replace />}
+          element={
+            isAdmin ? <TelemetryView session={session} /> : <Navigate to="/schedule" replace />
+          }
         />
 
-        <Route path="/schedule" element={<ShiftsView session={session} limitedAccess={!isAdmin} />} />
+        <Route
+          path="/schedule"
+          element={<ShiftsView session={session} limitedAccess={!isAdmin} />}
+        />
         <Route
           path="/messages"
           element={isAdmin ? <Navigate to="/overview" replace /> : <MessagesView />}

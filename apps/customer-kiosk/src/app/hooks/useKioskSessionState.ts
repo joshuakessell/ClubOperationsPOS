@@ -1,8 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type {
-  CustomerConfirmationRequiredPayload,
-  SessionUpdatedPayload,
-} from '@club-ops/shared';
+import type { CustomerConfirmationRequiredPayload, SessionUpdatedPayload } from '@club-ops/shared';
 import { getMembershipStatus, type SessionState } from '../../utils/membership';
 
 export type AppView =
@@ -61,8 +58,7 @@ export function useKioskSessionState() {
   const sessionRef = useRef<SessionState | null>(null);
   const [showWelcomeOverlay, setShowWelcomeOverlay] = useState(false);
   const [showMembershipModal, setShowMembershipModal] = useState(false);
-  const [membershipModalIntent, setMembershipModalIntent] =
-    useState<MembershipModalIntent>(null);
+  const [membershipModalIntent, setMembershipModalIntent] = useState<MembershipModalIntent>(null);
   const [membershipChoice, setMembershipChoice] = useState<MembershipChoice>(null);
   const [highlightedLanguage, setHighlightedLanguage] = useState<'EN' | 'ES' | null>(null);
   const [highlightedMembershipChoice, setHighlightedMembershipChoice] =

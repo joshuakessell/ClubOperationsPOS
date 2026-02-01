@@ -1,7 +1,11 @@
 import type { FastifyInstance } from 'fastify';
 import { optionalAuth, requireAuth } from '../../auth/middleware';
 import { requireKioskTokenOrStaff } from '../../auth/kioskToken';
-import { calculatePriceQuote, calculateRenewalQuote, type PricingInput } from '../../pricing/engine';
+import {
+  calculatePriceQuote,
+  calculateRenewalQuote,
+  type PricingInput,
+} from '../../pricing/engine';
 import { transaction } from '../../db';
 import type { CustomerRow, LaneSessionRow, PaymentIntentRow } from '../../checkin/types';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';

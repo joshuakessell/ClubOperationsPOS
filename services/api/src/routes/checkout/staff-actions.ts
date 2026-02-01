@@ -9,7 +9,11 @@ import type {
   VisitDateRow,
 } from '../../checkout/types';
 import { MarkFeePaidSchema, type MarkFeePaidInput } from '../../checkout/schemas';
-import type { CheckoutClaimedPayload, CheckoutCompletedPayload, CheckoutUpdatedPayload } from '@club-ops/shared';
+import type {
+  CheckoutClaimedPayload,
+  CheckoutCompletedPayload,
+  CheckoutUpdatedPayload,
+} from '@club-ops/shared';
 import { RoomStatus } from '@club-ops/shared';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { insertAuditLog } from '../../audit/auditLog';
@@ -206,7 +210,8 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
                 [staffId]
               );
               const activeRegister = registerSession.rows[0];
-              const resolvedRegisterNumber = body.registerNumber ?? activeRegister?.register_number ?? null;
+              const resolvedRegisterNumber =
+                body.registerNumber ?? activeRegister?.register_number ?? null;
 
               const quoteJson = {
                 type: 'LATE_FEE',

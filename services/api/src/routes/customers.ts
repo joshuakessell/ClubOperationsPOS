@@ -3,7 +3,11 @@ import { z } from 'zod';
 import { query } from '../db';
 import { requireAuth } from '../auth/middleware';
 import crypto from 'crypto';
-import { computeIdScanIdentityHash, getIdScanIssue, getIdScanIssueMessage } from '../checkin/identity';
+import {
+  computeIdScanIdentityHash,
+  getIdScanIssue,
+  getIdScanIssueMessage,
+} from '../checkin/identity';
 
 const SearchQuerySchema = z.object({
   q: z.string().min(3),
@@ -307,7 +311,14 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
                  id_state = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE id_state END,
                  updated_at = NOW()
              WHERE id = $3`,
-              [idScanHash, idScanValue, row.id, idExpirationDate, body.idNumber || null, body.state || null]
+              [
+                idScanHash,
+                idScanValue,
+                row.id,
+                idExpirationDate,
+                body.idNumber || null,
+                body.state || null,
+              ]
             );
           } else if (idExpirationDate) {
             await query(
@@ -340,7 +351,15 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
            (name, dob, id_expiration_date, id_number, id_state, id_scan_hash, id_scan_value, created_at, updated_at)
          VALUES ($1, $2::date, $3::date, $4, $5, $6, $7, NOW(), NOW())
          RETURNING id, name, dob, membership_number`,
-          [name, dob, idExpirationDate, body.idNumber || null, body.state || null, idScanHash, idScanValue]
+          [
+            name,
+            dob,
+            idExpirationDate,
+            body.idNumber || null,
+            body.state || null,
+            idScanHash,
+            idScanValue,
+          ]
         );
 
         const row = inserted.rows[0]!;
@@ -493,7 +512,7 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
       const idScanValue = body.idNumber?.trim() || null;
 
       try {
-      const inserted = await query<{
+        const inserted = await query<{
           id: string;
           name: string;
           dob: Date | null;

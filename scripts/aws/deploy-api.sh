@@ -78,6 +78,10 @@ if [[ -n "${LOG_LEVEL:-}" ]]; then
   runtime_env_vars+=("LOG_LEVEL=${LOG_LEVEL}")
 fi
 
+if [[ -n "${SKIP_DB:-}" ]]; then
+  runtime_env_vars+=("SKIP_DB=${SKIP_DB}")
+fi
+
 cat > "$TMP_JSON" <<JSON
 {
   "ServiceArn": "${APP_RUNNER_SERVICE_ARN}",

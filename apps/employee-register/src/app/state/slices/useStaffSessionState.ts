@@ -168,7 +168,9 @@ export function useStaffSessionState({
   );
 
   const handleCloseOut = useCallback(async () => {
-    const confirmed = window.confirm('Close Out: this will sign you out of all registers. Continue?');
+    const confirmed = window.confirm(
+      'Close Out: this will sign you out of all registers. Continue?'
+    );
     if (!confirmed) return;
     await handleLogout({ signOutAll: true });
   }, [handleLogout]);

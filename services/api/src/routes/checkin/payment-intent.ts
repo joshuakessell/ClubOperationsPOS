@@ -1,6 +1,10 @@
 import type { FastifyInstance } from 'fastify';
 import { requireAuth } from '../../auth/middleware';
-import { calculatePriceQuote, calculateRenewalQuote, type PricingInput } from '../../pricing/engine';
+import {
+  calculatePriceQuote,
+  calculateRenewalQuote,
+  type PricingInput,
+} from '../../pricing/engine';
 import { transaction } from '../../db';
 import type { CustomerRow, LaneSessionRow, PaymentIntentRow } from '../../checkin/types';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
@@ -258,7 +262,9 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
           ? Math.trunc(registerNumber)
           : undefined;
       const resolvedTipCents =
-        typeof tipCents === 'number' && Number.isFinite(tipCents) ? Math.trunc(tipCents) : undefined;
+        typeof tipCents === 'number' && Number.isFinite(tipCents)
+          ? Math.trunc(tipCents)
+          : undefined;
 
       try {
         const result = await transaction(async (client) => {
@@ -343,7 +349,11 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
           ) => {
             const amountCents = toCents(intentRow.amount);
             const lineItems = buildLineItemsFromQuote(intentRow.quote_json, amountCents);
-            const totals = computeOrderTotals(lineItems.items, amountCents, intentRow.tip_cents ?? 0);
+            const totals = computeOrderTotals(
+              lineItems.items,
+              amountCents,
+              intentRow.tip_cents ?? 0
+            );
             const { customerId, registerSessionId } = await resolveOrderContext(intentRow, quote);
 
             await ensureOrderWithReceipt(client, {
@@ -365,8 +375,7 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
                 amountCents: amountCents ?? null,
                 tipCents: intentRow.tip_cents ?? 0,
                 registerNumber: intentRow.register_number ?? null,
-                providerPaymentId:
-                  intentRow.square_transaction_id ?? squareTransactionId ?? null,
+                providerPaymentId: intentRow.square_transaction_id ?? squareTransactionId ?? null,
               },
             });
           };

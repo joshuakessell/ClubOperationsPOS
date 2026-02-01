@@ -20,12 +20,16 @@ type Params = {
   setCustomerSelectedType: (value: string | null) => void;
   setWaitlistDesiredTier: (value: string | null) => void;
   setWaitlistBackupType: (value: string | null) => void;
-  setSelectedInventoryItem: (value: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null) => void;
+  setSelectedInventoryItem: (
+    value: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null
+  ) => void;
   setPaymentIntentId: (value: string | null) => void;
   setPaymentQuote: PaymentQuoteSetter;
   setPaymentStatus: (value: 'DUE' | 'PAID' | null) => void;
   setShowCustomerConfirmationPending: (value: boolean) => void;
-  setCustomerConfirmationType: (value: { requested: string; selected: string; number: string } | null) => void;
+  setCustomerConfirmationType: (
+    value: { requested: string; selected: string; number: string } | null
+  ) => void;
   setShowWaitlistModal: (value: boolean) => void;
 };
 

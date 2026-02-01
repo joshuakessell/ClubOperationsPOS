@@ -84,9 +84,7 @@ export function PaymentRoot() {
             </div>
           )}
           {typeof ledgerTotal === 'number' ? (
-            <div className="er-renewal-ledger__total">
-              Ledger total: ${ledgerTotal.toFixed(2)}
-            </div>
+            <div className="er-renewal-ledger__total">Ledger total: ${ledgerTotal.toFixed(2)}</div>
           ) : null}
         </div>
 

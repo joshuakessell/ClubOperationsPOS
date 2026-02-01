@@ -74,7 +74,8 @@ export function useRenewalSelectionState({
           const patch: Partial<RegisterLaneSessionState> = {};
           if (accountCustomerId) patch.customerId = accountCustomerId;
           if (result.payload.customerName) patch.customerName = result.payload.customerName;
-          if (result.payload.membershipNumber) patch.membershipNumber = result.payload.membershipNumber;
+          if (result.payload.membershipNumber)
+            patch.membershipNumber = result.payload.membershipNumber;
           if (result.payload.sessionId) patch.currentSessionId = result.payload.sessionId;
           if (result.payload.mode) patch.mode = result.payload.mode;
           if (result.payload.renewalHours) patch.renewalHours = result.payload.renewalHours;

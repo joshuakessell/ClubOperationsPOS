@@ -2,7 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireKioskTokenOrStaff } from '../../auth/kioskToken';
 import { requireAuth, optionalAuth } from '../../auth/middleware';
-import { getIdScanIssue, getIdScanIssueMessage, parseMembershipNumber } from '../../checkin/identity';
+import {
+  getIdScanIssue,
+  getIdScanIssueMessage,
+  parseMembershipNumber,
+} from '../../checkin/identity';
 import { buildFullSessionUpdatedPayload, getAllowedRentals } from '../../checkin/payload';
 import { StartLaneSessionBodySchema } from '../../checkin/schemas';
 import type { CustomerRow, LaneSessionRow } from '../../checkin/types';

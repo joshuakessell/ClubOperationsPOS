@@ -1,7 +1,7 @@
 ls:
   .dir: regex:[a-z0-9]+(?:-[a-z0-9]+)*
-  .ts: regex:.*          # start permissive
-  .tsx: regex:.*         # start permissive
+  .ts: regex:.* # start permissive
+  .tsx: regex:.* # start permissive
   .js: regex:.*
   .jsx: regex:.*
   .json: regex:.*

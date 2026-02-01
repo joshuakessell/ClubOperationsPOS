@@ -281,7 +281,12 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
               idScanHash,
               idScanValue,
             });
-            if (extracted.idExpirationDate || extracted.idNumber || extracted.jurisdiction || extracted.issuer) {
+            if (
+              extracted.idExpirationDate ||
+              extracted.idNumber ||
+              extracted.jurisdiction ||
+              extracted.issuer
+            ) {
               await client.query(
                 `UPDATE customers
                  SET id_expiration_date = COALESCE($1::date, id_expiration_date),
@@ -336,8 +341,8 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
 
             if (byIdNumber.rows.length > 0) {
               const matched = idNumberHash
-                ? byIdNumber.rows.find((r) => r.id_scan_hash === idNumberHash) ??
-                  byIdNumber.rows[0]!
+                ? (byIdNumber.rows.find((r) => r.id_scan_hash === idNumberHash) ??
+                  byIdNumber.rows[0]!)
                 : byIdNumber.rows[0]!;
 
               checkBanned(matched);
@@ -349,7 +354,12 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
                 idScanHash,
                 idScanValue,
               });
-              if (extracted.idExpirationDate || extracted.idNumber || extracted.jurisdiction || extracted.issuer) {
+              if (
+                extracted.idExpirationDate ||
+                extracted.idNumber ||
+                extracted.jurisdiction ||
+                extracted.issuer
+              ) {
                 await client.query(
                   `UPDATE customers
                    SET id_expiration_date = COALESCE($1::date, id_expiration_date),
@@ -421,7 +431,12 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
                   idScanHash,
                   idScanValue,
                 });
-                if (extracted.idExpirationDate || extracted.idNumber || extracted.jurisdiction || extracted.issuer) {
+                if (
+                  extracted.idExpirationDate ||
+                  extracted.idNumber ||
+                  extracted.jurisdiction ||
+                  extracted.issuer
+                ) {
                   await client.query(
                     `UPDATE customers
                      SET id_expiration_date = COALESCE($1::date, id_expiration_date),
@@ -494,8 +509,8 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
                     const idMatch =
                       Boolean(
                         scannedIdNumberNormalized &&
-                          storedIdNumberNormalized &&
-                          storedIdNumberNormalized === scannedIdNumberNormalized
+                        storedIdNumberNormalized &&
+                        storedIdNumberNormalized === scannedIdNumberNormalized
                       ) || Boolean(idNumberHash && row.id_scan_hash === idNumberHash);
                     if (!idMatch && !passesFuzzyThresholds(s)) return null;
                     const matchScore = s.score + (idMatch ? 1 : 0);
@@ -528,7 +543,12 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
                     idScanHash,
                     idScanValue,
                   });
-                  if (extracted.idExpirationDate || extracted.idNumber || extracted.jurisdiction || extracted.issuer) {
+                  if (
+                    extracted.idExpirationDate ||
+                    extracted.idNumber ||
+                    extracted.jurisdiction ||
+                    extracted.issuer
+                  ) {
                     await client.query(
                       `UPDATE customers
                        SET id_expiration_date = COALESCE($1::date, id_expiration_date),

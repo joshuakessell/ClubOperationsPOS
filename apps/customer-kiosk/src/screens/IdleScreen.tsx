@@ -8,10 +8,7 @@ export interface IdleScreenProps {
   orientationOverlay: ReactNode;
 }
 
-export function IdleScreen({
-  customerPrimaryLanguage,
-  orientationOverlay,
-}: IdleScreenProps) {
+export function IdleScreen({ customerPrimaryLanguage, orientationOverlay }: IdleScreenProps) {
   return (
     <I18nProvider lang={customerPrimaryLanguage}>
       <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={false}>

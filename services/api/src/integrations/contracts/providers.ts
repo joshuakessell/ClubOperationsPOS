@@ -183,6 +183,9 @@ export type LaborFilters = {
 
 export interface LaborProvider {
   listShifts(range: DateRange, filters?: LaborFilters): Promise<ShiftRecord[]>;
-  listTimeclockSessions(range: DateRange, filters?: LaborFilters): Promise<TimeclockSessionRecord[]>;
+  listTimeclockSessions(
+    range: DateRange,
+    filters?: LaborFilters
+  ): Promise<TimeclockSessionRecord[]>;
   listBreaks(range: DateRange, filters?: LaborFilters): Promise<BreakRecord[]>;
 }

@@ -41,7 +41,9 @@ type Params = {
   setAgreementSigned: (value: boolean) => void;
   setSelectedRentalType: (value: string | null) => void;
   setCustomerSelectedType: (value: string | null) => void;
-  setSelectedInventoryItem: (value: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null) => void;
+  setSelectedInventoryItem: (
+    value: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null
+  ) => void;
   setAssignedResourceType: (value: 'room' | 'locker' | null) => void;
   setAssignedResourceNumber: (value: string | null) => void;
   setCheckoutAt: (value: string | null) => void;
@@ -123,7 +125,14 @@ export function usePaymentActions({
       console.error('Failed to create payment intent:', error);
       alert(error instanceof Error ? error.message : 'Failed to create payment intent');
     }
-  }, [currentSessionId, lane, session?.sessionToken, setPaymentIntentId, setPaymentQuote, setPaymentStatus]);
+  }, [
+    currentSessionId,
+    lane,
+    session?.sessionToken,
+    setPaymentIntentId,
+    setPaymentQuote,
+    setPaymentStatus,
+  ]);
 
   useEffect(() => {
     if (!currentSessionId || !session?.sessionToken) return;

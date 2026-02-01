@@ -86,7 +86,6 @@ export function StaffManagement({ session }: StaffManagementProps) {
     }
   };
 
-
   const handleCreateStaff = async (formData: {
     name: string;
     role: 'STAFF' | 'ADMIN';

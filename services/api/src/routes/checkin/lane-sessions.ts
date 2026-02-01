@@ -67,5 +67,4 @@ export function registerCheckinLaneSessionsRoutes(fastify: FastifyInstance): voi
       }
     }
   );
-
 }

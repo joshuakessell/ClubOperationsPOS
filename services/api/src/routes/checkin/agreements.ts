@@ -3,9 +3,18 @@ import { requireAuth, optionalAuth } from '../../auth/middleware';
 import { requireKioskTokenOrStaff } from '../../auth/kioskToken';
 import { AGREEMENT_LEGAL_BODY_HTML_BY_LANG } from '@club-ops/shared';
 import { transaction } from '../../db';
-import type { LaneSessionRow, LockerRow, PaymentIntentRow, RoomRow, RoomRentalType } from '../../checkin/types';
+import type {
+  LaneSessionRow,
+  LockerRow,
+  PaymentIntentRow,
+  RoomRow,
+  RoomRentalType,
+} from '../../checkin/types';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
-import { assertAssignedResourcePersistedAndUnavailable, selectRoomForNewCheckin } from '../../checkin/helpers';
+import {
+  assertAssignedResourcePersistedAndUnavailable,
+  selectRoomForNewCheckin,
+} from '../../checkin/helpers';
 import { getHttpError } from '../../checkin/utils';
 import { getRoomTier } from '../../checkin/waitlist';
 import { generateAgreementPdf } from '../../utils/pdf-generator';
@@ -406,7 +415,8 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
 
             let currentTotalHours = 0;
             for (const block of blocksResult.rows) {
-              const hours = (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
+              const hours =
+                (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
               currentTotalHours += hours;
             }
 
@@ -960,7 +970,8 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
 
             let currentTotalHours = 0;
             for (const block of blocksResult.rows) {
-              const hours = (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
+              const hours =
+                (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
               currentTotalHours += hours;
             }
 
@@ -1367,9 +1378,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
 
     const isRenewal = session.checkin_mode === 'RENEWAL';
     const renewalHours =
-      session.renewal_hours === 2 || session.renewal_hours === 6
-        ? session.renewal_hours
-        : null;
+      session.renewal_hours === 2 || session.renewal_hours === 6 ? session.renewal_hours : null;
     const rentalType = (session.desired_rental_type ||
       session.backup_rental_type ||
       'LOCKER') as string;

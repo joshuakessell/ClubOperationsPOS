@@ -18,9 +18,7 @@ function getRenewalEligibility(activeCheckin: ActiveCheckinDetails | null) {
   }
   const checkoutAt = new Date(activeCheckin.checkoutAt);
   const totalHours =
-    typeof activeCheckin.currentTotalHours === 'number'
-      ? activeCheckin.currentTotalHours
-      : null;
+    typeof activeCheckin.currentTotalHours === 'number' ? activeCheckin.currentTotalHours : null;
   const diffMs = Math.abs(checkoutAt.getTime() - Date.now());
   const withinWindow = Number.isFinite(diffMs) && diffMs <= 60 * 60 * 1000;
   const allowTwoHour = withinWindow && totalHours !== null && totalHours + 2 <= 14;
@@ -61,9 +59,7 @@ export function CustomerAccountPanel(props: {
   renewalHours?: 2 | 6 | null;
   directSelect?: boolean;
   onDirectSelectRental?: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
-  onDirectSelectWaitlistBackup?: (
-    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
-  ) => void;
+  onDirectSelectWaitlistBackup?: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onStartRenewal?: (activeCheckin: ActiveCheckinDetails) => void;
 
   // callbacks to apply immediate REST response (WS will still be source-of-truth)
@@ -147,99 +143,106 @@ export function CustomerAccountPanel(props: {
                 (renewalEligibility.allowTwoHour || renewalEligibility.allowSixHour);
 
               return (
-            <div style={{ display: 'grid', gap: '0.6rem' }}>
-              <div>
-                <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                  Assigned
-                </div>
-                <div style={{ fontWeight: 900 }}>
-                  {state.activeCheckin.assignedResourceType &&
-                  state.activeCheckin.assignedResourceNumber
-                    ? `${state.activeCheckin.assignedResourceType === 'room' ? 'Room' : 'Locker'} ${
-                        state.activeCheckin.assignedResourceNumber
-                      }`
-                    : '—'}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                  flexWrap: 'wrap',
-                }}
-              >
-                <div
-                  style={{ display: 'flex', gap: '1rem', alignItems: 'center', flexWrap: 'wrap' }}
-                >
+                <div style={{ display: 'grid', gap: '0.6rem' }}>
                   <div>
                     <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                      Check-in
+                      Assigned
                     </div>
-                    <div style={{ fontWeight: 800 }}>
-                      {formatLocal(state.activeCheckin.checkinAt)}
+                    <div style={{ fontWeight: 900 }}>
+                      {state.activeCheckin.assignedResourceType &&
+                      state.activeCheckin.assignedResourceNumber
+                        ? `${state.activeCheckin.assignedResourceType === 'room' ? 'Room' : 'Locker'} ${
+                            state.activeCheckin.assignedResourceNumber
+                          }`
+                        : '—'}
                     </div>
                   </div>
-                  <div>
-                    <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                      Checkout
+
+                  <div
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: '0.75rem',
+                      flexWrap: 'wrap',
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: 'flex',
+                        gap: '1rem',
+                        alignItems: 'center',
+                        flexWrap: 'wrap',
+                      }}
+                    >
+                      <div>
+                        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                          Check-in
+                        </div>
+                        <div style={{ fontWeight: 800 }}>
+                          {formatLocal(state.activeCheckin.checkinAt)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                          Checkout
+                        </div>
+                        <div style={{ fontWeight: 800 }}>
+                          {formatLocal(state.activeCheckin.checkoutAt)}{' '}
+                          {state.activeCheckin.overdue ? (
+                            <span style={{ color: '#f59e0b' }}>(overdue)</span>
+                          ) : null}
+                        </div>
+                      </div>
                     </div>
-                    <div style={{ fontWeight: 800 }}>
-                      {formatLocal(state.activeCheckin.checkoutAt)}{' '}
-                      {state.activeCheckin.overdue ? (
-                        <span style={{ color: '#f59e0b' }}>(overdue)</span>
+
+                    <div
+                      className="er-account-actions"
+                      style={{ display: 'flex', justifyContent: 'center', flex: 1, minWidth: 220 }}
+                    >
+                      <button
+                        type="button"
+                        className="cs-liquid-button"
+                        onClick={() =>
+                          props.onStartCheckout({
+                            number: state.activeCheckin.assignedResourceNumber,
+                          })
+                        }
+                        style={{ width: '100%', maxWidth: 260, padding: '0.7rem', fontWeight: 900 }}
+                      >
+                        Checkout
+                      </button>
+                      {showRenewal && props.onStartRenewal ? (
+                        <button
+                          type="button"
+                          className="cs-liquid-button cs-liquid-button--secondary"
+                          onClick={() => props.onStartRenewal?.(state.activeCheckin)}
+                          style={{
+                            width: '100%',
+                            maxWidth: 260,
+                            padding: '0.7rem',
+                            fontWeight: 900,
+                          }}
+                        >
+                          Renew Checkin
+                        </button>
                       ) : null}
                     </div>
                   </div>
-                </div>
 
-                <div
-                  className="er-account-actions"
-                  style={{ display: 'flex', justifyContent: 'center', flex: 1, minWidth: 220 }}
-                >
-                  <button
-                    type="button"
-                    className="cs-liquid-button"
-                    onClick={() =>
-                      props.onStartCheckout({ number: state.activeCheckin.assignedResourceNumber })
-                    }
-                    style={{ width: '100%', maxWidth: 260, padding: '0.7rem', fontWeight: 900 }}
-                  >
-                    Checkout
-                  </button>
-                  {showRenewal && props.onStartRenewal ? (
-                    <button
-                      type="button"
-                      className="cs-liquid-button cs-liquid-button--secondary"
-                      onClick={() => props.onStartRenewal?.(state.activeCheckin)}
-                      style={{
-                        width: '100%',
-                        maxWidth: 260,
-                        padding: '0.7rem',
-                        fontWeight: 900,
-                      }}
-                    >
-                      Renew Checkin
-                    </button>
+                  {state.activeCheckin.waitlist ? (
+                    <div>
+                      <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                        Pending upgrade request
+                      </div>
+                      <div style={{ fontWeight: 900 }}>
+                        {state.activeCheckin.waitlist.desiredTier} (backup:{' '}
+                        {state.activeCheckin.waitlist.backupTier}) •{' '}
+                        {state.activeCheckin.waitlist.status}
+                      </div>
+                    </div>
                   ) : null}
                 </div>
-              </div>
-
-              {state.activeCheckin.waitlist ? (
-                <div>
-                  <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                    Pending upgrade request
-                  </div>
-                  <div style={{ fontWeight: 900 }}>
-                    {state.activeCheckin.waitlist.desiredTier} (backup:{' '}
-                    {state.activeCheckin.waitlist.backupTier}) •{' '}
-                    {state.activeCheckin.waitlist.status}
-                  </div>
-                </div>
-              ) : null}
-            </div>
               );
             })()}
           </div>

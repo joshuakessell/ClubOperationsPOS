@@ -703,8 +703,8 @@ export function installTelemetry(opts: InstallTelemetryOptions): TelemetryClient
         responseMeta.incidentId = incidentId;
       }
 
-    let responseHeaders: Record<string, unknown> | undefined;
-    let responseBody: unknown = undefined;
+      let responseHeaders: Record<string, unknown> | undefined;
+      let responseBody: unknown = undefined;
       let responseMetaExtra: Record<string, unknown> = {};
 
       if (incidentActive) {

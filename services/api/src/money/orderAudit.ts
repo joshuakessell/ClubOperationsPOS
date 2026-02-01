@@ -137,7 +137,8 @@ export function buildLineItemsFromQuote(
   const parsed = parseQuote(quoteJson);
   const quoteType = typeof parsed?.type === 'string' ? parsed.type : undefined;
 
-  const amountFromQuote = toCents(toNumber(parsed?.amount) ?? undefined) ?? fallbackAmountCents ?? 0;
+  const amountFromQuote =
+    toCents(toNumber(parsed?.amount) ?? undefined) ?? fallbackAmountCents ?? 0;
 
   if (quoteType === 'UPGRADE') {
     const fromTier = typeof parsed?.fromTier === 'string' ? parsed.fromTier : undefined;
@@ -190,7 +191,8 @@ export function buildLineItemsFromQuote(
   }
 
   if (quoteType === 'MANUAL') {
-    const description = typeof parsed?.description === 'string' ? parsed.description : 'Manual Charge';
+    const description =
+      typeof parsed?.description === 'string' ? parsed.description : 'Manual Charge';
     return {
       quoteType,
       items: [
@@ -251,7 +253,7 @@ export function computeOrderTotals(
   tipCents: number
 ): OrderTotalsInput {
   const subtotalFromItems = lineItems.reduce((sum, item) => sum + (item.totalCents ?? 0), 0);
-  const subtotalCents = subtotalFromItems > 0 ? subtotalFromItems : amountCents ?? 0;
+  const subtotalCents = subtotalFromItems > 0 ? subtotalFromItems : (amountCents ?? 0);
   const baseTotal = amountCents ?? subtotalCents;
   const totalCents = baseTotal + tipCents;
 

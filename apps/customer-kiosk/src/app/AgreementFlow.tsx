@@ -25,9 +25,7 @@ interface AgreementFlowProps {
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
 }
 
-type SignatureEvent =
-  | MouseEvent<HTMLCanvasElement>
-  | TouchEvent<HTMLCanvasElement>;
+type SignatureEvent = MouseEvent<HTMLCanvasElement> | TouchEvent<HTMLCanvasElement>;
 
 export function AgreementFlow({
   apiBase,
