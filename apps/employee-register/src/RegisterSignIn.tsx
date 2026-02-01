@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SignInModal } from './SignInModal';
 import type { WebSocketEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
-import { closeLaneSessionClient, useLaneSession } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
+import { closeLaneSessionClient } from '@club-ops/shared/realtime/laneSessionClient';
 import { safeJsonParse } from '@club-ops/ui';
 import { getApiUrl, getWebSocketUrl } from '@club-ops/shared';
 

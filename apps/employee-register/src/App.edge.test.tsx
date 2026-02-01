@@ -255,7 +255,7 @@ describe('App edge flows', () => {
     sessionStorage.setItem('lane', 'lane-1');
 
     try {
-      const shared = await import('@club-ops/shared');
+      const shared = await import('@club-ops/shared/realtime/laneSessionClient');
       shared.closeLaneSessionClient('lane-1', 'employee');
       shared.closeLaneSessionClient('', 'employee');
     } catch {

@@ -9,10 +9,10 @@ import {
 import {
   safeParseWebSocketEvent,
   SessionUpdatedPayloadSchema,
-  useLaneSession,
   type CustomerConfirmationRequiredPayload,
   type SessionUpdatedPayload,
 } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { isRecord, readJson, safeJsonParse } from '@club-ops/ui';
 import type { SessionState } from '../../utils/membership';
 
