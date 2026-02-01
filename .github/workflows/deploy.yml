@@ -55,6 +55,7 @@ jobs:
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
           KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          SKIP_DB: "true"
         run: scripts/aws/deploy-api.sh
 
       - name: Deploy employee-register
