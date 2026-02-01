@@ -59,25 +59,16 @@ trap 'rm -f "$TMP_JSON"' EXIT
 EXISTING_SECRET_KEYS="$(
   aws apprunner describe-service \
     --service-arn "$APP_RUNNER_SERVICE_ARN" \
-    --query 'Service.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentSecrets' \
-    --output json \
-  | python - <<'PY'
-import json, sys
-try:
-    data = json.load(sys.stdin) or {}
-except Exception:
-    data = {}
-for key in data.keys():
-    print(key)
-PY
+    --query 'Service.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentSecrets | keys(@)' \
+    --output text 2>/dev/null || true
 )"
 
 has_secret() {
   local key="$1"
-  if [[ -z "$EXISTING_SECRET_KEYS" ]]; then
+  if [[ -z "$EXISTING_SECRET_KEYS" || "$EXISTING_SECRET_KEYS" == "None" ]]; then
     return 1
   fi
-  echo "$EXISTING_SECRET_KEYS" | grep -qx "$key"
+  grep -qw "$key" <<<"$EXISTING_SECRET_KEYS"
 }
 
 # Require KIOSK_TOKEN only if not already configured as a secret
