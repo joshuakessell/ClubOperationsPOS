@@ -26,29 +26,11 @@ need_cmd pnpm
 aws sts get-caller-identity >/dev/null
 
 required APP_RUNNER_SERVICE_ARN
-required KIOSK_TOKEN
 
 ECR_REPO_URI="${ECR_REPO_URI:-146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api}"
 IMAGE_TAG_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
 IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG_SHA}"
 IMAGE_LATEST_TAG="${ECR_REPO_URI}:dev-latest"
-
-# DB config:
-# - If SKIP_DB=true, do not require DB vars
-# - Else prefer DB_HOST, otherwise require discrete DB_* vars
-if [[ "${SKIP_DB:-}" == "true" ]]; then
-  :
-elif [[ -z "${DB_HOST:-}" ]]; then
-  required DB_HOST
-  required DB_PORT
-  required DB_NAME
-  required DB_USER
-  required DB_PASSWORD
-fi
-
-if [[ -n "${SKIP_DB:-}" ]]; then
-  runtime_env_vars+=("SKIP_DB=${SKIP_DB}")
-fi
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
@@ -73,21 +55,73 @@ docker push "$IMAGE_LATEST_TAG"
 TMP_JSON="$(mktemp)"
 trap 'rm -f "$TMP_JSON"' EXIT
 
+# Read existing App Runner secrets to avoid key conflicts
+EXISTING_SECRET_KEYS="$(
+  aws apprunner describe-service \
+    --service-arn "$APP_RUNNER_SERVICE_ARN" \
+    --query 'Service.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentSecrets' \
+    --output json \
+  | python - <<'PY'
+import json, sys
+try:
+    data = json.load(sys.stdin) or {}
+except Exception:
+    data = {}
+for key in data.keys():
+    print(key)
+PY
+)"
+
+has_secret() {
+  local key="$1"
+  if [[ -z "$EXISTING_SECRET_KEYS" ]]; then
+    return 1
+  fi
+  echo "$EXISTING_SECRET_KEYS" | grep -qx "$key"
+}
+
+# Require KIOSK_TOKEN only if not already configured as a secret
+if ! has_secret "KIOSK_TOKEN"; then
+  required KIOSK_TOKEN
+fi
+
+# DB config:
+# - If SKIP_DB=true, do not require DB vars
+# - Else prefer DATABASE_URL, otherwise require discrete DB_* vars
+if [[ "${SKIP_DB:-}" == "true" ]]; then
+  :
+elif ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
+  :
+else
+  required DB_HOST
+  required DB_PORT
+  required DB_NAME
+  required DB_USER
+  if ! has_secret "DB_PASSWORD"; then
+    required DB_PASSWORD
+  fi
+fi
+
 # Build runtime env vars payload
 runtime_env_vars=(
   "PORT=3000"
   "HOST=0.0.0.0"
-  "KIOSK_TOKEN=${KIOSK_TOKEN}"
 )
 
-if [[ -n "${DB_HOST:-}" ]]; then
-  runtime_env_vars+=("DB_HOST=${DB_HOST}")
+if ! has_secret "KIOSK_TOKEN" && [[ -n "${KIOSK_TOKEN:-}" ]]; then
+  runtime_env_vars+=("KIOSK_TOKEN=${KIOSK_TOKEN}")
+fi
+
+if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
+  runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
 else
   runtime_env_vars+=("DB_HOST=${DB_HOST}")
   runtime_env_vars+=("DB_PORT=${DB_PORT}")
   runtime_env_vars+=("DB_NAME=${DB_NAME}")
   runtime_env_vars+=("DB_USER=${DB_USER}")
-  runtime_env_vars+=("DB_PASSWORD=${DB_PASSWORD}")
+  if ! has_secret "DB_PASSWORD" && [[ -n "${DB_PASSWORD:-}" ]]; then
+    runtime_env_vars+=("DB_PASSWORD=${DB_PASSWORD}")
+  fi
 fi
 
 if [[ -n "${LOG_LEVEL:-}" ]]; then
