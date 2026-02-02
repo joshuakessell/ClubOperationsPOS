@@ -53,6 +53,22 @@ postgresql://<username>:<password>@<db_endpoint>:<db_port>/<db_name>
 
 Use Terraform outputs for `db_endpoint`, `db_port`, and `db_name`.
 
+Create the app's DATABASE_URL secret (recommended):
+
+```bash
+aws secretsmanager create-secret \
+  --name club-ops/dev/database-url \
+  --secret-string "postgresql://<username>:<password>@<db_endpoint>:<db_port>/<db_name>?sslmode=require"
+```
+
+Create the kiosk token secret (recommended):
+
+```bash
+aws secretsmanager create-secret \
+  --name club-ops/dev/kiosk-token \
+  --secret-string "<kiosk-token>"
+```
+
 ### 3) Cloudflare DNS (DNS-only, proxy OFF)
 
 Terraform outputs the DNS validation records for ACM and App Runner.
@@ -81,16 +97,13 @@ Add these in GitHub repo settings → Secrets:
 
 - `APP_RUNNER_SERVICE_ARN` = Terraform output `apprunner_service_arn`
 - `ECR_REPO_URI` = `146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api`
-- `KIOSK_TOKEN` = required by API
-- `RDS_SECRET_ARN` = Terraform output `db_master_secret_arn`
-- `DB_HOST` = Terraform output `db_endpoint`
-- `DB_PORT` = Terraform output `db_port`
-- `DB_NAME` = Terraform output `db_name`
-- `DB_USER` = Terraform output `db_master_username`
-- Optional: `DB_SSL_CA_PATH` if you want to verify the RDS certificate chain
+- `DATABASE_URL_SECRET_ARN` = Terraform output `database_url_secret_arn`
+- `KIOSK_TOKEN_SECRET_ARN` = Terraform output `kiosk_token_secret_arn`
+- Optional: `DB_SSL_CA_PATH` if you want to verify the RDS certificate chain (not required for `sslmode=require`)
 
 Note: If you change the App Runner service name via `api_service_name`, Terraform will recreate the service.
 After apply, update `APP_RUNNER_SERVICE_ARN` to the new value and re-run DNS validation if required.
+Terraform also attaches an App Runner instance role that allows reading the Secrets Manager ARNs above.
 
 **Frontends**
 
@@ -113,7 +126,7 @@ You can also run a **frontends-only** deploy manually from GitHub Actions:
 
 ## Where Variables Live
 
-- **GitHub Secrets**: deploy-time values (KIOSK_TOKEN, RDS_SECRET_ARN, DB_HOST/DB_PORT/DB_NAME/DB_USER, VITE_KIOSK_TOKEN)
+- **GitHub Secrets**: deploy-time values (`DATABASE_URL_SECRET_ARN`, `KIOSK_TOKEN_SECRET_ARN`, `VITE_KIOSK_TOKEN`)
 - **App Runner runtime env**: set on deploy via `deploy-api.sh`
 - **Vite build-time env**: passed in deploy scripts/workflow
 
@@ -170,7 +183,7 @@ Expected: HTTP 200 from CloudFront.
     ```bash
     ECR_REPO_URI=146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api \
     APP_RUNNER_SERVICE_ARN=... \
-    KIOSK_TOKEN=... DATABASE_URL=... \
+    KIOSK_TOKEN_SECRET_ARN=... DATABASE_URL_SECRET_ARN=... \
     IMAGE_TAG=<previous-tag> \
     scripts/aws/deploy-api.sh
     ```

@@ -34,6 +34,18 @@ variable "api_service_name" {
   default     = "club-ops-api-dev"
 }
 
+variable "database_url_secret_arn" {
+  type        = string
+  description = "Secrets Manager ARN for the DATABASE_URL secret"
+  default     = "arn:aws:secretsmanager:us-east-1:146469921099:secret:club-ops/dev/database-url-an64dg"
+}
+
+variable "kiosk_token_secret_arn" {
+  type        = string
+  description = "Secrets Manager ARN for the kiosk token secret"
+  default     = "arn:aws:secretsmanager:us-east-1:146469921099:secret:club-ops/dev/kiosk-token-B9P3EM"
+}
+
 variable "db_identifier" {
   type        = string
   description = "RDS instance identifier"
