@@ -73,7 +73,10 @@ DB_PASSWORD_FROM_SM="$(
     --output text | python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])'
 )"
 
-DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD_FROM_SM}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+# URL-encode password to safely handle special characters.
+DB_PASSWORD_URLENCODED="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$DB_PASSWORD_FROM_SM")"
+
+DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD_URLENCODED}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
 echo "DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME} (password redacted)"
 
 # Read existing App Runner runtime secrets (optional)
