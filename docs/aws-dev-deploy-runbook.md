@@ -82,8 +82,12 @@ Add these in GitHub repo settings → Secrets:
 - `APP_RUNNER_SERVICE_ARN` = Terraform output `apprunner_service_arn`
 - `ECR_REPO_URI` = `146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api`
 - `KIOSK_TOKEN` = required by API
-- `DATABASE_URL` = built from RDS outputs (see Database credentials)
-  - Alternatively, set `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
+- `RDS_SECRET_ARN` = Terraform output `db_master_secret_arn`
+- `DB_HOST` = Terraform output `db_endpoint`
+- `DB_PORT` = Terraform output `db_port`
+- `DB_NAME` = Terraform output `db_name`
+- `DB_USER` = Terraform output `db_master_username`
+- Optional: `DB_SSL_CA_PATH` if you want to verify the RDS certificate chain
 
 Note: If you change the App Runner service name via `api_service_name`, Terraform will recreate the service.
 After apply, update `APP_RUNNER_SERVICE_ARN` to the new value and re-run DNS validation if required.
@@ -109,7 +113,7 @@ You can also run a **frontends-only** deploy manually from GitHub Actions:
 
 ## Where Variables Live
 
-- **GitHub Secrets**: deploy-time values (KIOSK_TOKEN, DATABASE_URL, VITE_KIOSK_TOKEN)
+- **GitHub Secrets**: deploy-time values (KIOSK_TOKEN, RDS_SECRET_ARN, DB_HOST/DB_PORT/DB_NAME/DB_USER, VITE_KIOSK_TOKEN)
 - **App Runner runtime env**: set on deploy via `deploy-api.sh`
 - **Vite build-time env**: passed in deploy scripts/workflow
 
@@ -186,6 +190,7 @@ Expected: HTTP 200 from CloudFront.
 - **CloudFront 403/404**: confirm OAC and bucket policy; ensure index.html exists
 - **S3 sync errors**: verify bucket name + AWS permissions
 - **OIDC assume role**: confirm GitHub repo in Terraform (`github_repo`) matches, role ARN secret set
+- **DB SSL errors** (`self-signed certificate in certificate chain`): keep `DB_SSL=true` and leave `DB_SSL_CA_PATH` unset (or point it at the AWS RDS CA bundle), then redeploy the API
 
 ## Branch Protection Guidance
 
