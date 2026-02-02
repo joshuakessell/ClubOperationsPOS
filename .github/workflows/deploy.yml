@@ -54,12 +54,11 @@ jobs:
           APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
           KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          RDS_SECRET_ARN: ${{ secrets.RDS_SECRET_ARN }}
           DB_HOST: ${{ secrets.DB_HOST }}
           DB_PORT: ${{ secrets.DB_PORT }}
           DB_NAME: ${{ secrets.DB_NAME }}
           DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DEMO_MODE: 'true'
           SEED_ON_STARTUP: 'false'
           DEMO_INCREMENTAL: 'true'

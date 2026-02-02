@@ -22,17 +22,29 @@ need_cmd aws
 need_cmd docker
 need_cmd git
 need_cmd pnpm
+need_cmd python3
 
 aws sts get-caller-identity >/dev/null
 
 required APP_RUNNER_SERVICE_ARN
+required RDS_SECRET_ARN
+required DB_HOST
+required DB_PORT
+required DB_NAME
+required DB_USER
 
+# Guard: Postgres DB names should not contain hyphens
+if [[ "$DB_NAME" == *"-"* ]]; then
+  echo "ERROR: DB_NAME='$DB_NAME' contains '-' which is not valid for Postgres database names. Use something like club_ops_db." >&2
+  exit 1
+fi
+
+AWS_REGION="${AWS_REGION:-us-east-1}"
 ECR_REPO_URI="${ECR_REPO_URI:-146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api}"
+
 IMAGE_TAG_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
 IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG_SHA}"
 IMAGE_LATEST_TAG="${ECR_REPO_URI}:dev-latest"
-
-AWS_REGION="${AWS_REGION:-us-east-1}"
 
 aws ecr get-login-password --region "$AWS_REGION" | \
   docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
@@ -43,19 +55,28 @@ if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
   pnpm install --frozen-lockfile
 fi
 
-# Build API + shared outputs for prebuilt Dockerfile copy
+# Build outputs needed by the Dockerfile (prebuilt dist copy)
 pnpm turbo run build --filter @club-ops/shared --filter @club-ops/api
 
+# Dockerfile expects dist outputs to exist and be included in context (ensure .dockerignore allows them)
 docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
 docker tag "$IMAGE_SHA_TAG" "$IMAGE_LATEST_TAG"
 
 docker push "$IMAGE_SHA_TAG"
 docker push "$IMAGE_LATEST_TAG"
 
-TMP_JSON="$(mktemp)"
-trap 'rm -f "$TMP_JSON"' EXIT
+# Fetch DB password from Secrets Manager (never stored in GitHub)
+DB_PASSWORD_FROM_SM="$(
+  aws secretsmanager get-secret-value \
+    --secret-id "$RDS_SECRET_ARN" \
+    --query SecretString \
+    --output text | python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])'
+)"
 
-# Read existing App Runner secrets to avoid key conflicts
+DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD_FROM_SM}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+echo "DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME} (password redacted)"
+
+# Read existing App Runner runtime secrets (optional)
 EXISTING_SECRET_KEYS="$(
   aws apprunner describe-service \
     --service-arn "$APP_RUNNER_SERVICE_ARN" \
@@ -71,45 +92,19 @@ has_secret() {
   grep -qw "$key" <<<"$EXISTING_SECRET_KEYS"
 }
 
-# Require KIOSK_TOKEN only if not already configured as a secret
+# Require KIOSK_TOKEN only if it's not already configured as a runtime secret
 if ! has_secret "KIOSK_TOKEN"; then
   required KIOSK_TOKEN
 fi
 
-# DB config:
-# - Prefer DATABASE_URL, otherwise require discrete DB_* vars
-if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
-  :
-else
-  required DB_HOST
-  required DB_PORT
-  required DB_NAME
-  required DB_USER
-  if ! has_secret "DB_PASSWORD"; then
-    required DB_PASSWORD
-  fi
-fi
-
-# Build runtime env vars payload
 runtime_env_vars=(
   "PORT=3000"
   "HOST=0.0.0.0"
+  "DATABASE_URL=${DATABASE_URL}"
 )
 
-if ! has_secret "KIOSK_TOKEN" && [[ -n "${KIOSK_TOKEN:-}" ]]; then
+if ! has_secret "KIOSK_TOKEN"; then
   runtime_env_vars+=("KIOSK_TOKEN=${KIOSK_TOKEN}")
-fi
-
-if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
-  runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
-else
-  runtime_env_vars+=("DB_HOST=${DB_HOST}")
-  runtime_env_vars+=("DB_PORT=${DB_PORT}")
-  runtime_env_vars+=("DB_NAME=${DB_NAME}")
-  runtime_env_vars+=("DB_USER=${DB_USER}")
-  if ! has_secret "DB_PASSWORD" && [[ -n "${DB_PASSWORD:-}" ]]; then
-    runtime_env_vars+=("DB_PASSWORD=${DB_PASSWORD}")
-  fi
 fi
 
 if [[ -n "${LOG_LEVEL:-}" ]]; then
@@ -133,6 +128,9 @@ for key in "${optional_envs[@]}"; do
     runtime_env_vars+=("${key}=${!key}")
   fi
 done
+
+TMP_JSON="$(mktemp)"
+trap 'rm -f "$TMP_JSON"' EXIT
 
 cat > "$TMP_JSON" <<JSON
 {
