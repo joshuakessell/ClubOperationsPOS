@@ -11,7 +11,6 @@ export { roomsRoutes } from './rooms';
 export { keysRoutes } from './keys';
 export { cleaningRoutes } from './cleaning';
 export { adminRoutes } from './admin';
-export { adminTelemetryRoutes } from './admin-telemetry';
 export { agreementsRoutes } from './agreements';
 export { upgradeRoutes } from './upgrades';
 export { waitlistRoutes } from './waitlist';

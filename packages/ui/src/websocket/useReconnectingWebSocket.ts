@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { closeLaneSessionClient, getLaneSessionClient } from '@club-ops/shared';
-import { getInstalledTelemetry } from '../telemetry/global.js';
+import {
+  closeLaneSessionClient,
+  getLaneSessionClient,
+} from '@club-ops/shared/realtime/laneSessionClient';
 
 export type ReconnectingWebSocketStatus = 'connecting' | 'open' | 'closed' | 'reconnecting';
 
@@ -169,17 +171,7 @@ export function useReconnectingWebSocket(
     try {
       ws = getLaneSessionClient({ laneId, role, kioskToken }) as unknown as WebSocket;
       wsRef.current = ws;
-    } catch (err) {
-      try {
-        getInstalledTelemetry()?.capture({
-          spanType: 'ws.guard_error',
-          level: 'error',
-          message: err instanceof Error ? err.message : 'Failed to init guarded WebSocket',
-          url,
-        });
-      } catch {
-        // ignore
-      }
+    } catch {
       setStatus('closed');
       setConnected(false);
       wsRef.current = null;
@@ -222,17 +214,6 @@ export function useReconnectingWebSocket(
     const onError = (event: { type?: string }) => {
       const current = wsRef.current;
       if (!current || current !== ws) return;
-      try {
-        getInstalledTelemetry()?.capture({
-          spanType: 'ws.error',
-          level: 'error',
-          message: 'WebSocket error',
-          url,
-          meta: { type: event.type },
-        });
-      } catch {
-        // ignore
-      }
       onErrorRef.current?.(event as unknown as Event);
     };
 

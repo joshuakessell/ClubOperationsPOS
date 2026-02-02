@@ -18,7 +18,7 @@ export class AppErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: unknown) {
-    // Keep console logging; if you have telemetry, wire it here later.
+    // Keep console logging; hook in error reporting here if needed.
     console.error('App crashed:', error);
   }
 

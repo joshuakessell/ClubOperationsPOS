@@ -1,6 +1,6 @@
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
-import { closeAllLaneSessionClients } from '@club-ops/shared';
+import { closeAllLaneSessionClients } from '@club-ops/shared/realtime/laneSessionClient';
 
 afterEach(() => {
   cleanup();

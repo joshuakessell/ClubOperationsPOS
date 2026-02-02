@@ -9,7 +9,6 @@ import { WaitlistManagementView } from '../WaitlistManagementView';
 import { CustomerAdminToolsView } from '../CustomerAdminToolsView';
 import { ReportsDemoView } from '../ReportsDemoView';
 import { MessagesView } from '../MessagesView';
-import { TelemetryView } from '../TelemetryView';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
 import { getApiUrl } from '@club-ops/shared';
 
@@ -238,13 +237,6 @@ export function AppComposition() {
             )
           }
         />
-        <Route
-          path="/telemetry"
-          element={
-            isAdmin ? <TelemetryView session={session} /> : <Navigate to="/schedule" replace />
-          }
-        />
-
         <Route
           path="/schedule"
           element={<ShiftsView session={session} limitedAccess={!isAdmin} />}

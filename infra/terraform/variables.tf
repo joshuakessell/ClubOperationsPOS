@@ -28,6 +28,66 @@ variable "api_domain" {
   default     = "api-demo.joshuakessell.com"
 }
 
+variable "api_service_name" {
+  type        = string
+  description = "App Runner service name for the API"
+  default     = "club-ops-api-dev"
+}
+
+variable "db_identifier" {
+  type        = string
+  description = "RDS instance identifier"
+  default     = "club-ops-dev-db"
+}
+
+variable "db_name" {
+  type        = string
+  description = "Database name to create in Postgres"
+  default     = "club_operations"
+}
+
+variable "db_master_username" {
+  type        = string
+  description = "Master username for the RDS instance"
+  default     = "clubops"
+}
+
+variable "db_instance_class" {
+  type        = string
+  description = "RDS instance class for dev"
+  default     = "db.t4g.micro"
+}
+
+variable "db_allocated_storage" {
+  type        = number
+  description = "Allocated storage in GB"
+  default     = 20
+}
+
+variable "apprunner_subnet_ids" {
+  type        = list(string)
+  description = "Optional list of subnet IDs to use for the App Runner VPC connector"
+  default     = []
+}
+
+variable "apprunner_unsupported_az_ids" {
+  type        = list(string)
+  description = "Availability zone IDs that App Runner does not support for VPC connectors"
+  default     = ["use1-az3"]
+}
+
+variable "employee_web_acl_arn" {
+  type        = string
+  description = "Web ACL ARN for the employee CloudFront distribution"
+  default     = "arn:aws:wafv2:us-east-1:146469921099:global/webacl/CreatedByCloudFront-e76e6b4d/590ab5da-d6a6-4386-bc3e-f8d1e08c09d0"
+}
+
+variable "customer_web_acl_arn" {
+  type        = string
+  description = "Web ACL ARN for the customer CloudFront distribution"
+  default     = "arn:aws:wafv2:us-east-1:146469921099:global/webacl/CreatedByCloudFront-1bea8086/3079b04f-bb64-48ef-be5d-3fce672335b5"
+}
+
 variable "employee_domain" {
   type        = string
   description = "Custom domain for employee register frontend"

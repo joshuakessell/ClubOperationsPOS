@@ -14,7 +14,6 @@ import {
   keysRoutes,
   cleaningRoutes,
   adminRoutes,
-  adminTelemetryRoutes,
   agreementsRoutes,
   upgradeRoutes,
   waitlistRoutes,
@@ -39,7 +38,6 @@ import { cleanupAbandonedRegisterSessions } from './routes/registers';
 import { seedDemoData } from './db/seed-demo';
 import { expireWaitlistEntries } from './waitlist/expireWaitlist';
 import { processUpgradeHoldsTick } from './waitlist/upgradeHolds';
-import { setupTelemetry } from './telemetry/plugin';
 import { registerWsRoute } from './websocket/wsRoute';
 
 loadEnvFromDotEnvIfPresent();
@@ -78,9 +76,6 @@ async function main() {
       },
     },
   });
-
-  // Telemetry: requestId correlation, ingestion endpoint, backend error capture.
-  await setupTelemetry(fastify);
 
   // Register CORS
   await fastify.register(cors, {
@@ -138,34 +133,34 @@ async function main() {
     })();
   }, 60000);
 
-// Helper: DB is configured only if SKIP_DB is not true and we have DATABASE_URL or all DB_* vars.
-const isDbConfigured = () => {
-  if (process.env.SKIP_DB === 'true') return false;
-  if ((process.env.DATABASE_URL ?? '').trim()) return true;
+  // Helper: DB is configured only if SKIP_DB is not true and we have DATABASE_URL or all DB_* vars.
+  const isDbConfigured = () => {
+    if (process.env.SKIP_DB === 'true') return false;
+    if ((process.env.DATABASE_URL ?? '').trim()) return true;
 
-  const required = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'] as const;
-  return required.every((k) => (process.env[k] ?? '').trim());
-};
+    const required = ['DB_HOST', 'DB_PORT', 'DB_NAME', 'DB_USER', 'DB_PASSWORD'] as const;
+    return required.every((k) => (process.env[k] ?? '').trim());
+  };
 
-// Periodic upgrade hold/offer processing (every 5 seconds)
-let upgradeHoldInterval: NodeJS.Timeout | undefined;
+  // Periodic upgrade hold/offer processing (every 5 seconds)
+  let upgradeHoldInterval: NodeJS.Timeout | undefined;
 
-if (isDbConfigured()) {
-  upgradeHoldInterval = setInterval(() => {
-    void (async () => {
-      try {
-        const { expired, held } = await processUpgradeHoldsTick(fastify);
-        if (expired > 0 || held > 0) {
-          fastify.log.info({ expired, held }, 'Processed upgrade holds');
+  if (isDbConfigured()) {
+    upgradeHoldInterval = setInterval(() => {
+      void (async () => {
+        try {
+          const { expired, held } = await processUpgradeHoldsTick(fastify);
+          if (expired > 0 || held > 0) {
+            fastify.log.info({ expired, held }, 'Processed upgrade holds');
+          }
+        } catch (error) {
+          fastify.log.error(error, 'Error during upgrade hold processing');
         }
-      } catch (error) {
-        fastify.log.error(error, 'Error during upgrade hold processing');
-      }
-    })();
-  }, 5000);
-} else {
-  fastify.log.warn('DB not configured (or SKIP_DB=true); skipping upgrade hold processing.');
-}
+      })();
+    }, 5000);
+  } else {
+    fastify.log.warn('DB not configured (or SKIP_DB=true); skipping upgrade hold processing.');
+  }
 
   // Register routes
   await fastify.register(healthRoutes);
@@ -177,7 +172,6 @@ if (isDbConfigured()) {
   await fastify.register(keysRoutes);
   await fastify.register(cleaningRoutes);
   await fastify.register(adminRoutes);
-  await fastify.register(adminTelemetryRoutes);
   await fastify.register(agreementsRoutes);
   await fastify.register(upgradeRoutes);
   await fastify.register(waitlistRoutes);

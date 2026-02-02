@@ -2,6 +2,37 @@ locals {
   prefix = "club-ops-dev"
 }
 
+data "aws_vpc" "default" {
+  default = true
+}
+
+data "aws_subnets" "default" {
+  filter {
+    name   = "vpc-id"
+    values = [data.aws_vpc.default.id]
+  }
+}
+
+data "aws_subnet" "default" {
+  for_each = toset(data.aws_subnets.default.ids)
+  id       = each.value
+}
+
+data "aws_cloudfront_cache_policy" "caching_optimized" {
+  name = "Managed-CachingOptimized"
+}
+
+data "aws_cloudfront_origin_request_policy" "cors_s3" {
+  name = "Managed-CORS-S3Origin"
+}
+
+locals {
+  apprunner_subnet_ids = length(var.apprunner_subnet_ids) > 0 ? var.apprunner_subnet_ids : [
+    for subnet in data.aws_subnet.default :
+    subnet.id if !contains(var.apprunner_unsupported_az_ids, subnet.availability_zone_id)
+  ]
+}
+
 # ------------------------------
 # IAM: GitHub OIDC + deploy role
 # ------------------------------
@@ -148,8 +179,70 @@ resource "aws_iam_role_policy_attachment" "apprunner_ecr_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess"
 }
 
+resource "aws_security_group" "apprunner" {
+  name        = "${local.prefix}-apprunner-sg"
+  description = "Allow App Runner egress to dev resources"
+  vpc_id      = data.aws_vpc.default.id
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_security_group" "db" {
+  name        = "${local.prefix}-db-sg"
+  description = "Allow Postgres access from App Runner"
+  vpc_id      = data.aws_vpc.default.id
+
+  ingress {
+    from_port       = 5432
+    to_port         = 5432
+    protocol        = "tcp"
+    security_groups = [aws_security_group.apprunner.id]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+resource "aws_db_subnet_group" "db" {
+  name       = "${local.prefix}-db-subnets"
+  subnet_ids = data.aws_subnets.default.ids
+}
+
+resource "aws_db_instance" "db" {
+  identifier                    = var.db_identifier
+  engine                        = "postgres"
+  instance_class                = var.db_instance_class
+  allocated_storage             = var.db_allocated_storage
+  db_name                       = var.db_name
+  username                      = var.db_master_username
+  manage_master_user_password   = true
+  db_subnet_group_name          = aws_db_subnet_group.db.name
+  vpc_security_group_ids        = [aws_security_group.db.id]
+  publicly_accessible           = false
+  skip_final_snapshot           = true
+  deletion_protection           = false
+  backup_retention_period       = 1
+  auto_minor_version_upgrade    = true
+  apply_immediately             = true
+}
+
+resource "aws_apprunner_vpc_connector" "api" {
+  vpc_connector_name = "${local.prefix}-api-connector"
+  subnets            = local.apprunner_subnet_ids
+  security_groups    = [aws_security_group.apprunner.id]
+}
+
 resource "aws_apprunner_service" "api" {
-  service_name = "${local.prefix}-api"
+  service_name = var.api_service_name
 
   source_configuration {
     authentication_configuration {
@@ -169,6 +262,13 @@ resource "aws_apprunner_service" "api" {
           HOST = "0.0.0.0"
         }
       }
+    }
+  }
+
+  network_configuration {
+    egress_configuration {
+      egress_type        = "VPC"
+      vpc_connector_arn  = aws_apprunner_vpc_connector.api.arn
     }
   }
 
@@ -260,6 +360,7 @@ resource "aws_cloudfront_distribution" "employee" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   aliases             = [var.employee_domain]
+  web_acl_id          = var.employee_web_acl_arn
 
   origin {
     domain_name              = aws_s3_bucket.employee.bucket_regional_domain_name
@@ -274,13 +375,8 @@ resource "aws_cloudfront_distribution" "employee" {
 
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_optimized.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.cors_s3.id
   }
 
   custom_error_response {
@@ -313,6 +409,7 @@ resource "aws_cloudfront_distribution" "customer" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
   aliases             = [var.customer_domain]
+  web_acl_id          = var.customer_web_acl_arn
 
   origin {
     domain_name              = aws_s3_bucket.customer.bucket_regional_domain_name
@@ -327,13 +424,8 @@ resource "aws_cloudfront_distribution" "customer" {
 
     viewer_protocol_policy = "redirect-to-https"
     compress               = true
-
-    forwarded_values {
-      query_string = false
-      cookies {
-        forward = "none"
-      }
-    }
+    cache_policy_id          = data.aws_cloudfront_cache_policy.caching_optimized.id
+    origin_request_policy_id = data.aws_cloudfront_origin_request_policy.cors_s3.id
   }
 
   custom_error_response {
