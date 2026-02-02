@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { closeLaneSessionClient, getLaneSessionClient } from '@club-ops/shared';
+import { closeLaneSessionClient, getLaneSessionClient } from '@club-ops/shared/realtime/laneSessionClient';
 import { getInstalledTelemetry } from '../telemetry/global.js';
 
 export type ReconnectingWebSocketStatus = 'connecting' | 'open' | 'closed' | 'reconnecting';

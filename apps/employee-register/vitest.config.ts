@@ -6,10 +6,20 @@ import { fileURLToPath, URL } from 'node:url';
 export default defineConfig({
   plugins: [react()],
   resolve: {
-    alias: {
-      '@club-ops/shared': path.resolve(__dirname, '../../packages/shared/src'),
-      '@': fileURLToPath(new URL('./src', import.meta.url)),
-    },
+    alias: [
+      {
+        find: '@club-ops/shared/realtime',
+        replacement: path.resolve(__dirname, '../../packages/shared/realtime'),
+      },
+      {
+        find: '@club-ops/shared',
+        replacement: path.resolve(__dirname, '../../packages/shared/src'),
+      },
+      {
+        find: '@',
+        replacement: fileURLToPath(new URL('./src', import.meta.url)),
+      },
+    ],
   },
   test: {
     globals: true,
