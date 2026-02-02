@@ -104,6 +104,9 @@ After apply, update `APP_RUNNER_SERVICE_ARN` to the new value and re-run DNS val
    - API image build + push → App Runner update
    - Frontend build → S3 sync → CloudFront invalidation
 
+You can also run a **frontends-only** deploy manually from GitHub Actions:
+`Deploy (dev frontends only)` (workflow_dispatch).
+
 ## Where Variables Live
 
 - **GitHub Secrets**: deploy-time values (KIOSK_TOKEN, DATABASE_URL, VITE_KIOSK_TOKEN)
