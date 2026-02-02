@@ -103,6 +103,9 @@ runtime_env_vars=(
   "DATABASE_URL=${DATABASE_URL}"
 )
 
+DB_SSL_VALUE="${DB_SSL:-true}"
+runtime_env_vars+=("DB_SSL=${DB_SSL_VALUE}")
+
 if ! has_secret "KIOSK_TOKEN"; then
   runtime_env_vars+=("KIOSK_TOKEN=${KIOSK_TOKEN}")
 fi
@@ -119,7 +122,6 @@ optional_envs=(
   DEMO_RESET_ON_STARTUP
   DEMO_SHIFT_REGENERATE_PDFS
   DB_LOG_QUERIES
-  DB_SSL
   DB_SSL_CA_PATH
 )
 
