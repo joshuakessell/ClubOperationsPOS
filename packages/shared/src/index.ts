@@ -115,9 +115,8 @@ export {
 // Agreement content (built-in HTML used by kiosk + PDF generation)
 export { AGREEMENT_LEGAL_BODY_HTML_BY_LANG, type AgreementLanguage } from './agreementContent.js';
 
-// Realtime (guard + React hook wrapper)
-export * from '../realtime/laneSessionClient.js';
-export { useLaneSession } from '../realtime/useLaneSession.js';
+// Realtime helpers live in subpath exports to avoid server-side React deps.
+// Use @club-ops/shared/realtime/* in browser apps.
 
 // API base helpers for frontend apps
 export { API_BASE_URL, getApiUrl, getWebSocketUrl } from './apiBase.js';

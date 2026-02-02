@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { WebSocketEvent } from '@club-ops/shared';
-import { useLaneSession } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { ApiError, apiJson, wsBaseUrl } from './api';

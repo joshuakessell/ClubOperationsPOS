@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
 import type { RegisterSessionUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
-import { useLaneSession } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 import { wsBaseUrl } from './api';
 import { getApiUrl } from '@club-ops/shared';

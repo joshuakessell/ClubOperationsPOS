@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { InventoryUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
-import { useLaneSession } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson, wsBaseUrl } from './api';

@@ -1,5 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { safeParseWebSocketEvent, useLaneSession } from '@club-ops/shared';
+import { safeParseWebSocketEvent } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 import { getWebSocketUrl } from '@club-ops/shared';
 import {

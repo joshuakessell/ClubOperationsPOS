@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RoomStatus, getApiUrl, getWebSocketUrl, useLaneSession } from '@club-ops/shared';
+import { RoomStatus, getApiUrl, getWebSocketUrl } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 
 import { ModalFrame } from './components/register/modals/ModalFrame';

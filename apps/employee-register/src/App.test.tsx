@@ -136,7 +136,7 @@ describe('App', () => {
 
     // Ensure the shared WS guard does not leak singletons across tests.
     try {
-      const shared = await import('@club-ops/shared');
+      const shared = await import('@club-ops/shared/realtime/laneSessionClient');
       shared.closeLaneSessionClient('lane-1', 'employee');
       shared.closeLaneSessionClient('', 'employee');
     } catch {
