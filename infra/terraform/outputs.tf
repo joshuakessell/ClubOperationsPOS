@@ -18,6 +18,16 @@ output "apprunner_service_url" {
   description = "Default App Runner service URL"
 }
 
+output "database_url_secret_arn" {
+  value       = var.database_url_secret_arn
+  description = "Secrets Manager ARN for the DATABASE_URL secret"
+}
+
+output "kiosk_token_secret_arn" {
+  value       = var.kiosk_token_secret_arn
+  description = "Secrets Manager ARN for the kiosk token secret"
+}
+
 output "db_endpoint" {
   value       = aws_db_instance.db.address
   description = "RDS endpoint address"

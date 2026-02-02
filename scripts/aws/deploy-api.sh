@@ -27,11 +27,17 @@ need_cmd python3
 aws sts get-caller-identity >/dev/null
 
 required APP_RUNNER_SERVICE_ARN
-required RDS_SECRET_ARN
-required DB_HOST
-required DB_PORT
-required DB_NAME
-required DB_USER
+
+USE_DB_SECRET=false
+if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
+  USE_DB_SECRET=true
+else
+  required RDS_SECRET_ARN
+  required DB_HOST
+  required DB_PORT
+  required DB_NAME
+  required DB_USER
+fi
 
 # Guard: Postgres DB names should not contain hyphens
 if [[ "$DB_NAME" == *"-"* ]]; then
@@ -66,18 +72,20 @@ docker push "$IMAGE_SHA_TAG"
 docker push "$IMAGE_LATEST_TAG"
 
 # Fetch DB password from Secrets Manager (never stored in GitHub)
-DB_PASSWORD_FROM_SM="$(
-  aws secretsmanager get-secret-value \
-    --secret-id "$RDS_SECRET_ARN" \
-    --query SecretString \
-    --output text | python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])'
-)"
+if [[ "$USE_DB_SECRET" == "false" ]]; then
+  DB_PASSWORD_FROM_SM="$(
+    aws secretsmanager get-secret-value \
+      --secret-id "$RDS_SECRET_ARN" \
+      --query SecretString \
+      --output text | python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])'
+  )"
 
-# URL-encode password to safely handle special characters.
-DB_PASSWORD_URLENCODED="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$DB_PASSWORD_FROM_SM")"
+  # URL-encode password to safely handle special characters.
+  DB_PASSWORD_URLENCODED="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$DB_PASSWORD_FROM_SM")"
 
-DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD_URLENCODED}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
-echo "DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME} (password redacted)"
+  DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD_URLENCODED}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
+  echo "DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME} (password redacted)"
+fi
 
 # Read existing App Runner runtime secrets (optional)
 EXISTING_SECRET_KEYS="$(
@@ -95,21 +103,31 @@ has_secret() {
   grep -qw "$key" <<<"$EXISTING_SECRET_KEYS"
 }
 
+USE_KIOSK_SECRET=false
+if [[ -n "${KIOSK_TOKEN_SECRET_ARN:-}" ]]; then
+  USE_KIOSK_SECRET=true
+fi
+
 # Require KIOSK_TOKEN only if it's not already configured as a runtime secret
-if ! has_secret "KIOSK_TOKEN"; then
-  required KIOSK_TOKEN
+if [[ "$USE_KIOSK_SECRET" == "false" ]]; then
+  if ! has_secret "KIOSK_TOKEN"; then
+    required KIOSK_TOKEN
+  fi
 fi
 
 runtime_env_vars=(
   "PORT=3000"
   "HOST=0.0.0.0"
-  "DATABASE_URL=${DATABASE_URL}"
 )
+
+if [[ "$USE_DB_SECRET" == "false" ]]; then
+  runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
+fi
 
 DB_SSL_VALUE="${DB_SSL:-true}"
 runtime_env_vars+=("DB_SSL=${DB_SSL_VALUE}")
 
-if ! has_secret "KIOSK_TOKEN"; then
+if [[ "$USE_KIOSK_SECRET" == "false" ]] && ! has_secret "KIOSK_TOKEN"; then
   runtime_env_vars+=("KIOSK_TOKEN=${KIOSK_TOKEN}")
 fi
 
@@ -134,41 +152,61 @@ for key in "${optional_envs[@]}"; do
   fi
 done
 
+runtime_env_secrets=()
+if [[ "$USE_DB_SECRET" == "true" ]]; then
+  runtime_env_secrets+=("DATABASE_URL=${DATABASE_URL_SECRET_ARN}")
+fi
+if [[ "$USE_KIOSK_SECRET" == "true" ]]; then
+  runtime_env_secrets+=("KIOSK_TOKEN=${KIOSK_TOKEN_SECRET_ARN}")
+fi
+
 TMP_JSON="$(mktemp)"
 trap 'rm -f "$TMP_JSON"' EXIT
 
-cat > "$TMP_JSON" <<JSON
-{
-  "ServiceArn": "${APP_RUNNER_SERVICE_ARN}",
-  "SourceConfiguration": {
-    "ImageRepository": {
-      "ImageIdentifier": "${IMAGE_LATEST_TAG}",
-      "ImageRepositoryType": "ECR",
-      "ImageConfiguration": {
-        "Port": "3000",
-        "RuntimeEnvironmentVariables": {
-JSON
+RUNTIME_ENV_VARS="$(printf '%s\n' "${runtime_env_vars[@]}")"
+RUNTIME_ENV_SECRETS="$(printf '%s\n' "${runtime_env_secrets[@]}")"
+export RUNTIME_ENV_VARS
+export RUNTIME_ENV_SECRETS
 
-first=1
-for kv in "${runtime_env_vars[@]}"; do
-  key="${kv%%=*}"
-  val="${kv#*=}"
-  if [[ $first -eq 0 ]]; then
-    echo "," >> "$TMP_JSON"
-  fi
-  first=0
-  printf '          "%s": "%s"' "$key" "$val" >> "$TMP_JSON"
-done
+python3 - <<'PY' > "$TMP_JSON"
+import json
+import os
+import sys
 
-echo "" >> "$TMP_JSON"
-cat >> "$TMP_JSON" <<JSON
-        }
-      }
+def parse_pairs(raw: str) -> dict:
+    data = {}
+    for line in raw.splitlines():
+        if not line:
+            continue
+        key, value = line.split("=", 1)
+        data[key] = value
+    return data
+
+env_vars = parse_pairs(os.environ.get("RUNTIME_ENV_VARS", ""))
+env_secrets = parse_pairs(os.environ.get("RUNTIME_ENV_SECRETS", ""))
+
+payload = {
+    "ServiceArn": os.environ["APP_RUNNER_SERVICE_ARN"],
+    "SourceConfiguration": {
+        "ImageRepository": {
+            "ImageIdentifier": os.environ["IMAGE_LATEST_TAG"],
+            "ImageRepositoryType": "ECR",
+            "ImageConfiguration": {
+                "Port": "3000",
+                "RuntimeEnvironmentVariables": env_vars,
+            },
+        },
+        "AutoDeploymentsEnabled": False,
     },
-    "AutoDeploymentsEnabled": false
-  }
 }
-JSON
+
+if env_secrets:
+    payload["SourceConfiguration"]["ImageRepository"]["ImageConfiguration"][
+        "RuntimeEnvironmentSecrets"
+    ] = env_secrets
+
+json.dump(payload, sys.stdout)
+PY
 
 aws apprunner update-service --cli-input-json file://"$TMP_JSON"
 

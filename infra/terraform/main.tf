@@ -179,6 +179,47 @@ resource "aws_iam_role_policy_attachment" "apprunner_ecr_access" {
   policy_arn = "arn:aws:iam::aws:policy/service-role/AWSAppRunnerServicePolicyForECRAccess"
 }
 
+resource "aws_iam_role" "apprunner_instance" {
+  name = "${local.prefix}-apprunner-instance"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect = "Allow"
+        Principal = {
+          Service = "tasks.apprunner.amazonaws.com"
+        }
+        Action = "sts:AssumeRole"
+      }
+    ]
+  })
+}
+
+resource "aws_iam_policy" "apprunner_secrets" {
+  name = "${local.prefix}-apprunner-secrets"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "ReadSecretsManager"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [
+          var.database_url_secret_arn,
+          var.kiosk_token_secret_arn
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "apprunner_secrets" {
+  role       = aws_iam_role.apprunner_instance.name
+  policy_arn = aws_iam_policy.apprunner_secrets.arn
+}
+
 resource "aws_security_group" "apprunner" {
   name        = "${local.prefix}-apprunner-sg"
   description = "Allow App Runner egress to dev resources"
@@ -244,6 +285,10 @@ resource "aws_apprunner_vpc_connector" "api" {
 resource "aws_apprunner_service" "api" {
   service_name = var.api_service_name
 
+  instance_configuration {
+    instance_role_arn = aws_iam_role.apprunner_instance.arn
+  }
+
   source_configuration {
     authentication_configuration {
       access_role_arn = aws_iam_role.apprunner_ecr_access.arn
@@ -260,6 +305,10 @@ resource "aws_apprunner_service" "api" {
         runtime_environment_variables = {
           PORT = "3000"
           HOST = "0.0.0.0"
+        }
+        runtime_environment_secrets = {
+          DATABASE_URL = var.database_url_secret_arn
+          KIOSK_TOKEN  = var.kiosk_token_secret_arn
         }
       }
     }

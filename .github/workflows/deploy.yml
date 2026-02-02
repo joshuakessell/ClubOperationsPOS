@@ -53,12 +53,8 @@ jobs:
           AWS_REGION: us-east-1
           APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
-          KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
-          RDS_SECRET_ARN: ${{ secrets.RDS_SECRET_ARN }}
-          DB_HOST: ${{ secrets.DB_HOST }}
-          DB_PORT: ${{ secrets.DB_PORT }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
+          DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
+          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
           DEMO_MODE: 'true'
           SEED_ON_STARTUP: 'false'
           DEMO_INCREMENTAL: 'true'
