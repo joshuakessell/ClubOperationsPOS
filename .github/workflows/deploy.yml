@@ -56,7 +56,7 @@ jobs:
           KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
           DB_HOST: ${{ secrets.DB_HOST }},
           DB_PASSWORD: ${{ secrets.DB_PASSWORD}}
-          SKIP_DB: "true"
+          SKIP_DB: 'true'
         run: scripts/aws/deploy-api.sh
 
       - name: Deploy employee-register

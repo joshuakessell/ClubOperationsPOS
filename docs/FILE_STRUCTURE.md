@@ -25,7 +25,7 @@ services/                  # Backend services (API, jobs, etc.)
 scripts/                   # Repo automation/dev scripts
 tools/                     # One-off tooling (e.g., RAG utilities)
 infra/                     # Deployment/infra config
-artifacts/                 # Non-source artifacts (e.g., telemetry outputs)
+artifacts/                 # Non-source artifacts (e.g., generated reports)
 ```
 
 ## apps/

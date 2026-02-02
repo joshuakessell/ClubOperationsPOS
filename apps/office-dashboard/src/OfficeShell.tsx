@@ -28,7 +28,6 @@ export function OfficeShell({
       { to: '/waitlist', label: 'Waitlist', icon: '🕒', adminOnly: true },
       { to: '/reports', label: 'Reports', icon: '📊', adminOnly: true },
       { to: '/customers', label: 'Customers', icon: '🗂️', adminOnly: true },
-      { to: '/telemetry', label: 'Telemetry', icon: '🧯', adminOnly: true },
     ];
 
     const staff: NavItem[] = [
