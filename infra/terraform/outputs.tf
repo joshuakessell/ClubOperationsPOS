@@ -8,9 +8,39 @@ output "apprunner_service_arn" {
   description = "App Runner service ARN for the API"
 }
 
+output "apprunner_service_name" {
+  value       = aws_apprunner_service.api.service_name
+  description = "App Runner service name for the API"
+}
+
 output "apprunner_service_url" {
   value       = aws_apprunner_service.api.service_url
   description = "Default App Runner service URL"
+}
+
+output "db_endpoint" {
+  value       = aws_db_instance.db.address
+  description = "RDS endpoint address"
+}
+
+output "db_port" {
+  value       = aws_db_instance.db.port
+  description = "RDS port"
+}
+
+output "db_name" {
+  value       = aws_db_instance.db.db_name
+  description = "RDS database name"
+}
+
+output "db_master_username" {
+  value       = aws_db_instance.db.username
+  description = "RDS master username"
+}
+
+output "db_master_secret_arn" {
+  value       = aws_db_instance.db.master_user_secret[0].secret_arn
+  description = "Secrets Manager ARN for the RDS master user"
 }
 
 output "apprunner_custom_domain_validation_records" {

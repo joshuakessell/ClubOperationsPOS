@@ -77,11 +77,8 @@ if ! has_secret "KIOSK_TOKEN"; then
 fi
 
 # DB config:
-# - If SKIP_DB=true, do not require DB vars
-# - Else prefer DATABASE_URL, otherwise require discrete DB_* vars
-if [[ "${SKIP_DB:-}" == "true" ]]; then
-  :
-elif ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
+# - Prefer DATABASE_URL, otherwise require discrete DB_* vars
+if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
   :
 else
   required DB_HOST
@@ -103,17 +100,15 @@ if ! has_secret "KIOSK_TOKEN" && [[ -n "${KIOSK_TOKEN:-}" ]]; then
   runtime_env_vars+=("KIOSK_TOKEN=${KIOSK_TOKEN}")
 fi
 
-if [[ "${SKIP_DB:-}" != "true" ]]; then
-  if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
-    runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
-  else
-    runtime_env_vars+=("DB_HOST=${DB_HOST}")
-    runtime_env_vars+=("DB_PORT=${DB_PORT}")
-    runtime_env_vars+=("DB_NAME=${DB_NAME}")
-    runtime_env_vars+=("DB_USER=${DB_USER}")
-    if ! has_secret "DB_PASSWORD" && [[ -n "${DB_PASSWORD:-}" ]]; then
-      runtime_env_vars+=("DB_PASSWORD=${DB_PASSWORD}")
-    fi
+if ! has_secret "DATABASE_URL" && [[ -n "${DATABASE_URL:-}" ]]; then
+  runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
+else
+  runtime_env_vars+=("DB_HOST=${DB_HOST}")
+  runtime_env_vars+=("DB_PORT=${DB_PORT}")
+  runtime_env_vars+=("DB_NAME=${DB_NAME}")
+  runtime_env_vars+=("DB_USER=${DB_USER}")
+  if ! has_secret "DB_PASSWORD" && [[ -n "${DB_PASSWORD:-}" ]]; then
+    runtime_env_vars+=("DB_PASSWORD=${DB_PASSWORD}")
   fi
 fi
 
@@ -121,9 +116,23 @@ if [[ -n "${LOG_LEVEL:-}" ]]; then
   runtime_env_vars+=("LOG_LEVEL=${LOG_LEVEL}")
 fi
 
-if [[ -n "${SKIP_DB:-}" ]]; then
-  runtime_env_vars+=("SKIP_DB=${SKIP_DB}")
-fi
+optional_envs=(
+  DEMO_MODE
+  SEED_ON_STARTUP
+  DEMO_INCREMENTAL
+  DEMO_FORCE_RESEED
+  DEMO_RESET_ON_STARTUP
+  DEMO_SHIFT_REGENERATE_PDFS
+  DB_LOG_QUERIES
+  DB_SSL
+  DB_SSL_CA_PATH
+)
+
+for key in "${optional_envs[@]}"; do
+  if [[ -n "${!key:-}" ]]; then
+    runtime_env_vars+=("${key}=${!key}")
+  fi
+done
 
 cat > "$TMP_JSON" <<JSON
 {

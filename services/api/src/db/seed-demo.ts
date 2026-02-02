@@ -12,6 +12,7 @@ const DEMO_SNAPSHOT_VERSION = 1;
 const DEMO_FORCE_RESEED = process.env.DEMO_FORCE_RESEED === 'true';
 const DEMO_SHIFT_REGENERATE_PDFS = process.env.DEMO_SHIFT_REGENERATE_PDFS !== 'false';
 const DEMO_RESET_ON_STARTUP = process.env.DEMO_RESET_ON_STARTUP !== 'false';
+const DEMO_INCREMENTAL = process.env.DEMO_INCREMENTAL === 'true';
 
 const DEMO_SNAPSHOT_TABLES = [
   'agreements',
@@ -224,6 +225,208 @@ async function regenerateAgreementPdfs(client: DbClient): Promise<void> {
   }
 }
 
+type DemoAgreement = {
+  id: string;
+  version: string;
+  title: string;
+  body_text: string;
+};
+
+type DemoCustomer = {
+  id: string;
+  name: string;
+  membership_number: string | null;
+  dob: Date | null;
+};
+
+type DemoLocker = { id: string; number: number };
+type DemoRoom = { id: string; number: string; type: string };
+
+function seededRng(seed: number): () => number {
+  return () => {
+    seed |= 0;
+    seed = (seed + 0x6d2b79f5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function floorTo15Min(d: Date): Date {
+  const ms = d.getTime();
+  const rounded = Math.floor(ms / (15 * 60 * 1000)) * 15 * 60 * 1000;
+  return new Date(rounded);
+}
+
+function ceilTo15Min(d: Date): Date {
+  const ms = d.getTime();
+  const rounded = Math.ceil(ms / (15 * 60 * 1000)) * 15 * 60 * 1000;
+  return new Date(rounded);
+}
+
+async function getActiveAgreement(): Promise<DemoAgreement> {
+  const res = await query<DemoAgreement>(
+    `SELECT id, version, title, body_text
+     FROM agreements
+     WHERE active = true
+     ORDER BY created_at DESC
+     LIMIT 1`
+  );
+  if (res.rows.length > 0) return res.rows[0]!;
+  const fallback = await query<DemoAgreement>(
+    `SELECT id, version, title, body_text
+     FROM agreements
+     ORDER BY created_at DESC
+     LIMIT 1`
+  );
+  if (fallback.rows.length > 0) return fallback.rows[0]!;
+
+  const created = await query<DemoAgreement>(
+    `INSERT INTO agreements (version, title, body_text, active)
+     VALUES ($1, $2, $3, true)
+     RETURNING id, version, title, body_text`,
+    ['demo-1', 'Club Agreement', 'Demo agreement text']
+  );
+  return created.rows[0]!;
+}
+
+async function appendIncrementalDemoVisits(params: { from: Date; to: Date }): Promise<number> {
+  const windowMs = params.to.getTime() - params.from.getTime();
+  if (windowMs <= 0) return 0;
+
+  const [agreement, customersRes, lockersRes, roomsRes] = await Promise.all([
+    getActiveAgreement(),
+    query<DemoCustomer>(
+      `SELECT id, name, membership_number, dob
+       FROM customers
+       ORDER BY created_at`
+    ),
+    query<DemoLocker>(`SELECT id, number FROM lockers ORDER BY number`),
+    query<DemoRoom>(`SELECT id, number, type FROM rooms ORDER BY number`),
+  ]);
+
+  if (customersRes.rows.length === 0) return 0;
+
+  const customers = customersRes.rows;
+  const lockers = lockersRes.rows;
+  const rooms = roomsRes.rows;
+  const useLockers = lockers.length > 0;
+
+  const intervalMs = 6 * 60 * 60 * 1000;
+  const intervals = Math.max(1, Math.ceil(windowMs / intervalMs));
+  const maxVisits = Math.min(120, intervals * 2);
+  const rngSeed = Math.floor(params.from.getTime() / 60000) ^ Math.floor(windowMs / 60000);
+  const rng = seededRng(rngSeed);
+
+  let customerIndex = 0;
+  let lockerIndex = 0;
+  let roomIndex = 0;
+  let created = 0;
+
+  await transaction(async (client) => {
+    for (let i = 0; i < intervals && created < maxVisits; i += 1) {
+      const slotStart = new Date(params.from.getTime() + i * intervalMs);
+      const slotEnd = new Date(Math.min(slotStart.getTime() + intervalMs, params.to.getTime()));
+      const slotWindowMs = Math.max(0, slotEnd.getTime() - slotStart.getTime());
+      const visitsInSlot = Math.min(3, 1 + Math.floor(rng() * 2));
+
+      for (let j = 0; j < visitsInSlot && created < maxVisits; j += 1) {
+        const offsetMs = Math.floor(rng() * slotWindowMs);
+        let start = new Date(slotStart.getTime() + offsetMs);
+        if (start > params.to) continue;
+        start = floorTo15Min(start);
+
+        const durationMinutes = 45 + Math.floor(rng() * 120);
+        let end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+        end = ceilTo15Min(end);
+        if (end > params.to) {
+          end = new Date(params.to.getTime());
+        }
+        if (end <= start) {
+          continue;
+        }
+
+        const customer = customers[customerIndex++ % customers.length]!;
+        const visitId = randomUUID();
+        const checkinBlockId = randomUUID();
+
+        let lockerId: string | null = null;
+        let roomId: string | null = null;
+        let rentalType = 'LOCKER';
+
+        if (useLockers) {
+          const locker = lockers[lockerIndex++ % lockers.length]!;
+          lockerId = locker.id;
+          rentalType = 'LOCKER';
+        } else if (rooms.length > 0) {
+          const room = rooms[roomIndex++ % rooms.length]!;
+          roomId = room.id;
+          rentalType =
+            room.type === 'DOUBLE' || room.type === 'SPECIAL' || room.type === 'STANDARD'
+              ? room.type
+              : 'STANDARD';
+        }
+
+        await client.query(
+          `INSERT INTO visits (id, started_at, ended_at, customer_id, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NOW(), NOW())`,
+          [visitId, start, end, customer.id]
+        );
+
+        const signedAt = new Date(start.getTime() + 5 * 60 * 1000);
+        await client.query(
+          `INSERT INTO checkin_blocks
+           (id, visit_id, block_type, starts_at, ends_at, locker_id, room_id,
+            agreement_signed, agreement_signed_at, rental_type)
+           VALUES ($1, $2, 'INITIAL', $3, $4, $5, $6, true, $7, $8)`,
+          [checkinBlockId, visitId, start, end, lockerId, roomId, signedAt, rentalType]
+        );
+
+        await client.query(
+          `INSERT INTO agreement_signatures
+           (id, agreement_id, customer_name, membership_number, signed_at,
+            agreement_text_snapshot, agreement_version, checkin_block_id)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+          [
+            randomUUID(),
+            agreement.id,
+            customer.name,
+            customer.membership_number,
+            signedAt,
+            agreement.body_text,
+            agreement.version,
+            checkinBlockId,
+          ]
+        );
+
+        try {
+          const pdfBuffer = await generateAgreementPdf({
+            agreementTitle: agreement.title,
+            agreementVersion: agreement.version,
+            agreementText: agreement.body_text,
+            customerName: customer.name,
+            customerDob: customer.dob,
+            membershipNumber: customer.membership_number ?? undefined,
+            checkinAt: start,
+            signedAt,
+            signatureText: customer.name,
+          });
+          await client.query(`UPDATE checkin_blocks SET agreement_pdf = $1 WHERE id = $2`, [
+            pdfBuffer,
+            checkinBlockId,
+          ]);
+        } catch (err) {
+          console.warn('⚠️  Failed to generate agreement PDF for incremental demo visit', err);
+        }
+
+        created += 1;
+      }
+    }
+  });
+
+  return created;
+}
+
 /**
  * Demo mode seeding for shifts and timeclock sessions.
  * Seeds shifts for past 14 days and next 14 days (28-day window).
@@ -257,6 +460,16 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
           await regenerateAgreementPdfs(client);
         }
       });
+
+      if (DEMO_INCREMENTAL && existingState.lastShiftedIso) {
+        const from = new Date(existingState.lastShiftedIso);
+        if (from.getTime() < now.getTime()) {
+          const appended = await appendIncrementalDemoVisits({ from, to: now });
+          if (appended > 0) {
+            console.log(`✅ Added ${appended} incremental demo visit(s).`);
+          }
+        }
+      }
 
       await saveDemoState({ seedAnchor, lastShifted: now });
       console.log(

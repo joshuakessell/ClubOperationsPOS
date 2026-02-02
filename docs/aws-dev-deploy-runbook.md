@@ -8,6 +8,7 @@ This runbook covers the **dev-only** AWS deployment for:
 
 All resources are prefixed with `club-ops-dev-` and tagged with:
 `Project=ClubOperationsPOS`, `Owner=JoshuaKessell`, `Environment=dev`.
+The App Runner service name is `club-ops-api-dev` (intentional exception).
 
 ## One-time Setup
 
@@ -24,7 +25,35 @@ terraform apply tfplan
 
 Note: Terraform state is **local** for now. Do **not** commit `terraform.tfstate`. Plan a remote backend later.
 
-### 2) Cloudflare DNS (DNS-only, proxy OFF)
+Terraform now provisions a dev RDS Postgres instance and a VPC connector for App Runner.
+
+### 2) Database credentials (RDS)
+
+After apply, fetch the master user secret from Terraform output:
+
+```bash
+cd infra/terraform
+terraform output db_master_secret_arn
+```
+
+Then retrieve the password from Secrets Manager (requires AWS CLI creds):
+
+```bash
+aws secretsmanager get-secret-value \
+  --secret-id <secret-arn-from-output> \
+  --query SecretString \
+  --output text
+```
+
+The secret JSON includes `username` and `password`. Build a connection string:
+
+```
+postgresql://<username>:<password>@<db_endpoint>:<db_port>/<db_name>
+```
+
+Use Terraform outputs for `db_endpoint`, `db_port`, and `db_name`.
+
+### 3) Cloudflare DNS (DNS-only, proxy OFF)
 
 Terraform outputs the DNS validation records for ACM and App Runner.
 
@@ -40,7 +69,7 @@ cd infra/terraform
 terraform apply
 ```
 
-### 3) GitHub Actions secrets
+### 4) GitHub Actions secrets
 
 Add these in GitHub repo settings → Secrets:
 
@@ -53,8 +82,11 @@ Add these in GitHub repo settings → Secrets:
 - `APP_RUNNER_SERVICE_ARN` = Terraform output `apprunner_service_arn`
 - `ECR_REPO_URI` = `146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api`
 - `KIOSK_TOKEN` = required by API
-- `DATABASE_URL` = production database URL for dev demo
-  - Alternatively, use discrete DB vars and update the API deploy script, but DATABASE_URL is simplest.
+- `DATABASE_URL` = built from RDS outputs (see Database credentials)
+  - Alternatively, set `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`.
+
+Note: If you change the App Runner service name via `api_service_name`, Terraform will recreate the service.
+After apply, update `APP_RUNNER_SERVICE_ARN` to the new value and re-run DNS validation if required.
 
 **Frontends**
 
@@ -77,6 +109,24 @@ Add these in GitHub repo settings → Secrets:
 - **GitHub Secrets**: deploy-time values (KIOSK_TOKEN, DATABASE_URL, VITE_KIOSK_TOKEN)
 - **App Runner runtime env**: set on deploy via `deploy-api.sh`
 - **Vite build-time env**: passed in deploy scripts/workflow
+
+## Demo Data Seeding
+
+The API already includes a **Busy Saturday** demo seed that covers the past 14 days and next 14 days,
+including agreement signing PDFs.
+
+To seed a fresh database:
+
+- Set `DEMO_MODE=true`
+- Set `SEED_ON_STARTUP=true` for the first deploy (forces a full rebuild)
+
+For ongoing deploys:
+
+- Keep `DEMO_MODE=true`
+- Set `SEED_ON_STARTUP=false` to use the snapshot + timestamp shift (fast startup)
+- Set `DEMO_INCREMENTAL=true` to append new visits between the last deploy and now
+
+If you want to regenerate a brand‑new dataset each deploy, keep `SEED_ON_STARTUP=true`.
 
 ## Verification
 
