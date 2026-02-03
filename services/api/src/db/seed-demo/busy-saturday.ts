@@ -22,6 +22,7 @@ import { query, transaction } from '../index';
 import { buildCloseoutSnapshot } from '../../money/closeout';
 import { buildReceiptNumber } from '../../money/orderAudit';
 import { generateAgreementPdf } from '../../utils/pdf-generator';
+import { hashPin, hashQrToken } from '../../auth/utils';
 import type { ProgressReporter } from './progress';
 
 export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporter): Promise<void> {
@@ -1025,9 +1026,42 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
     // -------------------------------------------------------------------
     // POS domain data: register sessions, cash drawers, orders, receipts, external refs
     // -------------------------------------------------------------------
-    const staffRows = await client.query<{ id: string; name: string; role: string }>(
+    let staffRows = await client.query<{ id: string; name: string; role: string }>(
       `SELECT id, name, role FROM staff WHERE active = true ORDER BY name`
     );
+    if (staffRows.rows.length === 0) {
+      const staffCount = await client.query<{ count: string }>(
+        `SELECT COUNT(*)::text as count FROM staff`
+      );
+      const totalStaff = parseInt(staffCount.rows[0]?.count || '0', 10);
+
+      if (totalStaff > 0) {
+        log('⚠️  No active staff found. Reactivating existing staff for demo seed.');
+        await client.query(`UPDATE staff SET active = true WHERE active = false`);
+      } else {
+        log('⚠️  No staff found. Seeding demo staff for POS demo seed.');
+        const demoStaff = [
+          { name: 'Cruz Martinez', role: 'ADMIN', qrToken: 'ADMIN-001', pin: '123456' },
+          { name: 'John Erikson', role: 'STAFF', qrToken: 'STAFF-001', pin: '111111' },
+          { name: 'Maria Pineda', role: 'STAFF', qrToken: 'STAFF-002', pin: '222222' },
+          { name: 'Employee Two', role: 'STAFF', qrToken: 'STAFF-005', pin: '555555' },
+        ];
+
+        for (const staff of demoStaff) {
+          const qrTokenHash = hashQrToken(staff.qrToken);
+          const pinHash = await hashPin(staff.pin);
+          await client.query(
+            `INSERT INTO staff (name, role, qr_token_hash, pin_hash, active)
+             VALUES ($1, $2, $3, $4, true)`,
+            [staff.name, staff.role, qrTokenHash, pinHash]
+          );
+        }
+      }
+
+      staffRows = await client.query<{ id: string; name: string; role: string }>(
+        `SELECT id, name, role FROM staff WHERE active = true ORDER BY name`
+      );
+    }
     if (staffRows.rows.length === 0) {
       throw new Error('No active staff found for POS demo seed.');
     }
