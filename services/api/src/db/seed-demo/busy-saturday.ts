@@ -65,6 +65,8 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
   const staffCountBefore = await query<{ count: string }>(
     'SELECT COUNT(*)::text as count FROM staff'
   );
+  const staffCountBeforeValue = parseInt(staffCountBefore.rows[0]?.count || '0', 10);
+  let seededStaff = false;
 
   // Deterministic PRNG so the dataset is stable across runs
   function seededRng(seed: number): () => number {
@@ -1056,6 +1058,7 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
             [staff.name, staff.role, qrTokenHash, pinHash]
           );
         }
+        seededStaff = true;
       }
 
       staffRows = await client.query<{ id: string; name: string; role: string }>(
@@ -1624,10 +1627,14 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
   const staffCountAfter = await query<{ count: string }>(
     'SELECT COUNT(*)::text as count FROM staff'
   );
-  if (staffCountBefore.rows[0]!.count !== staffCountAfter.rows[0]!.count) {
+  const staffCountAfterValue = parseInt(staffCountAfter.rows[0]?.count || '0', 10);
+  if (!seededStaff && staffCountBeforeValue !== staffCountAfterValue) {
     throw new Error(
-      `Staff count changed unexpectedly (${staffCountBefore.rows[0]!.count} -> ${staffCountAfter.rows[0]!.count})`
+      `Staff count changed unexpectedly (${staffCountBeforeValue} -> ${staffCountAfterValue})`
     );
+  }
+  if (seededStaff) {
+    log(`ℹ️  Demo staff seeded (${staffCountBeforeValue} -> ${staffCountAfterValue}).`);
   }
 
   const customerCount = await query<{ count: string }>(
