@@ -471,7 +471,15 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
         }
       }
 
-      await saveDemoState({ seedAnchor, lastShifted: now });
+      if (DEMO_INCREMENTAL) {
+        await transaction(async (client) => {
+          await createDemoSnapshot(client);
+        });
+        await saveDemoState({ seedAnchor: now, lastShifted: now });
+        console.log('✅ Demo snapshot refreshed with incremental data.');
+      } else {
+        await saveDemoState({ seedAnchor, lastShifted: now });
+      }
       console.log(
         `✅ Demo snapshot restored and shifted by ${Math.round(deltaMs / 60000)} minute(s).`
       );
