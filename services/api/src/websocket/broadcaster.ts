@@ -22,6 +22,12 @@ import type {
   WaitlistCreatedPayload,
   RegisterSessionUpdatedPayload,
 } from '@club-ops/shared';
+import {
+  buildChannelPath,
+  getAppSyncChannelNamespace,
+  isAppSyncEventsEnabled,
+  publishAppSyncEvent,
+} from '../realtime/appsyncEvents';
 
 /**
  * Room assignment event payload.
@@ -107,6 +113,24 @@ export interface Broadcaster {
 
 export function createBroadcaster(): Broadcaster {
   const clients = new Map<string, ClientMetadata>();
+  const appSyncEnabled = isAppSyncEventsEnabled();
+  const channelNamespace = getAppSyncChannelNamespace();
+  const globalChannel = buildChannelPath(channelNamespace, 'global');
+  const laneChannel = (lane: string) => buildChannelPath(channelNamespace, 'lane', lane);
+
+  const publishGlobal = (event: WebSocketEvent<unknown>) => {
+    if (!appSyncEnabled) return;
+    void publishAppSyncEvent(globalChannel, event).catch((error) => {
+      console.error('AppSync Events publish failed (global):', error);
+    });
+  };
+
+  const publishToLane = (event: WebSocketEvent<unknown>, lane: string) => {
+    if (!appSyncEnabled) return;
+    void publishAppSyncEvent(laneChannel(lane), event).catch((error) => {
+      console.error(`AppSync Events publish failed (lane ${lane}):`, error);
+    });
+  };
 
   function broadcast<T>(event: WebSocketEvent<T>): void {
     const message = JSON.stringify(event);
@@ -133,6 +157,8 @@ export function createBroadcaster(): Broadcaster {
     for (const id of failedClients) {
       clients.delete(id);
     }
+
+    publishGlobal(event as WebSocketEvent<unknown>);
   }
 
   function broadcastToLane<T>(event: WebSocketEvent<T>, lane: string): void {
@@ -165,6 +191,8 @@ export function createBroadcaster(): Broadcaster {
     for (const id of failedClients) {
       clients.delete(id);
     }
+
+    publishToLane(event as WebSocketEvent<unknown>, lane);
   }
 
   function createEvent<T>(type: WebSocketEventType, payload: T): WebSocketEvent<T> {

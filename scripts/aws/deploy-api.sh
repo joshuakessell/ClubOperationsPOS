@@ -39,10 +39,12 @@ else
   required DB_USER
 fi
 
-# Guard: Postgres DB names should not contain hyphens
-if [[ "$DB_NAME" == *"-"* ]]; then
-  echo "ERROR: DB_NAME='$DB_NAME' contains '-' which is not valid for Postgres database names. Use something like club_ops_db." >&2
-  exit 1
+# Guard: Postgres DB names should not contain hyphens (only when using explicit DB vars).
+if [[ "$USE_DB_SECRET" == "false" ]]; then
+  if [[ "$DB_NAME" == *"-"* ]]; then
+    echo "ERROR: DB_NAME='$DB_NAME' contains '-' which is not valid for Postgres database names. Use something like club_ops_db." >&2
+    exit 1
+  fi
 fi
 
 AWS_REGION="${AWS_REGION:-us-east-1}"
@@ -51,6 +53,7 @@ ECR_REPO_URI="${ECR_REPO_URI:-146469921099.dkr.ecr.us-east-1.amazonaws.com/club-
 IMAGE_TAG_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
 IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG_SHA}"
 IMAGE_LATEST_TAG="${ECR_REPO_URI}:dev-latest"
+export IMAGE_LATEST_TAG
 
 aws ecr get-login-password --region "$AWS_REGION" | \
   docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
@@ -142,6 +145,8 @@ optional_envs=(
   DEMO_FORCE_RESEED
   DEMO_RESET_ON_STARTUP
   DEMO_SHIFT_REGENERATE_PDFS
+  APPSYNC_EVENTS_HTTP_ENDPOINT
+  APPSYNC_EVENTS_CHANNEL_NAMESPACE
   DB_LOG_QUERIES
   DB_SSL_CA_PATH
 )

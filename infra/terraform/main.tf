@@ -110,7 +110,8 @@ resource "aws_iam_policy" "github_actions" {
         ]
         Resource = [
           "arn:aws:s3:::${var.employee_bucket_name}",
-          "arn:aws:s3:::${var.customer_bucket_name}"
+          "arn:aws:s3:::${var.customer_bucket_name}",
+          "arn:aws:s3:::${var.office_bucket_name}"
         ]
       },
       {
@@ -124,7 +125,8 @@ resource "aws_iam_policy" "github_actions" {
         ]
         Resource = [
           "arn:aws:s3:::${var.employee_bucket_name}/*",
-          "arn:aws:s3:::${var.customer_bucket_name}/*"
+          "arn:aws:s3:::${var.customer_bucket_name}/*",
+          "arn:aws:s3:::${var.office_bucket_name}/*"
         ]
       },
       {
@@ -133,7 +135,8 @@ resource "aws_iam_policy" "github_actions" {
         Action = ["cloudfront:CreateInvalidation"]
         Resource = [
           aws_cloudfront_distribution.employee.arn,
-          aws_cloudfront_distribution.customer.arn
+          aws_cloudfront_distribution.customer.arn,
+          data.aws_cloudfront_distribution.office.arn
         ]
       },
       {
@@ -347,6 +350,7 @@ resource "aws_s3_bucket" "customer" {
   bucket = var.customer_bucket_name
 }
 
+
 resource "aws_s3_bucket_public_access_block" "employee" {
   bucket                  = aws_s3_bucket.employee.id
   block_public_acls       = true
@@ -363,6 +367,7 @@ resource "aws_s3_bucket_public_access_block" "customer" {
   restrict_public_buckets = true
 }
 
+
 resource "aws_s3_bucket_ownership_controls" "employee" {
   bucket = aws_s3_bucket.employee.id
   rule {
@@ -376,6 +381,7 @@ resource "aws_s3_bucket_ownership_controls" "customer" {
     object_ownership = "BucketOwnerPreferred"
   }
 }
+
 
 resource "aws_cloudfront_origin_access_control" "employee" {
   name                              = "${local.prefix}-employee-oac"
@@ -393,6 +399,7 @@ resource "aws_cloudfront_origin_access_control" "customer" {
   signing_protocol                  = "sigv4"
 }
 
+
 resource "aws_acm_certificate" "frontend" {
   domain_name               = var.employee_domain
   subject_alternative_names = [var.customer_domain]
@@ -403,6 +410,11 @@ resource "aws_acm_certificate_validation" "frontend" {
   certificate_arn         = aws_acm_certificate.frontend.arn
   validation_record_fqdns = [for dvo in aws_acm_certificate.frontend.domain_validation_options : dvo.resource_record_name]
 }
+
+data "aws_cloudfront_distribution" "office" {
+  id = var.office_cloudfront_distribution_id
+}
+
 
 resource "aws_cloudfront_distribution" "employee" {
   enabled             = true
@@ -501,6 +513,7 @@ resource "aws_cloudfront_distribution" "customer" {
     minimum_protocol_version = "TLSv1.2_2021"
   }
 }
+
 
 resource "aws_s3_bucket_policy" "employee" {
   bucket = aws_s3_bucket.employee.id

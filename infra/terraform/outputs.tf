@@ -68,6 +68,11 @@ output "customer_bucket_name" {
   description = "S3 bucket for customer kiosk"
 }
 
+output "office_bucket_name" {
+  value       = var.office_bucket_name
+  description = "S3 bucket for office dashboard"
+}
+
 output "employee_cloudfront_domain" {
   value       = aws_cloudfront_distribution.employee.domain_name
   description = "CloudFront domain for employee register"
@@ -78,6 +83,11 @@ output "customer_cloudfront_domain" {
   description = "CloudFront domain for customer kiosk"
 }
 
+output "office_cloudfront_domain" {
+  value       = data.aws_cloudfront_distribution.office.domain_name
+  description = "CloudFront domain for office dashboard"
+}
+
 output "employee_cloudfront_distribution_id" {
   value       = aws_cloudfront_distribution.employee.id
   description = "CloudFront distribution ID for employee register"
@@ -86,6 +96,11 @@ output "employee_cloudfront_distribution_id" {
 output "customer_cloudfront_distribution_id" {
   value       = aws_cloudfront_distribution.customer.id
   description = "CloudFront distribution ID for customer kiosk"
+}
+
+output "office_cloudfront_distribution_id" {
+  value       = data.aws_cloudfront_distribution.office.id
+  description = "CloudFront distribution ID for office dashboard"
 }
 
 output "acm_frontend_validation_records" {

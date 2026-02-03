@@ -112,6 +112,8 @@ Terraform also attaches an App Runner instance role that allows reading the Secr
 - `EMPLOYEE_DISTRIBUTION_ID` = Terraform output `employee_cloudfront_distribution_id`
 - `CUSTOMER_BUCKET` = Terraform output `customer_bucket_name`
 - `CUSTOMER_DISTRIBUTION_ID` = Terraform output `customer_cloudfront_distribution_id`
+- `OFFICE_BUCKET` = Terraform output `office_bucket_name`
+- `OFFICE_DISTRIBUTION_ID` = Terraform output `office_cloudfront_distribution_id`
 
 ## Day-to-Day Workflow
 
@@ -170,6 +172,14 @@ Customer kiosk:
 
 ```bash
 curl -I https://customer-demo.joshuakessell.com
+```
+
+Expected: HTTP 200 from CloudFront.
+
+Office dashboard:
+
+```bash
+curl -I https://office-demo.joshuakessell.com
 ```
 
 Expected: HTTP 200 from CloudFront.
