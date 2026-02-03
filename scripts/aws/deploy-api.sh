@@ -51,6 +51,7 @@ ECR_REPO_URI="${ECR_REPO_URI:-146469921099.dkr.ecr.us-east-1.amazonaws.com/club-
 IMAGE_TAG_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
 IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG_SHA}"
 IMAGE_LATEST_TAG="${ECR_REPO_URI}:dev-latest"
+export IMAGE_LATEST_TAG
 
 aws ecr get-login-password --region "$AWS_REGION" | \
   docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
