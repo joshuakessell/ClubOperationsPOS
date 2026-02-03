@@ -19,6 +19,7 @@ export { visitRoutes } from './visits';
 export { checkoutRoutes } from './checkout';
 export { checkinRoutes } from './checkin';
 export { registerRoutes } from './registers';
+export { realtimeRoutes } from './realtime';
 export { shiftsRoutes } from './shifts';
 export { timeclockRoutes } from './timeclock';
 export { documentsRoutes } from './documents';

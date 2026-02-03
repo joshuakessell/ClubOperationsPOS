@@ -22,6 +22,7 @@ import {
   checkoutRoutes,
   checkinRoutes,
   registerRoutes,
+  realtimeRoutes,
   shiftsRoutes,
   timeclockRoutes,
   documentsRoutes,
@@ -180,6 +181,7 @@ async function main() {
   await fastify.register(checkoutRoutes);
   await fastify.register(checkinRoutes);
   await fastify.register(registerRoutes);
+  await fastify.register(realtimeRoutes);
   await fastify.register(shiftsRoutes);
   await fastify.register(timeclockRoutes);
   await fastify.register(documentsRoutes);

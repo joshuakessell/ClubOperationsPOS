@@ -112,6 +112,12 @@ variable "customer_domain" {
   default     = "customer-demo.joshuakessell.com"
 }
 
+variable "office_domain" {
+  type        = string
+  description = "Custom domain for office dashboard frontend"
+  default     = "office-demo.joshuakessell.com"
+}
+
 variable "employee_bucket_name" {
   type        = string
   description = "S3 bucket name for employee register"
@@ -122,4 +128,16 @@ variable "customer_bucket_name" {
   type        = string
   description = "S3 bucket name for customer kiosk"
   default     = "club-ops-dev-customer-demo"
+}
+
+variable "office_bucket_name" {
+  type        = string
+  description = "S3 bucket name for office dashboard"
+  default     = "club-ops-dev-office-demo"
+}
+
+variable "office_cloudfront_distribution_id" {
+  type        = string
+  description = "Existing CloudFront distribution ID for office dashboard"
+  default     = "ECGX4F4QK8Q2B"
 }

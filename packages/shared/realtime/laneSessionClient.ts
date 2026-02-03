@@ -67,7 +67,7 @@ function toWsBaseUrl(httpBase: string): string {
 }
 
 function buildWsUrl({ laneId, role }: { laneId: string; role: LaneRole }): string {
-  // Prefer an explicit API base URL in production (e.g. Vercel -> Render) and only fall back to
+  // Prefer an explicit API base URL in production (e.g. AWS-hosted API) and only fall back to
   // same-origin `/ws` for local dev where Vite proxies `/ws` to the API.
   const rawApiBase = getViteEnvString('VITE_API_BASE_URL');
   const base =
