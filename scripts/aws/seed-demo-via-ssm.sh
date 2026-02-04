@@ -20,6 +20,7 @@ need_cmd() {
 
 need_cmd aws
 need_cmd pnpm
+need_cmd python3
 
 SESSION_MANAGER_PLUGIN="${SESSION_MANAGER_PLUGIN:-session-manager-plugin}"
 if ! command -v "$SESSION_MANAGER_PLUGIN" >/dev/null 2>&1; then
@@ -43,6 +44,57 @@ DEMO_SHIFT_REGENERATE_PDFS="${DEMO_SHIFT_REGENERATE_PDFS:-true}"
 
 STOP_INSTANCE_ON_EXIT="${STOP_INSTANCE_ON_EXIT:-true}"
 SKIP_DB_MIGRATIONS="${SKIP_DB_MIGRATIONS:-}"
+
+DATABASE_URL_FOR_TUNNEL=""
+if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
+  SECRET_STRING="$(
+    aws secretsmanager get-secret-value \
+      --secret-id "$DATABASE_URL_SECRET_ARN" \
+      --query SecretString \
+      --output text
+  )"
+
+  DATABASE_URL_FOR_TUNNEL="$(
+    printf '%s' "$SECRET_STRING" | python3 - "$LOCAL_PORT" <<'PY'
+import json
+import os
+import sys
+import urllib.parse
+
+raw = sys.stdin.read().strip()
+local_port = sys.argv[1]
+
+def build_url(user: str, password: str, dbname: str) -> str:
+    user_enc = urllib.parse.quote(user or "")
+    pass_enc = urllib.parse.quote(password or "")
+    auth = ""
+    if user_enc or pass_enc:
+        auth = f"{user_enc}:{pass_enc}@"
+    return f"postgresql://{auth}localhost:{local_port}/{dbname}"
+
+if raw.startswith("postgres://") or raw.startswith("postgresql://"):
+    url = urllib.parse.urlparse(raw)
+    user = urllib.parse.unquote(url.username or "")
+    password = urllib.parse.unquote(url.password or "")
+    dbname = (url.path or "").lstrip("/") or os.environ.get("DB_NAME", "club_operations")
+    print(build_url(user, password, dbname))
+    sys.exit(0)
+
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.stderr.write("ERROR: SecretString is neither a connection string nor JSON.\n")
+    sys.exit(1)
+
+user = data.get("username") or data.get("user") or os.environ.get("DB_USER", "clubops")
+password = data.get("password", "")
+dbname = data.get("dbname") or data.get("database") or os.environ.get("DB_NAME", "club_operations")
+
+print(build_url(user, password, dbname))
+PY
+  )"
+  echo "Using DATABASE_URL from Secrets Manager (host forced to localhost:${LOCAL_PORT})."
+fi
 
 LOG_PATH="${LOG_PATH:-/tmp/ssm-tunnel.log}"
 TUNNEL_PID=""
@@ -123,23 +175,24 @@ echo "Tunnel ready. Running migrations and demo seed..."
 
 cd "$ROOT_DIR/services/api"
 
-if [[ -z "$SKIP_DB_MIGRATIONS" ]]; then
-  DB_HOST=localhost \
-  DB_PORT="$LOCAL_PORT" \
-  DB_SSL=true \
-  DB_SSL_CA_PATH= \
-    pnpm exec tsx scripts/migrate.ts
+db_env=(DB_SSL=true DB_SSL_CA_PATH=)
+if [[ -n "$DATABASE_URL_FOR_TUNNEL" ]]; then
+  db_env+=(DATABASE_URL="$DATABASE_URL_FOR_TUNNEL")
+else
+  db_env+=(DB_HOST=localhost DB_PORT="$LOCAL_PORT")
 fi
 
-DEMO_MODE=true \
-DEMO_INCREMENTAL="$DEMO_INCREMENTAL" \
-DEMO_RESET_ON_STARTUP="$DEMO_RESET_ON_STARTUP" \
-DEMO_FORCE_RESEED="$DEMO_FORCE_RESEED" \
-DEMO_SHIFT_REGENERATE_PDFS="$DEMO_SHIFT_REGENERATE_PDFS" \
-DB_HOST=localhost \
-DB_PORT="$LOCAL_PORT" \
-DB_SSL=true \
-DB_SSL_CA_PATH= \
+if [[ -z "$SKIP_DB_MIGRATIONS" ]]; then
+  env "${db_env[@]}" pnpm exec tsx scripts/migrate.ts
+fi
+
+env \
+  DEMO_MODE=true \
+  DEMO_INCREMENTAL="$DEMO_INCREMENTAL" \
+  DEMO_RESET_ON_STARTUP="$DEMO_RESET_ON_STARTUP" \
+  DEMO_FORCE_RESEED="$DEMO_FORCE_RESEED" \
+  DEMO_SHIFT_REGENERATE_PDFS="$DEMO_SHIFT_REGENERATE_PDFS" \
+  "${db_env[@]}" \
   pnpm exec tsx src/db/seed-demo.ts
 
 echo "✓ Demo seed completed via SSM tunnel"
