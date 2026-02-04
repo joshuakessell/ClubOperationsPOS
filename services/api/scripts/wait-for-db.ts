@@ -1,16 +1,39 @@
-import { Client } from 'pg';
+import { Client, type ClientConfig } from 'pg';
+import { loadDatabaseConfig } from '../src/db/index';
 import { loadEnvFromDotEnvIfPresent } from '../src/env/loadEnv';
 
 loadEnvFromDotEnvIfPresent();
 
-const {
-  DB_HOST = 'localhost',
-  DB_PORT = '5432',
-  // Keep defaults aligned with `src/db/index.ts` so local dev + tests behave consistently.
-  DB_USER = 'clubops',
-  DB_PASSWORD = 'club-ops-dev',
-  DB_NAME = 'club_operations',
-} = process.env;
+const DEFAULT_CONFIG: ClientConfig = {
+  host: 'localhost',
+  port: 5432,
+  // Keep defaults aligned with docker-compose.yml + local dev expectations.
+  user: 'clubops',
+  password: 'club-ops-dev',
+  database: 'club_operations',
+  connectionTimeoutMillis: parseConnectionTimeoutMillis(),
+};
+
+function resolveConfig(): ClientConfig {
+  const hasDatabaseUrl = Boolean((process.env.DATABASE_URL ?? '').trim());
+  const hasDbHost = Boolean((process.env.DB_HOST ?? '').trim());
+
+  if (!hasDatabaseUrl && !hasDbHost) {
+    return DEFAULT_CONFIG;
+  }
+
+  return loadDatabaseConfig();
+}
+
+function parseConnectionTimeoutMillis(): number {
+  const raw = (process.env.DB_CONNECTION_TIMEOUT_MS ?? '').trim();
+  if (!raw) return 5000;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return 5000;
+  return Math.floor(value);
+}
+
+const baseConfig = resolveConfig();
 
 const MAX_RETRIES = 30;
 const RETRY_DELAY_MS = 1000;
@@ -21,13 +44,7 @@ async function sleep(ms: number) {
 
 async function waitForDb() {
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    const client = new Client({
-      host: DB_HOST,
-      port: Number(DB_PORT),
-      user: DB_USER,
-      password: DB_PASSWORD,
-      database: DB_NAME,
-    });
+    const client = new Client({ ...baseConfig });
 
     try {
       await client.connect();
