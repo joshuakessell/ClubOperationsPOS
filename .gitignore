@@ -48,3 +48,4 @@ services/api/tests/_artifacts/agreement.generated.pdf
 **/tfplan
 **/*.tfplan
 
+infra/terraform/.terraform.tfstate.lock.info
