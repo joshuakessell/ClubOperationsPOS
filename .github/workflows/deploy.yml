@@ -60,6 +60,7 @@ jobs:
         env:
           DEMO_INCREMENTAL: 'true'
           DEMO_RESET_ON_STARTUP: 'true'
+          DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
         run: scripts/aws/seed-demo-via-ssm.sh
 
       - name: Deploy API (App Runner)
