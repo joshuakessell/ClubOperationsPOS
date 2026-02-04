@@ -155,6 +155,7 @@ fi
 
 LOG_PATH="${LOG_PATH:-/tmp/ssm-tunnel.log}"
 TUNNEL_PID=""
+TUNNEL_READY_TIMEOUT_SECONDS="${TUNNEL_READY_TIMEOUT_SECONDS:-60}"
 
 if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
   echo "Installing dependencies..."
@@ -169,6 +170,25 @@ dump_log() {
   else
     echo "SSM tunnel log not found at ${LOG_PATH}" >&2
   fi
+}
+
+is_port_listening() {
+  local port="$1"
+  python3 - "$port" <<'PY'
+import socket
+import sys
+
+port = int(sys.argv[1])
+sock = socket.socket()
+sock.settimeout(0.5)
+try:
+    sock.connect(("127.0.0.1", port))
+    sys.exit(0)
+except Exception:
+    sys.exit(1)
+finally:
+    sock.close()
+PY
 }
 
 cleanup() {
@@ -210,8 +230,14 @@ PATH="$(dirname "$SESSION_MANAGER_PLUGIN"):$PATH" \
 
 TUNNEL_PID="$!"
 
-for i in {1..30}; do
-  if grep -q "Waiting for connections" "$LOG_PATH" 2>/dev/null; then
+ready=false
+for ((i=1; i<=TUNNEL_READY_TIMEOUT_SECONDS; i++)); do
+  if grep -Eq "Waiting for connections|Port [0-9]+ opened" "$LOG_PATH" 2>/dev/null; then
+    ready=true
+    break
+  fi
+  if is_port_listening "$LOCAL_PORT"; then
+    ready=true
     break
   fi
   if ! kill -0 "$TUNNEL_PID" >/dev/null 2>&1; then
@@ -222,7 +248,7 @@ for i in {1..30}; do
   sleep 1
 done
 
-if ! grep -q "Waiting for connections" "$LOG_PATH" 2>/dev/null; then
+if [[ "$ready" != "true" ]]; then
   echo "ERROR: SSM tunnel did not become ready. Log at ${LOG_PATH}" >&2
   dump_log
   exit 1
