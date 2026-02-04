@@ -69,6 +69,8 @@ jobs:
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
           DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
           KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
+          APPSYNC_EVENTS_HTTP_ENDPOINT: https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event
+          APPSYNC_EVENTS_CHANNEL_NAMESPACE: club-ops
           DEMO_MODE: 'true'
           SKIP_DB_MIGRATIONS: 'true'
           SKIP_DEMO_SEED: 'true'

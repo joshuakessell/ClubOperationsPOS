@@ -269,6 +269,34 @@ resource "aws_iam_role_policy_attachment" "apprunner_secrets" {
   policy_arn = aws_iam_policy.apprunner_secrets.arn
 }
 
+resource "aws_iam_policy" "apprunner_appsync_events" {
+  name = "${local.prefix}-apprunner-appsync-events"
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AppSyncEventsAccess"
+        Effect = "Allow"
+        Action = [
+          "appsync:EventConnect",
+          "appsync:EventPublish",
+          "appsync:EventSubscribe"
+        ]
+        Resource = [
+          "arn:aws:appsync:${var.aws_region}:146469921099:apis/ayvut7mkmbcm7f34zdxrrtn6yy",
+          "arn:aws:appsync:${var.aws_region}:146469921099:apis/ayvut7mkmbcm7f34zdxrrtn6yy/*"
+        ]
+      }
+    ]
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "apprunner_appsync_events" {
+  role       = aws_iam_role.apprunner_instance.name
+  policy_arn = aws_iam_policy.apprunner_appsync_events.arn
+}
+
 resource "aws_security_group" "apprunner" {
   name        = "${local.prefix}-apprunner-sg"
   description = "Allow App Runner egress to dev resources"
