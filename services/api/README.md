@@ -106,6 +106,8 @@ cp .env.example .env
 | `DB_SSL`         | false           | Enable SSL for database  |
 | `DB_POOL_MAX`    | 20              | Max connections in pool  |
 | `DB_CONNECTION_TIMEOUT_MS` | 5000 | Connection timeout (ms) |
+| `DB_WAIT_TIMEOUT_SECONDS` | 300 | Wait-for-DB timeout (seconds) |
+| `DB_WAIT_RETRY_DELAY_MS` | 1000 | Wait-for-DB retry delay (ms) |
 | `DB_LOG_QUERIES` | false           | Log all database queries |
 
 ## Database Schema

@@ -35,8 +35,28 @@ function parseConnectionTimeoutMillis(): number {
 
 const baseConfig = resolveConfig();
 
-const MAX_RETRIES = 30;
-const RETRY_DELAY_MS = 1000;
+const RETRY_DELAY_MS = parseRetryDelayMs();
+const MAX_RETRIES = parseMaxRetries();
+const WAIT_TIMEOUT_SECONDS = Math.ceil((MAX_RETRIES * RETRY_DELAY_MS) / 1000);
+
+function parseRetryDelayMs(): number {
+  const raw = (process.env.DB_WAIT_RETRY_DELAY_MS ?? '').trim();
+  if (!raw) return 1000;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return 1000;
+  return Math.floor(value);
+}
+
+function parseMaxRetries(): number {
+  const rawSeconds = (process.env.DB_WAIT_TIMEOUT_SECONDS ?? '').trim();
+  if (!rawSeconds) return Math.ceil(300_000 / RETRY_DELAY_MS);
+  const valueSeconds = Number(rawSeconds);
+  if (!Number.isFinite(valueSeconds) || valueSeconds <= 0) {
+    return Math.ceil(300_000 / RETRY_DELAY_MS);
+  }
+  const totalMs = valueSeconds * 1000;
+  return Math.max(1, Math.ceil(totalMs / RETRY_DELAY_MS));
+}
 
 async function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -60,7 +80,7 @@ async function waitForDb() {
     }
   }
 
-  console.error('Database did not become ready in time');
+  console.error(`Database did not become ready in time (${WAIT_TIMEOUT_SECONDS}s)`);
   process.exit(1);
 }
 
