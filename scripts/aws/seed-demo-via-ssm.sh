@@ -165,6 +165,11 @@ if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
   (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
 fi
 
+if [[ "${SKIP_SHARED_BUILD:-}" != "true" ]]; then
+  echo "Building shared package..."
+  (cd "$ROOT_DIR" && pnpm turbo run build --filter=@club-ops/shared)
+fi
+
 dump_log() {
   if [[ -f "$LOG_PATH" ]]; then
     echo "---- SSM tunnel log (${LOG_PATH}) ----" >&2
