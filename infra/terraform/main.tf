@@ -147,6 +147,15 @@ resource "aws_iam_policy" "github_actions" {
           "acm:ListCertificates"
         ]
         Resource = "*"
+      },
+      {
+        Sid    = "ReadDeploySecrets"
+        Effect = "Allow"
+        Action = ["secretsmanager:GetSecretValue"]
+        Resource = [
+          var.database_url_secret_arn,
+          var.kiosk_token_secret_arn
+        ]
       }
     ]
   })
