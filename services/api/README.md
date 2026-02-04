@@ -105,6 +105,7 @@ cp .env.example .env
 | `DB_PASSWORD`    | "$PASSWORD"     | Database password        |
 | `DB_SSL`         | false           | Enable SSL for database  |
 | `DB_POOL_MAX`    | 20              | Max connections in pool  |
+| `DB_CONNECTION_TIMEOUT_MS` | 5000 | Connection timeout (ms) |
 | `DB_LOG_QUERIES` | false           | Log all database queries |
 
 ## Database Schema

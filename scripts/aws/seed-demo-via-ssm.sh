@@ -265,6 +265,9 @@ else
   db_env+=(DB_HOST=localhost DB_PORT="$LOCAL_PORT")
 fi
 
+echo "Waiting for database readiness..."
+env "${db_env[@]}" pnpm exec tsx scripts/wait-for-db.ts
+
 if [[ -z "$SKIP_DB_MIGRATIONS" ]]; then
   env "${db_env[@]}" pnpm exec tsx scripts/migrate.ts
 fi

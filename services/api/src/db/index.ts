@@ -15,6 +15,14 @@ export interface DatabaseConfig {
   connectionTimeoutMillis?: number;
 }
 
+function parseConnectionTimeoutMillis(): number {
+  const raw = (process.env.DB_CONNECTION_TIMEOUT_MS ?? '').trim();
+  if (!raw) return 5000;
+  const value = Number(raw);
+  if (!Number.isFinite(value) || value <= 0) return 5000;
+  return Math.floor(value);
+}
+
 function parseDatabaseUrl(urlString: string): {
   host?: string;
   port?: number;
@@ -50,6 +58,8 @@ function parseDatabaseUrl(urlString: string): {
  * Load database configuration from environment variables.
  */
 export function loadDatabaseConfig(): pg.PoolConfig {
+  const connectionTimeoutMillis = parseConnectionTimeoutMillis();
+
   if (process.env.DATABASE_URL) {
     const parsed = parseDatabaseUrl(process.env.DATABASE_URL);
     const sslEnabled = process.env.DB_SSL === 'true';
@@ -67,7 +77,7 @@ export function loadDatabaseConfig(): pg.PoolConfig {
         : undefined,
       max: parseInt(process.env.DB_POOL_MAX || '20', 10),
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis,
     };
   }
 
@@ -91,12 +101,12 @@ export function loadDatabaseConfig(): pg.PoolConfig {
     password: process.env.DB_PASSWORD || 'clubops_dev',
     ssl: sslEnabled
       ? sslCaPath
-        ? { ca: fs.readFileSync(sslCaPath, 'utf8'), rejectUnauthorized: true }
-        : { rejectUnauthorized: false }
-      : undefined,
+      ? { ca: fs.readFileSync(sslCaPath, 'utf8'), rejectUnauthorized: true }
+      : { rejectUnauthorized: false }
+    : undefined,
     max: parseInt(process.env.DB_POOL_MAX || '20', 10),
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis,
   };
 }
 
