@@ -23,10 +23,10 @@ import type {
   UpgradeHoldAvailablePayload,
   UpgradeOfferExpiredPayload,
   WaitlistCreatedPayload,
-  WebSocketEvent,
+  RealtimeEvent,
 } from './types.js';
 
-const WebSocketEventBaseSchema = z.object({
+const RealtimeEventBaseSchema = z.object({
   type: z.string(),
   payload: z.unknown(),
   timestamp: z.string(),
@@ -53,7 +53,7 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
         z.enum(['PURCHASE', 'RENEW']).optional()
       ),
       kioskAcknowledgedAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
-      // Server normally includes this, but keep tolerant so older servers/tests don't drop WS events.
+      // Server normally includes this, but keep tolerant so older servers/tests don't drop realtime events.
       allowedRentals: z.array(z.string()).default([]),
       mode: z.enum(['CHECKIN', 'RENEWAL']).optional(),
       renewalHours: z.preprocess(
@@ -304,7 +304,7 @@ export const CheckoutRequestSummarySchema: z.ZodType<CheckoutRequestSummary> = z
     rentalType: z.string(),
     roomNumber: z.string().optional(),
     lockerNumber: z.string().optional(),
-    // WebSocket payloads are JSON; timestamps arrive as ISO strings.
+    // Realtime payloads are JSON; timestamps arrive as ISO strings.
     scheduledCheckoutAt: z.coerce.date(),
     currentTime: z.coerce.date(),
     lateMinutes: z.number(),
@@ -355,94 +355,94 @@ export const WaitlistUpdatedPayloadSchema = z
 // Event parsing
 // ---------------------------------------------------------------------------
 
-export type ParsedWebSocketEvent =
+export type ParsedRealtimeEvent =
   | ({ type: 'SESSION_UPDATED'; payload: SessionUpdatedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'CHECKIN_OPTION_HIGHLIGHTED'; payload: CheckinOptionHighlightedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'SELECTION_PROPOSED'; payload: SelectionProposedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'SELECTION_LOCKED'; payload: SelectionLockedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'SELECTION_FORCED'; payload: SelectionForcedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'SELECTION_ACKNOWLEDGED'; payload: SelectionAcknowledgedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({
       type: 'CUSTOMER_CONFIRMATION_REQUIRED';
       payload: CustomerConfirmationRequiredPayload;
-    } & Pick<WebSocketEvent, 'timestamp'>)
+    } & Pick<RealtimeEvent, 'timestamp'>)
   | ({ type: 'CUSTOMER_CONFIRMED'; payload: CustomerConfirmedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'CUSTOMER_DECLINED'; payload: CustomerDeclinedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'ASSIGNMENT_CREATED'; payload: AssignmentCreatedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'ASSIGNMENT_FAILED'; payload: AssignmentFailedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'INVENTORY_UPDATED'; payload: InventoryUpdatedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'WAITLIST_CREATED'; payload: WaitlistCreatedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'WAITLIST_UPDATED'; payload: z.infer<typeof WaitlistUpdatedPayloadSchema> } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'UPGRADE_HOLD_AVAILABLE'; payload: UpgradeHoldAvailablePayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'UPGRADE_OFFER_EXPIRED'; payload: UpgradeOfferExpiredPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'ROOM_STATUS_CHANGED'; payload: RoomStatusChangedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'CHECKOUT_REQUESTED'; payload: CheckoutRequestedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'CHECKOUT_CLAIMED'; payload: CheckoutClaimedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'CHECKOUT_UPDATED'; payload: CheckoutUpdatedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >)
   | ({ type: 'CHECKOUT_COMPLETED'; payload: CheckoutCompletedPayload } & Pick<
-      WebSocketEvent,
+      RealtimeEvent,
       'timestamp'
     >);
 
-export function safeParseWebSocketEvent(input: unknown): ParsedWebSocketEvent | null {
-  const base = WebSocketEventBaseSchema.safeParse(input);
+export function safeParseRealtimeEvent(input: unknown): ParsedRealtimeEvent | null {
+  const base = RealtimeEventBaseSchema.safeParse(input);
   if (!base.success) return null;
 
   const { type, payload, timestamp } = base.data;
@@ -450,7 +450,7 @@ export function safeParseWebSocketEvent(input: unknown): ParsedWebSocketEvent | 
   const wrap = <T>(schema: z.ZodType<T>) => {
     const parsed = schema.safeParse(payload);
     if (!parsed.success) return null;
-    return { type, payload: parsed.data, timestamp } as ParsedWebSocketEvent;
+    return { type, payload: parsed.data, timestamp } as ParsedRealtimeEvent;
   };
 
   switch (type) {

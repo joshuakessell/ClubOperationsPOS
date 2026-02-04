@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { query, transaction, serializableTransaction } from '../db';
 import { requireAuth, requireReauth } from '../auth/middleware';
-import type { Broadcaster } from '../websocket/broadcaster';
+import type { Broadcaster } from '../realtime/broadcaster';
 import { expireWaitlistEntries } from '../waitlist/expireWaitlist';
 import { insertAuditLog } from '../audit/auditLog';
 

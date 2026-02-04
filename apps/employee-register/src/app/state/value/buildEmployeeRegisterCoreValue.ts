@@ -19,7 +19,7 @@ type EmployeeRegisterCoreParams = {
   handleRegisterSignIn: ReturnType<typeof useStaffSessionState>['handleRegisterSignIn'];
   lane: ReturnType<typeof useStaffSessionState>['lane'];
   health: ReturnType<typeof useHealthStatus>['health'];
-  wsConnected: boolean;
+  realtimeConnected: boolean;
   handleLogout: ReturnType<typeof useStaffSessionState>['handleLogout'];
   handleCloseOut: ReturnType<typeof useStaffSessionState>['handleCloseOut'];
   registerSession: ReturnType<typeof useStaffSessionState>['registerSession'];
@@ -52,7 +52,7 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     handleRegisterSignIn,
     lane,
     health,
-    wsConnected,
+    realtimeConnected,
     handleLogout,
     handleCloseOut,
     registerSession,
@@ -117,7 +117,7 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     handleRegisterSignIn,
     lane,
     health,
-    wsConnected,
+    realtimeConnected,
     handleLogout,
     handleCloseOut,
     registerSession,

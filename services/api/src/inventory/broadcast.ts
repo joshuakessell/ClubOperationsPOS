@@ -1,4 +1,4 @@
-import type { Broadcaster } from '../websocket/broadcaster';
+import type { Broadcaster } from '../realtime/broadcaster';
 import { query } from '../db';
 import { computeInventoryAvailable } from './available';
 

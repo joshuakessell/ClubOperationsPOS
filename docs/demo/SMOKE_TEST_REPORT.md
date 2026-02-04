@@ -136,7 +136,7 @@ pnpm dev
    - Port: 3000
    - Status: ✅ Running
    - Health Endpoint: `GET /health` → `{"status":"ok"}`
-   - WebSocket: `ws://localhost:3000/ws`
+   - Realtime Auth: `POST /v1/realtime/auth`
 
 2. **Customer Kiosk** (`apps/customer-kiosk`)
    - Port: 5173
@@ -157,7 +157,7 @@ pnpm dev
 
 - ✅ All HTTP endpoints responding with 200 OK
 - ✅ API health check successful
-- ✅ WebSocket connections established
+- ✅ Realtime connections established
 
 ---
 
@@ -192,7 +192,7 @@ pnpm dev
 - ✅ Session created successfully
 - ✅ Customer information displayed: "Test Customer"
 - ✅ API status: "ok"
-- ✅ WebSocket status: "Live"
+- ✅ Realtime status: "Live"
 - ✅ Lane: "lane-1"
 
 **Evidence:** Screenshot captured: `e2e-employee-register-manual-entry-filled.png`
@@ -248,7 +248,7 @@ pnpm dev
 **Result:**
 
 - ⚠️ Customer-kiosk remained in idle state (Club Dallas logo)
-- ⚠️ WebSocket connection may need additional configuration or timing adjustment
+- ⚠️ Realtime connection may need additional configuration or timing adjustment
 - ✅ Employee-register workflow continued successfully despite kiosk sync issue
 
 **Evidence:** Screenshot captured: `e2e-customer-kiosk-session-active.png` (shows idle state)
@@ -288,12 +288,12 @@ This phase was deferred to focus on core check-in flow validation. The availabil
 - ✅ Selection proposal and confirmation
 - ✅ Inventory display and sorting
 - ✅ Payment processing (demo mode)
-- ✅ Real-time WebSocket updates (employee-register)
+- ✅ Realtime updates (employee-register)
 - ✅ API health and connectivity
 
 ### Known Issues / Notes
 
-1. **Customer Kiosk WebSocket Sync:** Customer-kiosk did not update in real-time when lane session was created. This may be a timing issue or WebSocket subscription configuration. The core workflow continues to function correctly.
+1. **Customer Kiosk Realtime Sync:** Customer-kiosk did not update in real-time when lane session was created. This may be a timing issue or realtime subscription configuration. The core workflow continues to function correctly.
 
 2. **Agreement Signature:** The signature step was reached ("Awaiting Signature") but not completed in this test run. This is expected as it requires customer interaction on the kiosk.
 
@@ -308,12 +308,12 @@ This phase was deferred to focus on core check-in flow validation. The availabil
 The Club Operations POS system successfully passed the end-to-end smoke test for the core check-in workflow. All critical components (API, database, employee-register) are functioning correctly. The system demonstrates:
 
 - ✅ Robust authentication and authorization
-- ✅ Real-time WebSocket communication (employee-register)
+- ✅ Realtime communication (employee-register)
 - ✅ Accurate inventory management and display
 - ✅ Payment processing workflow
 - ✅ Transaction state management
 
-**Recommendation:** System is ready for continued development and testing. The customer-kiosk WebSocket sync issue should be investigated but does not block core functionality.
+**Recommendation:** System is ready for continued development and testing. The customer-kiosk realtime sync issue should be investigated but does not block core functionality.
 
 ---
 

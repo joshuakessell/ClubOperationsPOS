@@ -1,7 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { serializableTransaction } from '../db';
 import { requireAuth } from '../auth/middleware';
-import type { Broadcaster } from '../websocket/broadcaster';
+import type { Broadcaster } from '../realtime/broadcaster';
 import { getRoomTierFromNumber } from '@club-ops/shared';
 import { broadcastInventoryUpdate } from '../inventory/broadcast';
 import { insertAuditLog } from '../audit/auditLog';

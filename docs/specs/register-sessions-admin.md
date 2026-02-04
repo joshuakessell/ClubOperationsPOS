@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification defines the admin monitoring and control features for employee register sessions. The system supports a maximum of two active register sessions (Register 1 and Register 2), with admin oversight, forced sign-out capabilities, device registry/management, and real-time WebSocket updates.
+This specification defines the admin monitoring and control features for employee register sessions. The system supports a maximum of two active register sessions (Register 1 and Register 2), with admin oversight, forced sign-out capabilities, device registry/management, and realtime event updates.
 
 **Update (auto-registration)**: Register clients auto-register themselves on first use. Admins may still disable a specific device if needed, but unknown devices are no longer blocked by default.
 
@@ -68,7 +68,7 @@ Admins can force sign-out any active register session:
 - **Cleanup Job**: Runs every 30 seconds, signs out abandoned sessions
 - **Expired Sessions**: Broadcast `REGISTER_SESSION_UPDATED` with reason `TTL_EXPIRED`
 
-## WebSocket Event: REGISTER_SESSION_UPDATED
+## Realtime Event: REGISTER_SESSION_UPDATED
 
 ### Event Type
 
@@ -252,7 +252,7 @@ And for the concrete schema snapshot:
 - All admin endpoints require `requireAuth` + `requireAdmin`
 - Device allowlist prevents unauthorized devices from accessing register functionality
 - Force sign-out is audited for accountability
-- WebSocket events are broadcast globally but clients filter by deviceId/registerNumber
+- Realtime events are broadcast globally but clients filter by deviceId/registerNumber
 
 ## Client Implementation Notes
 
@@ -261,7 +261,7 @@ And for the concrete schema snapshot:
 - Subscribes to `REGISTER_SESSION_UPDATED` events
 - Displays two register cards with real-time status
 - "Force Sign Out" button only enabled when register is active
-- Updates UI immediately on WebSocket events
+- Updates UI immediately on realtime events
 
 ### Employee Register
 

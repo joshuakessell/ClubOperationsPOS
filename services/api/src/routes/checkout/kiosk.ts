@@ -195,7 +195,7 @@ export function registerCheckoutKioskRoutes(fastify: FastifyInstance): void {
    * POST /v1/checkout/request - Create a checkout request
    *
    * Public endpoint for checkout kiosk to submit a checkout request.
-   * Triggers CHECKOUT_REQUESTED WebSocket event.
+   * Triggers CHECKOUT_REQUESTED realtime event.
    */
   fastify.post<{ Body: CreateCheckoutRequestInput }>(
     '/v1/checkout/request',
@@ -299,7 +299,7 @@ export function registerCheckoutKioskRoutes(fastify: FastifyInstance): void {
           return requestResult.rows[0]!;
         });
 
-        // 6. Get customer and room/locker info for WebSocket event
+        // 6. Get customer and room/locker info for realtime event
         const blockResult = await query<CheckinBlockRow & { customer_id: string }>(
           `SELECT cb.id, cb.visit_id, cb.block_type, cb.starts_at, cb.ends_at,
                 cb.rental_type::text as rental_type, cb.room_id, cb.locker_id, cb.session_id, cb.has_tv_remote,

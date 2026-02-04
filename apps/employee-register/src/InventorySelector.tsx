@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RoomStatus, getApiUrl, getWebSocketUrl } from '@club-ops/shared';
+import { RoomStatus, getApiUrl } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 
@@ -98,13 +98,11 @@ export function InventorySelector({
     return () => window.clearInterval(id);
   }, []);
 
-  const wsUrl = getWebSocketUrl(`/ws?lane=${encodeURIComponent(lane)}`);
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : null;
-  void wsUrl;
 
   const { lastMessage } = useLaneSession({
     laneId: lane,

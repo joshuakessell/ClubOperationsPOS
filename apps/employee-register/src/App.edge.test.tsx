@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 let App: (typeof import('./App'))['default'];
 
-// Mock WebSocket
-// Copied from App.flow.test.tsx to keep WS behavior consistent across suites.
-type MockWebSocket = {
+// Mock realtime socket
+// Copied from App.flow.test.tsx to keep realtime socket behavior consistent across suites.
+type MockRealtimeSocket = {
   url: string;
   readyState: number;
   onopen: ((ev: Event) => unknown) | null;
@@ -21,8 +21,8 @@ type MockWebSocket = {
   close: ReturnType<typeof vi.fn>;
   send: ReturnType<typeof vi.fn>;
 };
-const createdWs: MockWebSocket[] = [];
-const WebSocketMock = vi.fn((url?: string) => {
+const createdSockets: MockRealtimeSocket[] = [];
+const RealtimeSocketMock = vi.fn((url?: string) => {
   const listeners: Record<'open' | 'close' | 'message' | 'error', Array<(ev: unknown) => void>> = {
     open: [],
     close: [],
@@ -32,8 +32,8 @@ const WebSocketMock = vi.fn((url?: string) => {
 
   let assignedOnMessage: ((ev: { data: string }) => unknown) | null = null;
 
-  const ws: MockWebSocket = {
-    url: typeof url === 'string' ? url : 'ws://test/ws',
+  const ws: MockRealtimeSocket = {
+    url: typeof url === 'string' ? url : 'wss://test/realtime',
     readyState: 0,
     onopen: (ev) => {
       ws.readyState = 1;
@@ -71,36 +71,61 @@ const WebSocketMock = vi.fn((url?: string) => {
     },
   });
 
-  createdWs.push(ws);
+  createdSockets.push(ws);
   return ws;
 }) as unknown as typeof WebSocket;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).OPEN = 1;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CONNECTING = 0;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CLOSING = 2;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CLOSED = 3;
 Object.defineProperty(globalThis, 'WebSocket', {
-  value: WebSocketMock,
+  value: RealtimeSocketMock,
   configurable: true,
   writable: true,
 });
 Object.defineProperty(window, 'WebSocket', {
-  value: WebSocketMock,
+  value: RealtimeSocketMock,
   configurable: true,
   writable: true,
 });
 Object.defineProperty(global, 'WebSocket', {
-  value: WebSocketMock,
+  value: RealtimeSocketMock,
   configurable: true,
   writable: true,
 });
+
+function buildRealtimeAuthResponse(init?: RequestInit): Response {
+  let channels: string[] = [];
+  if (typeof init?.body === 'string') {
+    try {
+      const parsed = JSON.parse(init.body) as { channels?: unknown };
+      if (Array.isArray(parsed.channels)) {
+        channels = parsed.channels.filter((channel) => typeof channel === 'string') as string[];
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  const subscriptions = Object.fromEntries(channels.map((channel) => [channel, {}]));
+  return {
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        realtimeEndpoint: 'wss://test/realtime',
+        connectionHeaders: {},
+        subscriptions,
+      }),
+  } as unknown as Response;
+}
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -131,6 +156,10 @@ function mockAuthenticatedFetch() {
   const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
   fetchMock.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
     const u = toUrlString(url);
+
+    if (u.includes('/v1/realtime/auth')) {
+      return Promise.resolve(buildRealtimeAuthResponse(init));
+    }
 
     if (u.includes('/v1/registers/status')) {
       return Promise.resolve({
@@ -235,7 +264,7 @@ describe('App edge flows', () => {
     vi.clearAllMocks();
     vi.resetModules();
     vi.useRealTimers();
-    createdWs.length = 0;
+    createdSockets.length = 0;
     const store: Record<string, string> = {};
     const storage = {
       getItem: vi.fn((key: string) => (key in store ? store[key] : null)),
@@ -253,14 +282,6 @@ describe('App edge flows', () => {
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
     localStorage.clear();
     sessionStorage.setItem('lane', 'lane-1');
-
-    try {
-      const shared = await import('@club-ops/shared/realtime/laneSessionClient');
-      shared.closeLaneSessionClient('lane-1', 'employee');
-      shared.closeLaneSessionClient('', 'employee');
-    } catch {
-      // ignore
-    }
 
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       json: () => Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
@@ -282,7 +303,7 @@ describe('App edge flows', () => {
   afterEach(() => {
     vi.clearAllMocks();
     vi.clearAllTimers();
-    createdWs.length = 0;
+    createdSockets.length = 0;
   });
 
   it('keeps the active account after jumping to Room Cleaning and back', async () => {

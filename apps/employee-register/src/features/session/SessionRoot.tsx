@@ -8,7 +8,7 @@ export function SessionRoot({ children }: { children: ReactNode }) {
     handleRegisterSignIn,
     lane,
     health,
-    wsConnected,
+    realtimeConnected,
     handleLogout,
     handleCloseOut,
     registerSession,
@@ -22,7 +22,7 @@ export function SessionRoot({ children }: { children: ReactNode }) {
       topTitle="Employee Register"
       lane={lane}
       apiStatus={health?.status ?? null}
-      wsConnected={wsConnected}
+      realtimeConnected={realtimeConnected}
       onSignOut={() => void handleLogout()}
       onCloseOut={() => void handleCloseOut()}
     >

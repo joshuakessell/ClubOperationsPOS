@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import type { Broadcaster } from '../websocket/broadcaster';
+import type { Broadcaster } from '../realtime/broadcaster';
 import { registerCheckoutKioskRoutes } from './checkout/kiosk';
 import { registerCheckoutManualRoutes } from './checkout/manual';
 import { registerCheckoutStaffRoutes } from './checkout/staff-actions';

@@ -6,7 +6,7 @@ interface HealthStatus {
 
 export interface RegisterHeaderProps {
   health: HealthStatus | null;
-  wsConnected: boolean;
+  realtimeConnected: boolean;
   lane: string;
   staffName: string;
   staffRole: 'STAFF' | 'ADMIN';
@@ -16,7 +16,7 @@ export interface RegisterHeaderProps {
 
 export function RegisterHeader({
   health,
-  wsConnected,
+  realtimeConnected,
   lane,
   staffName,
   staffRole,
@@ -46,8 +46,10 @@ export function RegisterHeader({
           >
             API: {health?.status ?? '...'}
           </span>
-          <span className={`cs-badge ${wsConnected ? 'cs-badge--success' : 'cs-badge--error'}`}>
-            WS: {wsConnected ? 'Live' : 'Offline'}
+          <span
+            className={`cs-badge ${realtimeConnected ? 'cs-badge--success' : 'cs-badge--error'}`}
+          >
+            Realtime: {realtimeConnected ? 'Live' : 'Offline'}
           </span>
           <span className="cs-badge cs-badge--info">Lane: {lane}</span>
           <span className="cs-badge cs-badge--info">

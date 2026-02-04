@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { serializableTransaction } from '../db';
 import { requireAuth, requireReauth } from '../auth/middleware';
-import type { Broadcaster } from '../websocket/broadcaster';
+import type { Broadcaster } from '../realtime/broadcaster';
 import { roundUpToQuarterHour } from '../time/rounding';
 import { broadcastInventoryUpdate } from '../inventory/broadcast';
 import { insertAuditLog } from '../audit/auditLog';

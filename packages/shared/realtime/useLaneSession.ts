@@ -1,10 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getApiUrl } from '../src/apiBase.js';
-import {
-  closeLaneSessionClient,
-  getLaneSessionClient,
-  type LaneRole,
-} from './laneSessionClient.js';
+
+export type LaneRole = 'customer' | 'employee';
 
 type AppSyncAuthResponse = {
   realtimeEndpoint: string;
@@ -61,10 +58,11 @@ export function useLaneSession({
   lastError: Event | null;
 } {
   const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
-  const disableWsRaw = env?.VITE_DISABLE_WS;
-  const wsDisabled = disableWsRaw === true || disableWsRaw === 'true' || disableWsRaw === '1';
-  const effectiveEnabled = enabled && !wsDisabled;
-  const realtimeProvider = getEnvString(env, 'VITE_REALTIME_PROVIDER') ?? 'legacy';
+  const disableRealtimeRaw = env?.VITE_DISABLE_REALTIME;
+  const realtimeDisabled =
+    disableRealtimeRaw === true || disableRealtimeRaw === 'true' || disableRealtimeRaw === '1';
+  const effectiveEnabled = enabled && !realtimeDisabled;
+  const realtimeProvider = getEnvString(env, 'VITE_REALTIME_PROVIDER') ?? 'appsync-events';
   const useAppSyncEvents = realtimeProvider === 'appsync-events';
   const channelNamespace = getChannelNamespace(env);
   const authUrl = getApiUrl('/api/v1/realtime/auth');
@@ -98,14 +96,10 @@ export function useLaneSession({
   useEffect(() => {
     return () => {
       if (laneId === undefined) return;
-      if (useAppSyncEvents) {
-        appSyncSocketRef.current?.close();
-        appSyncSocketRef.current = null;
-        return;
-      }
-      closeLaneSessionClient(laneId, role);
+      appSyncSocketRef.current?.close();
+      appSyncSocketRef.current = null;
     };
-  }, [laneId, role, useAppSyncEvents]);
+  }, [laneId, role]);
 
   useEffect(() => {
     if (!effectiveEnabled || laneId === undefined) {
@@ -119,20 +113,22 @@ export function useLaneSession({
         clearTimeout(cooldownTimerRef.current);
         cooldownTimerRef.current = null;
       }
-      if (laneId !== undefined && useAppSyncEvents) {
+      if (laneId !== undefined) {
         appSyncSocketRef.current?.close();
         appSyncSocketRef.current = null;
-        return;
-      }
-      if (laneId !== undefined) {
-        closeLaneSessionClient(laneId, role);
       }
       return;
     }
 
     closedIntentionallyRef.current = false;
 
-    if (useAppSyncEvents && !kioskToken) {
+    if (!useAppSyncEvents) {
+      setConnected(false);
+      setLastError(new Event('realtime_provider_disabled'));
+      return;
+    }
+
+    if (!kioskToken) {
       setConnected(false);
       setLastError(new Event('missing_kiosk_token'));
       return;
@@ -168,221 +164,154 @@ export function useLaneSession({
     };
 
     const laneSegment = laneId && laneId.trim() ? laneId.trim() : null;
-    if (useAppSyncEvents) {
-      const channels = [buildChannel(channelNamespace, 'global')];
-      if (laneSegment) {
-        channels.push(buildChannel(channelNamespace, 'lane', laneSegment));
-      }
+    const channels = [buildChannel(channelNamespace, 'global')];
+    if (laneSegment) {
+      channels.push(buildChannel(channelNamespace, 'lane', laneSegment));
+    }
 
-      const connectAppSync = async () => {
-        try {
-          const res = await fetch(authUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(kioskToken ? { 'x-kiosk-token': kioskToken } : {}),
-            },
-            body: JSON.stringify({ channels }),
-          });
-          if (!res.ok) {
-            throw new Error(`Auth failed (${res.status})`);
+    const connectAppSync = async () => {
+      try {
+        const res = await fetch(authUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(kioskToken ? { 'x-kiosk-token': kioskToken } : {}),
+          },
+          body: JSON.stringify({ channels }),
+        });
+        if (!res.ok) {
+          throw new Error(`Auth failed (${res.status})`);
+        }
+        const auth = (await res.json()) as AppSyncAuthResponse;
+        const protocols = [
+          'aws-appsync-event-ws',
+          `header-${base64UrlEncode(JSON.stringify(auth.connectionHeaders))}`,
+        ];
+        const socket = new WebSocket(auth.realtimeEndpoint, protocols);
+        appSyncSocketRef.current = socket;
+
+        let didSubscribe = false;
+
+        const onOpen = () => {
+          socket.send(JSON.stringify({ type: 'connection_init' }));
+        };
+
+        const onClose = (event: CloseEvent) => {
+          void event;
+          setConnected(false);
+          if (!hasEverConnectedRef.current) {
+            consecutiveFailureRef.current += 1;
+          } else {
+            consecutiveFailureRef.current = 0;
           }
-          const auth = (await res.json()) as AppSyncAuthResponse;
-          const protocols = [
-            'aws-appsync-event-ws',
-            `header-${base64UrlEncode(JSON.stringify(auth.connectionHeaders))}`,
-          ];
-          const socket = new WebSocket(auth.realtimeEndpoint, protocols);
-          appSyncSocketRef.current = socket;
-
-          let didSubscribe = false;
-
-          const onOpen = () => {
-            socket.send(JSON.stringify({ type: 'connection_init' }));
-          };
-
-          const onClose = (event: CloseEvent) => {
-            void event;
-            setConnected(false);
-            if (!hasEverConnectedRef.current) {
-              consecutiveFailureRef.current += 1;
-            } else {
-              consecutiveFailureRef.current = 0;
-            }
-            scheduleReconnect();
-          };
-
-          const onError = (event: Event) => {
-            setLastError(event);
-          };
-
-          const onMessage = (event: MessageEvent) => {
-            let message: AppSyncMessage | null = null;
-            try {
-              message = JSON.parse(String(event.data)) as AppSyncMessage;
-            } catch {
-              return;
-            }
-
-            if (!message || typeof message !== 'object') return;
-
-            if (message.type === 'connection_ack') {
-              if (reconnectTimerRef.current) {
-                clearTimeout(reconnectTimerRef.current);
-                reconnectTimerRef.current = null;
-              }
-              if (cooldownTimerRef.current) {
-                clearTimeout(cooldownTimerRef.current);
-                cooldownTimerRef.current = null;
-              }
-              retryCountRef.current = 0;
-              consecutiveFailureRef.current = 0;
-              hasEverConnectedRef.current = true;
-              setConnected(true);
-
-              if (!didSubscribe) {
-                didSubscribe = true;
-                for (const channel of channels) {
-                  const authHeaders = auth.subscriptions[channel];
-                  if (!authHeaders) continue;
-                  const id = createSubscriptionId();
-                  socket.send(
-                    JSON.stringify({
-                      id,
-                      type: 'subscribe',
-                      channel,
-                      authorization: authHeaders,
-                    })
-                  );
-                }
-              }
-              return;
-            }
-
-            if (message.type === 'connection_error') {
-              setLastError(new Event('connection_error'));
-              try {
-                socket.close();
-              } catch {
-                // ignore
-              }
-              return;
-            }
-
-            if (message.type === 'subscribe_error') {
-              setLastError(new Event('subscribe_error'));
-              return;
-            }
-
-            if (message.type === 'data') {
-              const rawEvents = message.events ?? message.event;
-              if (!rawEvents) return;
-              const events = Array.isArray(rawEvents) ? rawEvents : [rawEvents];
-              for (const payload of events) {
-                const data =
-                  typeof payload === 'string' ? payload : JSON.stringify(payload ?? {});
-                setLastMessage({ data } as MessageEvent);
-              }
-            }
-          };
-
-          socket.addEventListener('open', onOpen);
-          socket.addEventListener('close', onClose);
-          socket.addEventListener('error', onError);
-          socket.addEventListener('message', onMessage);
-
-          if (socket.readyState === WebSocket.OPEN) {
-            onOpen();
-          }
-        } catch (error) {
-          setLastError(new Event('auth_error'));
           scheduleReconnect();
-        }
-      };
+        };
 
-      void connectAppSync();
+        const onError = (event: Event) => {
+          setLastError(event);
+        };
 
-      return () => {
-        const socket = appSyncSocketRef.current;
-        if (socket) {
+        const onMessage = (event: MessageEvent) => {
+          let message: AppSyncMessage | null = null;
           try {
-            socket.close();
+            message = JSON.parse(String(event.data)) as AppSyncMessage;
           } catch {
-            // ignore
+            return;
           }
-          appSyncSocketRef.current = null;
+
+          if (!message || typeof message !== 'object') return;
+
+          if (message.type === 'connection_ack') {
+            if (reconnectTimerRef.current) {
+              clearTimeout(reconnectTimerRef.current);
+              reconnectTimerRef.current = null;
+            }
+            if (cooldownTimerRef.current) {
+              clearTimeout(cooldownTimerRef.current);
+              cooldownTimerRef.current = null;
+            }
+            retryCountRef.current = 0;
+            consecutiveFailureRef.current = 0;
+            hasEverConnectedRef.current = true;
+            setConnected(true);
+
+            if (!didSubscribe) {
+              didSubscribe = true;
+              for (const channel of channels) {
+                const authHeaders = auth.subscriptions[channel];
+                if (!authHeaders) continue;
+                const id = createSubscriptionId();
+                socket.send(
+                  JSON.stringify({
+                    id,
+                    type: 'subscribe',
+                    channel,
+                    authorization: authHeaders,
+                  })
+                );
+              }
+            }
+            return;
+          }
+
+          if (message.type === 'connection_error') {
+            setLastError(new Event('connection_error'));
+            try {
+              socket.close();
+            } catch {
+              // ignore
+            }
+            return;
+          }
+
+          if (message.type === 'subscribe_error') {
+            setLastError(new Event('subscribe_error'));
+            return;
+          }
+
+          if (message.type === 'data') {
+            const rawEvents = message.events ?? message.event;
+            if (!rawEvents) return;
+            const events = Array.isArray(rawEvents) ? rawEvents : [rawEvents];
+            for (const payload of events) {
+              const data = typeof payload === 'string' ? payload : JSON.stringify(payload ?? {});
+              setLastMessage({ data } as MessageEvent);
+            }
+          }
+        };
+
+        socket.addEventListener('open', onOpen);
+        socket.addEventListener('close', onClose);
+        socket.addEventListener('error', onError);
+        socket.addEventListener('message', onMessage);
+
+        if (socket.readyState === WebSocket.OPEN) {
+          onOpen();
         }
-        if (reconnectTimerRef.current) {
-          clearTimeout(reconnectTimerRef.current);
-          reconnectTimerRef.current = null;
-        }
-      };
-    }
-
-    // No socket creation during render; only inside effect.
-    const socket = getLaneSessionClient({ laneId, role, kioskToken });
-
-    const onOpen = () => {
-      if (reconnectTimerRef.current) {
-        clearTimeout(reconnectTimerRef.current);
-        reconnectTimerRef.current = null;
+      } catch (error) {
+        setLastError(new Event('auth_error'));
+        scheduleReconnect();
       }
-      if (cooldownTimerRef.current) {
-        clearTimeout(cooldownTimerRef.current);
-        cooldownTimerRef.current = null;
-      }
-      retryCountRef.current = 0;
-      consecutiveFailureRef.current = 0;
-      hasEverConnectedRef.current = true;
-      setConnected(true);
     };
-    const onClose = (event: CloseEvent) => {
-      void event;
-      setConnected(false);
-      if (!hasEverConnectedRef.current) {
-        consecutiveFailureRef.current += 1;
-      } else {
-        consecutiveFailureRef.current = 0;
-      }
-      scheduleReconnect();
-    };
-    const onMessage = (event: MessageEvent) => setLastMessage(event);
-    const onError = (event: Event) => setLastError(event);
 
-    socket.addEventListener('open', onOpen);
-    socket.addEventListener('close', onClose);
-    socket.addEventListener('message', onMessage);
-    socket.addEventListener('error', onError);
-
-    // If the socket is already open by the time we subscribe, reflect it immediately.
-    if (socket.readyState === WebSocket.OPEN) {
-      onOpen();
-    } else if (socket.readyState !== WebSocket.CONNECTING) {
-      setConnected(false);
-      scheduleReconnect();
-    }
+    void connectAppSync();
 
     return () => {
-      socket.removeEventListener('open', onOpen);
-      socket.removeEventListener('close', onClose);
-      socket.removeEventListener('message', onMessage);
-      socket.removeEventListener('error', onError);
-
+      const socket = appSyncSocketRef.current;
+      if (socket) {
+        try {
+          socket.close();
+        } catch {
+          // ignore
+        }
+        appSyncSocketRef.current = null;
+      }
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
       }
     };
-  }, [
-    authUrl,
-    channelNamespace,
-    connectNonce,
-    effectiveEnabled,
-    laneId,
-    kioskToken,
-    role,
-    useAppSyncEvents,
-  ]);
+  }, [authUrl, channelNamespace, connectNonce, effectiveEnabled, laneId, kioskToken, role]);
 
   return { connected, lastMessage, lastError };
 }

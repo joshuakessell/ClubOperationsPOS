@@ -5,8 +5,8 @@ import { InventorySelector } from './InventorySelector';
 // Mock fetch
 global.fetch = vi.fn();
 
-// Mock WebSocket
-type MockWebSocket = {
+// Mock realtime socket
+type MockRealtimeSocket = {
   send: ReturnType<typeof vi.fn>;
   close: ReturnType<typeof vi.fn>;
   addEventListener: ReturnType<typeof vi.fn>;
@@ -27,7 +27,7 @@ global.WebSocket = vi.fn(
       onmessage: null,
       onerror: null,
       onclose: null,
-    }) satisfies MockWebSocket
+    }) satisfies MockRealtimeSocket
 ) as unknown as typeof WebSocket;
 
 describe('InventorySelector', () => {
@@ -66,11 +66,28 @@ describe('InventorySelector', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    try {
+      const current = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
+      Object.defineProperty(import.meta, 'env', {
+        value: { ...current, VITE_DISABLE_REALTIME: 'true' },
+        configurable: true,
+      });
+    } catch {
+      // ignore
+    }
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() =>
+      Promise.resolve({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: () => Promise.resolve(mockApiResponse),
+      } as unknown as Response)
+    );
   });
 
   it('should render loading state initially', () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
     });
 
@@ -79,8 +96,9 @@ describe('InventorySelector', () => {
   });
 
   it('should group and sort rooms correctly', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
     });
 
@@ -94,8 +112,9 @@ describe('InventorySelector', () => {
   });
 
   it('should auto-expand section when customer selects type', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
     });
 
@@ -109,8 +128,9 @@ describe('InventorySelector', () => {
   });
 
   it('should auto-select first available item', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
     });
 
@@ -130,8 +150,9 @@ describe('InventorySelector', () => {
     const occupiedCheckin = '2026-01-01T12:00:00.000Z';
     const occupiedCheckout = '2026-01-01T18:00:00.000Z';
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
+      headers: new Headers({ 'content-type': 'application/json' }),
       json: () =>
         Promise.resolve({
           rooms: [

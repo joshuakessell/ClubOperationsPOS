@@ -2,8 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, waitFor, act, within } from '@testing-library/react';
 let App: (typeof import('./App'))['default'];
 
-// Mock WebSocket
-type MockWebSocket = {
+// Mock realtime socket
+type MockRealtimeSocket = {
   url: string;
   readyState: number;
   onopen: ((ev: Event) => unknown) | null;
@@ -20,8 +20,8 @@ type MockWebSocket = {
   close: ReturnType<typeof vi.fn>;
   send: ReturnType<typeof vi.fn>;
 };
-const createdWs: MockWebSocket[] = [];
-const WebSocketMock = vi.fn((url?: string) => {
+const createdSockets: MockRealtimeSocket[] = [];
+const RealtimeSocketMock = vi.fn((url?: string) => {
   const listeners: Record<'open' | 'close' | 'message' | 'error', Array<(ev: unknown) => void>> = {
     open: [],
     close: [],
@@ -31,8 +31,8 @@ const WebSocketMock = vi.fn((url?: string) => {
 
   let assignedOnMessage: ((ev: { data: string }) => unknown) | null = null;
 
-  const ws: MockWebSocket = {
-    url: typeof url === 'string' ? url : 'ws://test/ws',
+  const ws: MockRealtimeSocket = {
+    url: typeof url === 'string' ? url : 'wss://test/realtime',
     readyState: 0,
     // Always provide dispatchers so tests can locate the instance and trigger events.
     onopen: (ev) => {
@@ -73,36 +73,71 @@ const WebSocketMock = vi.fn((url?: string) => {
     },
   });
 
-  createdWs.push(ws);
+  createdSockets.push(ws);
   return ws;
 }) as unknown as typeof WebSocket;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).OPEN = 1;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CONNECTING = 0;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CLOSING = 2;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CLOSED = 3;
 Object.defineProperty(globalThis, 'WebSocket', {
-  value: WebSocketMock,
+  value: RealtimeSocketMock,
   configurable: true,
   writable: true,
 });
 Object.defineProperty(window, 'WebSocket', {
-  value: WebSocketMock,
+  value: RealtimeSocketMock,
   configurable: true,
   writable: true,
 });
 Object.defineProperty(global, 'WebSocket', {
-  value: WebSocketMock,
+  value: RealtimeSocketMock,
   configurable: true,
   writable: true,
 });
+
+function buildRealtimeAuthResponse(init?: RequestInit): Response {
+  let channels: string[] = [];
+  if (typeof init?.body === 'string') {
+    try {
+      const parsed = JSON.parse(init.body) as { channels?: unknown };
+      if (Array.isArray(parsed.channels)) {
+        channels = parsed.channels.filter((channel) => typeof channel === 'string') as string[];
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  const subscriptions = Object.fromEntries(channels.map((channel) => [channel, {}]));
+  return {
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        realtimeEndpoint: 'wss://test/realtime',
+        connectionHeaders: {},
+        subscriptions,
+      }),
+  } as unknown as Response;
+}
+
+
+function emitRealtime(socket: MockRealtimeSocket | null, event: unknown) {
+  socket?.onmessage?.({
+    data: JSON.stringify({
+      type: 'data',
+      events: [JSON.stringify(event ?? {})],
+    }),
+  });
+}
 
 // Mock fetch
 global.fetch = vi.fn();
@@ -114,7 +149,7 @@ describe('App', () => {
     // This also helps avoid memory growth across the suite.
     vi.resetModules();
     vi.useRealTimers();
-    createdWs.length = 0;
+    createdSockets.length = 0;
     const store: Record<string, string> = {};
     const storage = {
       getItem: vi.fn((key: string) => (key in store ? store[key] : null)),
@@ -134,19 +169,11 @@ describe('App', () => {
     // Ensure lane-scoped realtime wiring uses a stable lane id in tests.
     sessionStorage.setItem('lane', 'lane-1');
 
-    // Ensure the shared WS guard does not leak singletons across tests.
-    try {
-      const shared = await import('@club-ops/shared/realtime/laneSessionClient');
-      shared.closeLaneSessionClient('lane-1', 'employee');
-      shared.closeLaneSessionClient('', 'employee');
-    } catch {
-      // ignore
-    }
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       json: () => Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
     });
 
-    // Tests rely on realtime handlers; the app now fail-fast disables WS init without a kiosk token.
+    // Tests rely on realtime handlers; the app now fail-fast disables realtime init without a kiosk token.
     try {
       const current = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
       Object.defineProperty(import.meta, 'env', {
@@ -157,14 +184,14 @@ describe('App', () => {
       // ignore
     }
 
-    // Import after env + WebSocket mocks are in place (Vite can inline import.meta.env at load time).
+    // Import after env + realtime socket mocks are in place (Vite can inline import.meta.env at load time).
     App = (await import('./App')).default;
   });
 
   afterEach(() => {
     vi.clearAllMocks();
     vi.clearAllTimers();
-    createdWs.length = 0;
+    createdSockets.length = 0;
   });
 
   it('shows customer suggestions at 3+ characters and confirm triggers session', async () => {
@@ -188,6 +215,10 @@ describe('App', () => {
               : url instanceof Request
                 ? url.url
                 : '';
+
+        if (u.includes('/v1/realtime/auth')) {
+          return Promise.resolve(buildRealtimeAuthResponse(init));
+        }
 
         if (u.includes('/v1/registers/status')) {
           return Promise.resolve({
@@ -299,6 +330,10 @@ describe('App', () => {
               : url instanceof Request
                 ? url.url
                 : '';
+
+        if (u.includes('/v1/realtime/auth')) {
+          return Promise.resolve(buildRealtimeAuthResponse(init));
+        }
 
         if (u.includes('/v1/registers/status')) {
           return Promise.resolve({
@@ -419,6 +454,10 @@ describe('App', () => {
             : url instanceof Request
               ? url.url
               : '';
+
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse(init));
+      }
 
       if (u.includes('/v1/registers/status')) {
         return Promise.resolve({
@@ -593,6 +632,10 @@ describe('App', () => {
               ? url.url
               : '';
 
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse(_init));
+      }
+
       if (u.includes('/v1/registers/status')) {
         return Promise.resolve({
           ok: true,
@@ -728,17 +771,16 @@ describe('App', () => {
     });
 
     // Simulate kiosk prerequisites already resolved (language + membership choice) so we land on RENTAL step.
-    // React StrictMode can create multiple WS instances; use the one that has the handler attached.
-    let wsWithHandler: MockWebSocket | null = null;
+    // React StrictMode can create multiple realtime sockets; use the one that has the handler attached.
+    let socketWithHandler: MockRealtimeSocket | null = null;
     await waitFor(() => {
-      expect(createdWs.length).toBeGreaterThan(0);
-      wsWithHandler = createdWs.find((w) => w.url.includes('lane=lane-1')) ?? createdWs[0] ?? null;
-      expect(wsWithHandler).not.toBeNull();
+      expect(createdSockets.length).toBeGreaterThan(0);
+      socketWithHandler = createdSockets.find((w) => w.url.includes('lane=lane-1')) ?? createdSockets[0] ?? null;
+      expect(socketWithHandler).not.toBeNull();
     });
 
     act(() => {
-      wsWithHandler?.onmessage?.({
-        data: JSON.stringify({
+      emitRealtime(socketWithHandler, {
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -749,8 +791,7 @@ describe('App', () => {
             membershipChoice: 'ONE_TIME',
             selectionConfirmed: false,
           },
-        }),
-      });
+        });
     });
 
     const proposeLocker = await screen.findByRole('button', { name: /Propose Locker/i });
@@ -760,8 +801,7 @@ describe('App', () => {
 
     // Server snapshot updates with the proposed rental so we can confirm it.
     act(() => {
-      wsWithHandler?.onmessage?.({
-        data: JSON.stringify({
+      emitRealtime(socketWithHandler, {
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -774,8 +814,7 @@ describe('App', () => {
             proposedRentalType: 'LOCKER',
             proposedBy: 'EMPLOYEE',
           },
-        }),
-      });
+        });
     });
 
     await waitFor(() => {
@@ -817,6 +856,10 @@ describe('App', () => {
               : url instanceof Request
                 ? url.url
                 : '';
+
+        if (u.includes('/v1/realtime/auth')) {
+          return Promise.resolve(buildRealtimeAuthResponse(init));
+        }
 
         if (u.includes('/v1/registers/status')) {
           return Promise.resolve({
@@ -983,6 +1026,10 @@ describe('App', () => {
           body = JSON.parse(init.body) as unknown;
         }
         calls.push({ url: u, body });
+
+        if (u.includes('/v1/realtime/auth')) {
+          return Promise.resolve(buildRealtimeAuthResponse(init));
+        }
 
         if (u.includes('/v1/registers/status')) {
           return Promise.resolve({

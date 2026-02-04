@@ -1,24 +1,21 @@
 import { useEffect, useRef } from 'react';
-import { safeParseWebSocketEvent } from '@club-ops/shared';
+import { safeParseRealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
-import { getWebSocketUrl } from '@club-ops/shared';
 import {
-  applyRegisterWebSocketEvent,
-  type RegisterWebSocketParams,
-} from './registerWebSocketHandlers';
+  applyRegisterRealtimeEvent,
+  type RegisterRealtimeParams,
+} from './registerRealtimeHandlers';
 
-export function useRegisterWebSocketEvents(params: RegisterWebSocketParams): {
+export function useRegisterRealtimeEvents(params: RegisterRealtimeParams): {
   connected: boolean;
 } {
   const { lane } = params;
-  const wsUrl = getWebSocketUrl(`/ws?lane=${encodeURIComponent(lane)}`);
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : null;
-  void wsUrl;
 
   const { connected, lastMessage } = useLaneSession({
     laneId: lane,
@@ -36,11 +33,11 @@ export function useRegisterWebSocketEvents(params: RegisterWebSocketParams): {
     if (!lastMessage) return;
     try {
       const parsed: unknown = safeJsonParse(String(lastMessage.data));
-      const message = safeParseWebSocketEvent(parsed);
+      const message = safeParseRealtimeEvent(parsed);
       if (!message) return;
-      applyRegisterWebSocketEvent(message, paramsRef.current);
+      applyRegisterRealtimeEvent(message, paramsRef.current);
     } catch (error) {
-      console.error('Failed to parse WebSocket message:', error);
+      console.error('Failed to parse realtime message:', error);
     }
   }, [lastMessage]);
 

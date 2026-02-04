@@ -1,11 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
-import websocket from '@fastify/websocket';
 
-import { createBroadcaster } from '../src/websocket/broadcaster.js';
-import { registerWsRoute } from '../src/websocket/wsRoute.js';
+import { createBroadcaster } from '../src/realtime/broadcaster.js';
 import { cleaningRoutes } from '../src/routes/cleaning.js';
 import { checkinRoutes } from '../src/routes/checkin.js';
+import { realtimeRoutes } from '../src/routes/realtime.js';
 
 function randomUuid(): string {
   // Good enough for tests that only need a syntactically-valid UUID.
@@ -18,23 +17,16 @@ describe('Auth enforcement (unauthenticated mutations)', () => {
 
   beforeAll(async () => {
     process.env.KIOSK_TOKEN = TEST_KIOSK_TOKEN;
+    delete process.env.APPSYNC_EVENTS_HTTP_ENDPOINT;
 
     app = Fastify({ logger: false });
-    await app.register(websocket, {
-      options: {
-        handleProtocols: (protocols) => {
-          for (const p of protocols) return p;
-          return false;
-        },
-      },
-    });
 
     const broadcaster = createBroadcaster();
     app.decorate('broadcaster', broadcaster);
-    await registerWsRoute(app, broadcaster);
 
     await app.register(cleaningRoutes);
     await app.register(checkinRoutes);
+    await app.register(realtimeRoutes);
 
     await app.ready();
   });
@@ -79,42 +71,22 @@ describe('Auth enforcement (unauthenticated mutations)', () => {
     expect(res.statusCode).toBe(401);
   });
 
-  it('rejects /ws without kiosk token or staff auth', async () => {
+  it('rejects /v1/realtime/auth without kiosk token or staff auth', async () => {
     const res = await app.inject({
-      method: 'GET',
-      url: '/ws?lane=lane-1',
+      method: 'POST',
+      url: '/v1/realtime/auth',
+      payload: { channels: ['/club-ops/lane/lane-1'] },
     });
     expect(res.statusCode).toBe(401);
   });
 
-  it('rejects /ws with invalid lane, even with kiosk token', async () => {
+  it('returns 501 from /v1/realtime/auth when AppSync is not configured', async () => {
     const res = await app.inject({
-      method: 'GET',
-      url: '/ws?lane=not-a-lane',
+      method: 'POST',
+      url: '/v1/realtime/auth',
       headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: { channels: ['/club-ops/lane/lane-1'] },
     });
-    expect(res.statusCode).toBe(400);
-  });
-
-  it('allows /ws auth + lane validation to pass with kiosk token and valid lane', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/ws?lane=lane-1',
-      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
-    });
-    // Not a real websocket upgrade, but the auth/lane preHandlers ran and accepted it.
-    expect(res.statusCode).not.toBe(401);
-    expect(res.statusCode).not.toBe(400);
-  });
-
-  it('allows /ws auth + lane validation to pass with kiosk token in Sec-WebSocket-Protocol', async () => {
-    const res = await app.inject({
-      method: 'GET',
-      url: '/ws?lane=lane-1',
-      headers: { 'sec-websocket-protocol': `kiosk-token.${TEST_KIOSK_TOKEN}` },
-    });
-    // Not a real websocket upgrade, but the auth/lane preHandlers ran and accepted it.
-    expect(res.statusCode).not.toBe(401);
-    expect(res.statusCode).not.toBe(400);
+    expect(res.statusCode).toBe(501);
   });
 });

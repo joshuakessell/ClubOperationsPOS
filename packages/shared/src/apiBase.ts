@@ -52,12 +52,3 @@ export const getApiUrl = (path: string) => {
   if (normalizedPath && !normalizedPath.startsWith('/')) normalizedPath = `/${normalizedPath}`;
   return normalizedPath ? `${base}${normalizedPath}` : base;
 };
-
-export const getWebSocketUrl = (path: string) => {
-  if (!API_BASE_URL) return path;
-  const base = normalizeApiBaseUrl(API_BASE_URL);
-  const wsBase = base.startsWith('https')
-    ? base.replace('https', 'wss')
-    : base.replace('http', 'ws');
-  return `${wsBase}${path.startsWith('/') ? path : `/${path}`}`;
-};

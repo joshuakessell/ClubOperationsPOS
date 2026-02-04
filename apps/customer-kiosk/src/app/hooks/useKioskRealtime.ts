@@ -7,7 +7,7 @@ import {
   type SetStateAction,
 } from 'react';
 import {
-  safeParseWebSocketEvent,
+  safeParseRealtimeEvent,
   SessionUpdatedPayloadSchema,
   type CustomerConfirmationRequiredPayload,
   type SessionUpdatedPayload,
@@ -16,7 +16,7 @@ import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { isRecord, readJson, safeJsonParse } from '@club-ops/ui';
 import type { SessionState } from '../../utils/membership';
 
-export function useKioskWebSocket({
+export function useKioskRealtime({
   lane,
   kioskToken,
   sessionIdRef,
@@ -70,20 +70,20 @@ export function useKioskWebSocket({
   apiBase: string;
   kioskAuthHeaders: (extra?: Record<string, string>) => Record<string, string>;
 }) {
-  const { connected: wsConnected, lastMessage } = useLaneSession({
+  const { connected: realtimeConnected, lastMessage } = useLaneSession({
     laneId: lane ?? undefined,
     role: 'customer',
     kioskToken: kioskToken ?? '',
     enabled: Boolean(lane),
   });
 
-  const onWsMessage = useCallback(
+  const onRealtimeMessage = useCallback(
     (event: MessageEvent) => {
       try {
         const parsed: unknown = safeJsonParse(String(event.data));
-        const message = safeParseWebSocketEvent(parsed);
+        const message = safeParseRealtimeEvent(parsed);
         if (!message) return;
-        console.log('WebSocket message:', message);
+        console.log('Realtime message:', message);
 
         if (message.type === 'SESSION_UPDATED') {
           applySessionUpdatedPayload(message.payload);
@@ -154,7 +154,7 @@ export function useKioskWebSocket({
           applyInventoryUpdate(message.payload);
         }
       } catch (error) {
-        console.error('Failed to parse WebSocket message:', error);
+        console.error('Failed to parse realtime message:', error);
       }
     },
     [
@@ -179,8 +179,8 @@ export function useKioskWebSocket({
 
   useEffect(() => {
     if (!lastMessage) return;
-    onWsMessage(lastMessage);
-  }, [lastMessage, onWsMessage]);
+    onRealtimeMessage(lastMessage);
+  }, [lastMessage, onRealtimeMessage]);
 
   const pollingStartedRef = useRef(false);
   const pollingDelayTimerRef = useRef<number | null>(null);
@@ -198,13 +198,13 @@ export function useKioskWebSocket({
     }
     pollingStartedRef.current = false;
 
-    if (wsConnected) return;
+    if (realtimeConnected) return;
 
     pollingDelayTimerRef.current = window.setTimeout(() => {
-      if (wsConnected) return;
+      if (realtimeConnected) return;
       if (!pollingStartedRef.current) {
         pollingStartedRef.current = true;
-        console.info('[customer-kiosk] WS disconnected; entering polling fallback');
+        console.info('[customer-kiosk] Realtime disconnected; entering polling fallback');
       }
 
       const pollOnce = async () => {
@@ -249,7 +249,14 @@ export function useKioskWebSocket({
       }
       pollingStartedRef.current = false;
     };
-  }, [apiBase, applySessionUpdatedPayload, kioskAuthHeaders, lane, resetToIdle, wsConnected]);
+  }, [
+    apiBase,
+    applySessionUpdatedPayload,
+    kioskAuthHeaders,
+    lane,
+    resetToIdle,
+    realtimeConnected,
+  ]);
 
-  return { wsConnected };
+  return { realtimeConnected };
 }

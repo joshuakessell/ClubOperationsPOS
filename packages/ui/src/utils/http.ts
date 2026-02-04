@@ -55,3 +55,12 @@ export async function readJson<T>(response: Response): Promise<T> {
     throw new Error(`Failed to parse JSON — ${snippet || '(empty body)'}`);
   }
 }
+
+export function safeJsonParse<T>(input: string): T | null {
+  if (!input) return null;
+  try {
+    return JSON.parse(input) as T;
+  } catch {
+    return null;
+  }
+}
