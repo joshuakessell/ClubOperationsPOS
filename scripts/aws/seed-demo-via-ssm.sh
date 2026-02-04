@@ -87,7 +87,7 @@ PATH="$(dirname "$SESSION_MANAGER_PLUGIN"):$PATH" \
 TUNNEL_PID="$!"
 
 for i in {1..30}; do
-  if rg -q "Waiting for connections" "$LOG_PATH" 2>/dev/null; then
+  if grep -q "Waiting for connections" "$LOG_PATH" 2>/dev/null; then
     break
   fi
   if ! kill -0 "$TUNNEL_PID" >/dev/null 2>&1; then
@@ -97,7 +97,7 @@ for i in {1..30}; do
   sleep 1
 done
 
-if ! rg -q "Waiting for connections" "$LOG_PATH" 2>/dev/null; then
+if ! grep -q "Waiting for connections" "$LOG_PATH" 2>/dev/null; then
   echo "ERROR: SSM tunnel did not become ready. Log at ${LOG_PATH}" >&2
   exit 1
 fi

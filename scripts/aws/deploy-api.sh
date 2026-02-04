@@ -115,7 +115,7 @@ if [[ "${SKIP_DB_MIGRATIONS:-}" != "true" ]]; then
   )
 fi
 
-if [[ "${DEMO_MODE:-}" == "true" ]]; then
+if [[ "${DEMO_MODE:-}" == "true" && "${SKIP_DEMO_SEED:-}" != "true" ]]; then
   : "${DEMO_INCREMENTAL:=true}"
   : "${DEMO_RESET_ON_STARTUP:=true}"
   : "${DEMO_SHIFT_REGENERATE_PDFS:=true}"

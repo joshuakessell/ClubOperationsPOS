@@ -156,6 +156,43 @@ resource "aws_iam_policy" "github_actions" {
           var.database_url_secret_arn,
           var.kiosk_token_secret_arn
         ]
+      },
+      {
+        Sid    = "SsmStartSession"
+        Effect = "Allow"
+        Action = [
+          "ssm:StartSession",
+          "ssm:TerminateSession"
+        ]
+        Resource = [
+          "arn:aws:ec2:${var.aws_region}:146469921099:instance/i-01f7806cad897d3ee",
+          "arn:aws:ssm:${var.aws_region}:146469921099:document/AWS-StartPortForwardingSessionToRemoteHost",
+          "arn:aws:ssm:${var.aws_region}:146469921099:session/*"
+        ]
+      },
+      {
+        Sid    = "SsmDescribeInstances"
+        Effect = "Allow"
+        Action = ["ssm:DescribeInstanceInformation"]
+        Resource = "*"
+      },
+      {
+        Sid    = "BastionInstanceControl"
+        Effect = "Allow"
+        Action = [
+          "ec2:DescribeInstances",
+          "ec2:StartInstances",
+          "ec2:StopInstances"
+        ]
+        Resource = [
+          "arn:aws:ec2:${var.aws_region}:146469921099:instance/i-01f7806cad897d3ee"
+        ]
+      },
+      {
+        Sid    = "BastionDescribe"
+        Effect = "Allow"
+        Action = ["ec2:DescribeInstances"]
+        Resource = "*"
       }
     ]
   })
