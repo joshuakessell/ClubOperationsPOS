@@ -47,6 +47,16 @@ SKIP_DB_MIGRATIONS="${SKIP_DB_MIGRATIONS:-}"
 LOG_PATH="${LOG_PATH:-/tmp/ssm-tunnel.log}"
 TUNNEL_PID=""
 
+dump_log() {
+  if [[ -f "$LOG_PATH" ]]; then
+    echo "---- SSM tunnel log (${LOG_PATH}) ----" >&2
+    tail -n 200 "$LOG_PATH" >&2 || true
+    echo "--------------------------------------" >&2
+  else
+    echo "SSM tunnel log not found at ${LOG_PATH}" >&2
+  fi
+}
+
 cleanup() {
   if [[ -n "${TUNNEL_PID:-}" ]]; then
     kill "$TUNNEL_PID" >/dev/null 2>&1 || true
@@ -92,6 +102,7 @@ for i in {1..30}; do
   fi
   if ! kill -0 "$TUNNEL_PID" >/dev/null 2>&1; then
     echo "ERROR: SSM tunnel exited unexpectedly. Log at ${LOG_PATH}" >&2
+    dump_log
     exit 1
   fi
   sleep 1
@@ -99,6 +110,7 @@ done
 
 if ! grep -q "Waiting for connections" "$LOG_PATH" 2>/dev/null; then
   echo "ERROR: SSM tunnel did not become ready. Log at ${LOG_PATH}" >&2
+  dump_log
   exit 1
 fi
 

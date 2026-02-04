@@ -167,6 +167,7 @@ resource "aws_iam_policy" "github_actions" {
         Resource = [
           "arn:aws:ec2:${var.aws_region}:146469921099:instance/i-01f7806cad897d3ee",
           "arn:aws:ssm:${var.aws_region}:146469921099:document/AWS-StartPortForwardingSessionToRemoteHost",
+          "arn:aws:ssm:${var.aws_region}::document/AWS-StartPortForwardingSessionToRemoteHost",
           "arn:aws:ssm:${var.aws_region}:146469921099:session/*"
         ]
       },
