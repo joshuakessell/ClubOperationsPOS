@@ -179,6 +179,11 @@ export function useLaneSession({
           },
           body: JSON.stringify({ channels }),
         });
+        if (res.status === 501 || res.status === 404) {
+          setConnected(false);
+          setLastError(new Event('realtime_not_configured'));
+          return;
+        }
         if (!res.ok) {
           throw new Error(`Auth failed (${res.status})`);
         }
