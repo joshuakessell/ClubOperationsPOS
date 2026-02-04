@@ -47,21 +47,21 @@ SKIP_DB_MIGRATIONS="${SKIP_DB_MIGRATIONS:-}"
 
 DATABASE_URL_FOR_TUNNEL=""
 if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
-  SECRET_STRING="$(
+  SECRET_VALUE="$(
     aws secretsmanager get-secret-value \
       --secret-id "$DATABASE_URL_SECRET_ARN" \
-      --query SecretString \
-      --output text
+      --output json
   )"
 
   DATABASE_URL_FOR_TUNNEL="$(
-    printf '%s' "$SECRET_STRING" | python3 - "$LOCAL_PORT" <<'PY'
+    printf '%s' "$SECRET_VALUE" | python3 - "$LOCAL_PORT" <<'PY'
+import base64
 import json
 import os
 import sys
 import urllib.parse
 
-raw = sys.stdin.read().strip()
+payload = json.loads(sys.stdin.read())
 local_port = sys.argv[1]
 
 def build_url(user: str, password: str, dbname: str) -> str:
@@ -72,25 +72,58 @@ def build_url(user: str, password: str, dbname: str) -> str:
         auth = f"{user_enc}:{pass_enc}@"
     return f"postgresql://{auth}localhost:{local_port}/{dbname}"
 
-if raw.startswith("postgres://") or raw.startswith("postgresql://"):
-    url = urllib.parse.urlparse(raw)
+raw = payload.get("SecretString")
+if not raw and payload.get("SecretBinary"):
+    raw = base64.b64decode(payload["SecretBinary"]).decode("utf-8")
+raw = (raw or "").strip()
+
+def use_connection_string(conn: str) -> str:
+    url = urllib.parse.urlparse(conn)
     user = urllib.parse.unquote(url.username or "")
     password = urllib.parse.unquote(url.password or "")
     dbname = (url.path or "").lstrip("/") or os.environ.get("DB_NAME", "club_operations")
-    print(build_url(user, password, dbname))
-    sys.exit(0)
+    return build_url(user, password, dbname)
 
-try:
-    data = json.loads(raw)
-except Exception:
-    sys.stderr.write("ERROR: SecretString is neither a connection string nor JSON.\n")
+def use_password_only(password: str) -> str:
+    user = os.environ.get("DB_USER", "clubops")
+    dbname = os.environ.get("DB_NAME", "club_operations")
+    return build_url(user, password, dbname)
+
+if not raw:
+    sys.stderr.write("ERROR: SecretString/SecretBinary is empty.\n")
     sys.exit(1)
 
-user = data.get("username") or data.get("user") or os.environ.get("DB_USER", "clubops")
-password = data.get("password", "")
-dbname = data.get("dbname") or data.get("database") or os.environ.get("DB_NAME", "club_operations")
+if raw.startswith("postgres://") or raw.startswith("postgresql://"):
+    print(use_connection_string(raw))
+    sys.exit(0)
 
-print(build_url(user, password, dbname))
+data = None
+if raw.startswith("{"):
+    try:
+        data = json.loads(raw)
+    except Exception:
+        data = None
+
+if isinstance(data, dict):
+    url_value = (
+        data.get("DATABASE_URL")
+        or data.get("database_url")
+        or data.get("url")
+    )
+    if isinstance(url_value, str) and url_value.startswith(("postgres://", "postgresql://")):
+        print(use_connection_string(url_value))
+        sys.exit(0)
+
+    user = data.get("username") or data.get("user") or os.environ.get("DB_USER", "clubops")
+    password = data.get("password", "")
+    dbname = data.get("dbname") or data.get("database") or os.environ.get("DB_NAME", "club_operations")
+
+    if password:
+        print(build_url(user, password, dbname))
+        sys.exit(0)
+
+# Fallback: treat raw as a password-only secret.
+print(use_password_only(raw))
 PY
   )"
   echo "Using DATABASE_URL from Secrets Manager (host forced to localhost:${LOCAL_PORT})."
