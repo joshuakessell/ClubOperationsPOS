@@ -39,6 +39,8 @@ else
   required DB_USER
 fi
 
+DB_SSL_VALUE="${DB_SSL:-true}"
+
 # Guard: Postgres DB names should not contain hyphens (only when using explicit DB vars).
 if [[ "$USE_DB_SECRET" == "false" ]]; then
   if [[ "$DB_NAME" == *"-"* ]]; then
@@ -90,6 +92,96 @@ if [[ "$USE_DB_SECRET" == "false" ]]; then
   echo "DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME} (password redacted)"
 fi
 
+MIGRATION_DATABASE_URL=""
+if [[ "$USE_DB_SECRET" == "true" ]]; then
+  MIGRATION_DATABASE_URL="$(
+    aws secretsmanager get-secret-value \
+      --secret-id "$DATABASE_URL_SECRET_ARN" \
+      --query SecretString \
+      --output text
+  )"
+else
+  MIGRATION_DATABASE_URL="$DATABASE_URL"
+fi
+
+if [[ "${SKIP_DB_MIGRATIONS:-}" != "true" ]]; then
+  echo "Running DB migrations..."
+  (
+    cd "$ROOT_DIR/services/api"
+    DATABASE_URL="$MIGRATION_DATABASE_URL" \
+    DB_SSL="$DB_SSL_VALUE" \
+    DB_SSL_CA_PATH="${DB_SSL_CA_PATH:-}" \
+      pnpm exec tsx scripts/migrate.ts
+  )
+fi
+
+if [[ "${DEMO_MODE:-}" == "true" ]]; then
+  : "${DEMO_INCREMENTAL:=true}"
+  : "${DEMO_RESET_ON_STARTUP:=true}"
+  : "${DEMO_SHIFT_REGENERATE_PDFS:=true}"
+  DEMO_FORCE_RESEED_VALUE="${DEMO_FORCE_RESEED:-false}"
+  echo "Running demo seed (incremental=$DEMO_INCREMENTAL)..."
+  (
+    cd "$ROOT_DIR/services/api"
+    DEMO_MODE=true \
+    DEMO_INCREMENTAL="$DEMO_INCREMENTAL" \
+    DEMO_RESET_ON_STARTUP="$DEMO_RESET_ON_STARTUP" \
+    DEMO_FORCE_RESEED="$DEMO_FORCE_RESEED_VALUE" \
+    DEMO_SHIFT_REGENERATE_PDFS="$DEMO_SHIFT_REGENERATE_PDFS" \
+    DATABASE_URL="$MIGRATION_DATABASE_URL" \
+    DB_SSL="$DB_SSL_VALUE" \
+    DB_SSL_CA_PATH="${DB_SSL_CA_PATH:-}" \
+      pnpm exec tsx src/db/seed-demo.ts
+  )
+fi
+
+if [[ "${SKIP_DB_VERIFY:-}" != "true" ]]; then
+  echo "Verifying DB schema..."
+  (
+    cd "$ROOT_DIR/services/api"
+    DATABASE_URL="$MIGRATION_DATABASE_URL" \
+    DB_SSL="$DB_SSL_VALUE" \
+    DB_SSL_CA_PATH="${DB_SSL_CA_PATH:-}" \
+      node - <<'NODE'
+const fs = require('node:fs');
+const { Client } = require('pg');
+
+const connectionString = process.env.DATABASE_URL;
+const sslEnabled = process.env.DB_SSL === 'true';
+const sslCaPath = process.env.DB_SSL_CA_PATH;
+const ssl = sslEnabled
+  ? sslCaPath
+    ? { ca: fs.readFileSync(sslCaPath, 'utf8'), rejectUnauthorized: true }
+    : { rejectUnauthorized: false }
+  : undefined;
+
+const client = new Client({ connectionString, ssl });
+
+(async () => {
+  try {
+    await client.connect();
+    const res = await client.query(
+      "SELECT to_regclass('public.lane_sessions') AS lane_sessions, to_regclass('public.waitlist') AS waitlist, to_regclass('public.rooms') AS rooms"
+    );
+    const row = res.rows[0] || {};
+    console.log('Schema check:', row);
+    const missing = ['lane_sessions', 'waitlist', 'rooms'].filter((key) => !row[key]);
+    if (missing.length > 0) {
+      console.error(`Missing tables: ${missing.join(', ')}`);
+      process.exit(1);
+    }
+  } catch (error) {
+    const message = error && error.message ? error.message : error;
+    console.error('DB schema verification failed:', message);
+    process.exit(1);
+  } finally {
+    await client.end().catch(() => {});
+  }
+})();
+NODE
+  )
+fi
+
 # Read existing App Runner runtime secrets (optional)
 EXISTING_SECRET_KEYS="$(
   aws apprunner describe-service \
@@ -127,7 +219,6 @@ if [[ "$USE_DB_SECRET" == "false" ]]; then
   runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
 fi
 
-DB_SSL_VALUE="${DB_SSL:-true}"
 runtime_env_vars+=("DB_SSL=${DB_SSL_VALUE}")
 
 if [[ "$USE_KIOSK_SECRET" == "false" ]] && ! has_secret "KIOSK_TOKEN"; then
