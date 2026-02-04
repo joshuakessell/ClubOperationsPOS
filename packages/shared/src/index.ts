@@ -18,8 +18,8 @@ export type {
   Locker,
   InventorySummary,
   DetailedInventory,
-  WebSocketEventType,
-  WebSocketEvent,
+  RealtimeEventType,
+  RealtimeEvent,
   CheckinOptionHighlightedPayload,
   RoomStatusChangedPayload,
   InventoryUpdatedPayload,
@@ -84,15 +84,15 @@ export {
   type IdScanPayload,
 } from './schemas.js';
 
-// WebSocket runtime validation
+// Realtime runtime validation
 export {
-  safeParseWebSocketEvent,
-  type ParsedWebSocketEvent,
+  safeParseRealtimeEvent,
+  type ParsedRealtimeEvent,
   SessionUpdatedPayloadSchema,
   InventoryUpdatedPayloadSchema,
   UpgradeHoldAvailablePayloadSchema,
   UpgradeOfferExpiredPayloadSchema,
-} from './websocketSchemas.js';
+} from './realtimeSchemas.js';
 
 // Facility inventory contract (rooms + lockers)
 export {
@@ -119,4 +119,4 @@ export { AGREEMENT_LEGAL_BODY_HTML_BY_LANG, type AgreementLanguage } from './agr
 // Use @club-ops/shared/realtime/* in browser apps.
 
 // API base helpers for frontend apps
-export { API_BASE_URL, getApiUrl, getWebSocketUrl } from './apiBase.js';
+export { API_BASE_URL, getApiUrl } from './apiBase.js';

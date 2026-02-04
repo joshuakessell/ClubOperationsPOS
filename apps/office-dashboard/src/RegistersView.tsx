@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
-import type { RegisterSessionUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
+import type { RegisterSessionUpdatedPayload, RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
-import { wsBaseUrl } from './api';
 import { getApiUrl } from '@club-ops/shared';
 
 const API_BASE = getApiUrl('/api');
@@ -61,7 +60,6 @@ export function RegistersView({ session }: RegistersViewProps) {
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : '';
-  void wsBaseUrl;
   const { lastMessage } = useLaneSession({
     laneId: '',
     role: 'employee',
@@ -71,7 +69,7 @@ export function RegistersView({ session }: RegistersViewProps) {
 
   useEffect(() => {
     if (!lastMessage) return;
-    const message = safeJsonParse<WebSocketEvent>(String(lastMessage.data));
+    const message = safeJsonParse<RealtimeEvent>(String(lastMessage.data));
     if (!message) return;
     if (message.type === 'REGISTER_SESSION_UPDATED') {
       const payload = message.payload as RegisterSessionUpdatedPayload;

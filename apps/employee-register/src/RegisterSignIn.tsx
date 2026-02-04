@@ -1,10 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { SignInModal } from './SignInModal';
-import type { WebSocketEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
+import type { RealtimeEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
-import { closeLaneSessionClient } from '@club-ops/shared/realtime/laneSessionClient';
 import { safeJsonParse } from '@club-ops/ui';
-import { getApiUrl, getWebSocketUrl } from '@club-ops/shared';
+import { getApiUrl } from '@club-ops/shared';
 
 const API_BASE = getApiUrl('/api');
 
@@ -31,7 +30,7 @@ interface RegisterSignInProps {
   topTitle?: string;
   lane?: string;
   apiStatus?: string | null;
-  wsConnected?: boolean;
+  realtimeConnected?: boolean;
   onSignOut?: () => void;
   onCloseOut?: () => void;
   children: React.ReactNode;
@@ -43,7 +42,7 @@ export function RegisterSignIn({
   topTitle = 'Employee Register',
   lane,
   apiStatus,
-  wsConnected,
+  realtimeConnected,
   onSignOut,
   onCloseOut,
   children,
@@ -117,8 +116,8 @@ export function RegisterSignIn({
     void checkRegisterStatus();
   }, [checkRegisterStatus]);
 
-  const signedInWs = registerSession ? (
-    <RegisterSessionWs deviceId={deviceId} onInvalidated={handleSessionInvalidated} />
+  const signedInRealtime = registerSession ? (
+    <RegisterSessionRealtime deviceId={deviceId} onInvalidated={handleSessionInvalidated} />
   ) : null;
 
   const sendHeartbeat = useCallback(async () => {
@@ -262,8 +261,10 @@ export function RegisterSignIn({
               >
                 API: {apiStatus ?? '...'}
               </span>
-              <span className={`cs-badge ${wsConnected ? 'cs-badge--success' : 'cs-badge--error'}`}>
-                WS: {wsConnected ? 'Live' : 'Offline'}
+              <span
+                className={`cs-badge ${realtimeConnected ? 'cs-badge--success' : 'cs-badge--error'}`}
+              >
+                Realtime: {realtimeConnected ? 'Live' : 'Offline'}
               </span>
             </span>
           )}
@@ -291,26 +292,24 @@ export function RegisterSignIn({
         </div>
       </div>
 
-      {signedInWs}
+      {signedInRealtime}
       {children}
     </div>
   );
 }
 
-function RegisterSessionWs({
+function RegisterSessionRealtime({
   deviceId,
   onInvalidated,
 }: {
   deviceId: string;
   onInvalidated: () => void;
 }) {
-  const wsUrl = getWebSocketUrl('/ws');
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : null;
-  void wsUrl;
   const { lastMessage, lastError } = useLaneSession({
     laneId: '',
     role: 'employee',
@@ -322,18 +321,17 @@ function RegisterSessionWs({
     if (!lastMessage) return;
     const parsed = safeJsonParse<unknown>(String(lastMessage.data));
     if (!isRecord(parsed) || typeof parsed.type !== 'string') return;
-    const message = parsed as unknown as WebSocketEvent;
+    const message = parsed as unknown as RealtimeEvent;
     if (message.type !== 'REGISTER_SESSION_UPDATED') return;
     const payload = message.payload as RegisterSessionUpdatedPayload;
     if (payload.deviceId === deviceId && !payload.active) {
-      closeLaneSessionClient('', 'employee');
       onInvalidated();
     }
   }, [deviceId, lastMessage, onInvalidated]);
 
   useEffect(() => {
     if (!lastError) return;
-    console.error('WebSocket connection error:', lastError);
+    console.error('Realtime connection error:', lastError);
   }, [lastError]);
 
   return null;

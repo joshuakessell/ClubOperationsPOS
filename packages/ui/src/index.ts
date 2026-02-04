@@ -8,7 +8,6 @@
 // Example usage in Vite apps:
 // import '@club-ops/ui/styles/index.css';
 
-export * from './websocket/useReconnectingWebSocket.js';
 export * from './utils/typeGuards.js';
 export * from './utils/http.js';
 export * from './components/LiquidGlassNumpad.js';

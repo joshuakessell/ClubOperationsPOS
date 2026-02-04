@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, act, waitFor } from '@testing-library/react';
 let App: (typeof import('./App'))['default'];
 
-// Mock fetch and WebSocket
+// Mock fetch and realtime socket
 global.fetch = vi.fn();
-type MockWebSocket = {
+type MockRealtimeSocket = {
   url: string;
   readyState: number;
   onopen: ((ev: Event) => unknown) | null;
@@ -21,9 +21,9 @@ type MockWebSocket = {
   close: ReturnType<typeof vi.fn>;
   send: ReturnType<typeof vi.fn>;
 };
-let lastWs: MockWebSocket | null = null;
-const createdWs: MockWebSocket[] = [];
-const WebSocketMock = vi.fn((url?: string) => {
+let lastSocket: MockRealtimeSocket | null = null;
+const createdSockets: MockRealtimeSocket[] = [];
+const RealtimeSocketMock = vi.fn((url?: string) => {
   const listeners: Record<'open' | 'close' | 'message' | 'error', Array<(ev: unknown) => void>> = {
     open: [],
     close: [],
@@ -32,8 +32,8 @@ const WebSocketMock = vi.fn((url?: string) => {
   };
 
   let assignedOnMessage: ((ev: { data: string }) => unknown) | null = null;
-  const ws: MockWebSocket = {
-    url: typeof url === 'string' ? url : 'ws://test/ws',
+  const ws: MockRealtimeSocket = {
+    url: typeof url === 'string' ? url : 'wss://test/realtime',
     readyState: 0,
     onopen: (ev) => {
       ws.readyState = 1;
@@ -71,31 +71,78 @@ const WebSocketMock = vi.fn((url?: string) => {
     },
   });
 
-  lastWs = ws;
-  createdWs.push(ws);
+  lastSocket = ws;
+  createdSockets.push(ws);
   return ws;
 }) as unknown as typeof WebSocket;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).OPEN = 1;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CONNECTING = 0;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CLOSING = 2;
 (
-  WebSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
 ).CLOSED = 3;
-Object.defineProperty(globalThis, 'WebSocket', { value: WebSocketMock, configurable: true });
-Object.defineProperty(window, 'WebSocket', { value: WebSocketMock, configurable: true });
-Object.defineProperty(global, 'WebSocket', { value: WebSocketMock, configurable: true });
+Object.defineProperty(globalThis, 'WebSocket', { value: RealtimeSocketMock, configurable: true });
+Object.defineProperty(window, 'WebSocket', { value: RealtimeSocketMock, configurable: true });
+Object.defineProperty(global, 'WebSocket', { value: RealtimeSocketMock, configurable: true });
+
+function buildRealtimeAuthResponse(init?: RequestInit): Response {
+  let channels: string[] = [];
+  if (typeof init?.body === 'string') {
+    try {
+      const parsed = JSON.parse(init.body) as { channels?: unknown };
+      if (Array.isArray(parsed.channels)) {
+        channels = parsed.channels.filter((channel) => typeof channel === 'string') as string[];
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  const subscriptions = Object.fromEntries(channels.map((channel) => [channel, {}]));
+  return {
+    ok: true,
+    json: () =>
+      Promise.resolve({
+        realtimeEndpoint: 'wss://test/realtime',
+        connectionHeaders: {},
+        subscriptions,
+      }),
+  } as unknown as Response;
+}
+
+function makeJsonResponse<T>(data: T, ok = true): Response {
+  return {
+    ok,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: () => Promise.resolve(data),
+  } as unknown as Response;
+}
+
+function emitRealtime(socket: MockRealtimeSocket | null, event: unknown) {
+  socket?.onmessage?.({
+    data: JSON.stringify({
+      type: 'data',
+      events: [JSON.stringify(event ?? {})],
+    }),
+  });
+}
+
+async function emitRealtimeEvent(event: unknown) {
+  await waitFor(() => expect(lastSocket).not.toBeNull());
+  emitRealtime(lastSocket, event);
+}
 
 describe('App', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
-    lastWs = null;
-    createdWs.length = 0;
+    lastSocket = null;
+    createdSockets.length = 0;
     // Tests run in jsdom, which often defaults to a "landscape" viewport.
     // The kiosk UI hard-blocks landscape with an orientation overlay, which would hide all controls.
     // Force a portrait-like viewport so tests can exercise the flow.
@@ -114,15 +161,7 @@ describe('App', () => {
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
 
     sessionStorage.setItem('lane', 'lane-1');
-    try {
-      const shared = await import('@club-ops/shared/realtime/laneSessionClient');
-      shared.closeLaneSessionClient('lane-1', 'customer');
-      shared.closeLaneSessionClient('', 'customer');
-    } catch {
-      // ignore
-    }
-
-    // Tests rely on realtime handlers; ensure kiosk token exists for guarded WS init.
+    // Tests rely on realtime handlers; ensure kiosk token exists for guarded realtime init.
     try {
       const current = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
       Object.defineProperty(import.meta, 'env', {
@@ -134,7 +173,8 @@ describe('App', () => {
     }
 
     App = (await import('./App')).default;
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL) => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
       const u =
         typeof url === 'string'
           ? url
@@ -143,23 +183,24 @@ describe('App', () => {
             : url instanceof Request
               ? url.url
               : '';
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse(init));
+      }
       if (u.includes('/health')) {
-        return Promise.resolve({
-          json: () =>
-            Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
-        } as unknown as Response);
+        return Promise.resolve(
+          makeJsonResponse({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 })
+        );
       }
       if (u.includes('/v1/inventory/available')) {
-        return Promise.resolve({
-          json: () =>
-            Promise.resolve({
-              rooms: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
-              rawRooms: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
-              waitlistDemand: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
-              lockers: 0,
-              total: 0,
-            }),
-        } as unknown as Response);
+        return Promise.resolve(
+          makeJsonResponse({
+            rooms: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
+            rawRooms: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
+            waitlistDemand: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
+            lockers: 0,
+            total: 0,
+          })
+        );
       }
       if (u.includes('/v1/checkin/lane/') && u.includes('/membership-purchase-intent')) {
         return Promise.resolve({
@@ -179,8 +220,9 @@ describe('App', () => {
           json: () => Promise.resolve({ success: true }),
         } as unknown as Response);
       }
-      return Promise.resolve({ json: () => Promise.resolve({}) } as unknown as Response);
-    });
+      return Promise.resolve(makeJsonResponse({}));
+    }
+    );
   });
 
   afterEach(() => {
@@ -226,9 +268,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -242,8 +283,7 @@ describe('App', () => {
             paymentTotal: 12.34,
             paymentFailureReason: 'CVV mismatch: 123',
           },
-        }),
-      });
+        });
     });
 
     // Payment screen should show total due
@@ -267,6 +307,9 @@ describe('App', () => {
             : url instanceof Request
               ? url.url
               : '';
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse());
+      }
       if (u.includes('/health')) {
         return Promise.resolve({
           ok: true,
@@ -299,9 +342,8 @@ describe('App', () => {
     const { unmount } = render(<App />);
 
     // Initial session with no language set should show language prompt.
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -312,8 +354,7 @@ describe('App', () => {
             pastDueBlocked: false,
             // customerPrimaryLanguage intentionally omitted
           },
-        }),
-      });
+        });
     });
 
     expect(await screen.findByText(/select language/i)).toBeDefined();
@@ -325,9 +366,8 @@ describe('App', () => {
     });
 
     // Server broadcasts updated session with language set; kiosk should not show language prompt.
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -338,8 +378,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     expect(screen.queryByText(/select language/i)).toBeNull();
@@ -350,9 +389,8 @@ describe('App', () => {
     act(() => {
       render(<App />);
     });
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -363,8 +401,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     expect(screen.queryByText(/select language/i)).toBeNull();
@@ -381,6 +418,9 @@ describe('App', () => {
             : url instanceof Request
               ? url.url
               : '';
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse());
+      }
       if (u.includes('/health')) {
         return Promise.resolve({
           ok: true,
@@ -413,9 +453,8 @@ describe('App', () => {
     render(<App />);
 
     // Past-due blocked session with no language set should still show language prompt.
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -427,8 +466,7 @@ describe('App', () => {
             pastDueBalance: 12.34,
             // customerPrimaryLanguage intentionally omitted
           },
-        }),
-      });
+        });
     });
 
     expect(await screen.findByText(/select language/i)).toBeDefined();
@@ -440,9 +478,8 @@ describe('App', () => {
     });
 
     // After language is set, we should transition to selection view (still blocked) and show the localized message.
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -454,8 +491,7 @@ describe('App', () => {
             pastDueBalance: 12.34,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     expect(screen.queryByText(/select language/i)).toBeNull();
@@ -467,9 +503,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -481,8 +516,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     expect(await screen.findByText('Membership')).toBeDefined();
@@ -499,9 +533,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -512,8 +545,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     expect(await screen.findByText('Membership')).toBeDefined();
@@ -527,9 +559,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -541,8 +572,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     expect(await screen.findByText('Non-Member')).toBeDefined();
@@ -554,9 +584,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -567,8 +596,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     const oneTime = await screen.findByRole('button', { name: /One-time Membership/i });
@@ -601,23 +629,24 @@ describe('App', () => {
             : url instanceof Request
               ? url.url
               : '';
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse());
+      }
       if (u.includes('/health')) {
-        return Promise.resolve({
-          json: () =>
-            Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
-        } as unknown as Response);
+        return Promise.resolve(
+          makeJsonResponse({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 })
+        );
       }
       if (u.includes('/v1/inventory/available')) {
-        return Promise.resolve({
-          json: () =>
-            Promise.resolve({
-              rooms: { SPECIAL: 1, DOUBLE: 1, STANDARD: 1 },
-              rawRooms: { SPECIAL: 1, DOUBLE: 1, STANDARD: 1 },
-              waitlistDemand: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
-              lockers: 10,
-              total: 13,
-            }),
-        } as unknown as Response);
+        return Promise.resolve(
+          makeJsonResponse({
+            rooms: { SPECIAL: 1, DOUBLE: 1, STANDARD: 1 },
+            rawRooms: { SPECIAL: 1, DOUBLE: 1, STANDARD: 1 },
+            waitlistDemand: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
+            lockers: 10,
+            total: 13,
+          })
+        );
       }
       if (u.includes('/v1/checkin/lane/') && u.includes('/propose-selection')) {
         return Promise.resolve({
@@ -637,16 +666,15 @@ describe('App', () => {
           json: () => Promise.resolve({ success: true }),
         } as unknown as Response);
       }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+      return Promise.resolve(makeJsonResponse({}));
     });
 
     act(() => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -657,8 +685,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     act(() => {
@@ -686,9 +713,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -700,8 +726,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     expect(await screen.findByRole('button', { name: /Locker/i })).toBeDefined();
@@ -718,9 +743,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -731,8 +755,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'ES',
           },
-        }),
-      });
+        });
     });
 
     expect(await screen.findByText('Sin membresía')).toBeDefined();
@@ -748,9 +771,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -761,8 +783,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'ES',
           },
-        }),
-      });
+        });
     });
 
     const purchaseBtn = await screen.findByRole('button', { name: /Membresía 6 meses/i });
@@ -785,9 +806,8 @@ describe('App', () => {
       render(<App />);
     });
 
-    act(() => {
-      lastWs?.onmessage?.({
-        data: JSON.stringify({
+    await act(async () => {
+      await emitRealtimeEvent({
           type: 'SESSION_UPDATED',
           timestamp: new Date().toISOString(),
           payload: {
@@ -798,8 +818,7 @@ describe('App', () => {
             pastDueBlocked: false,
             customerPrimaryLanguage: 'EN',
           },
-        }),
-      });
+        });
     });
 
     const purchaseBtn = await screen.findByRole('button', { name: /6-Month Membership/i });

@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { query } from '../db';
-import type { Broadcaster } from '../websocket/broadcaster';
+import type { Broadcaster } from '../realtime/broadcaster';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -38,7 +38,7 @@ export async function expireWaitlistEntries(fastify: FastifyInstance): Promise<n
 
   if (result.rows.length === 0) return 0;
 
-  // Best-effort broadcast: expiry is correct even if websocket is unavailable.
+  // Best-effort broadcast: expiry is correct even if realtime is unavailable.
   if (fastify.broadcaster) {
     for (const row of result.rows) {
       fastify.broadcaster.broadcast({

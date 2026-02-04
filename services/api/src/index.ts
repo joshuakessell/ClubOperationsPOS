@@ -1,6 +1,5 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
-import websocket from '@fastify/websocket';
 
 import { loadEnvFromDotEnvIfPresent } from './env/loadEnv';
 
@@ -33,13 +32,12 @@ import {
   breakRoutes,
   orderRoutes,
 } from './routes';
-import { createBroadcaster, type Broadcaster } from './websocket/broadcaster';
+import { createBroadcaster, type Broadcaster } from './realtime/broadcaster';
 import { initializeDatabase, closeDatabase } from './db';
 import { cleanupAbandonedRegisterSessions } from './routes/registers';
 import { seedDemoData } from './db/seed-demo';
 import { expireWaitlistEntries } from './waitlist/expireWaitlist';
 import { processUpgradeHoldsTick } from './waitlist/upgradeHolds';
-import { registerWsRoute } from './websocket/wsRoute';
 
 loadEnvFromDotEnvIfPresent();
 
@@ -49,7 +47,7 @@ const SKIP_DB = process.env.SKIP_DB === 'true';
 const SEED_ON_STARTUP = process.env.SEED_ON_STARTUP === 'true';
 
 // Fail-fast: the API must never start without a kiosk token configured.
-// This is required for kiosk-facing authenticated WebSockets and state-mutating endpoints.
+// This is required for kiosk-facing authenticated endpoints that mutate state.
 const KIOSK_TOKEN = process.env.KIOSK_TOKEN?.trim();
 if (!KIOSK_TOKEN) {
   console.error('FATAL: Missing required env var KIOSK_TOKEN. Refusing to start API server.');
@@ -84,22 +82,7 @@ async function main() {
     credentials: true,
   });
 
-  // Register WebSocket support
-  await fastify.register(websocket, {
-    // If the browser supplies `protocols` when constructing the WebSocket, the server must
-    // select one in the handshake response or the connection will fail.
-    //
-    // We only use this to allow clients to pass the kiosk token via a subprotocol value
-    // (see `auth/kioskToken.ts`), but selecting the first offered protocol is sufficient.
-    options: {
-      handleProtocols: (protocols) => {
-        for (const p of protocols) return p;
-        return false;
-      },
-    },
-  });
-
-  // Create broadcaster for WebSocket events
+  // Create broadcaster for realtime events
   const broadcaster = createBroadcaster();
 
   // Decorate fastify with broadcaster for access in routes
@@ -192,9 +175,6 @@ async function main() {
   await fastify.register(breakRoutes);
   await fastify.register(orderRoutes);
 
-  // WebSocket endpoint (authenticated; see websocket/wsRoute.ts)
-  await registerWsRoute(fastify, broadcaster);
-
   // Graceful shutdown
   const shutdown = async () => {
     fastify.log.info('Shutting down...');
@@ -218,7 +198,6 @@ async function main() {
   try {
     await fastify.listen({ port: PORT, host: HOST });
     fastify.log.info(`Server listening on http://${HOST}:${PORT}`);
-    fastify.log.info(`WebSocket available at ws://${HOST}:${PORT}/ws`);
     fastify.log.info('Available endpoints:');
     fastify.log.info('  GET  /health');
     fastify.log.info('  GET  /v1/inventory/summary');

@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import { transaction, query } from '../db';
 import { RoomStatus, RoomStatusSchema, validateTransition } from '@club-ops/shared';
-import type { Broadcaster } from '../websocket/broadcaster';
+import type { Broadcaster } from '../realtime/broadcaster';
 import { broadcastInventoryUpdate } from '../inventory/broadcast';
 import { insertAuditLog } from '../audit/auditLog';
 import { requireAuth } from '../auth/middleware';
@@ -274,7 +274,7 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
           };
         });
 
-        // Broadcast WebSocket events for successful transitions
+        // Broadcast realtime events for successful transitions
         if (fastify.broadcaster && result.successfulTransitions.length > 0) {
           // Broadcast individual room status changes
           for (const transition of result.successfulTransitions) {

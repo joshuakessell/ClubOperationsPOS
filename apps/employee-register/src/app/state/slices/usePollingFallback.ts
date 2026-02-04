@@ -10,11 +10,11 @@ type LaneSessionActions = {
 
 type Params = {
   lane: string;
-  wsConnected: boolean;
+  realtimeConnected: boolean;
   laneSessionActions: LaneSessionActions;
 };
 
-export function usePollingFallback({ lane, wsConnected, laneSessionActions }: Params) {
+export function usePollingFallback({ lane, realtimeConnected, laneSessionActions }: Params) {
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
@@ -63,10 +63,10 @@ export function usePollingFallback({ lane, wsConnected, laneSessionActions }: Pa
       pollingIntervalRef.current = null;
     }
 
-    if (wsConnected) return;
+    if (realtimeConnected) return;
 
     pollingDelayTimerRef.current = window.setTimeout(() => {
-      if (wsConnected) return;
+      if (realtimeConnected) return;
       void pollOnce();
       pollingIntervalRef.current = window.setInterval(() => {
         void pollOnce();
@@ -83,7 +83,7 @@ export function usePollingFallback({ lane, wsConnected, laneSessionActions }: Pa
         pollingIntervalRef.current = null;
       }
     };
-  }, [pollOnce, wsConnected]);
+  }, [pollOnce, realtimeConnected]);
 
   return { pollOnce };
 }

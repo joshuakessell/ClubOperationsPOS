@@ -5,7 +5,7 @@ import type {
   CheckoutRequestSummary,
   SessionUpdatedPayload,
 } from '@club-ops/shared';
-import { useRegisterWebSocketEvents } from '../../useRegisterWebSocketEvents';
+import { useRegisterRealtimeEvents } from '../../useRegisterRealtimeEvents';
 import type { BottomToast } from '../../../components/register/toasts/BottomToastStack';
 import type { HomeTab } from '../shared/types';
 
@@ -63,7 +63,7 @@ type Params = {
   setCustomerConfirmationType: (value: CustomerConfirmationType | null) => void;
 };
 
-export function useRegisterWebSocketState({
+export function useRegisterRealtimeState({
   lane,
   currentSessionId,
   selectedCheckoutRequest,
@@ -104,7 +104,7 @@ export function useRegisterWebSocketState({
     customerSelectedTypeRef.current = customerSelectedType;
   }, [customerSelectedType]);
 
-  const ws = useRegisterWebSocketEvents({
+  const realtime = useRegisterRealtimeEvents({
     lane,
     currentSessionIdRef,
     selectedCheckoutRequestRef,
@@ -159,10 +159,10 @@ export function useRegisterWebSocketState({
     },
   });
 
-  const [wsConnected, setWsConnected] = useState(false);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
   useEffect(() => {
-    setWsConnected(ws.connected);
-  }, [ws.connected]);
+    setRealtimeConnected(realtime.connected);
+  }, [realtime.connected]);
 
-  return { wsConnected, currentSessionIdRef };
+  return { realtimeConnected, currentSessionIdRef };
 }

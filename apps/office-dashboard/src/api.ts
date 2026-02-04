@@ -1,4 +1,4 @@
-import { getApiUrl, getWebSocketUrl } from '@club-ops/shared';
+import { getApiUrl } from '@club-ops/shared';
 
 export class ApiError extends Error {
   status: number;
@@ -54,8 +54,4 @@ export async function apiJson<T>(
   }
 
   return data as T;
-}
-
-export function wsBaseUrl(): string {
-  return getWebSocketUrl('/ws');
 }

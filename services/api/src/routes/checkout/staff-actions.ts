@@ -402,7 +402,7 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
    * POST /v1/checkout/:requestId/complete - Complete checkout
    *
    * Employee endpoint to finalize checkout.
-   * Updates room/locker status, logs events, applies bans, and emits WebSocket updates.
+   * Updates room/locker status, logs events, applies bans, and emits realtime updates.
    */
   fastify.post<{ Params: { requestId: string } }>(
     '/v1/checkout/:requestId/complete',

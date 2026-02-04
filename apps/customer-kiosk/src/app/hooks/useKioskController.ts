@@ -4,7 +4,7 @@ import { useKioskLane } from './useKioskLane';
 import { useOrientationOverlay } from './useOrientationOverlay';
 import { useKioskSessionState } from './useKioskSessionState';
 import { useKioskInventory } from './useKioskInventory';
-import { useKioskWebSocket } from './useKioskWebSocket';
+import { useKioskRealtime } from './useKioskRealtime';
 import { useKioskActions } from './useKioskActions';
 import { usePulseHighlightStyles } from './usePulseHighlightStyles';
 
@@ -34,7 +34,7 @@ export function useKioskController() {
   );
   const inventoryState = useKioskInventory({ apiBase, enabled: Boolean(lane) });
 
-  useKioskWebSocket({
+  useKioskRealtime({
     lane,
     kioskToken,
     sessionIdRef: sessionState.sessionIdRef,

@@ -8,8 +8,8 @@ const routerFuture = {
   v7_relativeSplatPath: true,
 };
 
-// Mock WebSocket
-const createMockWebSocket = () => {
+// Mock realtime socket
+const createMockRealtimeSocket = () => {
   const listeners = new Map<string, Set<EventListener>>();
   return {
     readyState: 1,
@@ -31,7 +31,7 @@ const createMockWebSocket = () => {
   };
 };
 
-const mockWebSocket = vi.fn(() => createMockWebSocket()) as unknown as typeof WebSocket;
+const mockWebSocket = vi.fn(() => createMockRealtimeSocket()) as unknown as typeof WebSocket;
 (mockWebSocket as any).CONNECTING = 0;
 (mockWebSocket as any).OPEN = 1;
 (mockWebSocket as any).CLOSING = 2;
@@ -41,6 +41,31 @@ global.WebSocket = mockWebSocket;
 
 // Mock fetch
 global.fetch = vi.fn();
+
+function buildRealtimeAuthResponse(init?: RequestInit) {
+  let channels: string[] = [];
+  if (typeof init?.body === 'string') {
+    try {
+      const parsed = JSON.parse(init.body) as { channels?: unknown };
+      if (Array.isArray(parsed.channels)) {
+        channels = parsed.channels.filter((channel) => typeof channel === 'string') as string[];
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }
+
+  const subscriptions = Object.fromEntries(channels.map((channel) => [channel, {}]));
+  return {
+    ok: true,
+    headers: new Headers({ 'content-type': 'application/json' }),
+    json: async () => ({
+      realtimeEndpoint: 'wss://test/realtime',
+      connectionHeaders: {},
+      subscriptions,
+    }),
+  } as any;
+}
 
 describe('App', () => {
   beforeEach(() => {
@@ -70,9 +95,13 @@ describe('App', () => {
     });
     window.localStorage.clear();
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(async (input: RequestInfo) => {
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      async (input: RequestInfo, init?: RequestInit) => {
       const url = typeof input === 'string' ? input : input.url;
       // Minimal happy-path mocks for the demo dashboard
+      if (url.includes('/api/v1/realtime/auth')) {
+        return buildRealtimeAuthResponse(init);
+      }
       if (url.endsWith('/api/v1/auth/staff')) {
         return {
           ok: true,
@@ -159,7 +188,8 @@ describe('App', () => {
         headers: new Headers({ 'content-type': 'application/json' }),
         json: async () => ({}),
       } as any;
-    });
+    }
+    );
   });
 
   it('renders lock screen when not authenticated', async () => {

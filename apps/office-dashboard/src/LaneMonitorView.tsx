@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { RegisterSessionUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
+import type { RegisterSessionUpdatedPayload, RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
-import { apiJson, wsBaseUrl } from './api';
+import { apiJson } from './api';
 import { PanelContent } from './views/PanelContent';
 import { PanelHeader } from './views/PanelHeader';
 import { PanelShell } from './views/PanelShell';
@@ -36,7 +36,7 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
   const [lane, setLane] = useState<LaneId>('1');
   const [register, setRegister] = useState<RegisterSession | null>(null);
   const [laneSession, setLaneSession] = useState<LaneSessionSummary | null>(null);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
   const [lastLaneEvent, setLastLaneEvent] = useState<string | null>(null);
 
   const laneNumber = useMemo(() => (lane === '1' ? 1 : 2) as 1 | 2, [lane]);
@@ -68,8 +68,7 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : '';
-  void wsBaseUrl;
-  const { connected: wsLive, lastMessage } = useLaneSession({
+  const { connected: realtimeLive, lastMessage } = useLaneSession({
     laneId: String(lane),
     role: 'employee',
     kioskToken,
@@ -78,7 +77,7 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
 
   useEffect(() => {
     if (!lastMessage) return;
-    const msg = safeJsonParse<WebSocketEvent>(String(lastMessage.data));
+    const msg = safeJsonParse<RealtimeEvent>(String(lastMessage.data));
     if (!msg) return;
     if (msg.type === 'SESSION_UPDATED') {
       setLastLaneEvent(msg.timestamp);
@@ -105,8 +104,8 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
   }, [lane, laneNumber, lastMessage, session.sessionToken]);
 
   useEffect(() => {
-    setWsConnected(wsLive);
-  }, [wsLive]);
+    setRealtimeConnected(realtimeLive);
+  }, [realtimeLive]);
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto' }}>
@@ -116,8 +115,8 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
           actions={
             <>
               <div className="connection-status" style={{ border: 'none', padding: 0 }}>
-                <span className={`dot ${wsConnected ? 'dot-live' : 'dot-offline'}`}></span>
-                <span>{wsConnected ? 'Live' : 'Offline'}</span>
+                <span className={`dot ${realtimeConnected ? 'dot-live' : 'dot-offline'}`}></span>
+                <span>{realtimeConnected ? 'Live' : 'Offline'}</span>
               </div>
               <select
                 value={lane}

@@ -20,7 +20,7 @@ import { usePastDueState } from './slices/usePastDueState';
 import { usePaymentActions } from './slices/usePaymentActions';
 import { usePollingFallback } from './slices/usePollingFallback';
 import { useRenewalSelectionState } from './slices/useRenewalSelectionState';
-import { useRegisterWebSocketState } from './slices/useRegisterWebSocketState';
+import { useRegisterRealtimeState } from './slices/useRegisterRealtimeState';
 import { useScanState } from './slices/useScanState';
 import { useSelectionActions } from './slices/useSelectionActions';
 import { useSessionResetActions } from './slices/useSessionResetActions';
@@ -149,7 +149,7 @@ export function useEmployeeRegisterStateValue() {
     setIsSubmitting,
   });
 
-  const wsState = useRegisterWebSocketState({
+  const realtimeState = useRegisterRealtimeState({
     lane,
     currentSessionId,
     selectedCheckoutRequest: checkoutState.selectedCheckoutRequest,
@@ -184,7 +184,7 @@ export function useEmployeeRegisterStateValue() {
 
   const { pollOnce } = usePollingFallback({
     lane,
-    wsConnected: wsState.wsConnected,
+    realtimeConnected: realtimeState.realtimeConnected,
     laneSessionActions: {
       applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
       resetCleared: laneBindings.laneSessionActions.resetCleared,
@@ -360,7 +360,7 @@ export function useEmployeeRegisterStateValue() {
     handleRegisterSignIn,
     lane,
     health,
-    wsConnected: wsState.wsConnected,
+    realtimeConnected: realtimeState.realtimeConnected,
     handleLogout,
     handleCloseOut,
     registerSession,
@@ -398,7 +398,7 @@ export function useEmployeeRegisterStateValue() {
     notesState,
     toastState,
     setPaymentDeclineError: laneBindings.setPaymentDeclineError,
-    currentSessionIdRef: wsState.currentSessionIdRef,
+    currentSessionIdRef: realtimeState.currentSessionIdRef,
     documentsState,
     selectionActions,
   });

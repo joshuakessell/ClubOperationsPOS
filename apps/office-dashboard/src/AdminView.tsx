@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
-import type { WebSocketEvent } from '@club-ops/shared';
+import type { RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 import { getApiUrl } from '@club-ops/shared';
@@ -82,7 +82,7 @@ export function AdminView({ session }: AdminViewProps) {
     return d.toISOString().slice(0, 16);
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [wsConnected, setWsConnected] = useState(false);
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
 
   const activeTabRef = useRef<AdminTab>(activeTab);
   useEffect(() => {
@@ -227,10 +227,10 @@ export function AdminView({ session }: AdminViewProps) {
       className="admin-container"
       style={{ padding: '2rem', maxWidth: '1600px', margin: '0 auto' }}
     >
-      <AdminWs
+      <AdminRealtime
         activeTabRef={activeTabRef}
         loadOperationsDataRef={loadOperationsDataRef}
-        onConnectedChange={setWsConnected}
+        onConnectedChange={setRealtimeConnected}
       />
       <div
         className="admin-header"
@@ -253,10 +253,10 @@ export function AdminView({ session }: AdminViewProps) {
             }}
           >
             <span
-              className={`dot ${wsConnected ? 'dot-live' : 'dot-offline'}`}
+              className={`dot ${realtimeConnected ? 'dot-live' : 'dot-offline'}`}
               style={{ width: '8px', height: '8px', borderRadius: '50%' }}
             ></span>
-            <span>{wsConnected ? 'Live' : 'Offline'}</span>
+            <span>{realtimeConnected ? 'Live' : 'Offline'}</span>
           </div>
           <button
             onClick={() => navigate('/admin/staff')}
@@ -722,7 +722,7 @@ export function AdminView({ session }: AdminViewProps) {
   );
 }
 
-function AdminWs({
+function AdminRealtime({
   activeTabRef,
   loadOperationsDataRef,
   onConnectedChange,
@@ -745,7 +745,7 @@ function AdminWs({
 
   useEffect(() => {
     if (!lastMessage) return;
-    const message = safeJsonParse<WebSocketEvent>(String(lastMessage.data));
+    const message = safeJsonParse<RealtimeEvent>(String(lastMessage.data));
     if (!message) return;
     if (
       message.type === 'INVENTORY_UPDATED' ||

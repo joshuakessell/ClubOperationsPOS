@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import type { InventoryUpdatedPayload, WebSocketEvent } from '@club-ops/shared';
+import type { InventoryUpdatedPayload, RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
-import { apiJson, wsBaseUrl } from './api';
+import { apiJson } from './api';
 import { PanelContent } from './views/PanelContent';
 import { PanelHeader } from './views/PanelHeader';
 import { PanelShell } from './views/PanelShell';
@@ -46,7 +46,6 @@ export function ReportsDemoView({ session }: { session: StaffSession }) {
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : '';
-  void wsBaseUrl;
   const { lastMessage } = useLaneSession({
     laneId: '',
     role: 'employee',
@@ -56,7 +55,7 @@ export function ReportsDemoView({ session }: { session: StaffSession }) {
 
   useEffect(() => {
     if (!lastMessage) return;
-    const msg = safeJsonParse<WebSocketEvent>(String(lastMessage.data));
+    const msg = safeJsonParse<RealtimeEvent>(String(lastMessage.data));
     if (!msg) return;
     if (msg.type === 'INVENTORY_UPDATED') {
       const payload = msg.payload as InventoryUpdatedPayload;

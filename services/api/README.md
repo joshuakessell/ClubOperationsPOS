@@ -1,6 +1,6 @@
 # Club Operations API
 
-Fastify-based REST API server with WebSocket support and PostgreSQL database.
+Fastify-based REST API server with AppSync Events-powered realtime updates and PostgreSQL database.
 
 ## Prerequisites
 
@@ -71,7 +71,7 @@ pnpm start
 The API server will be available at:
 
 - **REST API**: http://localhost:3000
-- **WebSocket**: ws://localhost:3000/ws
+- **Realtime Auth**: http://localhost:3000/v1/realtime/auth
 - **Health Check**: http://localhost:3000/health
 
 ## Database Commands
@@ -227,21 +227,21 @@ The batch endpoint:
 
 - ✅ Uses database transactions (all-or-nothing)
 - ✅ Uses row locking (`FOR UPDATE`) to prevent race conditions
-- ✅ Broadcasts WebSocket events for status changes
-- ✅ Updates inventory counts via WebSocket
+- ✅ Broadcasts realtime events for status changes
+- ✅ Updates inventory counts via realtime events
 
-### 3. Verify WebSocket Events
+### 3. Verify Realtime Events (AppSync Events)
 
-Connect to the WebSocket endpoint to see real-time updates:
+If AppSync Events is configured, request realtime auth headers:
 
-```javascript
-const ws = new WebSocket('ws://localhost:3000/ws');
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('WebSocket event:', data);
-  // Expect: ROOM_STATUS_CHANGED and INVENTORY_UPDATED events
-};
+```bash
+curl -X POST http://localhost:3000/v1/realtime/auth \
+  -H "Content-Type: application/json" \
+  -H "x-kiosk-token: <kiosk-token>" \
+  -d '{"channels":["/club-ops/lane/lane-1"]}'
 ```
+
+Use the returned `realtimeEndpoint` and headers with the AppSync Events client to subscribe.
 
 ## Troubleshooting
 

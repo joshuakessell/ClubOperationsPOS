@@ -44,9 +44,9 @@ export interface DetailedInventory {
 }
 
 /**
- * WebSocket event types for real-time updates.
+ * Realtime event types for live updates.
  */
-export type WebSocketEventType =
+export type RealtimeEventType =
   | 'ROOM_STATUS_CHANGED'
   | 'INVENTORY_UPDATED'
   | 'ROOM_ASSIGNED'
@@ -73,10 +73,10 @@ export type WebSocketEventType =
   | 'REGISTER_SESSION_UPDATED';
 
 /**
- * Base WebSocket event structure.
+ * Base realtime event structure.
  */
-export interface WebSocketEvent<T = unknown> {
-  type: WebSocketEventType;
+export interface RealtimeEvent<T = unknown> {
+  type: RealtimeEventType;
   payload: T;
   timestamp: string;
 }

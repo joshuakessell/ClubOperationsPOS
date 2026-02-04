@@ -5,8 +5,8 @@ import { InventoryDrawer } from './InventoryDrawer';
 // Mock fetch
 global.fetch = vi.fn();
 
-// Mock WebSocket for useReconnectingWebSocket usage inside InventorySelector
-type MockWebSocket = {
+// Mock realtime socket for AppSync lane session usage inside InventorySelector
+type MockRealtimeSocket = {
   send: ReturnType<typeof vi.fn>;
   close: ReturnType<typeof vi.fn>;
   addEventListener: ReturnType<typeof vi.fn>;
@@ -27,12 +27,21 @@ global.WebSocket = vi.fn(
       onmessage: null,
       onerror: null,
       onclose: null,
-    }) satisfies MockWebSocket
+    }) satisfies MockRealtimeSocket
 ) as unknown as typeof WebSocket;
 
 describe('InventoryDrawer', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    try {
+      const current = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
+      Object.defineProperty(import.meta, 'env', {
+        value: { ...current, VITE_DISABLE_REALTIME: 'true' },
+        configurable: true,
+      });
+    } catch {
+      // ignore
+    }
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       ok: true,
       json: () =>

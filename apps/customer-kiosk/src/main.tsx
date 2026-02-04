@@ -28,7 +28,7 @@ if (!kioskToken) {
   });
 } else if (import.meta.env.PROD && !apiBaseUrl) {
   const err = new Error(
-    'Missing required env var VITE_API_BASE_URL. This must point to the API host (Render) so WebSockets connect to the backend instead of the Vercel site origin.'
+    'Missing required env var VITE_API_BASE_URL. This must point to the API host so realtime and REST calls reach the backend.'
   );
   createRoot(root).render(<FatalEnvScreen message={err.message} />);
   queueMicrotask(() => {
