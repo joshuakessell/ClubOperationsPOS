@@ -22,6 +22,34 @@ need_cmd aws
 need_cmd pnpm
 need_cmd python3
 
+get_secret_payload() {
+  local secret_id="$1"
+  local errfile
+  errfile="$(mktemp)"
+  local output=""
+
+  if ! output="$(
+    AWS_PAGER="" aws secretsmanager get-secret-value \
+      --secret-id "$secret_id" \
+      --no-cli-pager \
+      --output json 2>"$errfile"
+  )"; then
+    echo "ERROR: failed to read secret '${secret_id}'" >&2
+    cat "$errfile" >&2 || true
+    rm -f "$errfile"
+    exit 1
+  fi
+
+  rm -f "$errfile"
+
+  if [[ -z "$output" ]]; then
+    echo "ERROR: Secrets Manager returned an empty payload for '${secret_id}'." >&2
+    exit 1
+  fi
+
+  printf '%s' "$output"
+}
+
 SESSION_MANAGER_PLUGIN="${SESSION_MANAGER_PLUGIN:-session-manager-plugin}"
 if ! command -v "$SESSION_MANAGER_PLUGIN" >/dev/null 2>&1; then
   if [[ -x "${HOME}/.local/bin/session-manager-plugin" ]]; then
@@ -47,11 +75,7 @@ SKIP_DB_MIGRATIONS="${SKIP_DB_MIGRATIONS:-}"
 
 DATABASE_URL_FOR_TUNNEL=""
 if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
-  SECRET_VALUE="$(
-    aws secretsmanager get-secret-value \
-      --secret-id "$DATABASE_URL_SECRET_ARN" \
-      --output json
-  )"
+  SECRET_VALUE="$(get_secret_payload "$DATABASE_URL_SECRET_ARN")"
 
   DATABASE_URL_FOR_TUNNEL="$(
     printf '%s' "$SECRET_VALUE" | python3 - "$LOCAL_PORT" <<'PY'
