@@ -47,6 +47,11 @@ SKIP_DB_MIGRATIONS="${SKIP_DB_MIGRATIONS:-}"
 LOG_PATH="${LOG_PATH:-/tmp/ssm-tunnel.log}"
 TUNNEL_PID=""
 
+if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
+  echo "Installing dependencies..."
+  (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
+fi
+
 dump_log() {
   if [[ -f "$LOG_PATH" ]]; then
     echo "---- SSM tunnel log (${LOG_PATH}) ----" >&2
