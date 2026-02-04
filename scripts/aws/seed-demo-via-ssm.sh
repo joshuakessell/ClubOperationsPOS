@@ -78,14 +78,14 @@ if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
   SECRET_VALUE="$(get_secret_payload "$DATABASE_URL_SECRET_ARN")"
 
   DATABASE_URL_FOR_TUNNEL="$(
-    printf '%s' "$SECRET_VALUE" | python3 - "$LOCAL_PORT" <<'PY'
+    SECRET_PAYLOAD="$SECRET_VALUE" python3 - "$LOCAL_PORT" <<'PY'
 import base64
 import json
 import os
 import sys
 import urllib.parse
 
-payload = json.loads(sys.stdin.read())
+payload = json.loads(os.environ.get("SECRET_PAYLOAD", ""))
 local_port = sys.argv[1]
 
 def build_url(user: str, password: str, dbname: str) -> str:
