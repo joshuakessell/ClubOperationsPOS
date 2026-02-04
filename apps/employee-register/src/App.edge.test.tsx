@@ -108,7 +108,9 @@ function buildRealtimeAuthResponse(init?: RequestInit): Response {
     try {
       const parsed = JSON.parse(init.body) as { channels?: unknown };
       if (Array.isArray(parsed.channels)) {
-        channels = parsed.channels.filter((channel) => typeof channel === 'string') as string[];
+        channels = parsed.channels.filter(
+          (channel): channel is string => typeof channel === 'string'
+        );
       }
     } catch {
       // ignore parse errors
