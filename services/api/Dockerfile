@@ -14,6 +14,7 @@ RUN pnpm install --prod --frozen-lockfile
 # Copy prebuilt output (must exist before docker build)
 COPY services/api/dist ./services/api/dist
 COPY packages/shared/dist ./packages/shared/dist
+COPY services/api/certs/rds-ca-bundle.pem ./services/api/certs/rds-ca-bundle.pem
 
 ENV PORT=3000
 EXPOSE 3000
