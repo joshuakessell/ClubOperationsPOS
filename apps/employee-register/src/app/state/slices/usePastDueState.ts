@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { getErrorMessage, isRecord } from '@club-ops/ui';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
@@ -11,6 +12,7 @@ type Params = {
   pastDueBalance: number;
   setPaymentDeclineError: (value: string | null) => void;
   setIsSubmitting: (value: boolean) => void;
+  notifications: ToastNotifier;
 };
 
 export function usePastDueState({
@@ -21,6 +23,7 @@ export function usePastDueState({
   pastDueBalance,
   setPaymentDeclineError,
   setIsSubmitting,
+  notifications,
 }: Params) {
   const [showPastDueModal, setShowPastDueModal] = useState(false);
   const [showManagerBypassModal, setShowManagerBypassModal] = useState(false);
@@ -39,7 +42,7 @@ export function usePastDueState({
     declineReason?: string
   ) => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
 
@@ -67,7 +70,7 @@ export function usePastDueState({
       }
     } catch (error) {
       console.error('Failed to process past-due payment:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process payment');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to process payment');
     } finally {
       setIsSubmitting(false);
     }
@@ -75,7 +78,7 @@ export function usePastDueState({
 
   const handleManagerBypass = async () => {
     if (!session?.sessionToken || !currentSessionId || !managerId || !managerPin) {
-      alert('Please select manager and enter PIN');
+      notifications.warn('Please select manager and enter PIN');
       return;
     }
 
@@ -102,7 +105,7 @@ export function usePastDueState({
       setPaymentDeclineError(null);
     } catch (error) {
       console.error('Failed to bypass past-due:', error);
-      alert(error instanceof Error ? error.message : 'Failed to bypass past-due');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to bypass past-due');
     } finally {
       setIsSubmitting(false);
     }

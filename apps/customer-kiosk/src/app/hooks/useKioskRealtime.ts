@@ -16,32 +16,7 @@ import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { isRecord, readJson, safeJsonParse } from '@club-ops/ui';
 import type { SessionState } from '../../utils/membership';
 
-export function useKioskRealtime({
-  lane,
-  kioskToken,
-  sessionIdRef,
-  applySessionUpdatedPayload,
-  setProposedRentalType,
-  setProposedBy,
-  setSelectionConfirmed,
-  setSelectionConfirmedBy,
-  setSelectedRental,
-  setSelectionAcknowledged,
-  setHighlightedLanguage,
-  setHighlightedMembershipChoice,
-  setHighlightedWaitlistBackup,
-  setCustomerConfirmationData,
-  setShowCustomerConfirmation,
-  setSession,
-  setView,
-  applyInventoryUpdate,
-  resetToIdle,
-  apiBase,
-  kioskAuthHeaders,
-}: {
-  lane: string | null;
-  kioskToken: string | null;
-  sessionIdRef: MutableRefObject<string | null>;
+type KioskRealtimeSessionActions = {
   applySessionUpdatedPayload: (payload: SessionUpdatedPayload) => void;
   setProposedRentalType: (value: string | null) => void;
   setProposedBy: (value: 'CUSTOMER' | 'EMPLOYEE' | null) => void;
@@ -65,10 +40,32 @@ export function useKioskRealtime({
       | 'agreement-bypass'
       | 'complete'
   ) => void;
-  applyInventoryUpdate: (payload: unknown) => void;
   resetToIdle: () => void;
+};
+
+type KioskRealtimeInventoryActions = {
+  applyInventoryUpdate: (payload: unknown) => void;
+};
+
+type KioskRealtimeApi = {
   apiBase: string;
   kioskAuthHeaders: (extra?: Record<string, string>) => Record<string, string>;
+};
+
+export function useKioskRealtime({
+  lane,
+  kioskToken,
+  sessionIdRef,
+  api,
+  sessionActions,
+  inventoryActions,
+}: {
+  lane: string | null;
+  kioskToken: string | null;
+  sessionIdRef: MutableRefObject<string | null>;
+  api: KioskRealtimeApi;
+  sessionActions: KioskRealtimeSessionActions;
+  inventoryActions: KioskRealtimeInventoryActions;
 }) {
   const { connected: realtimeConnected, lastMessage } = useLaneSession({
     laneId: lane ?? undefined,
@@ -91,55 +88,57 @@ export function useKioskRealtime({
         const parsed: unknown = safeJsonParse(String(event.data));
         const message = safeParseRealtimeEvent(parsed);
         if (!message) return;
-        console.log('Realtime message:', message);
+        if (import.meta.env.DEV) {
+          console.log('Realtime message:', message);
+        }
 
         if (message.type === 'SESSION_UPDATED') {
-          applySessionUpdatedPayload(message.payload);
+          sessionActions.applySessionUpdatedPayload(message.payload);
         } else if (message.type === 'SELECTION_PROPOSED') {
           const payload = message.payload;
           if (payload.sessionId === sessionIdRef.current) {
-            setProposedRentalType(payload.rentalType);
-            setProposedBy(payload.proposedBy);
+            sessionActions.setProposedRentalType(payload.rentalType);
+            sessionActions.setProposedBy(payload.proposedBy);
           }
         } else if (message.type === 'SELECTION_LOCKED') {
           const payload = message.payload;
           if (payload.sessionId === sessionIdRef.current) {
-            setSelectionConfirmed(true);
-            setSelectionConfirmedBy(payload.confirmedBy);
-            setSelectedRental(payload.rentalType);
-            setSelectionAcknowledged(true);
-            setView('payment');
+            sessionActions.setSelectionConfirmed(true);
+            sessionActions.setSelectionConfirmedBy(payload.confirmedBy);
+            sessionActions.setSelectedRental(payload.rentalType);
+            sessionActions.setSelectionAcknowledged(true);
+            sessionActions.setView('payment');
           }
         } else if (message.type === 'SELECTION_FORCED') {
           const payload = message.payload;
           if (payload.sessionId === sessionIdRef.current) {
-            setSelectionConfirmed(true);
-            setSelectionConfirmedBy('EMPLOYEE');
-            setSelectedRental(payload.rentalType);
-            setSelectionAcknowledged(true);
-            setView('payment');
+            sessionActions.setSelectionConfirmed(true);
+            sessionActions.setSelectionConfirmedBy('EMPLOYEE');
+            sessionActions.setSelectedRental(payload.rentalType);
+            sessionActions.setSelectionAcknowledged(true);
+            sessionActions.setView('payment');
           }
         } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
-          setSelectionAcknowledged(true);
+          sessionActions.setSelectionAcknowledged(true);
         } else if (message.type === 'CHECKIN_OPTION_HIGHLIGHTED') {
           const payload = message.payload;
           if (payload.sessionId !== sessionIdRef.current) return;
           if (payload.step === 'LANGUAGE') {
             const opt = payload.option === 'EN' || payload.option === 'ES' ? payload.option : null;
-            setHighlightedLanguage(opt);
+            sessionActions.setHighlightedLanguage(opt);
           } else if (payload.step === 'MEMBERSHIP') {
             const opt =
               payload.option === 'ONE_TIME' || payload.option === 'SIX_MONTH'
                 ? payload.option
                 : null;
-            setHighlightedMembershipChoice(opt);
+            sessionActions.setHighlightedMembershipChoice(opt);
           } else if (payload.step === 'WAITLIST_BACKUP') {
-            setHighlightedWaitlistBackup(payload.option);
+            sessionActions.setHighlightedWaitlistBackup(payload.option);
           }
         } else if (message.type === 'CUSTOMER_CONFIRMATION_REQUIRED') {
           const payload = message.payload;
-          setCustomerConfirmationData(payload);
-          setShowCustomerConfirmation(true);
+          sessionActions.setCustomerConfirmationData(payload);
+          sessionActions.setShowCustomerConfirmation(true);
         } else if (message.type === 'ASSIGNMENT_CREATED') {
           const payload = message.payload;
           if (payload.sessionId === sessionIdRef.current) {
@@ -150,40 +149,44 @@ export function useKioskRealtime({
                 : undefined;
             const assignedResourceNumber = payload.roomNumber ?? payload.lockerNumber;
             if (assignedResourceType && assignedResourceNumber) {
-              setSession((prev) => ({
+              sessionActions.setSession((prev) => ({
                 ...prev,
                 assignedResourceType,
                 assignedResourceNumber,
               }));
-              setView('complete');
+              sessionActions.setView('complete');
             }
           }
         } else if (message.type === 'INVENTORY_UPDATED') {
-          applyInventoryUpdate(message.payload);
+          inventoryActions.applyInventoryUpdate(message.payload);
         }
       } catch (error) {
         console.error('Failed to parse realtime message:', error);
       }
     },
     [
-      applyInventoryUpdate,
-      applySessionUpdatedPayload,
+      inventoryActions,
+      sessionActions,
       sessionIdRef,
-      setCustomerConfirmationData,
-      setHighlightedLanguage,
-      setHighlightedMembershipChoice,
-      setHighlightedWaitlistBackup,
-      setProposedBy,
-      setProposedRentalType,
-      setSelectionAcknowledged,
-      setSelectionConfirmed,
-      setSelectionConfirmedBy,
-      setSelectedRental,
-      setSession,
-      setShowCustomerConfirmation,
-      setView,
     ]
   );
+
+  useEffect(() => {
+    const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+      .process?.env;
+    const isTestEnv = processEnv?.NODE_ENV === 'test' || processEnv?.VITEST === 'true';
+    if (!isTestEnv) return;
+    const testBus = globalThis as { __kioskRealtimeTest__?: (event: unknown) => void };
+    const handler = (event: unknown) => {
+      onRealtimeMessage({ data: JSON.stringify(event ?? {}) } as MessageEvent);
+    };
+    testBus.__kioskRealtimeTest__ = handler;
+    return () => {
+      if (testBus.__kioskRealtimeTest__ === handler) {
+        delete testBus.__kioskRealtimeTest__;
+      }
+    };
+  }, [onRealtimeMessage]);
 
   useEffect(() => {
     if (!lastMessage) return;
@@ -219,21 +222,21 @@ export function useKioskRealtime({
       const pollOnce = async () => {
         try {
           const res = await fetch(
-            `${apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
-            { headers: kioskAuthHeaders() }
+            `${api.apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
+            { headers: api.kioskAuthHeaders() }
           );
           if (!res.ok) return;
           const data = await readJson<unknown>(res);
           if (!isRecord(data)) return;
           const sessionPayload = data['session'];
           if (sessionPayload == null) {
-            resetToIdle();
+            sessionActions.resetToIdle();
             return;
           }
           if (isRecord(sessionPayload)) {
             const parsedPayload = SessionUpdatedPayloadSchema.safeParse(sessionPayload);
             if (parsedPayload.success) {
-              applySessionUpdatedPayload(parsedPayload.data);
+              sessionActions.applySessionUpdatedPayload(parsedPayload.data);
             }
           }
         } catch {
@@ -258,14 +261,7 @@ export function useKioskRealtime({
       }
       pollingStartedRef.current = false;
     };
-  }, [
-    apiBase,
-    applySessionUpdatedPayload,
-    kioskAuthHeaders,
-    lane,
-    resetToIdle,
-    realtimeConnected,
-  ]);
+  }, [api, lane, sessionActions, realtimeConnected]);
 
   return { realtimeConnected };
 }

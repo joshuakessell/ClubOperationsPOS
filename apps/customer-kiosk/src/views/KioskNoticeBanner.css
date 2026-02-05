@@ -13,6 +13,11 @@
   background: #10b981;
 }
 
+.ck-notice--warning {
+  background: #f59e0b;
+  color: #111827;
+}
+
 .ck-notice--muted {
   background: #334155;
 }

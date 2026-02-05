@@ -1,4 +1,5 @@
 import { type ReactNode, useEffect, useMemo, useRef, useState } from 'react';
+import { RequiredTenderSplitPanel } from '../required-tender/RequiredTenderSplitPanel';
 
 export type TenderOutcomeChoice = 'CREDIT_SUCCESS' | 'CREDIT_DECLINE' | 'CASH_SUCCESS';
 type SplitStep = 'main' | 'split';
@@ -202,6 +203,53 @@ export function RequiredTenderOutcomeModal({
     }
   };
 
+  const handleCardAmountChange = (value: string) => {
+    if (splitCommitted) return;
+    setLastEdited('card');
+    setCardAmountInput(value);
+    setSplitError(null);
+    const parsed = parseCurrency(value);
+    if (parsed === null) {
+      setCashAmountInput('');
+      return;
+    }
+    const remaining = roundToCents(splitBaseTotal - parsed);
+    setCashAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
+  };
+
+  const handleCashAmountChange = (value: string) => {
+    if (splitCommitted) return;
+    setLastEdited('cash');
+    setCashAmountInput(value);
+    setSplitError(null);
+    const parsed = parseCurrency(value);
+    if (parsed === null) {
+      setCardAmountInput('');
+      return;
+    }
+    const remaining = roundToCents(splitBaseTotal - parsed);
+    setCardAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
+  };
+
+  const handleSplitBack = () => {
+    if (splitCommitted) return;
+    setSplitTotal(null);
+    setCardAmountInput('');
+    setCashAmountInput('');
+    setLastEdited(null);
+    setStep('main');
+  };
+
+  const handleCreditFail = () => {
+    if (isSubmitting || splitCommitted) return;
+    onConfirm('CREDIT_DECLINE');
+  };
+
+  const handleCashSuccess = () => {
+    if (isSubmitting || !splitCommitted || !cashAmountValid) return;
+    onConfirm('CASH_SUCCESS');
+  };
+
   return (
     <div className="er-required-modal__overlay" role="presentation">
       <div
@@ -320,138 +368,25 @@ export function RequiredTenderOutcomeModal({
             </div>
 
             <div className="er-required-modal__panel">
-              <div className="er-required-modal__split-panel">
-                <div className="er-required-modal__split-title">Split Payment</div>
-                <div className="er-required-modal__split-grid">
-                  <label className="er-required-modal__split-field">
-                    <span className="er-required-modal__split-label">Card amount</span>
-                    <div className="er-required-modal__split-input">
-                      <span>$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder={splitBaseTotal.toFixed(2)}
-                        value={cardAmountInput}
-                        onChange={(e) => {
-                          if (splitCommitted) return;
-                          setLastEdited('card');
-                          setCardAmountInput(e.target.value);
-                          setSplitError(null);
-                          const parsed = parseCurrency(e.target.value);
-                          if (parsed === null) {
-                            setCashAmountInput('');
-                            return;
-                          }
-                          const remaining = roundToCents(splitBaseTotal - parsed);
-                          setCashAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
-                        }}
-                        disabled={isSubmitting || splitCommitted}
-                        aria-label="Card amount"
-                      />
-                    </div>
-                  </label>
-                  <label className="er-required-modal__split-field">
-                    <span className="er-required-modal__split-label">Cash amount</span>
-                    <div className="er-required-modal__split-input">
-                      <span>$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder={splitBaseTotal.toFixed(2)}
-                        value={cashAmountInput}
-                        onChange={(e) => {
-                          if (splitCommitted) return;
-                          setLastEdited('cash');
-                          setCashAmountInput(e.target.value);
-                          setSplitError(null);
-                          const parsed = parseCurrency(e.target.value);
-                          if (parsed === null) {
-                            setCardAmountInput('');
-                            return;
-                          }
-                          const remaining = roundToCents(splitBaseTotal - parsed);
-                          setCardAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
-                        }}
-                        disabled={isSubmitting || splitCommitted}
-                        aria-label="Cash amount"
-                      />
-                    </div>
-                  </label>
-                </div>
-                <div
-                  className={[
-                    'er-required-modal__split-hint',
-                    splitError ? 'er-required-modal__split-hint--error' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  {splitError
-                    ? splitError
-                    : splitTotalsMatch && resolvedCashAmount !== null
-                      ? splitCommitted
-                        ? `Card approved. Collect $${resolvedCashAmount.toFixed(2)} cash.`
-                        : `Cash due: $${resolvedCashAmount.toFixed(2)}`
-                      : 'Enter a card or cash amount less than the total.'}
-                </div>
-                <div className="er-required-modal__split-actions">
-                  <button
-                    type="button"
-                    className="cs-liquid-button cs-liquid-button--secondary"
-                    onClick={() => {
-                      if (splitCommitted) return;
-                      setSplitTotal(null);
-                      setCardAmountInput('');
-                      setCashAmountInput('');
-                      setLastEdited(null);
-                      setStep('main');
-                    }}
-                    disabled={isSubmitting || splitCommitted}
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    className="cs-liquid-button cs-liquid-button--danger"
-                    onClick={() => {
-                      if (isSubmitting || splitCommitted) return;
-                      onConfirm('CREDIT_DECLINE');
-                    }}
-                    disabled={isSubmitting || splitCommitted}
-                  >
-                    Credit Fail
-                  </button>
-                  <button
-                    type="button"
-                    className="cs-liquid-button"
-                    onClick={() => void handleProcessCard()}
-                    disabled={
-                      isSubmitting ||
-                      isProcessingCard ||
-                      splitCommitted ||
-                      !cardAmountValid ||
-                      !splitTotalsMatch
-                    }
-                  >
-                    {isProcessingCard
-                      ? 'Processing Card...'
-                      : splitCommitted
-                        ? 'Card Approved'
-                        : 'Process Card'}
-                  </button>
-                  <button
-                    type="button"
-                    className="cs-liquid-button"
-                    onClick={() => {
-                      if (isSubmitting || !splitCommitted || !cashAmountValid) return;
-                      onConfirm('CASH_SUCCESS');
-                    }}
-                    disabled={isSubmitting || !splitCommitted || !cashAmountValid}
-                  >
-                    Cash Success
-                  </button>
-                </div>
-              </div>
+              <RequiredTenderSplitPanel
+                splitBaseTotal={splitBaseTotal}
+                cardAmountInput={cardAmountInput}
+                cashAmountInput={cashAmountInput}
+                splitError={splitError}
+                splitTotalsMatch={splitTotalsMatch}
+                resolvedCashAmount={resolvedCashAmount}
+                splitCommitted={splitCommitted}
+                isSubmitting={isSubmitting}
+                isProcessingCard={isProcessingCard}
+                cardAmountValid={cardAmountValid}
+                cashAmountValid={cashAmountValid}
+                onCardAmountChange={handleCardAmountChange}
+                onCashAmountChange={handleCashAmountChange}
+                onBack={handleSplitBack}
+                onCreditFail={handleCreditFail}
+                onProcessCard={() => void handleProcessCard()}
+                onCashSuccess={handleCashSuccess}
+              />
             </div>
           </div>
         </div>

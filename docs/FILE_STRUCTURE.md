@@ -39,6 +39,16 @@ apps/
   office-dashboard/        # Admin/office dashboard UI
 ```
 
+Notable sub-areas:
+
+```
+apps/employee-register/src/
+  components/register/employee-assist/   # Employee assist step UIs
+  components/register/manual-checkout/   # Shared manual checkout UI (panel + modal)
+  components/register/required-tender/   # Required tender split payment UI
+  inventory/                             # Inventory drawer components + data hooks
+```
+
 ## packages/
 
 Shared TypeScript packages consumed by multiple apps/services.

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useScanCaptureInput } from '../../../scanner/useScanCaptureInput';
+import { useCameraBarcodeScanner } from '../../../scanner/useCameraBarcodeScanner';
 import { useScanResolutionState } from './useScanResolutionState';
 import type { HomeTab, ScanResult, StaffSession } from '../shared/types';
 
@@ -160,6 +161,22 @@ export function useScanState({
     scanProcessingRef.current = scanProcessing;
   }, [scanProcessing]);
 
+  const handleCameraScan = useCallback(
+    (raw: string) => {
+      if (scanProcessingRef.current) return;
+      void handleCapture(raw);
+    },
+    [handleCapture]
+  );
+
+  const cameraEnabled = scanEnabled && homeTab === 'scan' && !blockingModalOpen;
+
+  const cameraScan = useCameraBarcodeScanner({
+    enabled: cameraEnabled,
+    facingMode: 'user',
+    onScan: handleCameraScan,
+  });
+
   const scanInput = useScanCaptureInput({
     enabled: scanEnabled,
     keepFocus: true,
@@ -179,6 +196,8 @@ export function useScanState({
     },
   });
 
+  const cameraOverlayVisible = homeTab === 'scan' && !blockingModalOpen;
+
   useEffect(() => {
     return () => {
       if (scanOverlayHideTimerRef.current) {
@@ -194,6 +213,11 @@ export function useScanState({
     setScanToastMessage,
     scanReady: scanEnabled,
     scanBlockedReason,
+    cameraOverlayVisible,
+    cameraStatus: cameraScan.status,
+    cameraError: cameraScan.error,
+    cameraActive: cameraScan.active,
+    cameraVideoRef: cameraScan.videoRef,
     scanInputRef: scanInput.scanInputRef,
     scanInputHandlers: scanInput.scanInputHandlers,
     scanInputEnabled: scanEnabled,

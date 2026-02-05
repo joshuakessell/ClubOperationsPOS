@@ -1,8 +1,6 @@
-import { useMemo, useState } from 'react';
-import { deriveAssignedLabel } from '../../shared/derive/assignedLabel';
-import { deriveCheckinStage } from '../../shared/derive/checkinStage';
-import { derivePastDueLineItems } from '../../shared/derive/pastDueLineItems';
+import { useState } from 'react';
 import { useEmployeeRegisterTabletUiTweaks } from '../../hooks/useEmployeeRegisterTabletUiTweaks';
+import { useEmployeeRegisterDerivedState } from './useEmployeeRegisterDerivedState';
 import { useAddOnSaleState } from './slices/useAddOnSaleState';
 import { useCheckoutState } from './slices/useCheckoutState';
 import { useCustomerSearchState } from './slices/useCustomerSearchState';
@@ -26,6 +24,9 @@ import { useSelectionActions } from './slices/useSelectionActions';
 import { useSessionResetActions } from './slices/useSessionResetActions';
 import { useStaffSessionState } from './slices/useStaffSessionState';
 import { useToastState } from './slices/useToastState';
+import type { ToastNotifier } from './shared/notifications';
+import { useResetPaymentSessionState } from './shared/useResetPaymentSessionState';
+import { useToastNotifier } from './shared/useToastNotifier';
 import { useWaitlistUpgradeState } from './slices/useWaitlistUpgradeState';
 import { buildEmployeeRegisterCoreValue } from './value/buildEmployeeRegisterCoreValue';
 import { buildEmployeeRegisterModalValue } from './value/buildEmployeeRegisterModalValue';
@@ -61,10 +62,14 @@ export function useEmployeeRegisterStateValue() {
     paymentIntentId,
   } = laneBindings;
 
+  const toastState = useToastState();
+  const notifier: ToastNotifier = useToastNotifier(toastState.pushBottomToast);
+
   const staffSessionState = useStaffSessionState({
     currentSessionId,
     customerName,
     checkoutAt,
+    notifications: notifier,
   });
   const {
     session,
@@ -77,8 +82,6 @@ export function useEmployeeRegisterStateValue() {
   } = staffSessionState;
 
   const { health } = useHealthStatus(lane);
-
-  const toastState = useToastState();
   const addOnState = useAddOnSaleState();
 
   const navState = useHomeNavigationState({
@@ -91,6 +94,7 @@ export function useEmployeeRegisterStateValue() {
     session,
     openCustomerAccount: navState.openCustomerAccount,
     setIsSubmitting,
+    notifications: notifier,
   });
 
   const manualEntryState = useManualEntryState({
@@ -98,13 +102,14 @@ export function useEmployeeRegisterStateValue() {
     manualEntry,
     setManualEntry,
     startLaneSessionByCustomerId: customerSessionActions.startLaneSessionByCustomerId,
+    notifications: notifier,
   });
 
   const customerSearchState = useCustomerSearchState(session);
 
   const inventorySelectionState = useInventorySelectionState({ customerSelectedType });
 
-  const checkoutState = useCheckoutState({ session, setIsSubmitting });
+  const checkoutState = useCheckoutState({ session, setIsSubmitting, notifications: notifier });
 
   const waitlistState = useWaitlistUpgradeState({
     session,
@@ -113,6 +118,7 @@ export function useEmployeeRegisterStateValue() {
     selectHomeTab: navState.selectHomeTab,
     setIsSubmitting,
     setPaymentDeclineError: laneBindings.setPaymentDeclineError,
+    notifications: notifier,
     onUnauthorized: () => {
       staffSessionState.setSession(null);
       staffSessionState.setRegisterSession(null);
@@ -130,6 +136,7 @@ export function useEmployeeRegisterStateValue() {
     paymentStatus,
     paymentQuote,
     customerMembershipValidUntil,
+    notifications: notifier,
   });
 
   const pastDueState = usePastDueState({
@@ -140,6 +147,7 @@ export function useEmployeeRegisterStateValue() {
     pastDueBalance,
     setPaymentDeclineError: laneBindings.setPaymentDeclineError,
     setIsSubmitting,
+    notifications: notifier,
   });
 
   const notesState = useNotesState({
@@ -147,6 +155,7 @@ export function useEmployeeRegisterStateValue() {
     lane,
     currentSessionId,
     setIsSubmitting,
+    notifications: notifier,
   });
 
   const realtimeState = useRegisterRealtimeState({
@@ -200,6 +209,7 @@ export function useEmployeeRegisterStateValue() {
     customerMembershipValidUntil,
     setIsSubmitting,
     pollOnce,
+    notifications: notifier,
   });
 
   const selectionActions = useSelectionActions({
@@ -216,6 +226,7 @@ export function useEmployeeRegisterStateValue() {
     laneSessionActions: {
       patch: laneBindings.laneSessionActions.patch,
     },
+    notifications: notifier,
   });
 
   const renewalSelectionState = useRenewalSelectionState({
@@ -248,6 +259,15 @@ export function useEmployeeRegisterStateValue() {
     setShowCustomerConfirmationPending: inventorySelectionState.setShowCustomerConfirmationPending,
     setCustomerConfirmationType: inventorySelectionState.setCustomerConfirmationType,
     setShowWaitlistModal: waitlistState.setShowWaitlistModal,
+    notifications: notifier,
+  });
+
+  const resetPaymentSessionState = useResetPaymentSessionState({
+    laneBindings,
+    navState,
+    inventorySelectionState,
+    addOnState,
+    setSelectedRentalType,
   });
 
   const paymentActions = usePaymentActions({
@@ -259,46 +279,47 @@ export function useEmployeeRegisterStateValue() {
     paymentIntentId,
     paymentStatus,
     addOnCart: addOnState.addOnCart,
-    setIsSubmitting,
-    setPaymentIntentId: laneBindings.setPaymentIntentId,
-    setPaymentQuote: laneBindings.setPaymentQuote,
-    setPaymentStatus: laneBindings.setPaymentStatus,
-    setPaymentDeclineError: laneBindings.setPaymentDeclineError,
-    setSuccessToastMessage: toastState.setSuccessToastMessage,
-    resetAddOnCart: addOnState.resetAddOnCart,
-    setShowAddOnSaleModal: addOnState.setShowAddOnSaleModal,
-    setCustomerName: laneBindings.setCustomerName,
-    setMembershipNumber: laneBindings.setMembershipNumber,
-    setCurrentSessionId: laneBindings.setCurrentSessionId,
-    setCurrentSessionCustomerId: laneBindings.setCurrentSessionCustomerId,
-    setAccountCustomerId: navState.setAccountCustomerId,
-    setAccountCustomerLabel: navState.setAccountCustomerLabel,
-    setAgreementSigned: laneBindings.setAgreementSigned,
-    setSelectedRentalType,
-    setCustomerSelectedType: laneBindings.setCustomerSelectedType,
-    setSelectedInventoryItem: inventorySelectionState.setSelectedInventoryItem,
-    setAssignedResourceType: laneBindings.setAssignedResourceType,
-    setAssignedResourceNumber: laneBindings.setAssignedResourceNumber,
-    setCheckoutAt: laneBindings.setCheckoutAt,
-    setCustomerPrimaryLanguage: laneBindings.setCustomerPrimaryLanguage,
-    setCustomerDobMonthDay: laneBindings.setCustomerDobMonthDay,
-    setCustomerLastVisitAt: laneBindings.setCustomerLastVisitAt,
-    setCustomerNotes: laneBindings.setCustomerNotes,
+    ui: { setIsSubmitting },
+    paymentSetters: {
+      setPaymentIntentId: laneBindings.setPaymentIntentId,
+      setPaymentQuote: laneBindings.setPaymentQuote,
+      setPaymentStatus: laneBindings.setPaymentStatus,
+      setPaymentDeclineError: laneBindings.setPaymentDeclineError,
+    },
+    addOn: {
+      resetAddOnCart: addOnState.resetAddOnCart,
+      setShowAddOnSaleModal: addOnState.setShowAddOnSaleModal,
+    },
+    notifications: {
+      setSuccessToastMessage: toastState.setSuccessToastMessage,
+      pushBottomToast: toastState.pushBottomToast,
+    },
+    resetSessionState: resetPaymentSessionState,
   });
 
-  const externalBlocking =
-    pastDueState.showPastDueModal ||
-    pastDueState.showManagerBypassModal ||
-    membershipPromptState.showMembershipIdPrompt ||
-    waitlistState.showUpgradePaymentModal ||
-    notesState.showAddNoteModal ||
-    documentsState.documentsModalOpen ||
-    !!waitlistState.offerUpgradeModal ||
-    !!renewalSelectionState.renewalSelection ||
-    (waitlistState.showWaitlistModal && !!waitlistDesiredTier && !!waitlistBackupType) ||
-    (inventorySelectionState.showCustomerConfirmationPending &&
-      !!inventorySelectionState.customerConfirmationType) ||
-    !!checkoutState.selectedCheckoutRequest;
+  const { externalBlocking, checkinStage, assignedLabel, pastDueLineItems } =
+    useEmployeeRegisterDerivedState({
+      laneBindings,
+      currentSessionId,
+      customerName,
+      selectionConfirmed,
+      membershipNumber,
+      customerMembershipValidUntil,
+      membershipPurchaseIntent,
+      proposedRentalType,
+      customerSelectedType,
+      pastDueBalance,
+      pastDueState,
+      membershipPromptState,
+      waitlistState,
+      notesState,
+      documentsState,
+      renewalSelectionState,
+      waitlistDesiredTier,
+      waitlistBackupType,
+      inventorySelectionState,
+      checkoutState,
+    });
 
   const scanState = useScanState({
     session,
@@ -309,51 +330,6 @@ export function useEmployeeRegisterStateValue() {
     externalBlocking,
     startLaneSessionByCustomerId: customerSessionActions.startLaneSessionByCustomerId,
   });
-
-  const checkinStage = useMemo(
-    () =>
-      deriveCheckinStage({
-        currentSessionId,
-        customerName,
-        assignedResourceType: laneBindings.assignedResourceType,
-        assignedResourceNumber: laneBindings.assignedResourceNumber,
-        agreementSigned: laneBindings.agreementSigned,
-        selectionConfirmed,
-        customerPrimaryLanguage: laneBindings.customerPrimaryLanguage,
-        membershipNumber: membershipNumber || null,
-        customerMembershipValidUntil: customerMembershipValidUntil || null,
-        membershipPurchaseIntent,
-        membershipChoice: laneBindings.membershipChoice,
-      }),
-    [
-      laneBindings.agreementSigned,
-      laneBindings.assignedResourceNumber,
-      laneBindings.assignedResourceType,
-      customerMembershipValidUntil,
-      customerName,
-      laneBindings.customerPrimaryLanguage,
-      currentSessionId,
-      laneBindings.membershipChoice,
-      membershipNumber,
-      membershipPurchaseIntent,
-      selectionConfirmed,
-    ]
-  );
-
-  const assignedLabel = useMemo(
-    () =>
-      deriveAssignedLabel({
-        assignedResourceType: laneBindings.assignedResourceType,
-        proposedRentalType,
-        customerSelectedType,
-      }),
-    [laneBindings.assignedResourceType, customerSelectedType, proposedRentalType]
-  );
-
-  const pastDueLineItems = useMemo(
-    () => derivePastDueLineItems(laneBindings.customerNotes, pastDueBalance),
-    [laneBindings.customerNotes, pastDueBalance]
-  );
 
   const coreValue = buildEmployeeRegisterCoreValue({
     deviceId,

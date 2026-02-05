@@ -2,15 +2,23 @@ import { useState } from 'react';
 import { getErrorMessage } from '@club-ops/ui';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
   lane: string;
   currentSessionId: string | null;
   setIsSubmitting: (value: boolean) => void;
+  notifications: ToastNotifier;
 };
 
-export function useNotesState({ session, lane, currentSessionId, setIsSubmitting }: Params) {
+export function useNotesState({
+  session,
+  lane,
+  currentSessionId,
+  setIsSubmitting,
+  notifications,
+}: Params) {
   const [showAddNoteModal, setShowAddNoteModal] = useState(false);
   const [newNoteText, setNewNoteText] = useState('');
 
@@ -39,7 +47,7 @@ export function useNotesState({ session, lane, currentSessionId, setIsSubmitting
       setNewNoteText('');
     } catch (error) {
       console.error('Failed to add note:', error);
-      alert(error instanceof Error ? error.message : 'Failed to add note');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to add note');
     } finally {
       setIsSubmitting(false);
     }

@@ -59,7 +59,10 @@ export function useLaneSession({
   lastMessage: MessageEvent | null;
   lastError: Event | null;
 } {
-  const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
+  const metaEnv = (import.meta as unknown as { env?: Record<string, unknown> }).env ?? {};
+  const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
+    .process?.env ?? {};
+  const env = { ...metaEnv, ...processEnv };
   const disableRealtimeRaw = env?.VITE_DISABLE_REALTIME;
   const realtimeDisabled =
     disableRealtimeRaw === true || disableRealtimeRaw === 'true' || disableRealtimeRaw === '1';

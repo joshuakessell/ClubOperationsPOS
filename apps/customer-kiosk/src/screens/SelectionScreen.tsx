@@ -3,6 +3,7 @@ import { I18nProvider, t } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
 import { KioskNoticeBanner } from '../views/KioskNoticeBanner';
 import { KioskOptionButton } from '../views/KioskOptionButton';
+import type { KioskNotice } from '../app/notice';
 import { PurchaseCard } from '../views/PurchaseCard';
 import { getRentalDisplayName } from '../utils/display';
 import { getMembershipStatus, type SessionState } from '../utils/membership';
@@ -34,6 +35,7 @@ export interface SelectionScreenProps {
   isSubmitting: boolean;
   orientationOverlay: ReactNode;
   welcomeOverlay: ReactNode;
+  notice?: KioskNotice | null;
   onSelectRental: (rental: string) => void;
   membershipChoice: 'ONE_TIME' | 'SIX_MONTH' | null;
   onSelectOneTimeMembership: () => void;
@@ -52,6 +54,7 @@ export function SelectionScreen({
   isSubmitting,
   orientationOverlay,
   welcomeOverlay,
+  notice,
   onSelectRental,
   membershipChoice,
   onSelectOneTimeMembership,
@@ -101,6 +104,12 @@ export function SelectionScreen({
                   : t(session.customerPrimaryLanguage, 'welcome')}
               </h1>
             </div>
+
+            {notice && (
+              <KioskNoticeBanner tone={notice.tone ?? 'warning'} title={notice.title}>
+                {notice.message}
+              </KioskNoticeBanner>
+            )}
 
             {/* Defensive fallback: if language isn't selected yet, block interactions and instruct the customer. */}
             {!session.customerPrimaryLanguage && (

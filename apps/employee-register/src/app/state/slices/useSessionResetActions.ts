@@ -1,6 +1,7 @@
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
 import type { PaymentQuoteViewModel } from '../../registerLaneSessionReducer';
+import type { ToastNotifier } from '../shared/notifications';
 
 type PaymentQuote = PaymentQuoteViewModel | null;
 type PaymentQuoteSetter = (value: PaymentQuote | ((prev: PaymentQuote) => PaymentQuote)) => void;
@@ -31,6 +32,7 @@ type Params = {
     value: { requested: string; selected: string; number: string } | null
   ) => void;
   setShowWaitlistModal: (value: boolean) => void;
+  notifications: ToastNotifier;
 };
 
 export function useSessionResetActions({
@@ -55,10 +57,11 @@ export function useSessionResetActions({
   setShowCustomerConfirmationPending,
   setCustomerConfirmationType,
   setShowWaitlistModal,
+  notifications,
 }: Params) {
   const handleClearSession = async () => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
 
@@ -93,10 +96,9 @@ export function useSessionResetActions({
       setShowCustomerConfirmationPending(false);
       setCustomerConfirmationType(null);
       setShowWaitlistModal(false);
-      console.log('Session cleared');
     } catch (error) {
       console.error('Failed to clear session:', error);
-      alert('Failed to clear session');
+      notifications.warn('Failed to clear session');
     }
   };
 

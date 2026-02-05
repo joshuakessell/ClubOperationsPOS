@@ -3,13 +3,15 @@ import { getErrorMessage } from '@club-ops/ui';
 import type { CheckoutChecklist, CheckoutRequestSummary } from '@club-ops/shared';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
   setIsSubmitting: (value: boolean) => void;
+  notifications: ToastNotifier;
 };
 
-export function useCheckoutState({ session, setIsSubmitting }: Params) {
+export function useCheckoutState({ session, setIsSubmitting, notifications }: Params) {
   const [checkoutRequests, setCheckoutRequests] = useState<Map<string, CheckoutRequestSummary>>(
     new Map()
   );
@@ -27,7 +29,7 @@ export function useCheckoutState({ session, setIsSubmitting }: Params) {
 
   const handleClaimCheckout = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
 
@@ -55,13 +57,13 @@ export function useCheckoutState({ session, setIsSubmitting }: Params) {
       }
     } catch (error) {
       console.error('Failed to claim checkout:', error);
-      alert(error instanceof Error ? error.message : 'Failed to claim checkout');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to claim checkout');
     }
   };
 
   const handleConfirmItems = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
 
@@ -81,13 +83,13 @@ export function useCheckoutState({ session, setIsSubmitting }: Params) {
       setCheckoutItemsConfirmed(true);
     } catch (error) {
       console.error('Failed to confirm items:', error);
-      alert(error instanceof Error ? error.message : 'Failed to confirm items');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to confirm items');
     }
   };
 
   const handleMarkFeePaid = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
 
@@ -109,24 +111,24 @@ export function useCheckoutState({ session, setIsSubmitting }: Params) {
       setCheckoutFeePaid(true);
     } catch (error) {
       console.error('Failed to mark fee as paid:', error);
-      alert(error instanceof Error ? error.message : 'Failed to mark fee as paid');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to mark fee as paid');
     }
   };
 
   const handleCompleteCheckout = async (requestId: string) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
 
     if (!checkoutItemsConfirmed) {
-      alert('Please confirm items returned first');
+      notifications.warn('Please confirm items returned first');
       return;
     }
 
     const request = checkoutRequests.get(requestId);
     if (request && request.lateFeeAmount > 0 && !checkoutFeePaid) {
-      alert('Please mark late fee as paid first');
+      notifications.warn('Please mark late fee as paid first');
       return;
     }
 
@@ -152,7 +154,7 @@ export function useCheckoutState({ session, setIsSubmitting }: Params) {
       setInventoryRefreshNonce((prev) => prev + 1);
     } catch (error) {
       console.error('Failed to complete checkout:', error);
-      alert(error instanceof Error ? error.message : 'Failed to complete checkout');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to complete checkout');
     } finally {
       setIsSubmitting(false);
     }

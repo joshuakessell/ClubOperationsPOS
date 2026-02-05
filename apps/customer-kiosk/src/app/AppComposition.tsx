@@ -9,6 +9,7 @@ import { CompleteScreen } from '../screens/CompleteScreen';
 import { IdScanBlockedModal } from '../components/modals/IdScanBlockedModal';
 import { WelcomeOverlay } from '../components/WelcomeOverlay';
 import { useKioskController } from './hooks/useKioskController';
+import { useEffect } from 'react';
 
 export function AppComposition() {
   const {
@@ -70,6 +71,9 @@ export function AppComposition() {
     setSession,
     showWelcomeOverlay,
     dismissWelcomeOverlay,
+    notice,
+    showNotice,
+    clearNotice,
     handleLanguageSelection,
     handleKioskAcknowledge,
     handleIdScanIssueDismiss,
@@ -83,6 +87,10 @@ export function AppComposition() {
       onDismiss={dismissWelcomeOverlay}
     />
   );
+
+  useEffect(() => {
+    clearNotice();
+  }, [clearNotice, view]);
 
   if (!lane) {
     return (
@@ -114,6 +122,7 @@ export function AppComposition() {
           highlightedLanguage={highlightedLanguage}
           orientationOverlay={orientationOverlay}
           welcomeOverlay={welcomeOverlayNode}
+          notice={notice}
         />
       );
       break;
@@ -153,6 +162,8 @@ export function AppComposition() {
           welcomeOverlay={welcomeOverlayNode}
           isSubmitting={isSubmitting}
           setIsSubmitting={setIsSubmitting}
+          notice={notice}
+          showNotice={showNotice}
         />
       );
       break;
@@ -177,58 +188,70 @@ export function AppComposition() {
         <SelectionFlow
           apiBase={apiBase}
           kioskAuthHeaders={kioskAuthHeaders}
-          session={session}
-          lane={lane}
-          inventory={inventory}
-          selectedRental={selectedRental}
-          proposedRentalType={proposedRentalType}
-          proposedBy={proposedBy}
-          selectionConfirmed={selectionConfirmed}
-          selectionConfirmedBy={selectionConfirmedBy}
-          waitlistDesiredType={waitlistDesiredType}
-          waitlistBackupType={waitlistBackupType}
-          waitlistPosition={waitlistPosition}
-          waitlistETA={waitlistETA}
-          waitlistUpgradeFee={waitlistUpgradeFee}
-          showWaitlistModal={showWaitlistModal}
-          showUpgradeDisclaimer={showUpgradeDisclaimer}
-          upgradeAction={upgradeAction}
-          upgradeDisclaimerAcknowledged={upgradeDisclaimerAcknowledged}
-          showRenewalDisclaimer={showRenewalDisclaimer}
-          showCustomerConfirmation={showCustomerConfirmation}
-          customerConfirmationData={customerConfirmationData}
-          membershipChoice={membershipChoice}
-          showMembershipModal={showMembershipModal}
-          membershipModalIntent={membershipModalIntent}
-          highlightedMembershipChoice={highlightedMembershipChoice}
-          highlightedWaitlistBackup={highlightedWaitlistBackup}
-          orientationOverlay={orientationOverlay}
-          welcomeOverlay={welcomeOverlayNode}
-          isSubmitting={isSubmitting}
-          setIsSubmitting={setIsSubmitting}
-          onSwitchToLanguage={() => setView('language')}
-          onProceedToAgreement={() => setView('agreement')}
-          setProposedRentalType={setProposedRentalType}
-          setProposedBy={setProposedBy}
-          setSelectionConfirmed={setSelectionConfirmed}
-          setSelectionConfirmedBy={setSelectionConfirmedBy}
-          setWaitlistDesiredType={setWaitlistDesiredType}
-          setWaitlistBackupType={setWaitlistBackupType}
-          setWaitlistPosition={setWaitlistPosition}
-          setWaitlistETA={setWaitlistETA}
-          setWaitlistUpgradeFee={setWaitlistUpgradeFee}
-          setShowWaitlistModal={setShowWaitlistModal}
-          setShowUpgradeDisclaimer={setShowUpgradeDisclaimer}
-          setUpgradeAction={setUpgradeAction}
-          setUpgradeDisclaimerAcknowledged={setUpgradeDisclaimerAcknowledged}
-          setShowRenewalDisclaimer={setShowRenewalDisclaimer}
-          setShowCustomerConfirmation={setShowCustomerConfirmation}
-          setCustomerConfirmationData={setCustomerConfirmationData}
-          setMembershipChoice={setMembershipChoice}
-          setShowMembershipModal={setShowMembershipModal}
-          setMembershipModalIntent={setMembershipModalIntent}
-          setHighlightedWaitlistBackup={setHighlightedWaitlistBackup}
-          setSession={setSession}
+          state={{
+            session,
+            lane,
+            inventory,
+            selectedRental,
+            proposedRentalType,
+            proposedBy,
+            selectionConfirmed,
+            selectionConfirmedBy,
+            waitlistDesiredType,
+            waitlistBackupType,
+            waitlistPosition,
+            waitlistETA,
+            waitlistUpgradeFee,
+            showWaitlistModal,
+            showUpgradeDisclaimer,
+            upgradeAction,
+            upgradeDisclaimerAcknowledged,
+            showRenewalDisclaimer,
+            showCustomerConfirmation,
+            customerConfirmationData,
+            membershipChoice,
+            showMembershipModal,
+            membershipModalIntent,
+            highlightedMembershipChoice,
+            highlightedWaitlistBackup,
+          }}
+          setters={{
+            setProposedRentalType,
+            setProposedBy,
+            setSelectionConfirmed,
+            setSelectionConfirmedBy,
+            setWaitlistDesiredType,
+            setWaitlistBackupType,
+            setWaitlistPosition,
+            setWaitlistETA,
+            setWaitlistUpgradeFee,
+            setShowWaitlistModal,
+            setShowUpgradeDisclaimer,
+            setUpgradeAction,
+            setUpgradeDisclaimerAcknowledged,
+            setShowRenewalDisclaimer,
+            setShowCustomerConfirmation,
+            setCustomerConfirmationData,
+            setMembershipChoice,
+            setShowMembershipModal,
+            setMembershipModalIntent,
+            setHighlightedWaitlistBackup,
+            setSession,
+          }}
+          ui={{
+            orientationOverlay,
+            welcomeOverlay: welcomeOverlayNode,
+            isSubmitting,
+            setIsSubmitting,
+          }}
+          callbacks={{
+            onSwitchToLanguage: () => setView('language'),
+            onProceedToAgreement: () => setView('agreement'),
+          }}
+          notices={{
+            notice,
+            showNotice,
+          }}
         />
       );
       break;

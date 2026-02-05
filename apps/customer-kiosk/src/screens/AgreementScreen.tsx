@@ -1,6 +1,8 @@
 import { ReactNode, RefObject, useEffect, useMemo, useState } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
+import { KioskNoticeBanner } from '../views/KioskNoticeBanner';
+import type { KioskNotice } from '../app/notice';
 
 export interface Agreement {
   id: string;
@@ -18,6 +20,7 @@ export interface AgreementScreenProps {
   isSubmitting: boolean;
   orientationOverlay: ReactNode;
   welcomeOverlay: ReactNode;
+  notice?: KioskNotice | null;
   agreementScrollRef: RefObject<HTMLDivElement>;
   signatureCanvasRef: RefObject<HTMLCanvasElement>;
   onAgreeChange: (agreed: boolean) => void;
@@ -41,6 +44,7 @@ export function AgreementScreen({
   isSubmitting,
   orientationOverlay,
   welcomeOverlay,
+  notice,
   agreementScrollRef,
   signatureCanvasRef,
   onAgreeChange,
@@ -86,6 +90,11 @@ export function AgreementScreen({
             <h1 className="agreement-title">
               {agreement?.title || t(customerPrimaryLanguage, 'agreementTitle')}
             </h1>
+            {notice && (
+              <KioskNoticeBanner tone={notice.tone ?? 'warning'} title={notice.title}>
+                {notice.message}
+              </KioskNoticeBanner>
+            )}
 
             {/* Scroll region (must flex) */}
             <div className="ck-agreement-scroll-region">

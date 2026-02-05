@@ -2,6 +2,7 @@ import { getCustomerMembershipStatus } from '@club-ops/shared';
 import { getErrorMessage } from '@club-ops/ui';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
@@ -12,6 +13,7 @@ type Params = {
   customerMembershipValidUntil: string | null;
   setIsSubmitting: (value: boolean) => void;
   pollOnce: () => Promise<void>;
+  notifications: ToastNotifier;
 };
 
 export function useMembershipActions({
@@ -23,6 +25,7 @@ export function useMembershipActions({
   customerMembershipValidUntil,
   setIsSubmitting,
   pollOnce,
+  notifications,
 }: Params) {
   const highlightKioskOption = async (params: {
     step: 'LANGUAGE' | 'MEMBERSHIP' | 'WAITLIST_BACKUP';
@@ -61,7 +64,7 @@ export function useMembershipActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to set language');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to set language');
     } finally {
       setIsSubmitting(false);
     }
@@ -95,7 +98,7 @@ export function useMembershipActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to set membership choice');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to set membership choice');
     } finally {
       setIsSubmitting(false);
     }
@@ -129,7 +132,9 @@ export function useMembershipActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to set membership purchase intent');
+      notifications.warn(
+        error instanceof Error ? error.message : 'Failed to set membership purchase intent'
+      );
     } finally {
       setIsSubmitting(false);
     }

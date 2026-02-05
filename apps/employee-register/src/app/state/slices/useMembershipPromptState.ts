@@ -3,6 +3,7 @@ import { getCustomerMembershipStatus } from '@club-ops/shared';
 import { getErrorMessage } from '@club-ops/ui';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
@@ -13,6 +14,7 @@ type Params = {
   paymentStatus: 'DUE' | 'PAID' | null;
   paymentQuote: { lineItems?: Array<{ description: string }> } | null;
   customerMembershipValidUntil: string | null;
+  notifications: ToastNotifier;
 };
 
 export function useMembershipPromptState({
@@ -24,6 +26,7 @@ export function useMembershipPromptState({
   paymentStatus,
   paymentQuote,
   customerMembershipValidUntil,
+  notifications,
 }: Params) {
   const [showMembershipIdPrompt, setShowMembershipIdPrompt] = useState(false);
   const [membershipIdInput, setMembershipIdInput] = useState('');
@@ -45,7 +48,7 @@ export function useMembershipPromptState({
 
   const handleCompleteMembershipPurchase = async (membershipNumberOverride?: string) => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
     const membershipNumberToSave = (membershipNumberOverride ?? membershipIdInput).trim();
