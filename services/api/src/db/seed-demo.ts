@@ -126,6 +126,8 @@ type TableColumn = {
   name: string;
   type: string;
   generated: boolean;
+  nullable: boolean;
+  hasDefault: boolean;
 };
 
 function quoteIdent(value: string): string {
@@ -163,14 +165,19 @@ async function loadTableColumns(
     column_name: string;
     data_type: string;
     generated: string;
+    not_null: boolean;
+    has_default: boolean;
   }>(
     `SELECT
        a.attname as column_name,
        pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type,
-       a.attgenerated as generated
+       a.attgenerated as generated,
+       a.attnotnull as not_null,
+       ad.adbin IS NOT NULL as has_default
      FROM pg_attribute a
      JOIN pg_class c ON c.oid = a.attrelid
      JOIN pg_namespace n ON n.oid = c.relnamespace
+     LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
      WHERE n.nspname = $1
        AND c.relname = $2
        AND a.attnum > 0
@@ -183,6 +190,8 @@ async function loadTableColumns(
     name: row.column_name,
     type: row.data_type,
     generated: row.generated !== '',
+    nullable: !row.not_null,
+    hasDefault: row.has_default,
   }));
 }
 
@@ -243,18 +252,31 @@ async function restoreDemoSnapshot(client: DbClient): Promise<void> {
       );
       const snapshotColumns = await loadTableColumns(client, 'demo_snapshot', table);
       const snapshotColumnNames = new Set(snapshotColumns.map((column) => column.name));
+      const insertColumns = publicColumns.filter((column) =>
+        snapshotColumnNames.has(column.name)
+      );
       const missingColumns = publicColumns.filter(
         (column) => !snapshotColumnNames.has(column.name)
       );
       if (missingColumns.length > 0) {
-        throw new Error(
-          `Demo snapshot table "${table}" is missing columns: ${missingColumns
+        const requiredMissing = missingColumns.filter(
+          (column) => !column.nullable && !column.hasDefault
+        );
+        if (requiredMissing.length > 0) {
+          throw new Error(
+            `Demo snapshot table "${table}" is missing required columns: ${requiredMissing
+              .map((column) => column.name)
+              .join(', ')}. Re-run demo seed with DEMO_FORCE_RESEED=true to rebuild snapshots.`
+          );
+        }
+        console.warn(
+          `⚠️  Demo snapshot table "${table}" is missing columns: ${missingColumns
             .map((column) => column.name)
-            .join(', ')}. Re-run demo seed with DEMO_FORCE_RESEED=true to rebuild snapshots.`
+            .join(', ')}. Using defaults/nulls for restore.`
         );
       }
-      if (publicColumns.length === 0) continue;
-      const columnList = publicColumns.map((column) => quoteIdent(column.name)).join(', ');
+      if (insertColumns.length === 0) continue;
+      const columnList = insertColumns.map((column) => quoteIdent(column.name)).join(', ');
       await client.query(
         `INSERT INTO public.${table} (${columnList})
          SELECT ${columnList} FROM demo_snapshot.${table}`
