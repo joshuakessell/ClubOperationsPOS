@@ -1,4 +1,4 @@
-import type { SessionUpdatedPayload } from '@club-ops/shared';
+import type { CustomerIdType, SessionUpdatedPayload } from '@club-ops/shared';
 import { getIdScanIssue } from './identity';
 import type { CustomerRow, LaneSessionRow, PaymentIntentRow, PoolClient } from './types';
 import { toDate, toNumber } from './utils';
@@ -43,6 +43,14 @@ function formatChargeDescription(type: string): string {
     default:
       return type.replace(/_/g, ' ');
   }
+}
+
+function normalizeCustomerIdType(value: unknown): CustomerIdType | undefined {
+  if (value === 'STATE_ID' || value === 'DRIVERS_LICENSE' || value === 'PASSPORT') {
+    return value;
+  }
+  if (value === 'OTHER') return 'OTHER';
+  return undefined;
 }
 
 function isGymLockerEligible(membershipNumber: string | null | undefined): boolean {
@@ -158,7 +166,7 @@ export async function buildFullSessionUpdatedPayload(
   const customerIdExpirationDate = customer?.id_expiration_date
     ? customer.id_expiration_date.toISOString().slice(0, 10)
     : undefined;
-  const customerIdType = customer?.id_type ?? undefined;
+  const customerIdType = normalizeCustomerIdType(customer?.id_type);
   const customerIdTypeOther = customer?.id_type_other ?? undefined;
 
   // Prefer a check-in block created by this lane session (when completed)
