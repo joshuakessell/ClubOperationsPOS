@@ -38,6 +38,7 @@ export function useScanState({
   const [scanOverlayActive, setScanOverlayActive] = useState(false);
   const [scanToastMessage, setScanToastMessage] = useState<string | null>(null);
   const [scanProcessing, setScanProcessing] = useState(false);
+  const [cameraRequested, setCameraRequested] = useState(false);
   const scanProcessingRef = useRef(false);
   const scanOverlayHideTimerRef = useRef<number | null>(null);
   const scanOverlayShownAtRef = useRef<number | null>(null);
@@ -48,7 +49,8 @@ export function useScanState({
     !!session?.sessionToken &&
     !isSubmitting &&
     !manualEntry &&
-    !blockingModalOpen;
+    !blockingModalOpen &&
+    !scanProcessing;
 
   const scanBlockedReason = !session?.sessionToken
     ? 'Not authenticated'
@@ -128,13 +130,16 @@ export function useScanState({
   }, []);
 
   const handleCapture = useCallback(
-    async (raw: string) => {
+    async (raw: string, options?: { showProcessingOverlay?: boolean }) => {
       if (scanProcessingRef.current) return;
       const normalized = normalizeScanText(raw);
       if (!normalized) {
         return;
       }
       setScanToastMessage(null);
+      if (options?.showProcessingOverlay) {
+        showScanOverlay();
+      }
       setScanProcessing(true);
       try {
         const result = await resolution.onBarcodeCaptured(normalized);
@@ -152,9 +157,12 @@ export function useScanState({
         }
       } finally {
         setScanProcessing(false);
+        if (options?.showProcessingOverlay) {
+          hideScanOverlay();
+        }
       }
     },
-    [normalizeScanText, resolution]
+    [hideScanOverlay, normalizeScanText, resolution, showScanOverlay]
   );
 
   useEffect(() => {
@@ -164,12 +172,13 @@ export function useScanState({
   const handleCameraScan = useCallback(
     (raw: string) => {
       if (scanProcessingRef.current) return;
-      void handleCapture(raw);
+      setCameraRequested(false);
+      void handleCapture(raw, { showProcessingOverlay: true });
     },
     [handleCapture]
   );
 
-  const cameraEnabled = scanEnabled && homeTab === 'scan' && !blockingModalOpen;
+  const cameraEnabled = scanEnabled && cameraRequested;
 
   const cameraScan = useCameraBarcodeScanner({
     enabled: cameraEnabled,
@@ -177,8 +186,10 @@ export function useScanState({
     onScan: handleCameraScan,
   });
 
+  const scanInputEnabled = scanEnabled && !cameraRequested;
+
   const scanInput = useScanCaptureInput({
-    enabled: scanEnabled,
+    enabled: scanInputEnabled,
     keepFocus: true,
     idleTimeoutMs: 260,
     getIdleTimeoutMs: computeIdleTimeout,
@@ -196,7 +207,22 @@ export function useScanState({
     },
   });
 
-  const cameraOverlayVisible = homeTab === 'scan' && !blockingModalOpen;
+  const cameraOverlayVisible = cameraRequested && scanEnabled;
+
+  const startCameraScan = useCallback(() => {
+    if (!scanEnabled) return;
+    setCameraRequested(true);
+  }, [scanEnabled]);
+
+  const stopCameraScan = useCallback(() => {
+    setCameraRequested(false);
+  }, []);
+
+  useEffect(() => {
+    if (cameraRequested && !scanEnabled) {
+      setCameraRequested(false);
+    }
+  }, [cameraRequested, scanEnabled]);
 
   useEffect(() => {
     return () => {
@@ -220,7 +246,7 @@ export function useScanState({
     cameraVideoRef: cameraScan.videoRef,
     scanInputRef: scanInput.scanInputRef,
     scanInputHandlers: scanInput.scanInputHandlers,
-    scanInputEnabled: scanEnabled,
+    scanInputEnabled,
     pendingScanResolution: resolution.pendingScanResolution,
     scanResolutionError: resolution.scanResolutionError,
     scanResolutionSubmitting: resolution.scanResolutionSubmitting,
@@ -240,5 +266,8 @@ export function useScanState({
     setCreateFromScanSubmitting: resolution.setCreateFromScanSubmitting,
     handleCreateFromNoMatch: resolution.handleCreateFromNoMatch,
     blockingModalOpen,
+    startCameraScan,
+    stopCameraScan,
+    cameraRequested,
   };
 }
