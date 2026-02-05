@@ -245,7 +245,7 @@ export function useKioskRealtime({
       pollingIntervalRef.current = window.setInterval(() => {
         void pollOnce();
       }, 1500);
-    }, 1200);
+    }, graceMs);
 
     return () => {
       if (pollingDelayTimerRef.current !== null) {

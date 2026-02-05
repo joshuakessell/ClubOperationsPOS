@@ -31,6 +31,7 @@ export function registerCheckinDemoPaymentRoutes(fastify: FastifyInstance): void
       if (!request.staff) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
+      const staffId = request.staff.staffId;
 
       const { laneId } = request.params;
       const { outcome, declineReason, registerNumber, splitCardAmount, sessionId } = request.body;
@@ -153,11 +154,17 @@ export function registerCheckinDemoPaymentRoutes(fastify: FastifyInstance): void
                  paid_at = NOW(),
                  payment_method = $1,
                  register_number = $2,
+                 paid_by_staff_id = $3,
                  failure_reason = NULL,
                  failure_at = NULL,
                  updated_at = NOW()
-             WHERE id = $3`,
-              [outcome === 'CASH_SUCCESS' ? 'CASH' : 'CREDIT', registerNumber || null, intent.id]
+             WHERE id = $4`,
+              [
+                outcome === 'CASH_SUCCESS' ? 'CASH' : 'CREDIT',
+                registerNumber || null,
+                staffId,
+                intent.id,
+              ]
             );
 
             // Update session status

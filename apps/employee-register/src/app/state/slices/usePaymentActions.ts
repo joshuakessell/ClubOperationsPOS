@@ -320,6 +320,7 @@ export function usePaymentActions({
       }
 
       const payload = await readJson<{
+        status?: 'DUE' | 'PAID';
         quote?: {
           total: number;
           lineItems: Array<{ description: string; amount: number }>;

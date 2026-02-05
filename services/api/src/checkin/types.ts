@@ -90,4 +90,5 @@ export interface PaymentIntentRow {
   failure_reason?: string;
   failure_at?: Date | null;
   register_number?: number | null;
+  paid_by_staff_id?: string | null;
 }

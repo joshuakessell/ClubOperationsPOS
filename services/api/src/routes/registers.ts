@@ -73,6 +73,7 @@ interface RegisterSessionRow {
   device_id: string;
   register_number: number;
   last_heartbeat: Date;
+  last_activity_at?: Date;
   created_at: Date;
   signed_out_at: Date | null;
 }
@@ -712,7 +713,8 @@ export async function registerRoutes(
               const sessionResult = await client.query<RegisterSessionRow>(
                 `UPDATE register_sessions
                  SET device_id = $1,
-                     last_heartbeat = NOW()
+                     last_heartbeat = NOW(),
+                     last_activity_at = NOW()
                  WHERE id = $2
                  RETURNING *`,
                 [body.deviceId, existing.id]
@@ -724,8 +726,8 @@ export async function registerRoutes(
           } else {
             // Create register session
             const sessionResult = await client.query<RegisterSessionRow>(
-              `INSERT INTO register_sessions (employee_id, device_id, register_number, last_heartbeat)
-             VALUES ($1, $2, $3, NOW())
+              `INSERT INTO register_sessions (employee_id, device_id, register_number, last_heartbeat, last_activity_at)
+             VALUES ($1, $2, $3, NOW(), NOW())
              RETURNING *`,
               [body.employeeId, body.deviceId, body.registerNumber]
             );
@@ -846,7 +848,7 @@ export async function registerRoutes(
    * POST /v1/registers/heartbeat
    *
    * Updates the last_heartbeat timestamp for a register session.
-   * Used to keep sessions alive and detect abandoned sessions.
+   * Used to keep device sessions alive; inactivity is tracked separately.
    */
   fastify.post(
     '/v1/registers/heartbeat',
@@ -903,6 +905,72 @@ export async function registerRoutes(
         return reply.status(500).send({
           error: 'Internal Server Error',
           message: 'Failed to update heartbeat',
+        });
+      }
+    }
+  );
+
+  /**
+   * POST /v1/registers/activity
+   *
+   * Updates the last_activity_at timestamp for a register session.
+   * Used to sign out sessions after inactivity even if heartbeats continue.
+   */
+  fastify.post(
+    '/v1/registers/activity',
+    async (request: FastifyRequest<{ Body: HeartbeatInput }>, reply: FastifyReply) => {
+      let body: HeartbeatInput;
+
+      try {
+        body = HeartbeatSchema.parse(request.body);
+      } catch (error) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+        });
+      }
+
+      try {
+        // Check device is enabled
+        try {
+          await ensureDeviceEnabled(body.deviceId);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Device check failed';
+          if (message === 'DEVICE_DISABLED') {
+            return reply.status(403).send({
+              error: 'Device not allowed',
+              code: 'DEVICE_DISABLED',
+              message: 'This device is not enabled for register use',
+            });
+          }
+          throw err;
+        }
+
+        const result = await query<RegisterSessionRow>(
+          `UPDATE register_sessions
+           SET last_activity_at = NOW()
+           WHERE device_id = $1
+           AND signed_out_at IS NULL
+           RETURNING *`,
+          [body.deviceId]
+        );
+
+        if (result.rows.length === 0) {
+          return reply.status(404).send({
+            error: 'Not Found',
+            message: 'No active register session found for this device',
+          });
+        }
+
+        return reply.send({
+          success: true,
+          lastActivity: result.rows[0]!.last_activity_at?.toISOString() ?? null,
+        });
+      } catch (error) {
+        request.log.error(error, 'Register activity error');
+        return reply.status(500).send({
+          error: 'Internal Server Error',
+          message: 'Failed to update register activity',
         });
       }
     }
@@ -1219,7 +1287,7 @@ export async function registerRoutes(
 }
 
 /**
- * Clean up abandoned register sessions (no heartbeat for > 15 minutes).
+ * Clean up abandoned register sessions (no activity for > 15 minutes).
  * Should be called periodically (e.g., every 30 seconds).
  * Broadcasts REGISTER_SESSION_UPDATED events for expired sessions.
  */
@@ -1235,7 +1303,7 @@ export async function cleanupAbandonedRegisterSessions(
       `SELECT id, register_number
        FROM register_sessions
        WHERE signed_out_at IS NULL
-       AND last_heartbeat < NOW() - INTERVAL '15 minutes'`
+       AND last_activity_at < NOW() - INTERVAL '15 minutes'`
     );
 
     if (expiredSessions.rows.length === 0) {
@@ -1247,7 +1315,7 @@ export async function cleanupAbandonedRegisterSessions(
       `UPDATE register_sessions
        SET signed_out_at = NOW()
        WHERE signed_out_at IS NULL
-       AND last_heartbeat < NOW() - INTERVAL '15 minutes'`
+       AND last_activity_at < NOW() - INTERVAL '15 minutes'`
     );
 
     // Broadcast events if broadcaster available

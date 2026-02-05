@@ -98,8 +98,10 @@ describe('RoomCleaningModal', () => {
     fireEvent.click(finishBtn);
 
     await waitFor(() => {
-      expect(global.fetch).toHaveBeenCalledWith(
-        '/api/v1/cleaning/batch',
+      const calls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls;
+      const match = calls.find((c) => String(c[0]).includes('/v1/cleaning/batch'));
+      expect(match).toBeDefined();
+      expect(match?.[1]).toEqual(
         expect.objectContaining({
           method: 'POST',
           body: JSON.stringify({

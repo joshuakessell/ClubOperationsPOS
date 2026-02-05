@@ -277,6 +277,7 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
               paid_at?: Date | null;
               lane_session_id?: string | null;
               tip_cents?: number | null;
+              paid_by_staff_id?: string | null;
             }
           >(`SELECT * FROM payment_intents WHERE id = $1`, [id]);
 
@@ -381,6 +382,15 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
           };
 
           if (intent.status === 'PAID') {
+            if (!intent.paid_by_staff_id) {
+              await client.query(
+                `UPDATE payment_intents
+                 SET paid_by_staff_id = $1
+                 WHERE id = $2
+                   AND paid_by_staff_id IS NULL`,
+                [staffId, intent.id]
+              );
+            }
             const quote = parsePaymentIntentQuote(intent.quote_json);
             if (squareTransactionId || intent.square_transaction_id) {
               await client.query(
@@ -404,6 +414,7 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
               paid_at?: Date | null;
               lane_session_id?: string | null;
               tip_cents?: number | null;
+              paid_by_staff_id?: string | null;
             }
           >(
             `UPDATE payment_intents
@@ -413,14 +424,16 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
                payment_method = COALESCE($2, payment_method),
                register_number = COALESCE($3, register_number),
                tip_cents = COALESCE($4, tip_cents),
+               paid_by_staff_id = COALESCE($5, paid_by_staff_id),
                updated_at = NOW()
-           WHERE id = $5
+           WHERE id = $6
            RETURNING *`,
             [
               squareTransactionId || null,
               resolvedPaymentMethod ?? null,
               resolvedRegisterNumber ?? null,
               resolvedTipCents ?? null,
+              staffId,
               id,
             ]
           );
