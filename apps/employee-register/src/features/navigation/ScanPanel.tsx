@@ -15,6 +15,8 @@ export function ScanPanel() {
     scanCameraError,
     scanCameraActive,
     scanCameraVideoRef,
+    startScanCamera,
+    stopScanCamera,
     scanInputRef,
     scanInputHandlers,
     scanInputEnabled,
@@ -28,37 +30,67 @@ export function ScanPanel() {
         ? scanCameraError
         : 'Align barcode within the frame to scan.';
 
+  const tapSubtitle = scanReady
+    ? 'Front camera • PDF417 + barcodes'
+    : `Scanner paused: ${scanBlockedReason || 'Unavailable'}`;
+
   return (
     <PanelShell align="center">
       {scanCameraOverlayVisible ? (
-        <div className="er-camera-scan-overlay" role="status" aria-live="polite">
-          <div className="er-camera-scan-card cs-liquid-card">
-            <div className="er-camera-scan-header">
+        <div className="er-camera-scan-overlay" role="dialog" aria-live="polite">
+          <div className="er-camera-scan-stage" data-active={scanCameraActive ? 'true' : 'false'}>
+            <video ref={scanCameraVideoRef} autoPlay muted playsInline />
+            <div className="er-camera-scan-hud">
               <div>
                 <div className="er-camera-scan-title">Scan ID</div>
                 <div className="er-camera-scan-subtitle">
-                  Front camera active for driver licenses and memberships.
+                  Align the barcode inside the frame to capture automatically.
                 </div>
               </div>
               <div className="er-camera-scan-status">{cameraStatusMessage}</div>
+              <button
+                type="button"
+                className="er-camera-scan-close"
+                onClick={stopScanCamera}
+              >
+                Close
+              </button>
             </div>
-            <div className="er-camera-scan-video" data-active={scanCameraActive ? 'true' : 'false'}>
-              <video ref={scanCameraVideoRef} autoPlay muted playsInline />
-              <div className="er-camera-scan-reticle" aria-hidden="true" />
-              <div className="er-camera-scan-line" aria-hidden="true" />
-            </div>
+            <div className="er-camera-scan-reticle" aria-hidden="true" />
+            <div className="er-camera-scan-line" aria-hidden="true" />
           </div>
         </div>
       ) : null}
-      <div style={{ fontSize: '4rem', lineHeight: 1, marginBottom: '0.5rem' }} aria-hidden="true">
-        📷
+      <div className="er-scan-layout">
+        <div className="er-scan-left">
+          <div className="er-scan-icon" aria-hidden="true">
+            📷
+          </div>
+          <PanelHeader
+            align="center"
+            spacing="sm"
+            title="Scan Now"
+            subtitle="Scan a membership ID or driver license."
+          />
+          <div className="er-text-sm" style={{ marginTop: '0.5rem', color: '#94a3b8' }}>
+            {scanReady ? 'Scanner ready' : `Scanner paused: ${scanBlockedReason || 'Unavailable'}`}
+          </div>
+        </div>
+        <button
+          type="button"
+          className="er-scan-tap-card cs-liquid-card"
+          onClick={startScanCamera}
+          disabled={!scanReady || scanCameraOverlayVisible}
+        >
+          <div className="er-scan-tap-icon" aria-hidden="true">
+            📷
+          </div>
+          <div className="er-scan-tap-title">
+            {scanCameraOverlayVisible ? 'Scanning…' : 'Tap to Scan'}
+          </div>
+          <div className="er-scan-tap-subtitle">{tapSubtitle}</div>
+        </button>
       </div>
-      <PanelHeader
-        align="center"
-        spacing="sm"
-        title="Scan Now"
-        subtitle="Scan a membership ID or driver license."
-      />
       <textarea
         ref={scanInputRef}
         className={[
@@ -76,9 +108,6 @@ export function ScanPanel() {
         disabled={!scanInputEnabled}
         {...scanInputHandlers}
       />
-      <div className="er-text-sm" style={{ marginTop: '0.5rem', color: '#94a3b8' }}>
-        {scanReady ? 'Scanner ready' : `Scanner paused: ${scanBlockedReason || 'Unavailable'}`}
-      </div>
       {currentSessionId && customerName ? (
         <div style={{ marginTop: '1rem', display: 'grid', gap: '0.5rem' }}>
           <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
