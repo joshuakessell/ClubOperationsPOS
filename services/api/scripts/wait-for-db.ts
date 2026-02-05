@@ -63,6 +63,8 @@ async function sleep(ms: number) {
 }
 
 async function waitForDb() {
+  let lastErrorMessage = '';
+
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     const client = new Client({ ...baseConfig });
 
@@ -74,14 +76,37 @@ async function waitForDb() {
       console.log('Database is ready');
       process.exit(0);
     } catch (err) {
+      lastErrorMessage = formatError(err);
       await client.end().catch(() => {});
-      console.log(`Waiting for database (${attempt}/${MAX_RETRIES})...`);
+      const suffix = lastErrorMessage ? ` Last error: ${lastErrorMessage}` : '';
+      console.log(`Waiting for database (${attempt}/${MAX_RETRIES})...${suffix}`);
       await sleep(RETRY_DELAY_MS);
     }
   }
 
-  console.error(`Database did not become ready in time (${WAIT_TIMEOUT_SECONDS}s)`);
+  const suffix = lastErrorMessage ? ` Last error: ${lastErrorMessage}` : '';
+  console.error(`Database did not become ready in time (${WAIT_TIMEOUT_SECONDS}s).${suffix}`);
   process.exit(1);
 }
 
 waitForDb();
+
+function formatError(error: unknown): string {
+  if (!error) return '';
+  if (error instanceof Error) {
+    const code = (error as { code?: string }).code;
+    const detail = (error as { detail?: string }).detail;
+    const hint = (error as { hint?: string }).hint;
+    const extra = [code ? `code=${code}` : '', detail ? `detail=${detail}` : '', hint ? `hint=${hint}` : '']
+      .filter(Boolean)
+      .join(' ');
+    return extra ? `${error.message} (${extra})` : error.message;
+  }
+  if (typeof error === 'object') {
+    const message = (error as { message?: string }).message;
+    const code = (error as { code?: string }).code;
+    if (message && code) return `${message} (code=${code})`;
+    if (message) return message;
+  }
+  return String(error);
+}

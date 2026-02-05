@@ -168,6 +168,7 @@ export function RequiredTenderOutcomeModal({
       resolvedCashAmount !== null &&
       roundToCents(resolvedCardAmount + resolvedCashAmount) === roundToCents(splitBaseTotal);
   const stepIndex = step === 'main' ? 0 : 1;
+  const panelGapPx = 24;
   const displayTotal = effectiveTotal;
 
   const handleProcessCard = async () => {
@@ -243,209 +244,213 @@ export function RequiredTenderOutcomeModal({
         </div>
         {details ? <div className="er-required-modal__details">{details}</div> : null}
 
-        <div
-          className="er-required-modal__carousel"
-          style={{ transform: `translateX(-${stepIndex * 100}%)` }}
-        >
-          <div className="er-required-modal__panel">
-            <div
-              className="er-required-modal__options"
-              role="radiogroup"
-              aria-label="Tender outcome"
-            >
-              {options.map((o) => {
-                const selected = choice === o.value;
-                return (
-                  <button
-                    key={o.value}
-                    type="button"
-                    data-choice={o.value}
-                    className={[
-                      'cs-liquid-button',
-                      selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                    ].join(' ')}
-                    onClick={() => {
-                      if (isSubmitting) return;
-                      setChoice(o.value);
-                      onConfirm(o.value);
-                    }}
-                    disabled={isSubmitting}
-                    aria-pressed={selected}
-                  >
-                    {o.label}
-                  </button>
-                );
-              })}
-              <button
-                type="button"
-                className="cs-liquid-button cs-liquid-button--secondary er-required-modal__split-button"
-                onClick={() => {
-                  if (isSubmitting) return;
-                  if (!onSplitCardSuccess) return;
-                  setSplitTotal(total);
-                  setCardAmountInput('');
-                  setCashAmountInput('');
-                  setLastEdited(null);
-                  setSplitCommitted(false);
-                  setSplitError(null);
-                  setIsProcessingCard(false);
-                  setStep('split');
-                }}
-                disabled={isSubmitting || total <= 0 || !onSplitCardSuccess}
+        <div className="er-required-modal__carousel-viewport">
+          <div
+            className="er-required-modal__carousel"
+            style={{
+              transform: `translateX(calc(-${stepIndex} * (100% + ${panelGapPx}px)))`,
+            }}
+          >
+            <div className="er-required-modal__panel">
+              <div
+                className="er-required-modal__options"
+                role="radiogroup"
+                aria-label="Tender outcome"
               >
-                Split Payment
-              </button>
-              {extraActionLabel && onExtraAction && (
+                {options.map((o) => {
+                  const selected = choice === o.value;
+                  return (
+                    <button
+                      key={o.value}
+                      type="button"
+                      data-choice={o.value}
+                      className={[
+                        'cs-liquid-button',
+                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+                      ].join(' ')}
+                      onClick={() => {
+                        if (isSubmitting) return;
+                        setChoice(o.value);
+                        onConfirm(o.value);
+                      }}
+                      disabled={isSubmitting}
+                      aria-pressed={selected}
+                    >
+                      {o.label}
+                    </button>
+                  );
+                })}
                 <button
                   type="button"
-                  className={[
-                    'cs-liquid-button',
-                    'cs-liquid-button--secondary',
-                    'er-required-modal__addon',
-                  ].join(' ')}
+                  className="cs-liquid-button cs-liquid-button--secondary er-required-modal__split-button"
                   onClick={() => {
                     if (isSubmitting) return;
-                    onExtraAction();
-                  }}
-                  disabled={isSubmitting}
-                >
-                  {extraActionLabel}
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="er-required-modal__panel">
-            <div className="er-required-modal__split-panel">
-              <div className="er-required-modal__split-title">Split Payment</div>
-              <div className="er-required-modal__split-grid">
-                <label className="er-required-modal__split-field">
-                  <span className="er-required-modal__split-label">Card amount</span>
-                  <div className="er-required-modal__split-input">
-                    <span>$</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder={splitBaseTotal.toFixed(2)}
-                      value={cardAmountInput}
-                      onChange={(e) => {
-                        if (splitCommitted) return;
-                        setLastEdited('card');
-                        setCardAmountInput(e.target.value);
-                        setSplitError(null);
-                        const parsed = parseCurrency(e.target.value);
-                        if (parsed === null) {
-                          setCashAmountInput('');
-                          return;
-                        }
-                        const remaining = roundToCents(splitBaseTotal - parsed);
-                        setCashAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
-                      }}
-                      disabled={isSubmitting || splitCommitted}
-                      aria-label="Card amount"
-                    />
-                  </div>
-                </label>
-                <label className="er-required-modal__split-field">
-                  <span className="er-required-modal__split-label">Cash amount</span>
-                  <div className="er-required-modal__split-input">
-                    <span>$</span>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      placeholder={splitBaseTotal.toFixed(2)}
-                      value={cashAmountInput}
-                      onChange={(e) => {
-                        if (splitCommitted) return;
-                        setLastEdited('cash');
-                        setCashAmountInput(e.target.value);
-                        setSplitError(null);
-                        const parsed = parseCurrency(e.target.value);
-                        if (parsed === null) {
-                          setCardAmountInput('');
-                          return;
-                        }
-                        const remaining = roundToCents(splitBaseTotal - parsed);
-                        setCardAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
-                      }}
-                      disabled={isSubmitting || splitCommitted}
-                      aria-label="Cash amount"
-                    />
-                  </div>
-                </label>
-              </div>
-              <div
-                className={[
-                  'er-required-modal__split-hint',
-                  splitError ? 'er-required-modal__split-hint--error' : '',
-                ]
-                  .filter(Boolean)
-                  .join(' ')}
-              >
-                {splitError
-                  ? splitError
-                  : splitTotalsMatch && resolvedCashAmount !== null
-                    ? splitCommitted
-                      ? `Card approved. Collect $${resolvedCashAmount.toFixed(2)} cash.`
-                      : `Cash due: $${resolvedCashAmount.toFixed(2)}`
-                    : 'Enter a card or cash amount less than the total.'}
-              </div>
-              <div className="er-required-modal__split-actions">
-                <button
-                  type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
-                  onClick={() => {
-                    if (splitCommitted) return;
-                    setSplitTotal(null);
+                    if (!onSplitCardSuccess) return;
+                    setSplitTotal(total);
                     setCardAmountInput('');
                     setCashAmountInput('');
                     setLastEdited(null);
-                    setStep('main');
+                    setSplitCommitted(false);
+                    setSplitError(null);
+                    setIsProcessingCard(false);
+                    setStep('split');
                   }}
-                  disabled={isSubmitting || splitCommitted}
+                  disabled={isSubmitting || total <= 0 || !onSplitCardSuccess}
                 >
-                  Back
+                  Split Payment
                 </button>
-                <button
-                  type="button"
-                  className="cs-liquid-button cs-liquid-button--danger"
-                  onClick={() => {
-                    if (isSubmitting || splitCommitted) return;
-                    onConfirm('CREDIT_DECLINE');
-                  }}
-                  disabled={isSubmitting || splitCommitted}
+                {extraActionLabel && onExtraAction && (
+                  <button
+                    type="button"
+                    className={[
+                      'cs-liquid-button',
+                      'cs-liquid-button--secondary',
+                      'er-required-modal__addon',
+                    ].join(' ')}
+                    onClick={() => {
+                      if (isSubmitting) return;
+                      onExtraAction();
+                    }}
+                    disabled={isSubmitting}
+                  >
+                    {extraActionLabel}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="er-required-modal__panel">
+              <div className="er-required-modal__split-panel">
+                <div className="er-required-modal__split-title">Split Payment</div>
+                <div className="er-required-modal__split-grid">
+                  <label className="er-required-modal__split-field">
+                    <span className="er-required-modal__split-label">Card amount</span>
+                    <div className="er-required-modal__split-input">
+                      <span>$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder={splitBaseTotal.toFixed(2)}
+                        value={cardAmountInput}
+                        onChange={(e) => {
+                          if (splitCommitted) return;
+                          setLastEdited('card');
+                          setCardAmountInput(e.target.value);
+                          setSplitError(null);
+                          const parsed = parseCurrency(e.target.value);
+                          if (parsed === null) {
+                            setCashAmountInput('');
+                            return;
+                          }
+                          const remaining = roundToCents(splitBaseTotal - parsed);
+                          setCashAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
+                        }}
+                        disabled={isSubmitting || splitCommitted}
+                        aria-label="Card amount"
+                      />
+                    </div>
+                  </label>
+                  <label className="er-required-modal__split-field">
+                    <span className="er-required-modal__split-label">Cash amount</span>
+                    <div className="er-required-modal__split-input">
+                      <span>$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder={splitBaseTotal.toFixed(2)}
+                        value={cashAmountInput}
+                        onChange={(e) => {
+                          if (splitCommitted) return;
+                          setLastEdited('cash');
+                          setCashAmountInput(e.target.value);
+                          setSplitError(null);
+                          const parsed = parseCurrency(e.target.value);
+                          if (parsed === null) {
+                            setCardAmountInput('');
+                            return;
+                          }
+                          const remaining = roundToCents(splitBaseTotal - parsed);
+                          setCardAmountInput(remaining > 0 ? remaining.toFixed(2) : '');
+                        }}
+                        disabled={isSubmitting || splitCommitted}
+                        aria-label="Cash amount"
+                      />
+                    </div>
+                  </label>
+                </div>
+                <div
+                  className={[
+                    'er-required-modal__split-hint',
+                    splitError ? 'er-required-modal__split-hint--error' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
                 >
-                  Credit Fail
-                </button>
-                <button
-                  type="button"
-                  className="cs-liquid-button"
-                  onClick={() => void handleProcessCard()}
-                  disabled={
-                    isSubmitting ||
-                    isProcessingCard ||
-                    splitCommitted ||
-                    !cardAmountValid ||
-                    !splitTotalsMatch
-                  }
-                >
-                  {isProcessingCard
-                    ? 'Processing Card...'
-                    : splitCommitted
-                      ? 'Card Approved'
-                      : 'Process Card'}
-                </button>
-                <button
-                  type="button"
-                  className="cs-liquid-button"
-                  onClick={() => {
-                    if (isSubmitting || !splitCommitted || !cashAmountValid) return;
-                    onConfirm('CASH_SUCCESS');
-                  }}
-                  disabled={isSubmitting || !splitCommitted || !cashAmountValid}
-                >
-                  Cash Success
-                </button>
+                  {splitError
+                    ? splitError
+                    : splitTotalsMatch && resolvedCashAmount !== null
+                      ? splitCommitted
+                        ? `Card approved. Collect $${resolvedCashAmount.toFixed(2)} cash.`
+                        : `Cash due: $${resolvedCashAmount.toFixed(2)}`
+                      : 'Enter a card or cash amount less than the total.'}
+                </div>
+                <div className="er-required-modal__split-actions">
+                  <button
+                    type="button"
+                    className="cs-liquid-button cs-liquid-button--secondary"
+                    onClick={() => {
+                      if (splitCommitted) return;
+                      setSplitTotal(null);
+                      setCardAmountInput('');
+                      setCashAmountInput('');
+                      setLastEdited(null);
+                      setStep('main');
+                    }}
+                    disabled={isSubmitting || splitCommitted}
+                  >
+                    Back
+                  </button>
+                  <button
+                    type="button"
+                    className="cs-liquid-button cs-liquid-button--danger"
+                    onClick={() => {
+                      if (isSubmitting || splitCommitted) return;
+                      onConfirm('CREDIT_DECLINE');
+                    }}
+                    disabled={isSubmitting || splitCommitted}
+                  >
+                    Credit Fail
+                  </button>
+                  <button
+                    type="button"
+                    className="cs-liquid-button"
+                    onClick={() => void handleProcessCard()}
+                    disabled={
+                      isSubmitting ||
+                      isProcessingCard ||
+                      splitCommitted ||
+                      !cardAmountValid ||
+                      !splitTotalsMatch
+                    }
+                  >
+                    {isProcessingCard
+                      ? 'Processing Card...'
+                      : splitCommitted
+                        ? 'Card Approved'
+                        : 'Process Card'}
+                  </button>
+                  <button
+                    type="button"
+                    className="cs-liquid-button"
+                    onClick={() => {
+                      if (isSubmitting || !splitCommitted || !cashAmountValid) return;
+                      onConfirm('CASH_SUCCESS');
+                    }}
+                    disabled={isSubmitting || !splitCommitted || !cashAmountValid}
+                  >
+                    Cash Success
+                  </button>
+                </div>
               </div>
             </div>
           </div>

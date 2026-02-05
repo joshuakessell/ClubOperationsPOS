@@ -8,7 +8,11 @@ describe('Office Dashboard PIN flow', () => {
 
     global.fetch = vi.fn(async (input: RequestInfo) => {
       const url = typeof input === 'string' ? input : input.url;
-      if (url.endsWith('/api/v1/auth/staff')) {
+      const pathname = new URL(url, 'http://localhost').pathname;
+      const normalizedPath = pathname.startsWith('/api/')
+        ? pathname.slice('/api'.length)
+        : pathname;
+      if (normalizedPath === '/v1/auth/staff') {
         return {
           ok: true,
           headers: new Headers({ 'content-type': 'application/json' }),

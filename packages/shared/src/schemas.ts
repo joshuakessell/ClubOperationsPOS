@@ -55,6 +55,8 @@ export const BatchStatusUpdateSchema = z.object({
   reason: z.string().optional(),
 });
 
+export const CustomerIdTypeSchema = z.enum(['STATE_ID', 'DRIVERS_LICENSE', 'PASSPORT', 'OTHER']);
+
 /**
  * Zod schema for ID scan payload (PDF417 barcode from driver's license/ID card).
  * Supports both raw barcode string and parsed fields.
@@ -70,6 +72,8 @@ export const IdScanPayloadSchema = z
     idNumber: z.string().optional(), // ID number/license number
     issuer: z.string().optional(), // Issuing jurisdiction/state
     jurisdiction: z.string().optional(), // Alternative field name for issuer
+    idType: CustomerIdTypeSchema.optional(),
+    idTypeOther: z.string().optional(),
   })
   .refine(
     (data) => {

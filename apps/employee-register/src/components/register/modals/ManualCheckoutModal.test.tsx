@@ -289,6 +289,6 @@ describe('ManualCheckoutModal', () => {
 
     // Resolve call should have used occupancyId.
     const urls = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.map((c) => String(c[0]));
-    expect(urls.some((url) => url.includes('/api/v1/checkout/manual-resolve'))).toBe(true);
+    expect(urls.some((url) => url.includes('/v1/checkout/manual-resolve'))).toBe(true);
   });
 });

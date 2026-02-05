@@ -49,6 +49,9 @@ export function CustomerAccountPanel(props: {
   customerPrimaryLanguage: 'EN' | 'ES' | undefined;
   customerDobMonthDay: string | undefined;
   customerLastVisitAt: string | undefined;
+  customerIdExpirationDate: string | null;
+  customerIdType: 'STATE_ID' | 'DRIVERS_LICENSE' | 'PASSPORT' | 'OTHER' | null;
+  customerIdTypeOther: string | null;
   hasEncryptedLookupMarker: boolean;
   waitlistDesiredTier: string | null;
   waitlistBackupType: string | null;
@@ -61,6 +64,7 @@ export function CustomerAccountPanel(props: {
   onDirectSelectRental?: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onDirectSelectWaitlistBackup?: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onStartRenewal?: (activeCheckin: ActiveCheckinDetails) => void;
+  onGoBack?: () => void;
 
   // callbacks to apply immediate REST response (WS will still be source-of-truth)
   onStartedSession: (payload: {
@@ -97,6 +101,9 @@ export function CustomerAccountPanel(props: {
     },
     onStarted: props.onStartedSession,
   });
+  const showGoBack =
+    state.mode === 'ERROR' &&
+    (state.errorCode === 'UNDERAGE' || state.errorCode === 'ID_EXPIRED');
 
   return (
     <PanelShell align="top" scroll="hidden">
@@ -263,11 +270,17 @@ export function CustomerAccountPanel(props: {
           </div>
           <button
             type="button"
-            onClick={retry}
+            onClick={() => {
+              if (showGoBack && props.onGoBack) {
+                props.onGoBack();
+                return;
+              }
+              retry();
+            }}
             className="cs-liquid-button"
             style={{ marginTop: '0.75rem', width: '100%', padding: '0.75rem', fontWeight: 900 }}
           >
-            Retry
+            {showGoBack ? 'Go Back' : 'Retry'}
           </button>
         </div>
       ) : (
@@ -286,6 +299,9 @@ export function CustomerAccountPanel(props: {
                 name={props.customerName}
                 preferredLanguage={props.customerPrimaryLanguage || null}
                 dobMonthDay={props.customerDobMonthDay || null}
+                idExpirationDate={props.customerIdExpirationDate}
+                idType={props.customerIdType}
+                idTypeOther={props.customerIdTypeOther}
                 membershipNumber={props.membershipNumber || null}
                 membershipValidUntil={props.customerMembershipValidUntil || null}
                 lastVisitAt={props.customerLastVisitAt || null}

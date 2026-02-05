@@ -1,4 +1,5 @@
 import { useCallback, useState } from 'react';
+import type { CustomerIdType } from '@club-ops/shared';
 import { getErrorMessage } from '@club-ops/ui';
 import type { MultipleMatchCandidate } from '../../../components/register/modals/MultipleMatchesModal';
 import { API_BASE } from '../shared/api';
@@ -27,6 +28,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
       idNumber?: string;
       issuer?: string;
       jurisdiction?: string;
+      idType?: CustomerIdType;
+      idTypeOther?: string;
       idState?: string;
       addressLine1?: string;
       city?: string;
@@ -49,6 +52,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
       idNumber?: string;
       issuer?: string;
       jurisdiction?: string;
+      idType?: CustomerIdType;
+      idTypeOther?: string;
       idState?: string;
     };
     candidates: MultipleMatchCandidate[];
@@ -119,6 +124,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
             idNumber?: string;
             issuer?: string;
             jurisdiction?: string;
+            idType?: CustomerIdType;
+            idTypeOther?: string;
           };
           candidates?: Array<{
             id: string;
@@ -168,6 +175,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
               idNumber: extracted.idNumber,
               issuer: extracted.issuer,
               jurisdiction: extracted.jurisdiction,
+              idType: extracted.idType,
+              idTypeOther: extracted.idTypeOther,
               idState: extracted.jurisdiction || extracted.issuer,
             },
             candidates: (data.candidates || []).slice(0, 10),
@@ -189,6 +198,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
               idNumber: extracted.idNumber,
               issuer: extracted.issuer,
               jurisdiction: extracted.jurisdiction,
+              idType: extracted.idType,
+              idTypeOther: extracted.idTypeOther,
               idState: extracted.jurisdiction || extracted.issuer,
             },
           });
@@ -291,6 +302,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
     const dob = extracted.dob || '';
     const idNumber = extracted.idNumber || undefined;
     const idState = extracted.idState || extracted.jurisdiction || extracted.issuer || undefined;
+    const idType = extracted.idType || undefined;
+    const idTypeOther = extracted.idTypeOther || undefined;
     if (!firstName || !lastName || !dob) {
       return { outcome: 'error', message: 'Missing required fields to create customer' };
     }
@@ -311,6 +324,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
           idExpirationDate: extracted.idExpirationDate || undefined,
           idNumber,
           state: idState,
+          idType,
+          idTypeOther,
         }),
       });
 

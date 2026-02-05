@@ -50,6 +50,8 @@ export function RegisterSignIn({
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [registerSession, setRegisterSession] = useState<RegisterSession | null>(null);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastActivitySentRef = useRef(0);
+  const activityInFlightRef = useRef(false);
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatIntervalRef.current) {
@@ -151,6 +153,32 @@ export function RegisterSignIn({
     }
   }, [checkRegisterStatus, deviceId, handleSessionInvalidated]);
 
+  const sendActivity = useCallback(async () => {
+    if (activityInFlightRef.current) return;
+    activityInFlightRef.current = true;
+    try {
+      const response = await fetch(`${API_BASE}/v1/registers/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        if (
+          response.status === 404 ||
+          (isRecord(errorPayload) && errorPayload.code === 'DEVICE_DISABLED')
+        ) {
+          handleSessionInvalidated();
+        }
+      }
+    } catch (error) {
+      console.error('Register activity update failed:', error);
+    } finally {
+      activityInFlightRef.current = false;
+    }
+  }, [deviceId, handleSessionInvalidated]);
+
   const startHeartbeat = useCallback(() => {
     stopHeartbeat();
 
@@ -188,6 +216,35 @@ export function RegisterSignIn({
     };
   }, [registerSession, sendHeartbeat]);
 
+  // Track explicit user activity to avoid idle sessions lingering.
+  useEffect(() => {
+    if (!registerSession) return;
+
+    const throttleMs = 60_000;
+    const onActivity = () => {
+      const now = Date.now();
+      if (now - lastActivitySentRef.current < throttleMs) return;
+      lastActivitySentRef.current = now;
+      void sendActivity();
+    };
+
+    onActivity();
+    window.addEventListener('pointerdown', onActivity, { passive: true });
+    window.addEventListener('keydown', onActivity);
+    window.addEventListener('focus', onActivity);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') onActivity();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.removeEventListener('pointerdown', onActivity);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('focus', onActivity);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [registerSession, sendActivity]);
+
   const handleSignIn = async (session: RegisterSession) => {
     // After register sign-in, also create a staff session for API calls
     if (session.pin) {
@@ -216,6 +273,7 @@ export function RegisterSignIn({
     // Remove PIN from session before storing
     const { pin, ...sessionWithoutPin } = session;
     void pin;
+    lastActivitySentRef.current = 0;
     setRegisterSession(sessionWithoutPin);
     onSignedIn(sessionWithoutPin);
   };

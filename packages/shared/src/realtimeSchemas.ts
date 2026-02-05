@@ -32,6 +32,8 @@ const RealtimeEventBaseSchema = z.object({
   timestamp: z.string(),
 });
 
+const CustomerIdTypeSchema = z.enum(['STATE_ID', 'DRIVERS_LICENSE', 'PASSPORT', 'OTHER']);
+
 // ---------------------------------------------------------------------------
 // Payload schemas (runtime validation)
 // ---------------------------------------------------------------------------
@@ -76,6 +78,18 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
       customerDobMonthDay: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerLastVisitAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerNotes: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+      customerIdExpirationDate: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.string().optional()
+      ),
+      customerIdType: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        CustomerIdTypeSchema.optional()
+      ),
+      customerIdTypeOther: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.string().optional()
+      ),
       customerHasEncryptedLookupMarker: z.boolean().optional(),
       idScanIssue: z.preprocess(
         (v) => (v === null ? undefined : v),

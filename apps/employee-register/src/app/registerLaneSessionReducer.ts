@@ -1,4 +1,4 @@
-import type { SessionUpdatedPayload } from '@club-ops/shared';
+import type { CustomerIdType, SessionUpdatedPayload } from '@club-ops/shared';
 
 export type PaymentQuoteViewModel = {
   total: number;
@@ -43,6 +43,9 @@ export type RegisterLaneSessionState = {
   customerDobMonthDay: string | undefined;
   customerLastVisitAt: string | undefined;
   customerNotes: string | undefined;
+  customerIdExpirationDate: string | null;
+  customerIdType: CustomerIdType | null;
+  customerIdTypeOther: string | null;
   customerHasEncryptedLookupMarker: boolean;
   idScanIssue: 'ID_EXPIRED' | 'UNDERAGE' | null;
 
@@ -91,6 +94,9 @@ export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
   customerDobMonthDay: undefined,
   customerLastVisitAt: undefined,
   customerNotes: undefined,
+  customerIdExpirationDate: null,
+  customerIdType: null,
+  customerIdTypeOther: null,
   customerHasEncryptedLookupMarker: false,
   idScanIssue: null,
 
@@ -241,6 +247,15 @@ export function registerLaneSessionReducer(
       }
       if (p.customerNotes !== undefined) {
         next.customerNotes = p.customerNotes || undefined;
+      }
+      if (p.customerIdExpirationDate !== undefined) {
+        next.customerIdExpirationDate = p.customerIdExpirationDate || null;
+      }
+      if (p.customerIdType !== undefined) {
+        next.customerIdType = p.customerIdType ?? null;
+      }
+      if (p.customerIdTypeOther !== undefined) {
+        next.customerIdTypeOther = p.customerIdTypeOther || null;
       }
       if (p.customerHasEncryptedLookupMarker !== undefined) {
         next.customerHasEncryptedLookupMarker = Boolean(p.customerHasEncryptedLookupMarker);

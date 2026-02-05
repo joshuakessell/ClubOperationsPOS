@@ -12,14 +12,15 @@ This specification defines the admin monitoring and control features for employe
 
 1. **Sign-In**: Employee selects themselves, enters PIN, and is assigned to a register (1 or 2)
 2. **Active Session**: Employee remains signed in until explicit sign-out or session expiry
-3. **Heartbeat**: Client sends heartbeat every 90 seconds to keep session alive
-4. **Sign-Out**: Employee explicitly signs out, or session expires after 90 seconds without heartbeat
+3. **Heartbeat**: Client sends heartbeat every 30 seconds to keep the device session alive
+4. **Activity**: Client reports user activity events (clicks/keys/taps) to keep the session active
+5. **Sign-Out**: Employee explicitly signs out, or session expires after 15 minutes without activity
 
 ### Session States
 
 - **Active**: Employee is currently signed into a register
 - **Signed Out**: Session ended normally
-- **Abandoned**: No heartbeat for > 90 seconds - Automatically signed out by cleanup job
+- **Abandoned**: No activity for > 15 minutes - Automatically signed out by cleanup job
 
 ## Admin Responsibilities
 
@@ -63,8 +64,9 @@ Admins can force sign-out any active register session:
 
 ## Heartbeat and TTL Behavior
 
-- **Heartbeat Interval**: 90 seconds (client sends every 90s)
-- **TTL**: 90 seconds (session expires if no heartbeat for 90s)
+- **Heartbeat Interval**: 30 seconds (client sends every 30s)
+- **Activity Ping**: User-driven events (pointer/keyboard/focus) update `last_activity_at`
+- **TTL**: 15 minutes (session expires if no activity for 15 minutes)
 - **Cleanup Job**: Runs every 30 seconds, signs out abandoned sessions
 - **Expired Sessions**: Broadcast `REGISTER_SESSION_UPDATED` with reason `TTL_EXPIRED`
 

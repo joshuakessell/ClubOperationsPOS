@@ -54,6 +54,8 @@ export interface CustomerRow {
   id_expiration_date?: Date | null;
   id_number?: string | null;
   id_state?: string | null;
+  id_type?: string | null;
+  id_type_other?: string | null;
   banned_until: Date | null;
   past_due_balance?: number;
   primary_language?: string;
@@ -88,4 +90,5 @@ export interface PaymentIntentRow {
   failure_reason?: string;
   failure_at?: Date | null;
   register_number?: number | null;
+  paid_by_staff_id?: string | null;
 }

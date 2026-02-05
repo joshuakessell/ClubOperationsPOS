@@ -63,7 +63,7 @@ fi
 BASTION_INSTANCE_ID="${BASTION_INSTANCE_ID:-i-01f7806cad897d3ee}"
 RDS_ENDPOINT="${RDS_ENDPOINT:-club-ops-dev-db.cobu0oqcipf5.us-east-1.rds.amazonaws.com}"
 RDS_PORT="${RDS_PORT:-5432}"
-LOCAL_PORT="${LOCAL_PORT:-5433}"
+LOCAL_PORT="${LOCAL_PORT:-55433}"
 
 DEMO_INCREMENTAL="${DEMO_INCREMENTAL:-true}"
 DEMO_RESET_ON_STARTUP="${DEMO_RESET_ON_STARTUP:-true}"
@@ -158,10 +158,16 @@ fi
 LOG_PATH="${LOG_PATH:-/tmp/ssm-tunnel.log}"
 TUNNEL_PID=""
 TUNNEL_READY_TIMEOUT_SECONDS="${TUNNEL_READY_TIMEOUT_SECONDS:-60}"
+KILL_PORT_LISTENER="${KILL_PORT_LISTENER:-true}"
 
 if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
   echo "Installing dependencies..."
   (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
+fi
+
+if [[ "${SKIP_SHARED_BUILD:-}" != "true" ]]; then
+  echo "Building shared package..."
+  (cd "$ROOT_DIR" && pnpm turbo run build --filter=@club-ops/shared)
 fi
 
 dump_log() {
@@ -193,6 +199,33 @@ finally:
 PY
 }
 
+kill_port_listener() {
+  local port="$1"
+  if ! command -v lsof >/dev/null 2>&1; then
+    echo "ERROR: port ${port} is in use and 'lsof' is unavailable to identify the listener." >&2
+    echo "Set LOCAL_PORT to a free port or install lsof." >&2
+    exit 1
+  fi
+
+  local pids=""
+  pids="$(lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null || true)"
+  if [[ -z "$pids" ]]; then
+    echo "ERROR: port ${port} is in use but no listener PID was found." >&2
+    echo "Set LOCAL_PORT to a free port and retry." >&2
+    exit 1
+  fi
+
+  echo "Port ${port} is in use. Terminating listener(s): ${pids}"
+  kill ${pids} >/dev/null 2>&1 || true
+  sleep 1
+
+  if is_port_listening "$port"; then
+    echo "ERROR: port ${port} is still in use after termination attempt." >&2
+    echo "Set LOCAL_PORT to a free port and retry." >&2
+    exit 1
+  fi
+}
+
 cleanup() {
   if [[ -n "${TUNNEL_PID:-}" ]]; then
     kill "$TUNNEL_PID" >/dev/null 2>&1 || true
@@ -205,6 +238,15 @@ cleanup() {
 trap cleanup EXIT
 
 aws sts get-caller-identity >/dev/null
+
+if is_port_listening "$LOCAL_PORT"; then
+  if [[ "$KILL_PORT_LISTENER" == "true" ]]; then
+    kill_port_listener "$LOCAL_PORT"
+  else
+    echo "ERROR: local port ${LOCAL_PORT} is already in use. Set LOCAL_PORT to a free port." >&2
+    exit 1
+  fi
+fi
 
 echo "Ensuring bastion is running: ${BASTION_INSTANCE_ID}"
 state="$(aws ec2 describe-instances --instance-ids "$BASTION_INSTANCE_ID" --query 'Reservations[0].Instances[0].State.Name' --output text)"

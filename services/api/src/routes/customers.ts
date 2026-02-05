@@ -14,6 +14,8 @@ const SearchQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(20).optional().default(10),
 });
 
+const IdTypeSchema = z.enum(['STATE_ID', 'DRIVERS_LICENSE', 'PASSPORT', 'OTHER']);
+
 interface CustomerRow {
   id: string;
   name: string;
@@ -206,6 +208,8 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
       idExpirationDate: z.string().optional(),
       idNumber: z.string().optional(),
       state: z.string().optional(),
+      idType: IdTypeSchema.optional(),
+      idTypeOther: z.string().optional(),
       fullName: z.string().optional(),
       // Optional prefill fields (not currently persisted in DB schema)
       addressLine1: z.string().optional(),
@@ -215,6 +219,9 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
     })
     .refine((v) => Boolean(v.idScanValue || v.rawScanText), {
       message: 'idScanValue or rawScanText is required',
+    })
+    .refine((v) => v.idType !== 'OTHER' || Boolean(v.idTypeOther?.trim()), {
+      message: 'idTypeOther is required when idType is OTHER',
     });
 
   fastify.post(
@@ -255,6 +262,9 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
       if (body.idExpirationDate && !idExpirationDate) {
         return reply.status(400).send({ error: 'Invalid idExpirationDate; expected YYYY-MM-DD' });
       }
+      const idType = body.idType ?? null;
+      const idTypeOther =
+        idType === 'OTHER' ? (body.idTypeOther?.trim() || null) : null;
       const idScanIssue = getIdScanIssue({ dob, idExpirationDate });
       if (idScanIssue) {
         return reply.status(403).send({
@@ -301,7 +311,7 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
             !row.id_scan_value ||
             row.id_scan_hash !== idScanHash ||
             row.id_scan_value !== idScanValue;
-          if (needsScanUpdate || body.idNumber || body.state) {
+          if (needsScanUpdate || body.idNumber || body.state || idType || idTypeOther) {
             await query(
               `UPDATE customers
              SET id_scan_hash = CASE WHEN id_scan_hash IS NULL OR id_scan_hash <> $1 THEN $1 ELSE id_scan_hash END,
@@ -309,6 +319,8 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
                  id_expiration_date = COALESCE(id_expiration_date, $4::date),
                  id_number = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE id_number END,
                  id_state = CASE WHEN $6::text IS NOT NULL THEN $6 ELSE id_state END,
+                 id_type = CASE WHEN $7::text IS NOT NULL THEN $7 ELSE id_type END,
+                 id_type_other = CASE WHEN $7::text IS NOT NULL THEN $8 ELSE id_type_other END,
                  updated_at = NOW()
              WHERE id = $3`,
               [
@@ -318,6 +330,8 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
                 idExpirationDate,
                 body.idNumber || null,
                 body.state || null,
+                idType,
+                idTypeOther,
               ]
             );
           } else if (idExpirationDate) {
@@ -348,8 +362,8 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
           membership_number: string | null;
         }>(
           `INSERT INTO customers
-           (name, dob, id_expiration_date, id_number, id_state, id_scan_hash, id_scan_value, created_at, updated_at)
-         VALUES ($1, $2::date, $3::date, $4, $5, $6, $7, NOW(), NOW())
+           (name, dob, id_expiration_date, id_number, id_state, id_type, id_type_other, id_scan_hash, id_scan_value, created_at, updated_at)
+         VALUES ($1, $2::date, $3::date, $4, $5, $6, $7, $8, $9, NOW(), NOW())
          RETURNING id, name, dob, membership_number`,
           [
             name,
@@ -357,6 +371,8 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
             idExpirationDate,
             body.idNumber || null,
             body.state || null,
+            idType,
+            idTypeOther,
             idScanHash,
             idScanValue,
           ]
@@ -481,12 +497,19 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
    * Staff-only endpoint to create a customer record from manual entry (firstName,lastName,dob).
    * This intentionally does NOT de-dupe; caller should use /match-identity first if desired.
    */
-  const CreateManualSchema = z.object({
-    firstName: z.string().min(1),
-    lastName: z.string().min(1),
-    dob: z.string().min(1), // YYYY-MM-DD
-    idNumber: z.string().trim().min(1).optional(),
-  });
+  const CreateManualSchema = z
+    .object({
+      firstName: z.string().min(1),
+      lastName: z.string().min(1),
+      dob: z.string().min(1), // YYYY-MM-DD
+      idExpirationDate: z.string().min(1), // YYYY-MM-DD
+      idType: IdTypeSchema,
+      idTypeOther: z.string().optional(),
+      idNumber: z.string().trim().min(1).optional(),
+    })
+    .refine((v) => v.idType !== 'OTHER' || Boolean(v.idTypeOther?.trim()), {
+      message: 'idTypeOther is required when idType is OTHER',
+    });
 
   fastify.post(
     '/v1/customers/create-manual',
@@ -506,10 +529,23 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
 
       const dob = toDateOnly(body.dob);
       if (!dob) return reply.status(400).send({ error: 'Invalid dob; expected YYYY-MM-DD' });
+      const idExpirationDate = toDateOnly(body.idExpirationDate);
+      if (!idExpirationDate) {
+        return reply.status(400).send({ error: 'Invalid idExpirationDate; expected YYYY-MM-DD' });
+      }
+      const idType = body.idType;
+      const idTypeOther = idType === 'OTHER' ? body.idTypeOther?.trim() || null : null;
 
       const name = `${body.firstName} ${body.lastName}`.trim().slice(0, 255);
       if (!name) return reply.status(400).send({ error: 'Invalid name' });
       const idScanValue = body.idNumber?.trim() || null;
+      const idScanIssue = getIdScanIssue({ dob, idExpirationDate });
+      if (idScanIssue) {
+        return reply.status(403).send({
+          error: getIdScanIssueMessage(idScanIssue),
+          code: idScanIssue,
+        });
+      }
 
       try {
         const inserted = await query<{
@@ -518,10 +554,10 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
           dob: Date | null;
           membership_number: string | null;
         }>(
-          `INSERT INTO customers (name, dob, id_scan_value, id_number, created_at, updated_at)
-           VALUES ($1, $2::date, $3, $4, NOW(), NOW())
+          `INSERT INTO customers (name, dob, id_expiration_date, id_type, id_type_other, id_scan_value, id_number, created_at, updated_at)
+           VALUES ($1, $2::date, $3::date, $4, $5, $6, $7, NOW(), NOW())
            RETURNING id, name, dob, membership_number`,
-          [name, dob, idScanValue, idScanValue]
+          [name, dob, idExpirationDate, idType, idTypeOther, idScanValue, idScanValue]
         );
 
         const row = inserted.rows[0]!;

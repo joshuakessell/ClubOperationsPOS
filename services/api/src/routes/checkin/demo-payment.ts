@@ -20,6 +20,7 @@ export function registerCheckinDemoPaymentRoutes(fastify: FastifyInstance): void
       declineReason?: string;
       registerNumber?: number;
       splitCardAmount?: number;
+      sessionId?: string;
     };
   }>(
     '/v1/checkin/lane/:laneId/demo-take-payment',
@@ -30,19 +31,29 @@ export function registerCheckinDemoPaymentRoutes(fastify: FastifyInstance): void
       if (!request.staff) {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
+      const staffId = request.staff.staffId;
 
       const { laneId } = request.params;
-      const { outcome, declineReason, registerNumber, splitCardAmount } = request.body;
+      const { outcome, declineReason, registerNumber, splitCardAmount, sessionId } = request.body;
 
       try {
         const result = await transaction(async (client) => {
-          const sessionResult = await client.query<LaneSessionRow>(
-            `SELECT * FROM lane_sessions
-           WHERE lane_id = $1 AND status IN ('ACTIVE', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT')
+          const sessionResult = sessionId
+            ? await client.query<LaneSessionRow>(
+                `SELECT * FROM lane_sessions
+           WHERE id = $1
+             AND lane_id = $2
+             AND status IN ('ACTIVE', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
+           LIMIT 1`,
+                [sessionId, laneId]
+              )
+            : await client.query<LaneSessionRow>(
+                `SELECT * FROM lane_sessions
+           WHERE lane_id = $1 AND status IN ('ACTIVE', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
            ORDER BY created_at DESC
            LIMIT 1`,
-            [laneId]
-          );
+                [laneId]
+              );
 
           if (sessionResult.rows.length === 0) {
             throw { statusCode: 404, message: 'No active session found' };
@@ -143,11 +154,17 @@ export function registerCheckinDemoPaymentRoutes(fastify: FastifyInstance): void
                  paid_at = NOW(),
                  payment_method = $1,
                  register_number = $2,
+                 paid_by_staff_id = $3,
                  failure_reason = NULL,
                  failure_at = NULL,
                  updated_at = NOW()
-             WHERE id = $3`,
-              [outcome === 'CASH_SUCCESS' ? 'CASH' : 'CREDIT', registerNumber || null, intent.id]
+             WHERE id = $4`,
+              [
+                outcome === 'CASH_SUCCESS' ? 'CASH' : 'CREDIT',
+                registerNumber || null,
+                staffId,
+                intent.id,
+              ]
             );
 
             // Update session status

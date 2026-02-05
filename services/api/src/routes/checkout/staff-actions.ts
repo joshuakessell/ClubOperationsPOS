@@ -234,8 +234,8 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
                 tip_cents?: number | null;
               }>(
                 `INSERT INTO payment_intents
-                 (amount, status, quote_json, payment_method, register_number, tip_cents, paid_at)
-                 VALUES ($1, 'PAID', $2, $3, $4, $5, NOW())
+                 (amount, status, quote_json, payment_method, register_number, tip_cents, paid_at, paid_by_staff_id)
+                 VALUES ($1, 'PAID', $2, $3, $4, $5, NOW(), $6)
                  RETURNING id, amount, payment_method, register_number, tip_cents`,
                 [
                   feeAmount,
@@ -243,6 +243,7 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
                   body.paymentMethod ?? null,
                   resolvedRegisterNumber,
                   body.tipCents ?? 0,
+                  staffId,
                 ]
               );
 

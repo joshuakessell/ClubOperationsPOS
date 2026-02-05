@@ -1097,6 +1097,12 @@ describe('App', () => {
     fireEvent.change(screen.getByLabelText(/First Name/i), { target: { value: 'John' } });
     fireEvent.change(screen.getByLabelText(/Last Name/i), { target: { value: 'Smith' } });
     fireEvent.change(screen.getByLabelText(/Date of Birth/i), { target: { value: '01021988' } });
+    fireEvent.change(screen.getByLabelText(/ID Expiration Date/i), {
+      target: { value: '01012030' },
+    });
+    fireEvent.change(screen.getByLabelText(/ID Type/i), {
+      target: { value: 'DRIVERS_LICENSE' },
+    });
 
     const addBtn = screen.getByRole('button', { name: /Add Customer/i });
     expect(addBtn).toHaveProperty('disabled', false);

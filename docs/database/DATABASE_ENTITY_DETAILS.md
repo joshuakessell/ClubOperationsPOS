@@ -37,6 +37,7 @@ This section is the **single authoritative place** (within this repo) that defin
 - `waitlist`
 - `inventory_reservations`
 - `payment_intents`
+- `register_sessions`
 - `cash_drawer_sessions`
 - `cash_drawer_events`
 - `staff_break_sessions`
@@ -65,6 +66,8 @@ Other markdown files may describe workflows, but **must not redefine** these ent
   - `id_expiration_date`: Optional ID expiration date (DATE).
   - `id_number`: Optional license/ID number derived from scans or manual entry.
   - `id_state`: Optional issuing state/jurisdiction derived from scans.
+  - `id_type`: Optional ID type (`STATE_ID`, `DRIVERS_LICENSE`, `PASSPORT`, `OTHER`).
+  - `id_type_other`: Optional freeform ID description when `id_type = OTHER`.
   - `banned_until`: If present and in the future, customer is currently banned.
   - `past_due_balance`: Monetary balance owed (numeric).
 - **Relationships**:
@@ -113,12 +116,32 @@ Other markdown files may describe workflows, but **must not redefine** these ent
   - `status`: Payment lifecycle state (see `payment_status` enum in `db/schema.sql`).
   - `quote_json`: Immutable-ish quote snapshot used to compute/display totals.
   - `square_transaction_id`: Optional external reference (if recorded).
+  - `paid_by_staff_id`: Staff member who marked the payment as paid (nullable).
   - `paid_at`: Timestamp of when the system recorded the payment as paid.
 - **Relationships**:
   - `lane_sessions.payment_intent_id` → `payment_intents.id` (where used)
+  - `payment_intents.paid_by_staff_id` → `staff.id`
 - **Invariants**:
   - This system does **not** assume external payment succeeded without an explicit “mark paid” action.
   - Status transitions are validated server-side and should be audited.
+
+### `register_sessions`
+
+- **Purpose**: Tracks employee sign-in sessions for registers (device + register number ownership).
+- **Primary key**: `register_sessions.id` (UUID).
+- **Key columns** (non-exhaustive):
+  - `employee_id`: Staff member signed into the register.
+  - `device_id`: Device identifier used for register access.
+  - `register_number`: Physical register number (1–3).
+  - `last_heartbeat`: Device heartbeat timestamp.
+  - `last_activity_at`: Last user activity timestamp (used for idle sign-out).
+  - `signed_out_at`: Set when the register session ends.
+  - `closeout_summary_json`: Optional closeout snapshot metadata (when stored).
+- **Relationships**:
+  - `register_sessions.employee_id` → `staff.id`
+- **Invariants**:
+  - Only one active session per device and register number at a time.
+  - Sessions expire when no activity is recorded for the TTL window (see register session spec).
 
 ### `cash_drawer_sessions`
 

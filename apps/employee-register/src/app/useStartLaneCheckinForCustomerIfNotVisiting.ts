@@ -5,7 +5,7 @@ import { startLaneCheckin, type StartLaneResponse } from './startLaneCheckin';
 export type StartLaneCheckinState =
   | { mode: 'CHECKING_IN'; isStarting: boolean }
   | { mode: 'ALREADY_VISITING'; isStarting: false; activeCheckin: ActiveCheckinDetails }
-  | { mode: 'ERROR'; isStarting: false; errorMessage: string };
+  | { mode: 'ERROR'; isStarting: false; errorMessage: string; errorCode?: string };
 
 export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
   lane: string;
@@ -86,7 +86,12 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
         }
 
         if (result.kind === 'error') {
-          setState({ mode: 'ERROR', isStarting: false, errorMessage: result.message });
+          setState({
+            mode: 'ERROR',
+            isStarting: false,
+            errorMessage: result.message,
+            errorCode: result.code,
+          });
           return;
         }
 

@@ -97,98 +97,103 @@ describe('App', () => {
 
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
       async (input: RequestInfo, init?: RequestInit) => {
-      const url = typeof input === 'string' ? input : input.url;
-      // Minimal happy-path mocks for the demo dashboard
-      if (url.includes('/api/v1/realtime/auth')) {
-        return buildRealtimeAuthResponse(init);
-      }
-      if (url.endsWith('/api/v1/auth/staff')) {
-        return {
-          ok: true,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({
-            staff: [
-              { id: '1', name: 'Manager Club', role: 'ADMIN' },
-              { id: '2', name: 'Front Desk', role: 'STAFF' },
+        const url = typeof input === 'string' ? input : input.url;
+        const pathname = new URL(url, 'http://localhost').pathname;
+        const normalizedPath = pathname.startsWith('/api/')
+          ? pathname.slice('/api'.length)
+          : pathname;
+
+        // Minimal happy-path mocks for the demo dashboard
+        if (normalizedPath === '/v1/realtime/auth') {
+          return buildRealtimeAuthResponse(init);
+        }
+        if (normalizedPath === '/v1/auth/staff') {
+          return {
+            ok: true,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({
+              staff: [
+                { id: '1', name: 'Manager Club', role: 'ADMIN' },
+                { id: '2', name: 'Front Desk', role: 'STAFF' },
+              ],
+            }),
+          } as any;
+        }
+        if (normalizedPath === '/v1/inventory/summary') {
+          return {
+            ok: true,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({
+              byType: { STANDARD: { clean: 10, cleaning: 0, dirty: 0, total: 10 } },
+              overall: { clean: 10, cleaning: 0, dirty: 0, total: 10 },
+              lockers: { clean: 10, cleaning: 0, dirty: 0, total: 10 },
+            }),
+          } as any;
+        }
+        if (normalizedPath.startsWith('/v1/metrics/waitlist')) {
+          return {
+            ok: true,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({
+              activeCount: 0,
+              offeredCount: 0,
+              averageWaitTimeMinutes: 0,
+            }),
+          } as any;
+        }
+        if (normalizedPath.startsWith('/v1/admin/reports/cash-totals')) {
+          return {
+            ok: true,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({
+              date: '2026-01-01',
+              total: 0,
+              byPaymentMethod: { CASH: 0, CREDIT: 0 },
+              byRegister: { 'Register 1': 0, 'Register 2': 0, Unassigned: 0 },
+            }),
+          } as any;
+        }
+        if (normalizedPath.startsWith('/v1/admin/register-sessions')) {
+          return {
+            ok: true,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => [
+              {
+                registerNumber: 1,
+                active: false,
+                sessionId: null,
+                employee: null,
+                deviceId: null,
+                createdAt: null,
+                lastHeartbeatAt: null,
+                secondsSinceHeartbeat: null,
+              },
+              {
+                registerNumber: 2,
+                active: false,
+                sessionId: null,
+                employee: null,
+                deviceId: null,
+                createdAt: null,
+                lastHeartbeatAt: null,
+                secondsSinceHeartbeat: null,
+              },
             ],
-          }),
-        } as any;
-      }
-      if (url.endsWith('/api/v1/inventory/summary')) {
+          } as any;
+        }
+        if (normalizedPath.startsWith('/v1/checkin/lane-sessions')) {
+          return {
+            ok: true,
+            headers: new Headers({ 'content-type': 'application/json' }),
+            json: async () => ({ sessions: [] }),
+          } as any;
+        }
         return {
           ok: true,
           headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({
-            byType: { STANDARD: { clean: 10, cleaning: 0, dirty: 0, total: 10 } },
-            overall: { clean: 10, cleaning: 0, dirty: 0, total: 10 },
-            lockers: { clean: 10, cleaning: 0, dirty: 0, total: 10 },
-          }),
+          json: async () => ({}),
         } as any;
       }
-      if (url.includes('/api/v1/metrics/waitlist')) {
-        return {
-          ok: true,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({
-            activeCount: 0,
-            offeredCount: 0,
-            averageWaitTimeMinutes: 0,
-          }),
-        } as any;
-      }
-      if (url.includes('/api/v1/admin/reports/cash-totals')) {
-        return {
-          ok: true,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({
-            date: '2026-01-01',
-            total: 0,
-            byPaymentMethod: { CASH: 0, CREDIT: 0 },
-            byRegister: { 'Register 1': 0, 'Register 2': 0, Unassigned: 0 },
-          }),
-        } as any;
-      }
-      if (url.includes('/api/v1/admin/register-sessions')) {
-        return {
-          ok: true,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => [
-            {
-              registerNumber: 1,
-              active: false,
-              sessionId: null,
-              employee: null,
-              deviceId: null,
-              createdAt: null,
-              lastHeartbeatAt: null,
-              secondsSinceHeartbeat: null,
-            },
-            {
-              registerNumber: 2,
-              active: false,
-              sessionId: null,
-              employee: null,
-              deviceId: null,
-              createdAt: null,
-              lastHeartbeatAt: null,
-              secondsSinceHeartbeat: null,
-            },
-          ],
-        } as any;
-      }
-      if (url.includes('/api/v1/checkin/lane-sessions')) {
-        return {
-          ok: true,
-          headers: new Headers({ 'content-type': 'application/json' }),
-          json: async () => ({ sessions: [] }),
-        } as any;
-      }
-      return {
-        ok: true,
-        headers: new Headers({ 'content-type': 'application/json' }),
-        json: async () => ({}),
-      } as any;
-    }
     );
   });
 

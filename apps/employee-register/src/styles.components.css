@@ -59,6 +59,26 @@
   resize: none;
 }
 
+.er-scan-input--visible {
+  top: 50%;
+  left: 50%;
+  width: min(320px, 78vw);
+  height: 46px;
+  transform: translate(-50%, calc(-50% + 54px));
+  opacity: 1;
+  pointer-events: auto;
+  z-index: 10001;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 12px;
+  padding: 0.5rem 0.75rem;
+  color: #e2e8f0;
+  font-weight: 700;
+  -webkit-text-security: disc;
+  text-security: disc;
+  box-shadow: 0 10px 26px rgba(0, 0, 0, 0.4);
+}
+
 /* Checkout panel scrolling (home checkout tab) */
 .er-checkout-card {
   display: flex;
@@ -102,11 +122,28 @@
   font-size: 1rem;
 }
 
+.form-group select {
+  width: 100%;
+  padding: 0.75rem;
+  color: var(--text);
+  font-size: 1rem;
+  background: transparent;
+}
+
 .form-group input:focus {
   outline: none;
 }
 
+.form-group select:focus {
+  outline: none;
+}
+
 .form-group input:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.form-group select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }

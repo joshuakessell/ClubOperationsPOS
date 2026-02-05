@@ -9,6 +9,7 @@ export function ScanPanel() {
     selectHomeTab,
     scanReady,
     scanBlockedReason,
+    scanOverlayActive,
     scanInputRef,
     scanInputHandlers,
     scanInputEnabled,
@@ -27,7 +28,12 @@ export function ScanPanel() {
       />
       <textarea
         ref={scanInputRef}
-        className="er-scan-input"
+        className={[
+          'er-scan-input',
+          scanOverlayActive ? 'er-scan-input--visible' : '',
+        ]
+          .filter(Boolean)
+          .join(' ')}
         aria-label="Scan input"
         tabIndex={-1}
         autoComplete="off"

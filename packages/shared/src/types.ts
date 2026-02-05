@@ -81,6 +81,8 @@ export interface RealtimeEvent<T = unknown> {
   timestamp: string;
 }
 
+export type CustomerIdType = 'STATE_ID' | 'DRIVERS_LICENSE' | 'PASSPORT' | 'OTHER';
+
 /**
  * Room status change event payload.
  */
@@ -168,6 +170,18 @@ export interface SessionUpdatedPayload {
   customerDobMonthDay?: string;
   customerLastVisitAt?: string;
   customerNotes?: string;
+  /**
+   * Customer ID expiration date (YYYY-MM-DD), if known.
+   */
+  customerIdExpirationDate?: string;
+  /**
+   * Customer ID type when known.
+   */
+  customerIdType?: CustomerIdType;
+  /**
+   * Freeform description when customerIdType is OTHER.
+   */
+  customerIdTypeOther?: string;
   /**
    * True when the customer has an encrypted lookup marker (e.g., hashed ID scan) stored on file.
    * This enables faster and more reliable future lookup from ID scans without storing raw scan data.

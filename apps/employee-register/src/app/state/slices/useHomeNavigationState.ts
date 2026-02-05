@@ -25,10 +25,19 @@ export function useHomeNavigationState({
     'default'
   );
   const checkoutReturnToTabRef = useRef<HomeTab | null>(null);
+  const lastNonAccountTabRef = useRef<HomeTab>('scan');
 
   const selectHomeTab = useCallback(
     (next: HomeTab) => {
-      setHomeTab(next);
+      setHomeTab((prev) => {
+        if (next === 'account' && prev !== 'account') {
+          lastNonAccountTabRef.current = prev;
+        }
+        if (next !== 'account') {
+          lastNonAccountTabRef.current = next;
+        }
+        return next;
+      });
       setManualEntry(next === 'firstTime');
       if (next !== 'checkout') {
         setCheckoutPrefill(null);
@@ -38,6 +47,11 @@ export function useHomeNavigationState({
     },
     [setManualEntry]
   );
+
+  const returnToPreviousHomeTab = useCallback(() => {
+    const target = lastNonAccountTabRef.current || 'scan';
+    selectHomeTab(target);
+  }, [selectHomeTab]);
 
   const startCheckoutFromHome = useCallback(() => {
     checkoutReturnToTabRef.current = null;
@@ -132,5 +146,6 @@ export function useHomeNavigationState({
     startCheckoutFromCustomerAccount,
     exitCheckout,
     openCustomerAccount,
+    returnToPreviousHomeTab,
   };
 }
