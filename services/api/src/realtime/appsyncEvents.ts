@@ -98,6 +98,7 @@ export async function signAppSyncEventRequest(
     'content-encoding',
     'content-type',
     'host',
+    'x-amz-content-sha256',
     'x-amz-date',
     'authorization',
   ] as const;
