@@ -11,6 +11,7 @@ import {
   RoomStatus,
   RoomType,
   getRoomTierFromNumber,
+  type CustomerIdType,
 } from '@club-ops/shared';
 import { faker } from '@faker-js/faker';
 import {
@@ -84,6 +85,31 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
 
   function randInt(min: number, max: number): number {
     return Math.floor(rng() * (max - min + 1)) + min;
+  }
+
+  function buildSeedIdType(seed: number): CustomerIdType {
+    if (seed % 29 === 0) return 'OTHER';
+    if (seed % 15 === 0) return 'PASSPORT';
+    if (seed % 8 === 0) return 'STATE_ID';
+    return 'DRIVERS_LICENSE';
+  }
+
+  function buildSeedIdProfile(seed: number): {
+    idNumber: string;
+    idType: CustomerIdType;
+    idTypeOther: string | null;
+    idExpirationDate: Date;
+  } {
+    const idType = buildSeedIdType(seed);
+    const prefix = idType === 'PASSPORT' ? 'P' : idType === 'STATE_ID' ? 'S' : 'D';
+    const idNumber = `${prefix}${String(seed).padStart(8, '0')}`;
+    const idTypeOther = idType === 'OTHER' ? `Municipal ID ${seed}` : null;
+    const idExpirationDate = new Date(
+      now.getFullYear() + 2 + (seed % 3),
+      (seed * 7) % 12,
+      ((seed * 11) % 27) + 1
+    );
+    return { idNumber, idType, idTypeOther, idExpirationDate };
   }
 
   // Choose one STANDARD room to remain free at NOW
@@ -453,12 +479,22 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       const membershipNumber = String(i).padStart(6, '0');
       const name = baseNames[idx]!;
       const dob = new Date(1980 + (idx % 25), (idx * 3) % 12, ((idx * 5) % 27) + 1);
+      const idProfile = buildSeedIdProfile(idx + 1);
 
       await client.query(
         `INSERT INTO customers
-           (id, name, dob, membership_number, membership_card_type, membership_valid_until, primary_language, past_due_balance, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, NULL, NULL, 'EN', 0, NOW(), NOW())`,
-        [id, name, dob, membershipNumber]
+           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_type, id_type_other, primary_language, past_due_balance, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NULL, NULL, $5, $6, $7, $8, 'EN', 0, NOW(), NOW())`,
+        [
+          id,
+          name,
+          dob,
+          membershipNumber,
+          idProfile.idExpirationDate,
+          idProfile.idNumber,
+          idProfile.idType,
+          idProfile.idTypeOther,
+        ]
       );
 
       customerIds.push(id);
@@ -474,11 +510,20 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       const id = randomUUID();
       const name = baseNames[idx]!;
       const dob = new Date(1985 + (idx % 20), (idx * 5) % 12, ((idx * 7) % 27) + 1);
+      const idProfile = buildSeedIdProfile(idx + 1);
       await client.query(
         `INSERT INTO customers
-           (id, name, dob, membership_number, membership_card_type, membership_valid_until, primary_language, past_due_balance, created_at, updated_at)
-           VALUES ($1, $2, $3, NULL, NULL, NULL, 'EN', 0, NOW(), NOW())`,
-        [id, name, dob]
+           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_type, id_type_other, primary_language, past_due_balance, created_at, updated_at)
+           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, 'EN', 0, NOW(), NOW())`,
+        [
+          id,
+          name,
+          dob,
+          idProfile.idExpirationDate,
+          idProfile.idNumber,
+          idProfile.idType,
+          idProfile.idTypeOther,
+        ]
       );
       customerIds.push(id);
       customerProfileById.set(id, { name, dob, membershipNumber: null });
@@ -503,9 +548,23 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
              dob = $2,
              id_scan_hash = $3,
              id_scan_value = $4,
+             id_expiration_date = $5,
+             id_number = $6,
+             id_type = $7,
+             id_type_other = $8,
              updated_at = NOW()
-         WHERE id = $5`,
-      ['Joshua Kessell', new Date('1988-07-15'), dlHash, dlNormalized, dlTestCustomerId]
+         WHERE id = $9`,
+      [
+        'Joshua Kessell',
+        new Date('1988-07-15'),
+        dlHash,
+        dlNormalized,
+        new Date('2032-07-15'),
+        '21026653',
+        'DRIVERS_LICENSE',
+        null,
+        dlTestCustomerId,
+      ]
     );
     tick('Finalizing customer profiles');
     log(`✓ Seeded DL hash test customer: Joshua Kessell (${dlTestCustomerId})`);
@@ -549,13 +608,23 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
     const demoCustomerIds = new Map<string, string>();
     setMessage('Creating demo customers');
     addTotal(demoCustomerSeeds.length);
-    for (const seed of demoCustomerSeeds) {
+    for (const [index, seed] of demoCustomerSeeds.entries()) {
       const id = randomUUID();
+      const idProfile = buildSeedIdProfile(MEMBER_COUNT + EXTRA_GUEST_COUNT + index + 1);
       await client.query(
         `INSERT INTO customers
-           (id, name, dob, membership_number, membership_card_type, membership_valid_until, primary_language, past_due_balance, notes, created_at, updated_at)
-           VALUES ($1, $2, $3, NULL, NULL, NULL, 'EN', 0, $4, NOW(), NOW())`,
-        [id, seed.name, seed.dob, seed.notes]
+           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_type, id_type_other, primary_language, past_due_balance, notes, created_at, updated_at)
+           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, 'EN', 0, $8, NOW(), NOW())`,
+        [
+          id,
+          seed.name,
+          seed.dob,
+          idProfile.idExpirationDate,
+          idProfile.idNumber,
+          idProfile.idType,
+          idProfile.idTypeOther,
+          seed.notes,
+        ]
       );
       customerIds.push(id);
       customerProfileById.set(id, { name: seed.name, dob: seed.dob, membershipNumber: null });

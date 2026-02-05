@@ -579,6 +579,8 @@ CREATE TABLE public.customers (
     id_expiration_date date,
     id_number text,
     id_state text,
+    id_type text,
+    id_type_other text,
     primary_language text,
     notes text,
     past_due_balance numeric(10,2) DEFAULT 0 NOT NULL,

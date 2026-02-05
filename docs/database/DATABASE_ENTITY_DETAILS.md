@@ -65,6 +65,8 @@ Other markdown files may describe workflows, but **must not redefine** these ent
   - `id_expiration_date`: Optional ID expiration date (DATE).
   - `id_number`: Optional license/ID number derived from scans or manual entry.
   - `id_state`: Optional issuing state/jurisdiction derived from scans.
+  - `id_type`: Optional ID type (`STATE_ID`, `DRIVERS_LICENSE`, `PASSPORT`, `OTHER`).
+  - `id_type_other`: Optional freeform ID description when `id_type = OTHER`.
   - `banned_until`: If present and in the future, customer is currently banned.
   - `past_due_balance`: Monetary balance owed (numeric).
 - **Relationships**:

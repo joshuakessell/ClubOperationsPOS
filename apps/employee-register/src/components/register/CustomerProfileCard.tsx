@@ -7,6 +7,9 @@ export interface CustomerProfileCardProps {
   name: string;
   preferredLanguage?: 'EN' | 'ES' | null;
   dobMonthDay?: string | null; // MM/DD
+  idExpirationDate?: string | null; // YYYY-MM-DD
+  idType?: 'STATE_ID' | 'DRIVERS_LICENSE' | 'PASSPORT' | 'OTHER' | null;
+  idTypeOther?: string | null;
   membershipNumber?: string | null;
   membershipValidUntil?: string | null; // YYYY-MM-DD
   lastVisitAt?: string | null; // ISO timestamp
@@ -48,6 +51,14 @@ function formatMmYy(value: Date | null): string {
   return `${mm}/${yy}`;
 }
 
+function formatMmDdYyyy(value: Date | null): string {
+  if (!value) return '—';
+  const mm = String(value.getMonth() + 1).padStart(2, '0');
+  const dd = String(value.getDate()).padStart(2, '0');
+  const yyyy = String(value.getFullYear());
+  return `${mm}/${dd}/${yyyy}`;
+}
+
 function parseIsoDate(value: string | null | undefined): Date | null {
   if (!value) return null;
   const d = new Date(value);
@@ -65,6 +76,7 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
   const isMember = membershipStatus === 'ACTIVE';
   const expires = parseIsoDate(props.membershipValidUntil || null);
   const lastVisit = parseIsoDate(props.lastVisitAt || null);
+  const idExpiration = parseIsoDate(props.idExpirationDate || null);
 
   const languageLabel =
     props.preferredLanguage === 'EN'
@@ -72,6 +84,20 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
       : props.preferredLanguage === 'ES'
         ? 'Español'
         : '—';
+  const idTypeLabel = (() => {
+    switch (props.idType) {
+      case 'STATE_ID':
+        return 'State ID';
+      case 'DRIVERS_LICENSE':
+        return 'Drivers License';
+      case 'PASSPORT':
+        return 'Passport';
+      case 'OTHER':
+        return props.idTypeOther?.trim() ? `Other (${props.idTypeOther})` : 'Other';
+      default:
+        return '—';
+    }
+  })();
 
   return (
     <div className="cs-liquid-card" style={{ padding: '0.9rem' }}>
@@ -103,6 +129,8 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
         <Detail label="Name" value={props.name || '—'} />
         <Detail label="Preferred Language" value={languageLabel} />
         <Detail label="DOB (MM/DD)" value={props.dobMonthDay || '—'} />
+        <Detail label="ID Type" value={idTypeLabel} />
+        <Detail label="ID Exp (MM/DD/YYYY)" value={formatMmDdYyyy(idExpiration)} />
         <Detail label="Member" value={isMember ? 'Yes' : 'No'} />
         <Detail label="Membership Exp (MM/YY)" value={isMember ? formatMmYy(expires) : '—'} />
         <Detail label="Last Visit (MM/YY)" value={formatMmYy(lastVisit)} />

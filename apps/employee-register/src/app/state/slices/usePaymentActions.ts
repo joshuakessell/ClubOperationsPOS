@@ -199,6 +199,7 @@ export function usePaymentActions({
       }
 
       const payload = await readJson<{
+        status?: 'DUE' | 'PAID';
         quote?: {
           total: number;
           lineItems: Array<{ description: string; amount: number }>;
@@ -253,6 +254,7 @@ export function usePaymentActions({
           outcome,
           declineReason,
           registerNumber: registerSession?.registerNumber,
+          sessionId: currentSessionId,
         }),
       });
 
@@ -261,6 +263,16 @@ export function usePaymentActions({
         throw new Error(getErrorMessage(errorPayload) || 'Failed to process payment');
       }
 
+      const payload = await readJson<{
+        status?: 'DUE' | 'PAID';
+        quote?: {
+          total: number;
+          lineItems: Array<{ description: string; amount: number }>;
+          messages: string[];
+        };
+      }>(response);
+      if (payload.quote) setPaymentQuote(payload.quote);
+      if (payload.status) setPaymentStatus(payload.status);
       if (outcome === 'CREDIT_DECLINE') {
         setPaymentDeclineError(declineReason || 'Payment declined');
       } else {
@@ -298,6 +310,7 @@ export function usePaymentActions({
           outcome: 'CREDIT_SUCCESS',
           splitCardAmount: roundedAmount,
           registerNumber: registerSession?.registerNumber,
+          sessionId: currentSessionId,
         }),
       });
 
@@ -313,10 +326,8 @@ export function usePaymentActions({
           messages: string[];
         };
       }>(response);
-
-      if (payload.quote) {
-        setPaymentQuote(payload.quote);
-      }
+      if (payload.quote) setPaymentQuote(payload.quote);
+      if (payload.status) setPaymentStatus(payload.status);
 
       setPaymentDeclineError(null);
       return true;

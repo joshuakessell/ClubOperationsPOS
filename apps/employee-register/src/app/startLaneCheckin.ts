@@ -20,7 +20,7 @@ export type StartLaneResponse = {
 
 export type StartLaneCheckinResult =
   | { kind: 'already-visiting'; activeCheckin: ActiveCheckinDetails }
-  | { kind: 'error'; message: string }
+  | { kind: 'error'; message: string; code?: string }
   | { kind: 'started'; payload: StartLaneResponse | null };
 
 function parseAlreadyCheckedIn(payload: unknown): ActiveCheckinDetails | null {
@@ -73,5 +73,12 @@ export async function startLaneCheckin(params: {
   }
 
   const msg = getErrorMessage(payload) || `Failed to start check-in (HTTP ${response.status})`;
-  return { kind: 'error', message: msg };
+  const code = (() => {
+    if (!isRecord(payload)) return undefined;
+    if (typeof payload.code === 'string') return payload.code;
+    const error = payload.error;
+    if (isRecord(error) && typeof error.code === 'string') return error.code;
+    return undefined;
+  })();
+  return { kind: 'error', message: msg, code };
 }

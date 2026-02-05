@@ -75,7 +75,15 @@ export function useKioskRealtime({
     role: 'customer',
     kioskToken: kioskToken ?? '',
     enabled: Boolean(lane),
+    reconnectMode: 'aggressive',
   });
+
+  const hasConnectedRef = useRef(false);
+  useEffect(() => {
+    if (realtimeConnected) {
+      hasConnectedRef.current = true;
+    }
+  }, [realtimeConnected]);
 
   const onRealtimeMessage = useCallback(
     (event: MessageEvent) => {
@@ -200,6 +208,7 @@ export function useKioskRealtime({
 
     if (realtimeConnected) return;
 
+    const graceMs = hasConnectedRef.current ? 8000 : 6000;
     pollingDelayTimerRef.current = window.setTimeout(() => {
       if (realtimeConnected) return;
       if (!pollingStartedRef.current) {

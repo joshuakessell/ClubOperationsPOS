@@ -107,7 +107,7 @@ export async function buildFullSessionUpdatedPayload(
   const customer = session.customer_id
     ? (
         await client.query<CustomerRow>(
-          `SELECT id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, past_due_balance, primary_language, notes, id_scan_hash
+          `SELECT id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_type, id_type_other, past_due_balance, primary_language, notes, id_scan_hash
              FROM customers
              WHERE id = $1
              LIMIT 1`,
@@ -155,6 +155,11 @@ export async function buildFullSessionUpdatedPayload(
         idExpirationDate: customer.id_expiration_date ?? null,
       })
     : undefined;
+  const customerIdExpirationDate = customer?.id_expiration_date
+    ? customer.id_expiration_date.toISOString().slice(0, 10)
+    : undefined;
+  const customerIdType = customer?.id_type ?? undefined;
+  const customerIdTypeOther = customer?.id_type_other ?? undefined;
 
   // Prefer a check-in block created by this lane session (when completed)
   const blockForSession = (
@@ -324,6 +329,9 @@ export async function buildFullSessionUpdatedPayload(
     customerDobMonthDay,
     customerLastVisitAt,
     customerNotes: customer?.notes || undefined,
+    customerIdExpirationDate,
+    customerIdType,
+    customerIdTypeOther,
     customerHasEncryptedLookupMarker,
     idScanIssue,
     pastDueBalance: pastDueBalance > 0 ? pastDueBalance : undefined,

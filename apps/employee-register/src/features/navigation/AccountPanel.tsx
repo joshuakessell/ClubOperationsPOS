@@ -15,6 +15,7 @@ export function AccountPanel() {
     startCheckoutFromCustomerAccount,
     handleClearSession,
     selectHomeTab,
+    returnToPreviousHomeTab,
     currentSessionId,
     laneSession,
     customerName,
@@ -29,6 +30,9 @@ export function AccountPanel() {
     customerPrimaryLanguage,
     customerDobMonthDay,
     customerLastVisitAt,
+    customerIdExpirationDate,
+    customerIdType,
+    customerIdTypeOther,
     waitlistDesiredTier,
     waitlistBackupType,
     inventoryAvailable,
@@ -61,6 +65,7 @@ export function AccountPanel() {
         onStartCheckout={startCheckoutFromCustomerAccount}
         onStartRenewal={(activeCheckin) => openRenewalSelection(activeCheckin)}
         onClearSession={() => void handleClearSession().then(() => selectHomeTab('scan'))}
+        onGoBack={returnToPreviousHomeTab}
         currentSessionId={currentSessionId}
         currentSessionCustomerId={laneSession.customerId}
         customerName={customerName}
@@ -75,6 +80,9 @@ export function AccountPanel() {
         customerPrimaryLanguage={customerPrimaryLanguage}
         customerDobMonthDay={customerDobMonthDay}
         customerLastVisitAt={customerLastVisitAt}
+        customerIdExpirationDate={customerIdExpirationDate}
+        customerIdType={customerIdType}
+        customerIdTypeOther={customerIdTypeOther}
         hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
         waitlistDesiredTier={waitlistDesiredTier}
         waitlistBackupType={waitlistBackupType}
@@ -156,6 +164,9 @@ export function AccountPanel() {
             membershipNumber={membershipNumber || null}
             membershipValidUntil={customerMembershipValidUntil || null}
             lastVisitAt={customerLastVisitAt || null}
+            idExpirationDate={customerIdExpirationDate || null}
+            idType={customerIdType || null}
+            idTypeOther={customerIdTypeOther || null}
             hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
             checkinStage={checkinStage}
             waitlistDesiredTier={waitlistDesiredTier}

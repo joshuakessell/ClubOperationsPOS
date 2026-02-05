@@ -349,15 +349,21 @@
 .er-required-modal__carousel {
   display: flex;
   width: 100%;
+  gap: 24px;
   transition: transform 0.35s ease;
   will-change: transform;
+}
+
+.er-required-modal__carousel-viewport {
+  width: 100%;
+  overflow: hidden;
 }
 
 .er-required-modal__panel {
   width: 100%;
   flex: 0 0 100%;
   min-width: 100%;
-  padding-right: 12px;
+  padding-right: 0;
   box-sizing: border-box;
 }
 

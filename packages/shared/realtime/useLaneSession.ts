@@ -47,11 +47,13 @@ export function useLaneSession({
   role,
   kioskToken,
   enabled = true,
+  reconnectMode = 'default',
 }: {
   laneId?: string;
   role: LaneRole;
   kioskToken: string;
   enabled?: boolean;
+  reconnectMode?: 'default' | 'aggressive';
 }): {
   connected: boolean;
   lastMessage: MessageEvent | null;
@@ -66,8 +68,9 @@ export function useLaneSession({
   const useAppSyncEvents = realtimeProvider === 'appsync-events';
   const channelNamespace = getChannelNamespace(env);
   const authUrl = getApiUrl('/api/v1/realtime/auth');
-  const MAX_CONSECUTIVE_FAILURES = 3;
-  const COOLDOWN_MS = 60_000;
+  const MAX_CONSECUTIVE_FAILURES =
+    reconnectMode === 'aggressive' ? Number.MAX_SAFE_INTEGER : 3;
+  const COOLDOWN_MS = reconnectMode === 'aggressive' ? 0 : 60_000;
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
   const [lastError, setLastError] = useState<Event | null>(null);

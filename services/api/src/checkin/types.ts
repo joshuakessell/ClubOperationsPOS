@@ -54,6 +54,8 @@ export interface CustomerRow {
   id_expiration_date?: Date | null;
   id_number?: string | null;
   id_state?: string | null;
+  id_type?: string | null;
+  id_type_other?: string | null;
   banned_until: Date | null;
   past_due_balance?: number;
   primary_language?: string;

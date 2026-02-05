@@ -10,6 +10,8 @@ export type ExtractedIdIdentity = {
   idNumber?: string;
   issuer?: string;
   jurisdiction?: string;
+  idType?: 'STATE_ID' | 'DRIVERS_LICENSE' | 'PASSPORT' | 'OTHER';
+  idTypeOther?: string;
 };
 
 type NormalizedNameParts = {
@@ -147,6 +149,18 @@ function extractAamvaFieldMap(raw: string): Record<string, string> {
   return out;
 }
 
+function inferAamvaIdType(fieldMap: Record<string, string>): 'STATE_ID' | 'DRIVERS_LICENSE' {
+  const normalize = (value: string | undefined) => (value || '').trim().toUpperCase();
+  const classValue = normalize(fieldMap['DCA']);
+  const restrictions = normalize(fieldMap['DCB']);
+  const endorsements = normalize(fieldMap['DCD']);
+  const licenseSignals = [classValue, restrictions, endorsements].filter(Boolean);
+  const hasLicenseSignal = licenseSignals.some(
+    (value) => !['NONE', 'N/A', 'NA', 'ID', 'IDENTIFICATION'].includes(value)
+  );
+  return hasLicenseSignal ? 'DRIVERS_LICENSE' : 'STATE_ID';
+}
+
 function parseAamvaDateToISO(value: string | undefined): string | undefined {
   if (!value) return undefined;
   const digits = value.replace(/\D/g, '');
@@ -202,6 +216,7 @@ export function extractAamvaIdentity(rawNormalized: string): ExtractedIdIdentity
     idNumber: fieldMap['DAQ'] || undefined,
     jurisdiction: fieldMap['DAJ'] || fieldMap['DCI'] || undefined,
     issuer: fieldMap['DAJ'] || fieldMap['DCI'] || undefined,
+    idType: inferAamvaIdType(fieldMap),
   };
 
   if (!fromMap.fullName && fromMap.firstName && fromMap.lastName) {

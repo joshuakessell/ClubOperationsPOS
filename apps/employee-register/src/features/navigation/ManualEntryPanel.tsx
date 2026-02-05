@@ -13,6 +13,13 @@ export function ManualEntryPanel() {
     manualDobDigits,
     setManualDobDigits,
     manualDobIso,
+    manualIdExpirationDigits,
+    setManualIdExpirationDigits,
+    manualIdExpirationIso,
+    manualIdType,
+    setManualIdType,
+    manualIdTypeOther,
+    setManualIdTypeOther,
     manualIdNumber,
     setManualIdNumber,
     isSubmitting,
@@ -73,6 +80,60 @@ export function ManualEntryPanel() {
         />
       </div>
       <div className="form-group">
+        <label htmlFor="manualIdExpiration">ID Expiration Date *</label>
+        <input
+          id="manualIdExpiration"
+          type="text"
+          inputMode="numeric"
+          className="cs-liquid-input"
+          value={formatDobMmDdYyyy(manualIdExpirationDigits)}
+          onChange={(e) => setManualIdExpirationDigits(extractDobDigits(e.target.value))}
+          placeholder="MM/DD/YYYY"
+          disabled={isSubmitting}
+          required
+        />
+      </div>
+      <div className="form-group">
+        <label htmlFor="manualIdType">ID Type *</label>
+        <select
+          id="manualIdType"
+          className="cs-liquid-input"
+          value={manualIdType}
+          onChange={(e) => {
+            const next = e.target.value as typeof manualIdType;
+            setManualIdType(next);
+            if (next !== 'OTHER') {
+              setManualIdTypeOther('');
+            }
+          }}
+          disabled={isSubmitting}
+          required
+        >
+          <option value="" disabled>
+            Select ID type
+          </option>
+          <option value="STATE_ID">State ID</option>
+          <option value="DRIVERS_LICENSE">Drivers License</option>
+          <option value="PASSPORT">Passport</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
+      {manualIdType === 'OTHER' ? (
+        <div className="form-group">
+          <label htmlFor="manualIdTypeOther">Specify ID Type *</label>
+          <input
+            id="manualIdTypeOther"
+            type="text"
+            className="cs-liquid-input"
+            value={manualIdTypeOther}
+            onChange={(e) => setManualIdTypeOther(e.target.value)}
+            placeholder="Enter ID type"
+            disabled={isSubmitting}
+            required
+          />
+        </div>
+      ) : null}
+      <div className="form-group">
         <label htmlFor="manualIdNumber">License / ID Number</label>
         <input
           id="manualIdNumber"
@@ -93,7 +154,10 @@ export function ManualEntryPanel() {
             manualEntrySubmitting ||
             !manualFirstName.trim() ||
             !manualLastName.trim() ||
-            !manualDobIso
+            !manualDobIso ||
+            !manualIdExpirationIso ||
+            !manualIdType ||
+            (manualIdType === 'OTHER' && !manualIdTypeOther.trim())
           }
         >
           {isSubmitting || manualEntrySubmitting ? 'Submitting...' : 'Add Customer'}
@@ -106,6 +170,9 @@ export function ManualEntryPanel() {
             setManualFirstName('');
             setManualLastName('');
             setManualDobDigits('');
+            setManualIdExpirationDigits('');
+            setManualIdType('');
+            setManualIdTypeOther('');
             setManualIdNumber('');
             selectHomeTab('scan');
           }}
