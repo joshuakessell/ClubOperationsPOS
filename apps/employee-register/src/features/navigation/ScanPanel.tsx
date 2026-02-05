@@ -10,13 +10,46 @@ export function ScanPanel() {
     scanReady,
     scanBlockedReason,
     scanOverlayActive,
+    scanCameraOverlayVisible,
+    scanCameraStatus,
+    scanCameraError,
+    scanCameraActive,
+    scanCameraVideoRef,
     scanInputRef,
     scanInputHandlers,
     scanInputEnabled,
   } = useEmployeeRegisterState();
 
+  const cameraStatusMessage = !scanReady
+    ? `Scanner paused: ${scanBlockedReason || 'Unavailable'}`
+    : scanCameraStatus === 'starting'
+      ? 'Starting front camera…'
+      : scanCameraError
+        ? scanCameraError
+        : 'Align barcode within the frame to scan.';
+
   return (
     <PanelShell align="center">
+      {scanCameraOverlayVisible ? (
+        <div className="er-camera-scan-overlay" role="status" aria-live="polite">
+          <div className="er-camera-scan-card cs-liquid-card">
+            <div className="er-camera-scan-header">
+              <div>
+                <div className="er-camera-scan-title">Scan ID</div>
+                <div className="er-camera-scan-subtitle">
+                  Front camera active for driver licenses and memberships.
+                </div>
+              </div>
+              <div className="er-camera-scan-status">{cameraStatusMessage}</div>
+            </div>
+            <div className="er-camera-scan-video" data-active={scanCameraActive ? 'true' : 'false'}>
+              <video ref={scanCameraVideoRef} autoPlay muted playsInline />
+              <div className="er-camera-scan-reticle" aria-hidden="true" />
+              <div className="er-camera-scan-line" aria-hidden="true" />
+            </div>
+          </div>
+        </div>
+      ) : null}
       <div style={{ fontSize: '4rem', lineHeight: 1, marginBottom: '0.5rem' }} aria-hidden="true">
         📷
       </div>
