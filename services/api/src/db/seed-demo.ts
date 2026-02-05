@@ -120,6 +120,30 @@ type DbClient = {
   query: <T = unknown>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
 };
 
+const PG_INSUFFICIENT_PRIVILEGE = '42501';
+
+function isReplicaRolePermissionError(error: unknown): boolean {
+  if (!error || typeof error !== 'object') return false;
+  const code = (error as { code?: string }).code;
+  if (code === PG_INSUFFICIENT_PRIVILEGE) return true;
+  const message = (error as { message?: string }).message;
+  return typeof message === 'string' && /replication_role|superuser|permission/i.test(message);
+}
+
+async function tryEnableReplicaRole(client: DbClient): Promise<void> {
+  try {
+    await client.query('SET LOCAL session_replication_role = replica');
+  } catch (error) {
+    if (isReplicaRolePermissionError(error)) {
+      console.warn(
+        '⚠️  Unable to set session_replication_role=replica (insufficient privileges). Continuing with FK checks enabled.'
+      );
+      return;
+    }
+    throw error;
+  }
+}
+
 async function ensureSnapshotSchema(client: DbClient) {
   await client.query(`CREATE SCHEMA IF NOT EXISTS demo_snapshot`);
   for (const table of DEMO_SNAPSHOT_TABLES) {
@@ -132,29 +156,21 @@ async function ensureSnapshotSchema(client: DbClient) {
 
 async function createDemoSnapshot(client: DbClient): Promise<void> {
   await ensureSnapshotSchema(client);
-  await client.query('SET session_replication_role = replica');
-  try {
-    for (const table of DEMO_SNAPSHOT_TABLES) {
-      await client.query(`TRUNCATE demo_snapshot.${table}`);
-      await client.query(`INSERT INTO demo_snapshot.${table} SELECT * FROM public.${table}`);
-    }
-  } finally {
-    await client.query('SET session_replication_role = origin');
+  await tryEnableReplicaRole(client);
+  for (const table of DEMO_SNAPSHOT_TABLES) {
+    await client.query(`TRUNCATE demo_snapshot.${table}`);
+    await client.query(`INSERT INTO demo_snapshot.${table} SELECT * FROM public.${table}`);
   }
 }
 
 async function restoreDemoSnapshot(client: DbClient): Promise<void> {
   await ensureSnapshotSchema(client);
-  await client.query('SET session_replication_role = replica');
-  try {
-    await client.query(
-      `TRUNCATE ${DEMO_SNAPSHOT_TABLES.map((t) => `public.${t}`).join(', ')} RESTART IDENTITY CASCADE`
-    );
-    for (const table of DEMO_SNAPSHOT_TABLES) {
-      await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
-    }
-  } finally {
-    await client.query('SET session_replication_role = origin');
+  await tryEnableReplicaRole(client);
+  await client.query(
+    `TRUNCATE ${DEMO_SNAPSHOT_TABLES.map((t) => `public.${t}`).join(', ')} RESTART IDENTITY CASCADE`
+  );
+  for (const table of DEMO_SNAPSHOT_TABLES) {
+    await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
   }
 }
 
