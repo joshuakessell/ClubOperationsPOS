@@ -122,6 +122,16 @@ type DbClient = {
 
 const PG_INSUFFICIENT_PRIVILEGE = '42501';
 
+type TableColumn = {
+  name: string;
+  type: string;
+  generated: boolean;
+};
+
+function quoteIdent(value: string): string {
+  return `"${value.replace(/"/g, '""')}"`;
+}
+
 function isReplicaRolePermissionError(error: unknown): boolean {
   if (!error || typeof error !== 'object') return false;
   const code = (error as { code?: string }).code;
@@ -144,6 +154,55 @@ async function tryEnableReplicaRole(client: DbClient): Promise<void> {
   }
 }
 
+async function loadTableColumns(
+  client: DbClient,
+  schema: string,
+  table: string
+): Promise<TableColumn[]> {
+  const result = await client.query<{
+    column_name: string;
+    data_type: string;
+    generated: string;
+  }>(
+    `SELECT
+       a.attname as column_name,
+       pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type,
+       a.attgenerated as generated
+     FROM pg_attribute a
+     JOIN pg_class c ON c.oid = a.attrelid
+     JOIN pg_namespace n ON n.oid = c.relnamespace
+     WHERE n.nspname = $1
+       AND c.relname = $2
+       AND a.attnum > 0
+       AND NOT a.attisdropped
+     ORDER BY a.attnum`,
+    [schema, table]
+  );
+
+  return result.rows.map((row) => ({
+    name: row.column_name,
+    type: row.data_type,
+    generated: row.generated !== '',
+  }));
+}
+
+async function ensureSnapshotColumns(
+  client: DbClient,
+  table: string,
+  publicColumns: TableColumn[]
+): Promise<void> {
+  const snapshotColumns = await loadTableColumns(client, 'demo_snapshot', table);
+  const snapshotColumnNames = new Set(snapshotColumns.map((column) => column.name));
+
+  for (const column of publicColumns) {
+    if (snapshotColumnNames.has(column.name)) continue;
+    await client.query(
+      `ALTER TABLE ${quoteIdent('demo_snapshot')}.${quoteIdent(table)}
+       ADD COLUMN IF NOT EXISTS ${quoteIdent(column.name)} ${column.type}`
+    );
+  }
+}
+
 async function ensureSnapshotSchema(client: DbClient) {
   await client.query(`CREATE SCHEMA IF NOT EXISTS demo_snapshot`);
   for (const table of DEMO_SNAPSHOT_TABLES) {
@@ -159,7 +218,16 @@ async function createDemoSnapshot(client: DbClient): Promise<void> {
   await tryEnableReplicaRole(client);
   for (const table of DEMO_SNAPSHOT_TABLES) {
     await client.query(`TRUNCATE demo_snapshot.${table}`);
-    await client.query(`INSERT INTO demo_snapshot.${table} SELECT * FROM public.${table}`);
+    const publicColumns = (await loadTableColumns(client, 'public', table)).filter(
+      (column) => !column.generated
+    );
+    await ensureSnapshotColumns(client, table, publicColumns);
+    if (publicColumns.length === 0) continue;
+    const columnList = publicColumns.map((column) => quoteIdent(column.name)).join(', ');
+    await client.query(
+      `INSERT INTO demo_snapshot.${table} (${columnList})
+       SELECT ${columnList} FROM public.${table}`
+    );
   }
 }
 
@@ -169,9 +237,29 @@ async function restoreDemoSnapshot(client: DbClient): Promise<void> {
   await client.query(
     `TRUNCATE ${DEMO_SNAPSHOT_TABLES.map((t) => `public.${t}`).join(', ')} RESTART IDENTITY CASCADE`
   );
-  for (const table of DEMO_SNAPSHOT_TABLES) {
-    await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
-  }
+    for (const table of DEMO_SNAPSHOT_TABLES) {
+      const publicColumns = (await loadTableColumns(client, 'public', table)).filter(
+        (column) => !column.generated
+      );
+      const snapshotColumns = await loadTableColumns(client, 'demo_snapshot', table);
+      const snapshotColumnNames = new Set(snapshotColumns.map((column) => column.name));
+      const missingColumns = publicColumns.filter(
+        (column) => !snapshotColumnNames.has(column.name)
+      );
+      if (missingColumns.length > 0) {
+        throw new Error(
+          `Demo snapshot table "${table}" is missing columns: ${missingColumns
+            .map((column) => column.name)
+            .join(', ')}. Re-run demo seed with DEMO_FORCE_RESEED=true to rebuild snapshots.`
+        );
+      }
+      if (publicColumns.length === 0) continue;
+      const columnList = publicColumns.map((column) => quoteIdent(column.name)).join(', ');
+      await client.query(
+        `INSERT INTO public.${table} (${columnList})
+         SELECT ${columnList} FROM demo_snapshot.${table}`
+      );
+    }
 }
 
 async function shiftDemoTimestamps(client: DbClient, deltaMs: number): Promise<void> {
