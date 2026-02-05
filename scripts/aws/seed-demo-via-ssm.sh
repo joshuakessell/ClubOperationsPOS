@@ -69,6 +69,7 @@ DEMO_INCREMENTAL="${DEMO_INCREMENTAL:-true}"
 DEMO_RESET_ON_STARTUP="${DEMO_RESET_ON_STARTUP:-true}"
 DEMO_FORCE_RESEED="${DEMO_FORCE_RESEED:-false}"
 DEMO_SHIFT_REGENERATE_PDFS="${DEMO_SHIFT_REGENERATE_PDFS:-true}"
+RESET_DEMO_DB="${RESET_DEMO_DB:-false}"
 
 STOP_INSTANCE_ON_EXIT="${STOP_INSTANCE_ON_EXIT:-true}"
 SKIP_DB_MIGRATIONS="${SKIP_DB_MIGRATIONS:-}"
@@ -315,6 +316,12 @@ env "${db_env[@]}" pnpm exec tsx scripts/wait-for-db.ts
 
 if [[ -z "$SKIP_DB_MIGRATIONS" ]]; then
   env "${db_env[@]}" pnpm exec tsx scripts/migrate.ts
+fi
+
+if [[ "$RESET_DEMO_DB" == "true" ]]; then
+  echo "RESET_DEMO_DB=true: forcing full demo reseed (DEMO_FORCE_RESEED=true, DEMO_INCREMENTAL=false)."
+  DEMO_FORCE_RESEED="true"
+  DEMO_INCREMENTAL="false"
 fi
 
 env \

@@ -1,9 +1,13 @@
 name: Seed Demo DB (dev)
 
 on:
-  schedule:
-    - cron: '0 0 * * *'
   workflow_dispatch:
+    inputs:
+      reset_demo_db:
+        description: 'Force a full demo reseed (one-time reset)'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   group: seed-demo-dev
@@ -63,5 +67,6 @@ jobs:
         env:
           DEMO_INCREMENTAL: 'true'
           DEMO_RESET_ON_STARTUP: 'true'
+          RESET_DEMO_DB: ${{ inputs.reset_demo_db || 'false' }}
           DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
         run: scripts/aws/seed-demo-via-ssm.sh
