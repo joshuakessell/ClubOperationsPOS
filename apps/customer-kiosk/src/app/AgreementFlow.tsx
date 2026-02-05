@@ -12,6 +12,7 @@ import { getErrorMessage, readJson } from '@club-ops/ui';
 import { t } from '../i18n';
 import { AgreementScreen, type Agreement } from '../screens/AgreementScreen';
 import type { SessionState } from '../utils/membership';
+import type { KioskNotice } from './notice';
 
 interface AgreementFlowProps {
   apiBase: string;
@@ -23,6 +24,8 @@ interface AgreementFlowProps {
   welcomeOverlay: ReactNode;
   isSubmitting: boolean;
   setIsSubmitting: Dispatch<SetStateAction<boolean>>;
+  notice?: KioskNotice | null;
+  showNotice: (notice: KioskNotice, ttlMs?: number) => void;
 }
 
 type SignatureEvent = MouseEvent<HTMLCanvasElement> | TouchEvent<HTMLCanvasElement>;
@@ -37,6 +40,8 @@ export function AgreementFlow({
   welcomeOverlay,
   isSubmitting,
   setIsSubmitting,
+  notice,
+  showNotice,
 }: AgreementFlowProps) {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
   const [agreed, setAgreed] = useState(false);
@@ -99,13 +104,13 @@ export function AgreementFlow({
         });
       } catch (error) {
         console.error('Failed to load agreement:', error);
-        alert(t(lang, 'error.loadAgreement'));
+        showNotice({ tone: 'warning', title: t(lang, 'error.loadAgreement') });
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [apiBase, session.customerPrimaryLanguage, session.sessionId]);
+  }, [apiBase, session.customerPrimaryLanguage, session.sessionId, showNotice]);
 
   const handleSignatureStart = (e: SignatureEvent) => {
     isDrawingRef.current = true;
@@ -168,7 +173,7 @@ export function AgreementFlow({
   const handleSubmitAgreement = async () => {
     if (!agreed || !signatureData || !session.sessionId || !hasScrolledAgreement) {
       const lang = session.customerPrimaryLanguage;
-      alert(t(lang, 'signatureRequired'));
+      showNotice({ tone: 'warning', title: t(lang, 'signatureRequired') });
       return;
     }
     if (!lane) return;
@@ -193,7 +198,10 @@ export function AgreementFlow({
       }
     } catch (error) {
       console.error('Failed to sign agreement:', error);
-      alert(t(session.customerPrimaryLanguage, 'error.signAgreement'));
+      showNotice({
+        tone: 'warning',
+        title: t(session.customerPrimaryLanguage, 'error.signAgreement'),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -213,6 +221,7 @@ export function AgreementFlow({
       isSubmitting={isSubmitting}
       orientationOverlay={orientationOverlay}
       welcomeOverlay={welcomeOverlay}
+      notice={notice}
       agreementScrollRef={agreementScrollRef}
       signatureCanvasRef={signatureCanvasRef}
       onAgreeChange={setAgreed}

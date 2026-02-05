@@ -4,6 +4,7 @@ import { deriveWaitlistEligibility } from '../../../shared/derive/waitlistEligib
 import { API_BASE } from '../shared/api';
 import type { HomeTab, StaffSession } from '../shared/types';
 import { useWaitlistDataState, type WaitlistEntry } from './useWaitlistDataState';
+import type { ToastNotifier } from '../shared/notifications';
 
 type RegisterSession = {
   employeeId: string;
@@ -19,6 +20,7 @@ type Params = {
   selectHomeTab: (tab: HomeTab) => void;
   setIsSubmitting: (value: boolean) => void;
   setPaymentDeclineError: (value: string | null) => void;
+  notifications: ToastNotifier;
   onUnauthorized?: () => void;
 };
 
@@ -29,6 +31,7 @@ export function useWaitlistUpgradeState({
   selectHomeTab,
   setIsSubmitting,
   setPaymentDeclineError,
+  notifications,
   onUnauthorized,
 }: Params) {
   const {
@@ -95,7 +98,7 @@ export function useWaitlistUpgradeState({
       entry.desiredTier !== 'DOUBLE' &&
       entry.desiredTier !== 'SPECIAL'
     ) {
-      alert('Only STANDARD/DOUBLE/SPECIAL upgrades can be offered.');
+      notifications.warn('Only STANDARD/DOUBLE/SPECIAL upgrades can be offered.');
       return;
     }
     dismissUpgradePulse();
@@ -127,11 +130,11 @@ export function useWaitlistUpgradeState({
 
   const handleStartUpgradePayment = async (entry: WaitlistEntry) => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
     if (!entry.roomId) {
-      alert('No reserved room found for this offer. Refresh and retry.');
+      notifications.warn('No reserved room found for this offer. Refresh and retry.');
       return;
     }
 
@@ -189,7 +192,7 @@ export function useWaitlistUpgradeState({
       setShowUpgradePaymentModal(true);
     } catch (error) {
       console.error('Failed to start upgrade:', error);
-      alert(error instanceof Error ? error.message : 'Failed to start upgrade');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to start upgrade');
     } finally {
       setIsSubmitting(false);
     }
@@ -202,7 +205,7 @@ export function useWaitlistUpgradeState({
 
   const handleUpgradePaymentFlow = async (method: 'CREDIT' | 'CASH') => {
     if (!upgradePaymentIntentId || !session?.sessionToken || !upgradeContext) {
-      alert('No upgrade payment intent available.');
+      notifications.warn('No upgrade payment intent available.');
       return;
     }
 
@@ -253,7 +256,7 @@ export function useWaitlistUpgradeState({
       dismissUpgradePulse();
     } catch (error) {
       console.error('Failed to process upgrade payment:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process upgrade payment');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to process upgrade payment');
     } finally {
       setIsSubmitting(false);
     }

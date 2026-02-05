@@ -1,31 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getApiUrl } from '@club-ops/shared';
+import { ManualCheckoutPanelConfirmStep } from '../manual-checkout/ManualCheckoutPanelConfirmStep';
+import { ManualCheckoutPanelSelectStep } from '../manual-checkout/ManualCheckoutPanelSelectStep';
+import type { ManualCheckoutStep, ManualCandidate, ResolveResponse } from '../manual-checkout/types';
 import { PanelCard } from '../../../views/PanelCard';
 import { PanelHeader } from '../../../views/PanelHeader';
-
-type Step = 'select' | 'confirm';
-
-type ManualCandidate = {
-  occupancyId: string;
-  resourceType: 'ROOM' | 'LOCKER';
-  number: string;
-  customerName: string;
-  checkinAt: string | Date;
-  scheduledCheckoutAt: string | Date;
-  isOverdue: boolean;
-};
-
-type ResolveResponse = {
-  occupancyId: string;
-  resourceType: 'ROOM' | 'LOCKER';
-  number: string;
-  customerName: string;
-  checkinAt: string | Date;
-  scheduledCheckoutAt: string | Date;
-  lateMinutes: number;
-  fee: number;
-  banApplied: boolean;
-};
 
 export interface ManualCheckoutPanelProps {
   sessionToken: string;
@@ -36,33 +15,6 @@ export interface ManualCheckoutPanelProps {
   title?: string;
 }
 
-function toDate(value: string | Date): Date {
-  return value instanceof Date ? value : new Date(value);
-}
-
-function formatClockTime(value: string | Date): string {
-  const d = toDate(value);
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function formatLateDuration(minutesLate: number): string {
-  const total = Math.max(0, Math.floor(minutesLate));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return `${h}:${String(m).padStart(2, '0')}`;
-}
-
-function formatDeltaMinutesLabel(scheduledCheckoutAt: string | Date): {
-  label: string;
-  color: string;
-} {
-  const scheduled = toDate(scheduledCheckoutAt);
-  const diffMs = scheduled.getTime() - Date.now();
-  const mins = Math.max(0, Math.ceil(Math.abs(diffMs) / 60000));
-  const hmm = formatLateDuration(mins);
-  if (diffMs < 0) return { label: `Past ${hmm}`, color: '#ef4444' };
-  return { label: `In ${hmm}`, color: '#fbbf24' };
-}
 
 export function ManualCheckoutPanel({
   sessionToken,
@@ -72,7 +24,7 @@ export function ManualCheckoutPanel({
   entryMode = 'default',
   title = 'Checkout',
 }: ManualCheckoutPanelProps) {
-  const [step, setStep] = useState<Step>('select');
+  const [step, setStep] = useState<ManualCheckoutStep>('select');
   const [candidates, setCandidates] = useState<ManualCandidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [candidatesError, setCandidatesError] = useState<string | null>(null);
@@ -91,6 +43,19 @@ export function ManualCheckoutPanel({
     if (selectedOccupancyIds.length > 0) return true;
     return typedNumber.trim().length > 0;
   }, [selectedOccupancyIds.length, typedNumber]);
+
+  const handleTypedNumberChange = useCallback((value: string) => {
+    setTypedNumber(value);
+    setSelectedOccupancyIds([]);
+  }, []);
+
+  const handleCandidateToggle = useCallback((occupancyId: string) => {
+    setTypedNumber('');
+    setSelectedOccupancyIds((prev) => {
+      if (prev.includes(occupancyId)) return prev.filter((id) => id !== occupancyId);
+      return [...prev, occupancyId];
+    });
+  }, []);
 
   // Reset per mount (and per prefill change)
   useEffect(() => {
@@ -292,229 +257,25 @@ export function ManualCheckoutPanel({
 
       <div style={{ marginTop: '0.75rem' }}>
         {step === 'select' ? (
-          <>
-            {entryMode === 'direct-confirm' ? (
-              <div style={{ padding: '0.75rem', color: '#94a3b8' }}>Loading checkout…</div>
-            ) : (
-              <>
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '0.75rem',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div className="cs-liquid-search" style={{ flex: 1, minWidth: 280 }}>
-                    <input
-                      className="cs-liquid-input cs-liquid-search__input"
-                      placeholder="Enter room/locker number…"
-                      value={typedNumber}
-                      onChange={(e) => {
-                        setTypedNumber(e.target.value);
-                        setSelectedOccupancyIds([]);
-                      }}
-                      disabled={isSubmitting}
-                    />
-                    <div className="cs-liquid-search__icon" aria-hidden="true">
-                      🔎
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="cs-liquid-button"
-                    onClick={() => void handleContinue()}
-                    disabled={!canContinue || isSubmitting}
-                  >
-                    Continue
-                  </button>
-                </div>
-
-                <div className="er-checkout-list">
-                  <div className="er-card-subtitle" style={{ marginBottom: '0.5rem' }}>
-                    Or select from occupied units
-                  </div>
-                  {loadingCandidates ? (
-                    <div style={{ padding: '0.75rem', color: '#94a3b8' }}>Loading…</div>
-                  ) : candidates.length === 0 ? (
-                    <div style={{ padding: '0.75rem', color: '#94a3b8' }}>
-                      No occupied rooms/lockers
-                    </div>
-                  ) : (
-                    <div style={{ display: 'grid', gap: '0.5rem' }}>
-                      {candidates.map((c) => {
-                        const selected = selectedOccupancyIds.includes(c.occupancyId);
-                        const label = `${c.resourceType === 'ROOM' ? 'Room' : 'Locker'} ${c.number}`;
-                        const scheduled = toDate(c.scheduledCheckoutAt);
-                        const delta = formatDeltaMinutesLabel(scheduled);
-                        return (
-                          <button
-                            key={c.occupancyId}
-                            type="button"
-                            className={[
-                              'cs-liquid-card',
-                              'er-inv-item',
-                              selected ? 'er-inv-item--selected' : '',
-                            ]
-                              .filter(Boolean)
-                              .join(' ')}
-                            aria-pressed={selected}
-                            onClick={() => {
-                              setTypedNumber('');
-                              setSelectedOccupancyIds((prev) => {
-                                if (prev.includes(c.occupancyId))
-                                  return prev.filter((id) => id !== c.occupancyId);
-                                return [...prev, c.occupancyId];
-                              });
-                            }}
-                          >
-                            <div className="er-inv-occupied-row">
-                              <div className="er-inv-occupied-number">{label}</div>
-                              <div className="er-inv-occupied-customer">
-                                <span className="er-inv-occupied-customer-text">
-                                  {c.customerName || '—'}
-                                </span>
-                              </div>
-                              <div className="er-inv-occupied-checkout">
-                                <div className="er-inv-occupied-time">
-                                  Checkout Time: {formatClockTime(scheduled)}
-                                </div>
-                                <div
-                                  className="er-inv-occupied-duration"
-                                  style={{ color: delta.color }}
-                                >
-                                  {delta.label}
-                                </div>
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </>
+          <ManualCheckoutPanelSelectStep
+            entryMode={entryMode}
+            typedNumber={typedNumber}
+            isSubmitting={isSubmitting}
+            canContinue={canContinue}
+            candidates={candidates}
+            loadingCandidates={loadingCandidates}
+            selectedOccupancyIds={selectedOccupancyIds}
+            onTypedNumberChange={handleTypedNumberChange}
+            onCandidateToggle={handleCandidateToggle}
+            onContinue={() => void handleContinue()}
+          />
         ) : (
-          <>
-            {confirmQueue.length === 0 ? (
-              <div style={{ padding: '0.75rem', color: '#94a3b8' }}>Loading…</div>
-            ) : (
-              <div style={{ display: 'grid', gap: '0.75rem' }}>
-                <div
-                  className="er-text-sm"
-                  style={{ color: '#94a3b8', fontWeight: 900, textAlign: 'center' }}
-                >
-                  {confirmIndex + 1} of {confirmQueue.length}
-                </div>
-                <div style={{ textAlign: 'center', fontSize: '1.5rem', fontWeight: 900 }}>
-                  {confirmQueue[confirmIndex]?.customerName || '—'}
-                </div>
-
-                <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-                  <div className="er-text-sm" style={{ color: '#94a3b8', marginBottom: '0.25rem' }}>
-                    Checkout
-                  </div>
-                  <div style={{ fontWeight: 900 }}>
-                    {confirmQueue[confirmIndex]?.resourceType === 'ROOM' ? 'Room' : 'Locker'}{' '}
-                    {confirmQueue[confirmIndex]?.number}
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-                    <div
-                      className="er-text-sm"
-                      style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                    >
-                      Check-in
-                    </div>
-                    <div style={{ fontWeight: 900 }}>
-                      {formatClockTime(confirmQueue[confirmIndex]!.checkinAt)}
-                    </div>
-                  </div>
-                  <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-                    <div
-                      className="er-text-sm"
-                      style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                    >
-                      Scheduled checkout
-                    </div>
-                    <div style={{ fontWeight: 900 }}>
-                      {formatClockTime(confirmQueue[confirmIndex]!.scheduledCheckoutAt)}
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(2, minmax(0, 1fr))',
-                    gap: '0.75rem',
-                  }}
-                >
-                  <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-                    <div
-                      className="er-text-sm"
-                      style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                    >
-                      Late
-                    </div>
-                    <div style={{ fontWeight: 900 }}>
-                      {confirmQueue[confirmIndex]!.lateMinutes > 0
-                        ? formatLateDuration(confirmQueue[confirmIndex]!.lateMinutes)
-                        : '—'}
-                    </div>
-                  </div>
-                  <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-                    <div
-                      className="er-text-sm"
-                      style={{ color: '#94a3b8', marginBottom: '0.25rem' }}
-                    >
-                      Fee
-                    </div>
-                    <div style={{ fontWeight: 900 }}>
-                      ${confirmQueue[confirmIndex]!.fee.toFixed(2)}
-                    </div>
-                  </div>
-                </div>
-
-                {confirmQueue[confirmIndex]!.banApplied && (
-                  <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-                    <div style={{ fontWeight: 900, color: '#f59e0b' }}>⚠️ Ban applied</div>
-                    <div className="er-text-sm" style={{ color: '#94a3b8' }}>
-                      The account is now blocked from check-in until cleared.
-                    </div>
-                  </div>
-                )}
-
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '0.75rem',
-                    justifyContent: 'flex-end',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="cs-liquid-button"
-                    onClick={() => void handleConfirm()}
-                    disabled={isSubmitting}
-                  >
-                    Complete checkout
-                  </button>
-                </div>
-              </div>
-            )}
-          </>
+          <ManualCheckoutPanelConfirmStep
+            confirmQueue={confirmQueue}
+            confirmIndex={confirmIndex}
+            isSubmitting={isSubmitting}
+            onConfirm={() => void handleConfirm()}
+          />
         )}
       </div>
     </PanelCard>

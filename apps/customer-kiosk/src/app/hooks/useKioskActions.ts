@@ -3,6 +3,7 @@ import type { Language } from '../../i18n';
 import { t } from '../../i18n';
 import { getErrorMessage, readJson } from '@club-ops/ui';
 import type { SessionState } from '../../utils/membership';
+import type { KioskNotice } from '../notice';
 
 type KioskAuthHeaders = (extra?: Record<string, string>) => Record<string, string>;
 
@@ -15,6 +16,7 @@ export function useKioskActions({
   setIsSubmitting,
   setView,
   resetToIdle,
+  showNotice,
 }: {
   apiBase: string;
   lane: string | null;
@@ -33,6 +35,7 @@ export function useKioskActions({
       | 'complete'
   ) => void;
   resetToIdle: () => void;
+  showNotice: (notice: KioskNotice, ttlMs?: number) => void;
 }) {
   const handleLanguageSelection = useCallback(
     async (language: Language) => {
@@ -62,12 +65,15 @@ export function useKioskActions({
         }
       } catch (error) {
         console.error('Failed to set language:', error);
-        alert(t(session.customerPrimaryLanguage, 'error.setLanguage'));
+        showNotice({
+          tone: 'warning',
+          title: t(session.customerPrimaryLanguage, 'error.setLanguage'),
+        });
       } finally {
         setIsSubmitting(false);
       }
     },
-    [apiBase, kioskAuthHeaders, lane, session, setIsSubmitting]
+    [apiBase, kioskAuthHeaders, lane, session, setIsSubmitting, showNotice]
   );
 
   const handleKioskAcknowledge = useCallback(async () => {

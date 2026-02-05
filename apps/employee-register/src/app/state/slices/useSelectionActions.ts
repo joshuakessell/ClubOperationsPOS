@@ -1,6 +1,7 @@
 import { getErrorMessage } from '@club-ops/ui';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type InventoryAvailable = {
   rooms: Record<string, number>;
@@ -25,6 +26,7 @@ type Params = {
   setSelectionConfirmed: (value: boolean) => void;
   setCustomerSelectedType: (value: string | null) => void;
   laneSessionActions: LaneSessionActions;
+  notifications: ToastNotifier;
 };
 
 export function useSelectionActions({
@@ -39,6 +41,7 @@ export function useSelectionActions({
   setSelectionConfirmed,
   setCustomerSelectedType,
   laneSessionActions,
+  notifications,
 }: Params) {
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
@@ -71,7 +74,7 @@ export function useSelectionActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to propose selection');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to propose selection');
     } finally {
       setIsSubmitting(false);
     }
@@ -127,7 +130,7 @@ export function useSelectionActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to select rental');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to select rental');
     } finally {
       setIsSubmitting(false);
     }
@@ -170,7 +173,7 @@ export function useSelectionActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to select waitlist backup');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to select waitlist backup');
     } finally {
       setIsSubmitting(false);
     }
@@ -215,7 +218,7 @@ export function useSelectionActions({
 
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to select rental');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to select rental');
     } finally {
       setIsSubmitting(false);
     }
@@ -260,7 +263,7 @@ export function useSelectionActions({
 
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to select waitlist backup');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to select waitlist backup');
     } finally {
       setIsSubmitting(false);
     }
@@ -295,7 +298,7 @@ export function useSelectionActions({
       await pollOnce();
     } catch (error) {
       console.error('Failed to confirm selection:', error);
-      alert(
+      notifications.warn(
         error instanceof Error ? error.message : 'Failed to confirm selection. Please try again.'
       );
     } finally {
@@ -321,7 +324,7 @@ export function useSelectionActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to bypass agreement');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to bypass agreement');
     } finally {
       setIsSubmitting(false);
     }
@@ -348,7 +351,7 @@ export function useSelectionActions({
       }
       await pollOnce();
     } catch (error) {
-      alert(error instanceof Error ? error.message : 'Failed to confirm physical agreement');
+      notifications.warn(error instanceof Error ? error.message : 'Failed to confirm physical agreement');
     } finally {
       setIsSubmitting(false);
     }

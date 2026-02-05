@@ -3,6 +3,7 @@ import { getErrorMessage } from '@club-ops/ui';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
 import { generateUUID, parseStaffSession } from '../shared/utils';
+import type { ToastNotifier } from '../shared/notifications';
 
 type RegisterSession = {
   employeeId: string;
@@ -15,12 +16,14 @@ type UseStaffSessionStateParams = {
   currentSessionId: string | null;
   customerName: string;
   checkoutAt: string | null;
+  notifications: ToastNotifier;
 };
 
 export function useStaffSessionState({
   currentSessionId,
   customerName,
   checkoutAt,
+  notifications,
 }: UseStaffSessionStateParams) {
   const [session, setSession] = useState<StaffSession | null>(() => {
     const stored = localStorage.getItem('staff_session');
@@ -114,7 +117,7 @@ export function useStaffSessionState({
         );
         if (!confirmed) return;
         if (!session?.sessionToken) {
-          alert('Not authenticated');
+          notifications.warn('Not authenticated');
           return;
         }
         const resetResponse = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/reset`, {
@@ -125,7 +128,7 @@ export function useStaffSessionState({
         });
         if (!resetResponse.ok) {
           const errorPayload: unknown = await resetResponse.json().catch(() => null);
-          alert(getErrorMessage(errorPayload) || 'Failed to reset lane session');
+          notifications.warn(getErrorMessage(errorPayload) || 'Failed to reset lane session');
           return;
         }
       }
@@ -164,7 +167,15 @@ export function useStaffSessionState({
         window.location.reload();
       }
     },
-    [checkoutAt, currentSessionId, customerName, deviceId, lane, session?.sessionToken]
+    [
+      checkoutAt,
+      currentSessionId,
+      customerName,
+      deviceId,
+      lane,
+      notifications,
+      session?.sessionToken,
+    ]
   );
 
   const handleCloseOut = useCallback(async () => {

@@ -143,7 +143,7 @@ export function useRegisterRealtimeState({
     },
     pushBottomToast,
     onAssignmentFailed: (payload: AssignmentFailedPayload) => {
-      alert('Assignment failed: ' + payload.reason);
+      pushBottomToast({ message: `Assignment failed: ${payload.reason}`, tone: 'warning' });
       setSelectedInventoryItem(null);
     },
     onCustomerConfirmed: () => {

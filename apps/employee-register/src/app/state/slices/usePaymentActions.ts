@@ -3,19 +3,9 @@ import { getErrorMessage, readJson } from '@club-ops/ui';
 import { RETAIL_CATALOG } from '../../../components/retail/retailCatalog';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
-import type { PaymentQuoteViewModel } from '../../registerLaneSessionReducer';
+import type { PaymentQuoteSetter, RegisterSession } from './paymentTypes';
 
-type PaymentQuote = PaymentQuoteViewModel | null;
-type PaymentQuoteSetter = (value: PaymentQuote | ((prev: PaymentQuote) => PaymentQuote)) => void;
-
-type RegisterSession = {
-  employeeId: string;
-  employeeName: string;
-  registerNumber: number;
-  deviceId: string;
-};
-
-type Params = {
+export type PaymentActionsParams = {
   session: StaffSession | null;
   registerSession: RegisterSession | null;
   lane: string;
@@ -24,33 +14,24 @@ type Params = {
   paymentIntentId: string | null;
   paymentStatus: 'DUE' | 'PAID' | null;
   addOnCart: Record<string, number>;
-  setIsSubmitting: (value: boolean) => void;
-  setPaymentIntentId: (value: string | null) => void;
-  setPaymentQuote: PaymentQuoteSetter;
-  setPaymentStatus: (value: 'DUE' | 'PAID' | null) => void;
-  setPaymentDeclineError: (value: string | null) => void;
-  setSuccessToastMessage: (value: string | null) => void;
-  resetAddOnCart: () => void;
-  setShowAddOnSaleModal: (value: boolean) => void;
-  setCustomerName: (value: string) => void;
-  setMembershipNumber: (value: string) => void;
-  setCurrentSessionId: (value: string | null) => void;
-  setCurrentSessionCustomerId: (value: string | null) => void;
-  setAccountCustomerId: (value: string | null) => void;
-  setAccountCustomerLabel: (value: string | null) => void;
-  setAgreementSigned: (value: boolean) => void;
-  setSelectedRentalType: (value: string | null) => void;
-  setCustomerSelectedType: (value: string | null) => void;
-  setSelectedInventoryItem: (
-    value: { type: 'room' | 'locker'; id: string; number: string; tier: string } | null
-  ) => void;
-  setAssignedResourceType: (value: 'room' | 'locker' | null) => void;
-  setAssignedResourceNumber: (value: string | null) => void;
-  setCheckoutAt: (value: string | null) => void;
-  setCustomerPrimaryLanguage: (value: 'EN' | 'ES' | undefined) => void;
-  setCustomerDobMonthDay: (value: string | undefined) => void;
-  setCustomerLastVisitAt: (value: string | undefined) => void;
-  setCustomerNotes: (value: string | undefined) => void;
+  ui: {
+    setIsSubmitting: (value: boolean) => void;
+  };
+  paymentSetters: {
+    setPaymentIntentId: (value: string | null) => void;
+    setPaymentQuote: PaymentQuoteSetter;
+    setPaymentStatus: (value: 'DUE' | 'PAID' | null) => void;
+    setPaymentDeclineError: (value: string | null) => void;
+  };
+  addOn: {
+    resetAddOnCart: () => void;
+    setShowAddOnSaleModal: (value: boolean) => void;
+  };
+  notifications: {
+    setSuccessToastMessage: (value: string | null) => void;
+    pushBottomToast: (toast: { message: string; tone?: 'info' | 'warning' }) => void;
+  };
+  resetSessionState: () => void;
 };
 
 export function usePaymentActions({
@@ -62,33 +43,20 @@ export function usePaymentActions({
   paymentIntentId,
   paymentStatus,
   addOnCart,
-  setIsSubmitting,
-  setPaymentIntentId,
-  setPaymentQuote,
-  setPaymentStatus,
-  setPaymentDeclineError,
-  setSuccessToastMessage,
-  resetAddOnCart,
-  setShowAddOnSaleModal,
-  setCustomerName,
-  setMembershipNumber,
-  setCurrentSessionId,
-  setCurrentSessionCustomerId,
-  setAccountCustomerId,
-  setAccountCustomerLabel,
-  setAgreementSigned,
-  setSelectedRentalType,
-  setCustomerSelectedType,
-  setSelectedInventoryItem,
-  setAssignedResourceType,
-  setAssignedResourceNumber,
-  setCheckoutAt,
-  setCustomerPrimaryLanguage,
-  setCustomerDobMonthDay,
-  setCustomerLastVisitAt,
-  setCustomerNotes,
-}: Params) {
+  ui,
+  paymentSetters,
+  addOn,
+  notifications,
+  resetSessionState,
+}: PaymentActionsParams) {
   const paymentIntentCreateInFlightRef = useRef(false);
+
+  const notifyWarning = useCallback(
+    (message: string) => {
+      notifications.pushBottomToast({ message, tone: 'warning' });
+    },
+    [notifications]
+  );
 
   const handleCreatePaymentIntent = useCallback(async () => {
     if (!currentSessionId || !session?.sessionToken) {
@@ -117,21 +85,20 @@ export function usePaymentActions({
         };
       }>(response);
       if (typeof data.paymentIntentId === 'string') {
-        setPaymentIntentId(data.paymentIntentId);
+        paymentSetters.setPaymentIntentId(data.paymentIntentId);
       }
-      setPaymentQuote(data.quote ?? null);
-      setPaymentStatus('DUE');
+      paymentSetters.setPaymentQuote(data.quote ?? null);
+      paymentSetters.setPaymentStatus('DUE');
     } catch (error) {
       console.error('Failed to create payment intent:', error);
-      alert(error instanceof Error ? error.message : 'Failed to create payment intent');
+      notifyWarning(error instanceof Error ? error.message : 'Failed to create payment intent');
     }
   }, [
     currentSessionId,
     lane,
+    notifyWarning,
+    paymentSetters,
     session?.sessionToken,
-    setPaymentIntentId,
-    setPaymentQuote,
-    setPaymentStatus,
   ]);
 
   useEffect(() => {
@@ -155,11 +122,11 @@ export function usePaymentActions({
 
   const handleAddOnSaleToCheckin = useCallback(async () => {
     if (!currentSessionId || !session?.sessionToken) {
-      alert('Not authenticated');
+      notifyWarning('Not authenticated');
       return;
     }
     if (!paymentIntentId) {
-      alert('No active payment intent for this session.');
+      notifyWarning('No active payment intent for this session.');
       return;
     }
 
@@ -178,11 +145,11 @@ export function usePaymentActions({
       );
 
     if (items.length === 0) {
-      alert('Add at least one item to continue.');
+      notifyWarning('Add at least one item to continue.');
       return;
     }
 
-    setIsSubmitting(true);
+    ui.setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/add-ons`, {
         method: 'POST',
@@ -208,29 +175,29 @@ export function usePaymentActions({
       }>(response);
 
       if (payload.quote) {
-        setPaymentQuote(payload.quote);
+        paymentSetters.setPaymentQuote(payload.quote);
       }
 
-      setShowAddOnSaleModal(false);
-      resetAddOnCart();
-      setSuccessToastMessage('Add-on items added to check-in.');
+      addOn.setShowAddOnSaleModal(false);
+      addOn.resetAddOnCart();
+      notifications.setSuccessToastMessage('Add-on items added to check-in.');
     } catch (error) {
       console.error('Failed to add add-on items:', error);
-      alert(error instanceof Error ? error.message : 'Failed to add add-on items');
+      notifyWarning(error instanceof Error ? error.message : 'Failed to add add-on items');
     } finally {
-      setIsSubmitting(false);
+      ui.setIsSubmitting(false);
     }
   }, [
+    addOn,
     addOnCart,
     currentSessionId,
     lane,
+    notifyWarning,
+    notifications,
     paymentIntentId,
-    resetAddOnCart,
+    paymentSetters,
     session?.sessionToken,
-    setIsSubmitting,
-    setPaymentQuote,
-    setShowAddOnSaleModal,
-    setSuccessToastMessage,
+    ui,
   ]);
 
   const handleDemoPayment = async (
@@ -238,11 +205,11 @@ export function usePaymentActions({
     declineReason?: string
   ) => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      notifyWarning('Not authenticated');
       return;
     }
 
-    setIsSubmitting(true);
+    ui.setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/demo-take-payment`, {
         method: 'POST',
@@ -271,34 +238,34 @@ export function usePaymentActions({
           messages: string[];
         };
       }>(response);
-      if (payload.quote) setPaymentQuote(payload.quote);
-      if (payload.status) setPaymentStatus(payload.status);
+      if (payload.quote) paymentSetters.setPaymentQuote(payload.quote);
+      if (payload.status) paymentSetters.setPaymentStatus(payload.status);
       if (outcome === 'CREDIT_DECLINE') {
-        setPaymentDeclineError(declineReason || 'Payment declined');
+        paymentSetters.setPaymentDeclineError(declineReason || 'Payment declined');
       } else {
-        setPaymentDeclineError(null);
+        paymentSetters.setPaymentDeclineError(null);
       }
     } catch (error) {
       console.error('Failed to process payment:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process payment');
+      notifyWarning(error instanceof Error ? error.message : 'Failed to process payment');
     } finally {
-      setIsSubmitting(false);
+      ui.setIsSubmitting(false);
     }
   };
 
   const handleDemoSplitPayment = async (cardAmount: number): Promise<boolean> => {
     if (!session?.sessionToken || !currentSessionId) {
-      alert('Not authenticated');
+      notifyWarning('Not authenticated');
       return false;
     }
 
     const roundedAmount = Math.round(cardAmount * 100) / 100;
     if (!Number.isFinite(roundedAmount) || roundedAmount <= 0) {
-      alert('Enter a valid card amount.');
+      notifyWarning('Enter a valid card amount.');
       return false;
     }
 
-    setIsSubmitting(true);
+    ui.setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/demo-take-payment`, {
         method: 'POST',
@@ -327,27 +294,27 @@ export function usePaymentActions({
           messages: string[];
         };
       }>(response);
-      if (payload.quote) setPaymentQuote(payload.quote);
-      if (payload.status) setPaymentStatus(payload.status);
+      if (payload.quote) paymentSetters.setPaymentQuote(payload.quote);
+      if (payload.status) paymentSetters.setPaymentStatus(payload.status);
 
-      setPaymentDeclineError(null);
+      paymentSetters.setPaymentDeclineError(null);
       return true;
     } catch (error) {
       console.error('Failed to process split payment:', error);
-      alert(error instanceof Error ? error.message : 'Failed to process split payment');
+      notifyWarning(error instanceof Error ? error.message : 'Failed to process split payment');
       return false;
     } finally {
-      setIsSubmitting(false);
+      ui.setIsSubmitting(false);
     }
   };
 
   const handleCompleteTransaction = async () => {
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifyWarning('Not authenticated');
       return;
     }
 
-    setIsSubmitting(true);
+    ui.setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/reset`, {
         method: 'POST',
@@ -361,34 +328,12 @@ export function usePaymentActions({
         throw new Error(getErrorMessage(errorPayload) || 'Failed to complete transaction');
       }
 
-      setCustomerName('');
-      setMembershipNumber('');
-      setCurrentSessionId(null);
-      setCurrentSessionCustomerId(null);
-      setAccountCustomerId(null);
-      setAccountCustomerLabel(null);
-      setAgreementSigned(false);
-      setSelectedRentalType(null);
-      setCustomerSelectedType(null);
-      setSelectedInventoryItem(null);
-      setPaymentIntentId(null);
-      setPaymentQuote(null);
-      setPaymentStatus(null);
-      resetAddOnCart();
-      setShowAddOnSaleModal(false);
-      setAssignedResourceType(null);
-      setAssignedResourceNumber(null);
-      setCheckoutAt(null);
-      setCustomerPrimaryLanguage(undefined);
-      setCustomerDobMonthDay(undefined);
-      setCustomerLastVisitAt(undefined);
-      setCustomerNotes(undefined);
-      setPaymentDeclineError(null);
+      resetSessionState();
     } catch (error) {
       console.error('Failed to complete transaction:', error);
-      alert(error instanceof Error ? error.message : 'Failed to complete transaction');
+      notifyWarning(error instanceof Error ? error.message : 'Failed to complete transaction');
     } finally {
-      setIsSubmitting(false);
+      ui.setIsSubmitting(false);
     }
   };
 

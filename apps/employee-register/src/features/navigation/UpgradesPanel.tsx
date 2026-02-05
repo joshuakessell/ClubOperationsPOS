@@ -14,6 +14,7 @@ export function UpgradesPanel() {
     handleStartUpgradePayment,
     openCustomerAccount,
     isSubmitting,
+    pushBottomToast,
   } = useEmployeeRegisterState();
 
   return (
@@ -42,7 +43,10 @@ export function UpgradesPanel() {
           void handleStartUpgradePayment(entry);
         }}
         onCancelOffer={(entryId) => {
-          alert(`Cancel offer not implemented yet (waitlistId=${entryId}).`);
+          pushBottomToast({
+            message: `Cancel offer not implemented yet (waitlistId=${entryId}).`,
+            tone: 'warning',
+          });
         }}
         onOpenCustomerAccount={openCustomerAccount}
         isSubmitting={isSubmitting}

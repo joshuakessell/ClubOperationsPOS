@@ -1,30 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ModalFrame } from './ModalFrame';
 import { getApiUrl } from '@club-ops/shared';
-
-type Step = 'select' | 'confirm';
-
-type ManualCandidate = {
-  occupancyId: string;
-  resourceType: 'ROOM' | 'LOCKER';
-  number: string;
-  customerName: string;
-  checkinAt: string | Date;
-  scheduledCheckoutAt: string | Date;
-  isOverdue: boolean;
-};
-
-type ResolveResponse = {
-  occupancyId: string;
-  resourceType: 'ROOM' | 'LOCKER';
-  number: string;
-  customerName: string;
-  checkinAt: string | Date;
-  scheduledCheckoutAt: string | Date;
-  lateMinutes: number;
-  fee: number;
-  banApplied: boolean;
-};
+import { ModalFrame } from './ModalFrame';
+import { ManualCheckoutModalConfirmStep } from '../manual-checkout/ManualCheckoutModalConfirmStep';
+import { ManualCheckoutModalSelectStep } from '../manual-checkout/ManualCheckoutModalSelectStep';
+import type { ManualCheckoutStep, ManualCandidate, ResolveResponse } from '../manual-checkout/types';
 
 export interface ManualCheckoutModalProps {
   isOpen: boolean;
@@ -35,33 +14,6 @@ export interface ManualCheckoutModalProps {
   entryMode?: 'default' | 'direct-confirm';
 }
 
-function toDate(value: string | Date): Date {
-  return value instanceof Date ? value : new Date(value);
-}
-
-function formatClockTime(value: string | Date): string {
-  const d = toDate(value);
-  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-}
-
-function formatLateDuration(minutesLate: number): string {
-  const total = Math.max(0, Math.floor(minutesLate));
-  const h = Math.floor(total / 60);
-  const m = total % 60;
-  return `${h}:${String(m).padStart(2, '0')}`;
-}
-
-function formatDeltaMinutesLabel(scheduledCheckoutAt: string | Date): {
-  label: string;
-  color: string;
-} {
-  const scheduled = toDate(scheduledCheckoutAt);
-  const diffMs = scheduled.getTime() - Date.now();
-  const mins = Math.max(0, Math.ceil(Math.abs(diffMs) / 60000));
-  const hmm = formatLateDuration(mins);
-  if (diffMs < 0) return { label: `Past ${hmm}`, color: '#ef4444' };
-  return { label: `In ${hmm}`, color: '#fbbf24' };
-}
 
 export function ManualCheckoutModal({
   isOpen,
@@ -71,7 +23,7 @@ export function ManualCheckoutModal({
   prefill,
   entryMode = 'default',
 }: ManualCheckoutModalProps) {
-  const [step, setStep] = useState<Step>('select');
+  const [step, setStep] = useState<ManualCheckoutStep>('select');
   const [candidates, setCandidates] = useState<ManualCandidate[]>([]);
   const [loadingCandidates, setLoadingCandidates] = useState(false);
   const [candidatesError, setCandidatesError] = useState<string | null>(null);
@@ -89,8 +41,6 @@ export function ManualCheckoutModal({
     if (selectedOccupancyIds.length > 0) return true;
     return typedNumber.trim().length > 0;
   }, [selectedOccupancyIds.length, typedNumber]);
-
-  const confirmCurrent = confirmQueue[confirmIndex] ?? null;
 
   useEffect(() => {
     if (!isOpen) return;
@@ -179,6 +129,23 @@ export function ManualCheckoutModal({
     }
   }, [canContinue, selectedOccupancyIds, sessionToken, typedNumber]);
 
+  const handleTypedNumberChange = useCallback((value: string) => {
+    setSelectedOccupancyIds([]);
+    setTypedNumber(value);
+  }, []);
+
+  const handleInputFocus = useCallback(() => {
+    setSelectedOccupancyIds([]);
+  }, []);
+
+  const handleCandidateToggle = useCallback((occupancyId: string) => {
+    setTypedNumber('');
+    setSelectedOccupancyIds((prev) => {
+      if (prev.includes(occupancyId)) return prev.filter((id) => id !== occupancyId);
+      return [...prev, occupancyId];
+    });
+  }, []);
+
   const handleConfirm = useCallback(async () => {
     const current = confirmQueue[confirmIndex];
     if (!current) return;
@@ -256,228 +223,26 @@ export function ManualCheckoutModal({
         )}
 
         {step === 'select' ? (
-          <>
-            {entryMode === 'direct-confirm' ? (
-              <div style={{ padding: '0.75rem', color: '#94a3b8' }}>Loading checkout…</div>
-            ) : (
-              <>
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: '0.75rem',
-                    alignItems: 'center',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <div className="cs-liquid-search" style={{ flex: 1, minWidth: 280 }}>
-                    <input
-                      className="cs-liquid-input cs-liquid-search__input"
-                      placeholder="Type room/locker number…"
-                      value={typedNumber}
-                      onFocus={() => setSelectedOccupancyIds([])}
-                      onChange={(e) => {
-                        setSelectedOccupancyIds([]);
-                        setTypedNumber(e.target.value);
-                      }}
-                      aria-label="Checkout number"
-                    />
-                    <div className="cs-liquid-search__icon">
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        xmlns="http://www.w3.org/2000/svg"
-                      >
-                        <path
-                          d="M7.33333 12.6667C10.2789 12.6667 12.6667 10.2789 12.6667 7.33333C12.6667 4.38781 10.2789 2 7.33333 2C4.38781 2 2 4.38781 2 7.33333C2 10.2789 4.38781 12.6667 7.33333 12.6667Z"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                        <path
-                          d="M14 14L11.1 11.1"
-                          stroke="currentColor"
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        />
-                      </svg>
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="cs-liquid-button"
-                    onClick={() => void handleContinue()}
-                    disabled={!canContinue || isSubmitting}
-                  >
-                    {isSubmitting ? 'Loading…' : 'Continue'}
-                  </button>
-                </div>
-
-                <div style={{ marginTop: '1rem' }}>
-                  <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Suggested</div>
-                  {loadingCandidates ? (
-                    <div style={{ padding: '0.75rem', color: '#94a3b8' }}>Loading candidates…</div>
-                  ) : candidates.length === 0 ? (
-                    <div style={{ padding: '0.75rem', color: '#94a3b8' }}>No candidates</div>
-                  ) : (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                      {candidates.map((c) => {
-                        const selected = selectedOccupancyIds.includes(c.occupancyId);
-                        const scheduled = toDate(c.scheduledCheckoutAt);
-                        const delta = formatDeltaMinutesLabel(scheduled);
-                        return (
-                          <button
-                            key={c.occupancyId}
-                            type="button"
-                            className={[
-                              'cs-liquid-button',
-                              selected
-                                ? 'cs-liquid-button--selected'
-                                : 'cs-liquid-button--secondary',
-                            ].join(' ')}
-                            aria-pressed={selected}
-                            onClick={() => {
-                              setTypedNumber('');
-                              setSelectedOccupancyIds((prev) => {
-                                if (prev.includes(c.occupancyId))
-                                  return prev.filter((id) => id !== c.occupancyId);
-                                return [...prev, c.occupancyId];
-                              });
-                            }}
-                            style={{
-                              justifyContent: 'space-between',
-                              padding: '0.75rem',
-                              borderColor: c.isOverdue ? 'rgba(239, 68, 68, 0.65)' : undefined,
-                              background: selected
-                                ? undefined
-                                : c.isOverdue
-                                  ? 'rgba(239, 68, 68, 0.08)'
-                                  : undefined,
-                            }}
-                          >
-                            <div
-                              style={{
-                                display: 'flex',
-                                width: '100%',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: '1rem',
-                              }}
-                            >
-                              <div
-                                style={{
-                                  fontWeight: 900,
-                                  minWidth: 0,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {c.resourceType === 'ROOM' ? 'Room' : 'Locker'} {c.number} -{' '}
-                                {c.customerName} - {formatClockTime(scheduled)}
-                              </div>
-                              <div
-                                style={{
-                                  fontWeight: 900,
-                                  whiteSpace: 'nowrap',
-                                  color: delta.color,
-                                }}
-                              >
-                                {delta.label}
-                              </div>
-                            </div>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </>
+          <ManualCheckoutModalSelectStep
+            entryMode={entryMode}
+            typedNumber={typedNumber}
+            isSubmitting={isSubmitting}
+            canContinue={canContinue}
+            candidates={candidates}
+            loadingCandidates={loadingCandidates}
+            selectedOccupancyIds={selectedOccupancyIds}
+            onTypedNumberChange={handleTypedNumberChange}
+            onInputFocus={handleInputFocus}
+            onCandidateToggle={handleCandidateToggle}
+            onContinue={() => void handleContinue()}
+          />
         ) : (
-          <>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  gap: '0.75rem',
-                  alignItems: 'baseline',
-                }}
-              >
-                <div style={{ fontWeight: 900, fontSize: '1.15rem' }}>Confirm checkout</div>
-                <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 900 }}>
-                  {confirmIndex + 1} of {confirmQueue.length || 1}
-                </div>
-              </div>
-              {confirmCurrent && (
-                <div className="er-surface" style={{ padding: '1rem', borderRadius: 12 }}>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Customer</div>
-                      <div style={{ fontWeight: 800 }}>{confirmCurrent.customerName}</div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Resource</div>
-                      <div style={{ fontWeight: 800 }}>
-                        {confirmCurrent.resourceType === 'ROOM' ? 'Room' : 'Locker'}{' '}
-                        {confirmCurrent.number}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Check-in</div>
-                      <div style={{ fontWeight: 800 }}>
-                        {toDate(confirmCurrent.checkinAt).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>
-                        Scheduled checkout
-                      </div>
-                      <div style={{ fontWeight: 800 }}>
-                        {toDate(confirmCurrent.scheduledCheckoutAt).toLocaleString()}
-                      </div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Late</div>
-                      <div style={{ fontWeight: 800 }}>{confirmCurrent.lateMinutes} min</div>
-                    </div>
-                    <div>
-                      <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Outcome</div>
-                      <div
-                        style={{
-                          fontWeight: 900,
-                          color: confirmCurrent.banApplied ? '#f59e0b' : '#10b981',
-                        }}
-                      >
-                        Fee ${confirmCurrent.fee.toFixed(2)}
-                        {confirmCurrent.banApplied ? ' • 30-day ban' : ''}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div
-                style={{ display: 'flex', justifyContent: 'space-between', marginTop: '0.25rem' }}
-              >
-                <div />
-                <button
-                  type="button"
-                  className="cs-liquid-button"
-                  onClick={() => void handleConfirm()}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting ? 'Confirming…' : 'Confirm'}
-                </button>
-              </div>
-            </div>
-          </>
+          <ManualCheckoutModalConfirmStep
+            confirmQueue={confirmQueue}
+            confirmIndex={confirmIndex}
+            isSubmitting={isSubmitting}
+            onConfirm={() => void handleConfirm()}
+          />
         )}
       </ModalFrame>
 

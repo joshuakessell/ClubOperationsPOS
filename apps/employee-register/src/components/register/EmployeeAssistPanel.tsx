@@ -1,15 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getCustomerMembershipStatus } from '@club-ops/shared';
-
-export type EmployeeAssistStep = 'LANGUAGE' | 'MEMBERSHIP' | 'UPGRADE' | 'RENTAL' | 'DONE';
-
-type Pending =
-  | { step: 'LANGUAGE'; option: 'EN' | 'ES' }
-  | { step: 'MEMBERSHIP'; option: 'ONE_TIME' | 'SIX_MONTH' }
-  | { step: 'WAITLIST_BACKUP'; option: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' }
-  | { step: 'RENTAL'; option: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' };
-
-type PendingState = Pending | null;
+import { EmployeeAssistStepContent } from './employee-assist/EmployeeAssistStepContent';
+import type { EmployeeAssistStep, PendingState, RentalButton } from './employee-assist/types';
 
 export interface EmployeeAssistPanelProps {
   sessionId: string;
@@ -61,12 +53,6 @@ export interface EmployeeAssistPanelProps {
   onApproveRental: () => Promise<void> | void;
 }
 
-function remainingCountLabel(count: number): { label: string; tone: 'ok' | 'low' | 'none' } {
-  if (count <= 0) return { label: '0 remaining', tone: 'none' };
-  if (count <= 5) return { label: `${count} remaining (low)`, tone: 'low' };
-  return { label: `${count} remaining`, tone: 'ok' };
-}
-
 export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   const {
     sessionId,
@@ -99,25 +85,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   } = props;
 
   const [pending, setPending] = useState<PendingState>(null);
-
-  const runTwoStep = (
-    step: Pending['step'],
-    option: Pending['option'],
-    isPending: boolean,
-    onFirst: () => void,
-    onSecond: () => void,
-    onCancel?: () => void
-  ) => {
-    if (isSubmitting) return;
-    if (isPending) {
-      setPending(null);
-      onCancel?.();
-      void onSecond();
-      return;
-    }
-    setPending({ step, option } as Pending);
-    void onFirst();
-  };
 
   const isLanguageNeeded = !customerPrimaryLanguage;
   const membershipStatus = useMemo(() => {
@@ -167,7 +134,7 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionId, step]);
 
-  const rentalButtons = useMemo(() => {
+  const rentalButtons: RentalButton[] = useMemo(() => {
     const lockers = Number(inventoryAvailable?.lockers ?? 0);
     const standard = Number(inventoryAvailable?.rooms?.STANDARD ?? 0);
     const deluxe = Number(inventoryAvailable?.rooms?.DOUBLE ?? 0);
@@ -205,7 +172,7 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     ];
   }, [allowedRentals, directSelect, inventoryAvailable]);
 
-  const waitlistBackupButtons = useMemo(() => {
+  const waitlistBackupButtons: RentalButton[] = useMemo(() => {
     if (!waitlistDesiredTier) return [];
     const lockers = Number(inventoryAvailable?.lockers ?? 0);
     const standard = Number(inventoryAvailable?.rooms?.STANDARD ?? 0);
@@ -280,254 +247,27 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
           paddingRight: '0.25rem',
         }}
       >
-        {step === 'LANGUAGE' && (
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              {directSelect
-                ? 'Tap once to set the language.'
-                : 'Tap once to set the language (it will also highlight on the kiosk).'}
-            </div>
-            {(
-              [
-                { id: 'EN' as const, label: 'English' },
-                { id: 'ES' as const, label: 'Español' },
-              ] as const
-            ).map((opt) => {
-              const isPending = pending?.step === 'LANGUAGE' && pending.option === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={[
-                    'cs-liquid-button',
-                    isPending ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                  ].join(' ')}
-                  disabled={isSubmitting}
-                  onClick={() => {
-                    if (isSubmitting) return;
-                    if (!directSelect) {
-                      setPending({ step: 'LANGUAGE', option: opt.id });
-                      onHighlightLanguage(opt.id);
-                    }
-                    void onConfirmLanguage(opt.id);
-                  }}
-                  style={{ width: '100%', padding: '0.9rem 1rem', fontWeight: 900 }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {step === 'MEMBERSHIP' && (
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              {directSelect
-                ? 'Tap once to select the membership option.'
-                : 'Tap once to highlight on kiosk, tap again to confirm.'}
-            </div>
-            {(
-              [
-                { id: 'ONE_TIME' as const, label: 'One-time Membership' },
-                { id: 'SIX_MONTH' as const, label: '6-Month Membership' },
-              ] as const
-            ).map((opt) => {
-              const isPending = pending?.step === 'MEMBERSHIP' && pending.option === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  className={[
-                    'cs-liquid-button',
-                    isPending ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                  ].join(' ')}
-                  disabled={isSubmitting}
-                  onClick={() => {
-                    if (directSelect) {
-                      if (opt.id === 'ONE_TIME') {
-                        void onConfirmMembershipOneTime();
-                        return;
-                      }
-                      void onConfirmMembershipSixMonth();
-                      return;
-                    }
-                    runTwoStep(
-                      'MEMBERSHIP',
-                      opt.id,
-                      isPending,
-                      () => onHighlightMembership(opt.id),
-                      () => {
-                        if (opt.id === 'ONE_TIME') {
-                          void onConfirmMembershipOneTime();
-                          return;
-                        }
-                        void onConfirmMembershipSixMonth();
-                      },
-                      () => onHighlightMembership(null)
-                    );
-                  }}
-                  style={{ width: '100%', padding: '0.9rem 1rem', fontWeight: 900 }}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        )}
-
-        {step === 'UPGRADE' && (
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              {directSelect
-                ? `Select a backup rental for ${waitlistDesiredTier}.`
-                : `Customer selected ${waitlistDesiredTier}. Choose a backup rental.`}
-            </div>
-            <div style={{ display: 'grid', gap: '0.6rem' }}>
-              {waitlistBackupButtons.map((btn) => {
-                const isPending = pending?.step === 'WAITLIST_BACKUP' && pending.option === btn.id;
-                const { label: countLabel, tone } = remainingCountLabel(btn.count);
-                const disabled = isSubmitting || !btn.allowed || btn.count <= 0;
-                const toneClass =
-                  tone === 'none'
-                    ? 'cs-liquid-button--secondary'
-                    : tone === 'low'
-                      ? 'cs-liquid-button--warning'
-                      : 'cs-liquid-button--secondary';
-                return (
-                  <button
-                    key={btn.id}
-                    type="button"
-                    className={[
-                      'cs-liquid-button',
-                      isPending ? 'cs-liquid-button--selected' : toneClass,
-                    ].join(' ')}
-                    disabled={disabled}
-                    onClick={() => {
-                      if (disabled) return;
-                      if (directSelect && onDirectSelectWaitlistBackup) {
-                        void onDirectSelectWaitlistBackup(btn.id);
-                        return;
-                      }
-                      runTwoStep(
-                        'WAITLIST_BACKUP',
-                        btn.id,
-                        isPending,
-                        () => onHighlightWaitlistBackup(btn.id),
-                        () => {
-                          void onSelectWaitlistBackupAsCustomer(btn.id);
-                        },
-                        () => onHighlightWaitlistBackup(null)
-                      );
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '0.85rem 1rem',
-                      fontWeight: 950,
-                      textAlign: 'left',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'baseline',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <span>{btn.label}</span>
-                    <span
-                      className="er-text-sm"
-                      style={{
-                        fontWeight: 900,
-                        color: tone === 'none' ? '#ef4444' : tone === 'low' ? '#f59e0b' : '#94a3b8',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {countLabel}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {step === 'RENTAL' && (
-          <div style={{ display: 'grid', gap: '0.75rem' }}>
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              {directSelect
-                ? 'Tap once to select a rental.'
-                : 'Tap once to propose on kiosk, tap again to confirm.'}
-            </div>
-            <div style={{ display: 'grid', gap: '0.6rem' }}>
-              {rentalButtons.map((btn) => {
-                const isPending = pending?.step === 'RENTAL' && pending.option === btn.id;
-                const { label: countLabel, tone } = remainingCountLabel(btn.count);
-                const disabled = isSubmitting || !btn.allowed;
-                const toneClass =
-                  tone === 'none'
-                    ? 'cs-liquid-button--secondary'
-                    : tone === 'low'
-                      ? 'cs-liquid-button--warning'
-                      : 'cs-liquid-button--secondary';
-                return (
-                  <button
-                    key={btn.id}
-                    type="button"
-                    className={[
-                      'cs-liquid-button',
-                      isPending ? 'cs-liquid-button--selected' : toneClass,
-                    ].join(' ')}
-                    disabled={disabled}
-                    onClick={() => {
-                      if (disabled) return;
-                      if (directSelect && onDirectSelectRental) {
-                        void onDirectSelectRental(btn.id);
-                        return;
-                      }
-                      runTwoStep(
-                        'RENTAL',
-                        btn.id,
-                        isPending,
-                        () => {
-                          void onHighlightRental(btn.id);
-                        },
-                        () => {
-                          void onApproveRental();
-                        }
-                      );
-                    }}
-                    style={{
-                      width: '100%',
-                      padding: '0.85rem 1rem',
-                      fontWeight: 950,
-                      textAlign: 'left',
-                      display: 'flex',
-                      justifyContent: 'space-between',
-                      alignItems: 'baseline',
-                      gap: '0.75rem',
-                    }}
-                  >
-                    <span>{btn.label}</span>
-                    <span
-                      className="er-text-sm"
-                      style={{
-                        fontWeight: 900,
-                        color: tone === 'none' ? '#ef4444' : tone === 'low' ? '#f59e0b' : '#94a3b8',
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {countLabel}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
-        {step === 'DONE' && (
-          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-            Waiting for next customer action…
-          </div>
-        )}
+        <EmployeeAssistStepContent
+          step={step}
+          directSelect={directSelect}
+          isSubmitting={isSubmitting}
+          pending={pending}
+          setPending={setPending}
+          waitlistDesiredTier={waitlistDesiredTier}
+          rentalButtons={rentalButtons}
+          waitlistBackupButtons={waitlistBackupButtons}
+          onHighlightLanguage={onHighlightLanguage}
+          onConfirmLanguage={onConfirmLanguage}
+          onHighlightMembership={onHighlightMembership}
+          onConfirmMembershipOneTime={onConfirmMembershipOneTime}
+          onConfirmMembershipSixMonth={onConfirmMembershipSixMonth}
+          onHighlightRental={onHighlightRental}
+          onApproveRental={onApproveRental}
+          onDirectSelectRental={onDirectSelectRental}
+          onHighlightWaitlistBackup={onHighlightWaitlistBackup}
+          onSelectWaitlistBackupAsCustomer={onSelectWaitlistBackupAsCustomer}
+          onDirectSelectWaitlistBackup={onDirectSelectWaitlistBackup}
+        />
       </div>
     </div>
   );

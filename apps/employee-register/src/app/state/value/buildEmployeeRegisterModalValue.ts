@@ -119,6 +119,7 @@ export function buildEmployeeRegisterModalValue(params: EmployeeRegisterModalPar
     handleAddNote: notesState.handleAddNote,
     successToastMessage: toastState.successToastMessage,
     setSuccessToastMessage: toastState.setSuccessToastMessage,
+    pushBottomToast: toastState.pushBottomToast,
     bottomToasts: toastState.bottomToasts,
     dismissBottomToast: toastState.dismissBottomToast,
     setPaymentDeclineError,

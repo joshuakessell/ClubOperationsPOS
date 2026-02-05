@@ -4,6 +4,7 @@ import { getErrorMessage } from '@club-ops/ui';
 import { parseDobDigitsToIso } from '../../../utils/dob';
 import { API_BASE } from '../shared/api';
 import type { ScanResult, StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type ManualExistingPrompt = {
   firstName: string;
@@ -25,6 +26,7 @@ type Params = {
     customerId: string,
     opts?: { suppressAlerts?: boolean; customerLabel?: string | null }
   ) => Promise<ScanResult>;
+  notifications: ToastNotifier;
 };
 
 export function useManualEntryState({
@@ -32,6 +34,7 @@ export function useManualEntryState({
   manualEntry,
   setManualEntry,
   startLaneSessionByCustomerId,
+  notifications,
 }: Params) {
   const [manualFirstName, setManualFirstName] = useState('');
   const [manualLastName, setManualLastName] = useState('');
@@ -62,23 +65,23 @@ export function useManualEntryState({
     const idTypeOther = manualIdType === 'OTHER' ? manualIdTypeOther.trim() : '';
     const idNumber = manualIdNumber.trim();
     if (!firstName || !lastName || !dobIso) {
-      alert('Please enter First Name, Last Name, and a valid Date of Birth (MM/DD/YYYY).');
+      notifications.warn('Please enter First Name, Last Name, and a valid Date of Birth (MM/DD/YYYY).');
       return;
     }
     if (!idExpirationDate) {
-      alert('Please enter a valid ID expiration date (MM/DD/YYYY).');
+      notifications.warn('Please enter a valid ID expiration date (MM/DD/YYYY).');
       return;
     }
     if (!idType) {
-      alert('Please select an ID type.');
+      notifications.warn('Please select an ID type.');
       return;
     }
     if (idType === 'OTHER' && !idTypeOther) {
-      alert('Please specify the ID type.');
+      notifications.warn('Please specify the ID type.');
       return;
     }
     if (!session?.sessionToken) {
-      alert('Not authenticated');
+      notifications.warn('Not authenticated');
       return;
     }
 
