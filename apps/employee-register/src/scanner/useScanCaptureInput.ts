@@ -10,6 +10,7 @@ type ScanCaptureOptions = {
   idleTimeoutMs?: number;
   getIdleTimeoutMs?: (value: string) => number;
   keepFocus?: boolean;
+  shouldKeepFocus?: () => boolean;
 };
 
 type ScanCaptureHandlers = {
@@ -27,6 +28,7 @@ export function useScanCaptureInput({
   idleTimeoutMs = 220,
   getIdleTimeoutMs,
   keepFocus = true,
+  shouldKeepFocus,
 }: ScanCaptureOptions) {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -119,8 +121,10 @@ export function useScanCaptureInput({
 
   const handleBlur = useCallback(() => {
     if (!enabled) return;
+    const allowRefocus = shouldKeepFocus ? shouldKeepFocus() : keepFocus;
+    if (!allowRefocus) return;
     window.setTimeout(() => focusInput(), 0);
-  }, [enabled, focusInput]);
+  }, [enabled, focusInput, keepFocus, shouldKeepFocus]);
 
   const setInputRef = useCallback(
     (node: HTMLTextAreaElement | null) => {
@@ -147,15 +151,18 @@ export function useScanCaptureInput({
   }, [enabled, focusInput, resetValue, stopCapture]);
 
   useEffect(() => {
-    if (!enabled || !keepFocus) return;
+    if (!enabled) return;
     const onFocusIn = (event: FocusEvent) => {
+      const allowRefocus = shouldKeepFocus ? shouldKeepFocus() : keepFocus;
+      if (!allowRefocus) return;
       const el = inputRef.current;
       if (!el) return;
       if (event.target === el || el.contains(event.target as Node)) return;
       queueRefocus();
     };
     const onVisibility = () => {
-      if (document.visibilityState === 'visible') queueRefocus();
+      const allowRefocus = shouldKeepFocus ? shouldKeepFocus() : keepFocus;
+      if (document.visibilityState === 'visible' && allowRefocus) queueRefocus();
     };
     document.addEventListener('focusin', onFocusIn, true);
     document.addEventListener('visibilitychange', onVisibility);
@@ -163,7 +170,7 @@ export function useScanCaptureInput({
       document.removeEventListener('focusin', onFocusIn, true);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [enabled, keepFocus, queueRefocus]);
+  }, [enabled, keepFocus, queueRefocus, shouldKeepFocus]);
 
   const handlers: ScanCaptureHandlers = {
     onBlur: handleBlur,

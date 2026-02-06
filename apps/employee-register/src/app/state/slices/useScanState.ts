@@ -1,5 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { FormEvent } from 'react';
+import { isLikelyAamvaPdf417Text, normalizeScanText } from '../../../scanner/aamvaParser';
 import { useScanCaptureInput } from '../../../scanner/useScanCaptureInput';
+import { useScanFormState } from './useScanFormState';
 import { useScanResolutionState } from './useScanResolutionState';
 import type { HomeTab, ScanResult, StaffSession } from '../shared/types';
 
@@ -42,12 +45,38 @@ export function useScanState({
   const scanOverlayShownAtRef = useRef<number | null>(null);
   const SCAN_OVERLAY_MIN_VISIBLE_MS = 250;
 
+  const scanForm = useScanFormState({
+    session,
+    lane,
+    startLaneSessionByCustomerId,
+    setScanToastMessage,
+    setScanProcessing,
+    setIdScanIssue: resolution.setIdScanIssue,
+  });
+  const {
+    scanFormData,
+    scanFormActiveField,
+    scanFormSubmitting,
+    scanFormError,
+    scanFormEditing,
+    scanFormCanSubmit,
+    setScanFormEditing,
+    updateScanFormField,
+    submitScanForm,
+    resetScanForm,
+    updateScanFormFromRaw,
+    handleAamvaCapture,
+    shouldKeepFocus,
+  } = scanForm;
+
   const scanEnabled =
     homeTab === 'scan' &&
     !!session?.sessionToken &&
     !isSubmitting &&
     !manualEntry &&
-    !blockingModalOpen;
+    !blockingModalOpen &&
+    !scanProcessing &&
+    !scanFormEditing;
 
   const scanBlockedReason = !session?.sessionToken
     ? 'Not authenticated'
@@ -59,9 +88,11 @@ export function useScanState({
           ? 'Manual entry active'
           : blockingModalOpen
             ? 'Modal open'
-            : scanProcessing
-              ? 'Processing scan'
-              : null;
+            : scanFormEditing
+              ? 'Editing fields'
+              : scanProcessing
+                ? 'Processing scan'
+                : null;
 
   const showScanOverlay = useCallback(() => {
     if (scanOverlayHideTimerRef.current) {
@@ -95,27 +126,12 @@ export function useScanState({
     }, remaining);
   }, []);
 
-  const normalizeScanText = useCallback((raw: string) => {
-    if (!raw) return '';
-    const cleaned = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
-    return cleaned
-      .split('\n')
-      .filter((line) => line.trim().toUpperCase() !== 'ZTZTAN')
-      .join('\n')
-      .trim();
-  }, []);
-
   const computeIdleTimeout = useCallback((value: string) => {
     const cleaned = value.replace(/\r/g, '\n');
     const trimmed = cleaned.trim();
     if (!trimmed) return 400;
 
-    const looksAamva =
-      trimmed.startsWith('@') ||
-      trimmed.includes('ANSI ') ||
-      trimmed.includes('AAMVA') ||
-      /\nDCS/.test(cleaned) ||
-      /\nDAQ/.test(cleaned);
+    const looksAamva = isLikelyAamvaPdf417Text(cleaned);
     const hasInternalWhitespace = /\s/.test(trimmed);
     const looksLong = trimmed.length >= 24;
 
@@ -129,10 +145,9 @@ export function useScanState({
   const handleCapture = useCallback(
     async (raw: string) => {
       if (scanProcessingRef.current) return;
+      if (handleAamvaCapture(raw)) return;
       const normalized = normalizeScanText(raw);
-      if (!normalized) {
-        return;
-      }
+      if (!normalized) return;
       setScanToastMessage(null);
       setScanProcessing(true);
       try {
@@ -153,7 +168,7 @@ export function useScanState({
         setScanProcessing(false);
       }
     },
-    [normalizeScanText, resolution]
+    [handleAamvaCapture, resolution, setScanToastMessage]
   );
 
   useEffect(() => {
@@ -163,9 +178,11 @@ export function useScanState({
   const scanInput = useScanCaptureInput({
     enabled: scanEnabled,
     keepFocus: true,
+    shouldKeepFocus,
     idleTimeoutMs: 260,
     getIdleTimeoutMs: computeIdleTimeout,
     onCaptureStart: () => {
+      resetScanForm();
       showScanOverlay();
     },
     onCaptureEnd: () => {
@@ -178,6 +195,17 @@ export function useScanState({
       void handleCapture(raw);
     },
   });
+
+  const scanInputHandlers = useMemo(
+    () => ({
+      ...scanInput.scanInputHandlers,
+      onInput: (event: FormEvent<HTMLTextAreaElement>) => {
+        scanInput.scanInputHandlers.onInput(event);
+        updateScanFormFromRaw(event.currentTarget.value);
+      },
+    }),
+    [scanInput.scanInputHandlers, updateScanFormFromRaw]
+  );
 
   useEffect(() => {
     return () => {
@@ -195,8 +223,18 @@ export function useScanState({
     scanReady: scanEnabled,
     scanBlockedReason,
     scanInputRef: scanInput.scanInputRef,
-    scanInputHandlers: scanInput.scanInputHandlers,
+    scanInputHandlers,
     scanInputEnabled: scanEnabled,
+    scanFormData,
+    scanFormActiveField,
+    scanFormSubmitting,
+    scanFormError,
+    scanFormEditing,
+    setScanFormEditing,
+    updateScanFormField,
+    submitScanForm,
+    clearScanForm: resetScanForm,
+    scanFormCanSubmit,
     pendingScanResolution: resolution.pendingScanResolution,
     scanResolutionError: resolution.scanResolutionError,
     scanResolutionSubmitting: resolution.scanResolutionSubmitting,
