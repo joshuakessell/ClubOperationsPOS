@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { isLikelyAamvaPdf417Text, normalizeScanText } from '../../../scanner/aamvaParser';
 import { useScanCaptureInput } from '../../../scanner/useScanCaptureInput';
 import { useScanFormState } from './useScanFormState';
@@ -179,6 +178,7 @@ export function useScanState({
     enabled: scanEnabled,
     keepFocus: true,
     shouldKeepFocus,
+    captureMode: 'document',
     idleTimeoutMs: 260,
     getIdleTimeoutMs: computeIdleTimeout,
     onCaptureStart: () => {
@@ -194,18 +194,8 @@ export function useScanState({
     onCapture: (raw) => {
       void handleCapture(raw);
     },
+    onBufferUpdate: updateScanFormFromRaw,
   });
-
-  const scanInputHandlers = useMemo(
-    () => ({
-      ...scanInput.scanInputHandlers,
-      onInput: (event: FormEvent<HTMLTextAreaElement>) => {
-        scanInput.scanInputHandlers.onInput(event);
-        updateScanFormFromRaw(event.currentTarget.value);
-      },
-    }),
-    [scanInput.scanInputHandlers, updateScanFormFromRaw]
-  );
 
   useEffect(() => {
     return () => {
@@ -223,7 +213,7 @@ export function useScanState({
     scanReady: scanEnabled,
     scanBlockedReason,
     scanInputRef: scanInput.scanInputRef,
-    scanInputHandlers,
+    scanInputHandlers: scanInput.scanInputHandlers,
     scanInputEnabled: scanEnabled,
     scanFormData,
     scanFormActiveField,
