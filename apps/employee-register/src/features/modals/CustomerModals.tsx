@@ -5,6 +5,7 @@ import { CustomerConfirmationPendingModal } from '../../components/register/moda
 import { CreateFromScanModal } from '../../components/register/modals/CreateFromScanModal';
 import { IdScanBlockedModal } from '../../components/register/modals/IdScanBlockedModal';
 import { MultipleMatchesModal } from '../../components/register/modals/MultipleMatchesModal';
+import { ScanReviewModal } from '../../components/register/modals/ScanReviewModal';
 import { RenewCheckinModal } from '../../components/register/modals/RenewCheckinModal';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 
@@ -50,6 +51,13 @@ export function CustomerModals() {
     createFromScanSubmitting,
     idScanIssue,
     setIdScanIssue,
+    scanReviewOpen,
+    scanReviewData,
+    scanReviewError,
+    scanReviewSubmitting,
+    cancelScanReview,
+    updateScanReviewField,
+    submitScanReview,
     setShowCreateFromScanPrompt,
     setPendingCreateFromScan,
     setCreateFromScanError,
@@ -97,6 +105,17 @@ export function CustomerModals() {
         isSubmitting={isSubmitting}
         onClose={closeRenewalSelection}
         onSelectHours={(hours) => void handleStartRenewal(hours)}
+      />
+      <ScanReviewModal
+        isOpen={scanReviewOpen}
+        scanReviewData={scanReviewData}
+        errorMessage={scanReviewError}
+        isSubmitting={scanReviewSubmitting || isSubmitting}
+        onCancel={cancelScanReview}
+        onSubmit={() => {
+          void submitScanReview();
+        }}
+        onChangeField={updateScanReviewField}
       />
 
       <ModalFrame
