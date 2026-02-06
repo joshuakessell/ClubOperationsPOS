@@ -40,24 +40,22 @@ export function ScanPanel() {
         <div className="er-camera-scan-overlay" role="dialog" aria-live="polite">
           <div className="er-camera-scan-stage" data-active={scanCameraActive ? 'true' : 'false'}>
             <video ref={scanCameraVideoRef} autoPlay muted playsInline />
-            <div className="er-camera-scan-hud">
-              <div>
-                <div className="er-camera-scan-title">Scan ID</div>
-                <div className="er-camera-scan-subtitle">
-                  Align the barcode inside the frame to capture automatically.
-                </div>
+            <div className="er-camera-scan-tip cs-liquid-card">
+              <div className="er-camera-scan-title">Scan ID</div>
+              <div className="er-camera-scan-subtitle">
+                Align the barcode within the frame to capture automatically.
               </div>
-              <div className="er-camera-scan-status">{cameraStatusMessage}</div>
-              <button
-                type="button"
-                className="er-camera-scan-close"
-                onClick={stopScanCamera}
-              >
-                Close
+              {scanCameraStatus === 'starting' || scanCameraError ? (
+                <div className="er-camera-scan-status">{cameraStatusMessage}</div>
+              ) : null}
+            </div>
+            <div className="er-camera-scan-frame" aria-hidden="true" />
+            <div className="er-camera-scan-line" aria-hidden="true" />
+            <div className="er-camera-scan-actions">
+              <button type="button" className="cs-liquid-button" onClick={stopScanCamera}>
+                Cancel
               </button>
             </div>
-            <div className="er-camera-scan-reticle" aria-hidden="true" />
-            <div className="er-camera-scan-line" aria-hidden="true" />
           </div>
         </div>
       ) : null}
