@@ -7,10 +7,13 @@ type ScanCaptureOptions = {
   onCaptureStart?: () => void;
   onCaptureEnd?: () => void;
   onCancel?: () => void;
+  onBufferUpdate?: (value: string) => void;
   idleTimeoutMs?: number;
   getIdleTimeoutMs?: (value: string) => number;
   keepFocus?: boolean;
   shouldKeepFocus?: () => boolean;
+  captureMode?: 'input' | 'document';
+  humanGapMs?: number;
 };
 
 type ScanCaptureHandlers = {
@@ -25,15 +28,20 @@ export function useScanCaptureInput({
   onCaptureStart,
   onCaptureEnd,
   onCancel,
+  onBufferUpdate,
   idleTimeoutMs = 220,
   getIdleTimeoutMs,
   keepFocus = true,
   shouldKeepFocus,
+  captureMode = 'input',
+  humanGapMs = 80,
 }: ScanCaptureOptions) {
   const inputRef = useRef<HTMLTextAreaElement | null>(null);
   const timerRef = useRef<number | null>(null);
   const capturingRef = useRef(false);
   const refocusQueuedRef = useRef(false);
+  const bufferRef = useRef('');
+  const lastKeyTimeRef = useRef(0);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -45,6 +53,7 @@ export function useScanCaptureInput({
   const resetValue = useCallback(() => {
     const el = inputRef.current;
     if (el) el.value = '';
+    bufferRef.current = '';
   }, []);
 
   const stopCapture = useCallback(() => {
@@ -74,35 +83,42 @@ export function useScanCaptureInput({
     });
   }, [focusInput]);
 
+  const getCurrentValue = useCallback(
+    () => (captureMode === 'document' ? bufferRef.current : inputRef.current?.value ?? ''),
+    [captureMode]
+  );
+
   const finalize = useCallback(() => {
-    const raw = inputRef.current?.value ?? '';
+    const raw = getCurrentValue();
     stopCapture();
     resetValue();
     if (!raw.trim()) return;
     onCapture(raw);
-  }, [onCapture, resetValue, stopCapture]);
+  }, [getCurrentValue, onCapture, resetValue, stopCapture]);
 
   const scheduleFinalize = useCallback(() => {
     clearTimer();
-    const value = inputRef.current?.value ?? '';
+    const value = getCurrentValue();
     const timeout = getIdleTimeoutMs ? getIdleTimeoutMs(value) : idleTimeoutMs;
     timerRef.current = window.setTimeout(() => {
       finalize();
     }, timeout);
-  }, [clearTimer, finalize, getIdleTimeoutMs, idleTimeoutMs]);
+  }, [clearTimer, finalize, getCurrentValue, getIdleTimeoutMs, idleTimeoutMs]);
 
   const handleInput = useCallback(() => {
-    if (!enabled) return;
+    if (!enabled || captureMode !== 'input') return;
+    const value = inputRef.current?.value ?? '';
     if (!capturingRef.current) {
       capturingRef.current = true;
       onCaptureStart?.();
     }
+    onBufferUpdate?.(value);
     scheduleFinalize();
-  }, [enabled, onCaptureStart, scheduleFinalize]);
+  }, [captureMode, enabled, onBufferUpdate, onCaptureStart, scheduleFinalize]);
 
   const handleKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>) => {
-      if (!enabled) return;
+      if (!enabled || captureMode !== 'input') return;
       event.stopPropagation();
       if (event.key === 'Tab') {
         event.preventDefault();
@@ -116,7 +132,7 @@ export function useScanCaptureInput({
         onCancel?.();
       }
     },
-    [enabled, finalize, onCancel, resetValue, stopCapture]
+    [captureMode, enabled, finalize, onCancel, resetValue, stopCapture]
   );
 
   const handleBlur = useCallback(() => {
@@ -149,6 +165,67 @@ export function useScanCaptureInput({
       resetValue();
     };
   }, [enabled, focusInput, resetValue, stopCapture]);
+
+  useEffect(() => {
+    if (!enabled || captureMode !== 'document') return;
+
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      const now = Date.now();
+      const gap = now - lastKeyTimeRef.current;
+      lastKeyTimeRef.current = now;
+
+      if (event.ctrlKey || event.metaKey || event.altKey) return;
+
+      if (event.key === 'Escape') {
+        if (!capturingRef.current) return;
+        event.preventDefault();
+        event.stopPropagation();
+        stopCapture();
+        resetValue();
+        onCancel?.();
+        return;
+      }
+
+      const isPrintable = event.key.length === 1;
+      if (!isPrintable) {
+        if (capturingRef.current) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+        return;
+      }
+
+      if (gap > humanGapMs) {
+        bufferRef.current = '';
+      }
+
+      if (!capturingRef.current) {
+        capturingRef.current = true;
+        onCaptureStart?.();
+      }
+
+      bufferRef.current += event.key;
+      onBufferUpdate?.(bufferRef.current);
+      scheduleFinalize();
+      event.preventDefault();
+      event.stopPropagation();
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown, true);
+    };
+  }, [
+    captureMode,
+    enabled,
+    humanGapMs,
+    onBufferUpdate,
+    onCancel,
+    onCaptureStart,
+    resetValue,
+    scheduleFinalize,
+    stopCapture,
+  ]);
 
   useEffect(() => {
     if (!enabled) return;
