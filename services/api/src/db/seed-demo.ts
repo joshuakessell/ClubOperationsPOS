@@ -120,98 +120,6 @@ type DbClient = {
   query: <T = unknown>(sql: string, params?: unknown[]) => Promise<{ rows: T[] }>;
 };
 
-const PG_INSUFFICIENT_PRIVILEGE = '42501';
-
-type TableColumn = {
-  name: string;
-  type: string;
-  generated: boolean;
-  nullable: boolean;
-  hasDefault: boolean;
-};
-
-function quoteIdent(value: string): string {
-  return `"${value.replace(/"/g, '""')}"`;
-}
-
-function isReplicaRolePermissionError(error: unknown): boolean {
-  if (!error || typeof error !== 'object') return false;
-  const code = (error as { code?: string }).code;
-  if (code === PG_INSUFFICIENT_PRIVILEGE) return true;
-  const message = (error as { message?: string }).message;
-  return typeof message === 'string' && /replication_role|superuser|permission/i.test(message);
-}
-
-async function tryEnableReplicaRole(client: DbClient): Promise<void> {
-  try {
-    await client.query('SET LOCAL session_replication_role = replica');
-  } catch (error) {
-    if (isReplicaRolePermissionError(error)) {
-      console.warn(
-        '⚠️  Unable to set session_replication_role=replica (insufficient privileges). Continuing with FK checks enabled.'
-      );
-      return;
-    }
-    throw error;
-  }
-}
-
-async function loadTableColumns(
-  client: DbClient,
-  schema: string,
-  table: string
-): Promise<TableColumn[]> {
-  const result = await client.query<{
-    column_name: string;
-    data_type: string;
-    generated: string;
-    not_null: boolean;
-    has_default: boolean;
-  }>(
-    `SELECT
-       a.attname as column_name,
-       pg_catalog.format_type(a.atttypid, a.atttypmod) as data_type,
-       a.attgenerated as generated,
-       a.attnotnull as not_null,
-       ad.adbin IS NOT NULL as has_default
-     FROM pg_attribute a
-     JOIN pg_class c ON c.oid = a.attrelid
-     JOIN pg_namespace n ON n.oid = c.relnamespace
-     LEFT JOIN pg_attrdef ad ON a.attrelid = ad.adrelid AND a.attnum = ad.adnum
-     WHERE n.nspname = $1
-       AND c.relname = $2
-       AND a.attnum > 0
-       AND NOT a.attisdropped
-     ORDER BY a.attnum`,
-    [schema, table]
-  );
-
-  return result.rows.map((row) => ({
-    name: row.column_name,
-    type: row.data_type,
-    generated: row.generated !== '',
-    nullable: !row.not_null,
-    hasDefault: row.has_default,
-  }));
-}
-
-async function ensureSnapshotColumns(
-  client: DbClient,
-  table: string,
-  publicColumns: TableColumn[]
-): Promise<void> {
-  const snapshotColumns = await loadTableColumns(client, 'demo_snapshot', table);
-  const snapshotColumnNames = new Set(snapshotColumns.map((column) => column.name));
-
-  for (const column of publicColumns) {
-    if (snapshotColumnNames.has(column.name)) continue;
-    await client.query(
-      `ALTER TABLE ${quoteIdent('demo_snapshot')}.${quoteIdent(table)}
-       ADD COLUMN IF NOT EXISTS ${quoteIdent(column.name)} ${column.type}`
-    );
-  }
-}
-
 async function ensureSnapshotSchema(client: DbClient) {
   await client.query(`CREATE SCHEMA IF NOT EXISTS demo_snapshot`);
   for (const table of DEMO_SNAPSHOT_TABLES) {
@@ -224,64 +132,30 @@ async function ensureSnapshotSchema(client: DbClient) {
 
 async function createDemoSnapshot(client: DbClient): Promise<void> {
   await ensureSnapshotSchema(client);
-  await tryEnableReplicaRole(client);
-  for (const table of DEMO_SNAPSHOT_TABLES) {
-    await client.query(`TRUNCATE demo_snapshot.${table}`);
-    const publicColumns = (await loadTableColumns(client, 'public', table)).filter(
-      (column) => !column.generated
-    );
-    await ensureSnapshotColumns(client, table, publicColumns);
-    if (publicColumns.length === 0) continue;
-    const columnList = publicColumns.map((column) => quoteIdent(column.name)).join(', ');
-    await client.query(
-      `INSERT INTO demo_snapshot.${table} (${columnList})
-       SELECT ${columnList} FROM public.${table}`
-    );
+  await client.query('SET session_replication_role = replica');
+  try {
+    for (const table of DEMO_SNAPSHOT_TABLES) {
+      await client.query(`TRUNCATE demo_snapshot.${table}`);
+      await client.query(`INSERT INTO demo_snapshot.${table} SELECT * FROM public.${table}`);
+    }
+  } finally {
+    await client.query('SET session_replication_role = origin');
   }
 }
 
 async function restoreDemoSnapshot(client: DbClient): Promise<void> {
   await ensureSnapshotSchema(client);
-  await tryEnableReplicaRole(client);
-  await client.query(
-    `TRUNCATE ${DEMO_SNAPSHOT_TABLES.map((t) => `public.${t}`).join(', ')} RESTART IDENTITY CASCADE`
-  );
+  await client.query('SET session_replication_role = replica');
+  try {
+    await client.query(
+      `TRUNCATE ${DEMO_SNAPSHOT_TABLES.map((t) => `public.${t}`).join(', ')} RESTART IDENTITY CASCADE`
+    );
     for (const table of DEMO_SNAPSHOT_TABLES) {
-      const publicColumns = (await loadTableColumns(client, 'public', table)).filter(
-        (column) => !column.generated
-      );
-      const snapshotColumns = await loadTableColumns(client, 'demo_snapshot', table);
-      const snapshotColumnNames = new Set(snapshotColumns.map((column) => column.name));
-      const insertColumns = publicColumns.filter((column) =>
-        snapshotColumnNames.has(column.name)
-      );
-      const missingColumns = publicColumns.filter(
-        (column) => !snapshotColumnNames.has(column.name)
-      );
-      if (missingColumns.length > 0) {
-        const requiredMissing = missingColumns.filter(
-          (column) => !column.nullable && !column.hasDefault
-        );
-        if (requiredMissing.length > 0) {
-          throw new Error(
-            `Demo snapshot table "${table}" is missing required columns: ${requiredMissing
-              .map((column) => column.name)
-              .join(', ')}. Re-run demo seed with DEMO_FORCE_RESEED=true to rebuild snapshots.`
-          );
-        }
-        console.warn(
-          `⚠️  Demo snapshot table "${table}" is missing columns: ${missingColumns
-            .map((column) => column.name)
-            .join(', ')}. Using defaults/nulls for restore.`
-        );
-      }
-      if (insertColumns.length === 0) continue;
-      const columnList = insertColumns.map((column) => quoteIdent(column.name)).join(', ');
-      await client.query(
-        `INSERT INTO public.${table} (${columnList})
-         SELECT ${columnList} FROM demo_snapshot.${table}`
-      );
+      await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
     }
+  } finally {
+    await client.query('SET session_replication_role = origin');
+  }
 }
 
 async function shiftDemoTimestamps(client: DbClient, deltaMs: number): Promise<void> {

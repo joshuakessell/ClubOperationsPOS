@@ -1,0 +1,65 @@
+.er-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem 1.25rem;
+  margin-top: 1rem;
+}
+
+.er-form-grid .form-group {
+  margin-bottom: 0;
+}
+
+.er-form-field--full {
+  grid-column: 1 / -1;
+}
+
+.er-form-field--active .cs-liquid-input,
+.er-form-field--active input,
+.er-form-field--active select {
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.28);
+}
+
+.er-form-error {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  border-radius: 12px;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fecaca;
+  font-weight: 700;
+}
+
+.er-scan-header {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.35rem;
+  margin-bottom: 0.75rem;
+}
+
+.er-scan-icon {
+  font-size: 3.5rem;
+  line-height: 1;
+}
+
+.er-scan-status {
+  margin-top: 0.35rem;
+  text-align: center;
+  color: #94a3b8;
+  font-weight: 600;
+}
+
+.er-scan-form {
+  margin-top: 0.75rem;
+}
+
+.er-scan-actions {
+  margin-top: 1.5rem;
+}
+
+@media (max-width: 720px) {
+  .er-form-grid {
+    grid-template-columns: 1fr;
+  }
+}

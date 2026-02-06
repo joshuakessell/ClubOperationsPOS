@@ -115,12 +115,12 @@ if [[ "${SKIP_DB_MIGRATIONS:-}" != "true" ]]; then
   )
 fi
 
-if [[ "${RUN_DEMO_SEED:-}" == "true" ]]; then
+if [[ "${DEMO_MODE:-}" == "true" && "${SKIP_DEMO_SEED:-}" != "true" ]]; then
   : "${DEMO_INCREMENTAL:=true}"
   : "${DEMO_RESET_ON_STARTUP:=true}"
   : "${DEMO_SHIFT_REGENERATE_PDFS:=true}"
   DEMO_FORCE_RESEED_VALUE="${DEMO_FORCE_RESEED:-false}"
-  echo "Running demo seed on deploy (incremental=$DEMO_INCREMENTAL)..."
+  echo "Running demo seed (incremental=$DEMO_INCREMENTAL)..."
   (
     cd "$ROOT_DIR/services/api"
     DEMO_MODE=true \
@@ -133,8 +133,6 @@ if [[ "${RUN_DEMO_SEED:-}" == "true" ]]; then
     DB_SSL_CA_PATH="${DB_SSL_CA_PATH:-}" \
       pnpm exec tsx src/db/seed-demo.ts
   )
-else
-  echo "Skipping demo seed during deploy (set RUN_DEMO_SEED=true to enable)."
 fi
 
 if [[ "${SKIP_DB_VERIFY:-}" != "true" ]]; then

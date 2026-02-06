@@ -134,31 +134,21 @@ You can also run a **frontends-only** deploy manually from GitHub Actions:
 
 ## Demo Data Seeding
 
-The API includes a **Busy Saturday** demo seed that covers the past 14 days and next 14 days,
-including agreement signing PDFs. We **do not seed on every deploy** anymore.
+The API already includes a **Busy Saturday** demo seed that covers the past 14 days and next 14 days,
+including agreement signing PDFs.
 
-To seed or refresh demo data, the dev SSM bastion runs a systemd timer:
+To seed a fresh database:
 
-- Service: `club-ops-demo-seed.service`
-- Timer: `club-ops-demo-seed.timer` (runs on boot and then every 24 hours)
-- Script: `/usr/local/bin/club-ops-demo-seed.sh`
-- Logs: `journalctl -u club-ops-demo-seed.service` and `/var/log/club-ops/seed-demo.log`
+- Set `DEMO_MODE=true`
+- Set `SEED_ON_STARTUP=true` for the first deploy (forces a full rebuild)
 
-Manual run:
+For ongoing deploys:
 
-```bash
-sudo systemctl start club-ops-demo-seed.service
-```
+- Keep `DEMO_MODE=true`
+- Set `SEED_ON_STARTUP=false` to use the snapshot + timestamp shift (fast startup)
+- Set `DEMO_INCREMENTAL=true` to append new visits between the last deploy and now
 
-One-time full rebuild after schema/data changes:
-
-```bash
-sudo touch /var/lib/club-ops/force-demo-reseed
-sudo systemctl start club-ops-demo-seed.service
-```
-
-If you explicitly want to seed during a deploy, set `RUN_DEMO_SEED=true` when running
-`scripts/aws/deploy-api.sh` (normally not needed because the EC2 timer handles daily refreshes).
+If you want to regenerate a brand‑new dataset each deploy, keep `SEED_ON_STARTUP=true`.
 
 ## Verification
 
