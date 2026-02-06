@@ -23,7 +23,7 @@
 .er-camera-scan-overlay {
   position: fixed;
   inset: 0;
-  z-index: 10000;
+  z-index: 20000;
   background: rgba(2, 6, 23, 0.96);
   display: flex;
   align-items: stretch;
@@ -33,7 +33,7 @@
 .er-camera-scan-stage {
   position: relative;
   width: 100%;
-  height: 100%;
+  height: 100vh;
   overflow: hidden;
   background: radial-gradient(circle at 50% 20%, rgba(15, 23, 42, 0.35), rgba(2, 6, 23, 0.95));
 }
@@ -45,21 +45,6 @@
   height: 100%;
   object-fit: cover;
   background: #020617;
-}
-
-.er-camera-scan-hud {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  padding: clamp(1rem, 3vw, 1.75rem);
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 1rem;
-  align-items: center;
-  color: var(--er-text);
-  z-index: 2;
-  background: linear-gradient(180deg, rgba(2, 6, 23, 0.85), rgba(2, 6, 23, 0));
 }
 
 .er-camera-scan-title {
@@ -76,50 +61,59 @@
 }
 
 .er-camera-scan-status {
-  font-size: 0.95rem;
+  margin-top: 0.4rem;
+  font-size: 0.85rem;
   font-weight: 700;
-  color: rgba(226, 232, 240, 0.88);
-  text-align: right;
-}
-
-.er-camera-scan-close {
-  justify-self: end;
-  padding: 0.35rem 0.8rem;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.4);
-  background: rgba(15, 23, 42, 0.75);
-  color: rgba(226, 232, 240, 0.95);
-  font-weight: 700;
-  cursor: pointer;
-  transition: border-color 180ms ease, transform 180ms ease, box-shadow 180ms ease;
-}
-
-.er-camera-scan-close:hover {
-  border-color: rgba(148, 163, 184, 0.7);
-  box-shadow: 0 8px 24px rgba(2, 6, 23, 0.4);
-  transform: translateY(-1px);
-}
-
-.er-camera-scan-reticle {
-  position: absolute;
-  inset: 16%;
-  border-radius: 18px;
-  border: 2px solid rgba(148, 163, 184, 0.45);
-  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, 0.6);
-  pointer-events: none;
+  color: rgba(226, 232, 240, 0.82);
 }
 
 .er-camera-scan-line {
   position: absolute;
-  left: 10%;
-  right: 10%;
-  top: 15%;
+  left: 20%;
+  right: 20%;
+  top: 42%;
   height: 3px;
   border-radius: 999px;
   background: linear-gradient(90deg, transparent, rgba(56, 189, 248, 0.9), transparent);
   animation: erScanLine 2.6s ease-in-out infinite;
   box-shadow: 0 0 14px rgba(56, 189, 248, 0.7);
   pointer-events: none;
+}
+
+.er-camera-scan-tip {
+  position: absolute;
+  top: clamp(0.75rem, 2.5vw, 1.25rem);
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 0.75rem 1rem;
+  text-align: center;
+  color: var(--er-text);
+  background: rgba(15, 23, 42, 0.82);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  z-index: 3;
+  min-width: min(520px, 86vw);
+}
+
+.er-camera-scan-frame {
+  position: absolute;
+  width: min(520px, 78vw);
+  height: min(220px, 36vh);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  border-radius: 20px;
+  border: 2px solid rgba(148, 163, 184, 0.6);
+  box-shadow: inset 0 0 0 1px rgba(2, 6, 23, 0.6);
+  pointer-events: none;
+}
+
+.er-camera-scan-actions {
+  position: absolute;
+  left: 50%;
+  bottom: clamp(1rem, 3vw, 1.75rem);
+  transform: translateX(-50%);
+  z-index: 3;
 }
 
 /* Scan panel layout */
@@ -189,17 +183,8 @@
 }
 
 @media (max-width: 900px) {
-  .er-camera-scan-hud {
-    grid-template-columns: 1fr;
-    text-align: left;
-  }
-
-  .er-camera-scan-status {
-    text-align: left;
-  }
-
-  .er-camera-scan-close {
-    justify-self: start;
+  .er-camera-scan-tip {
+    min-width: min(420px, 90vw);
   }
 
   .er-scan-layout {
