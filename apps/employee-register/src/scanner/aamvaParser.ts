@@ -48,6 +48,13 @@ export type ExtractedAamvaIdentity = {
   idTypeOther?: string;
 };
 
+export type AamvaActiveField =
+  | 'firstName'
+  | 'lastName'
+  | 'dob'
+  | 'idExpirationDate'
+  | 'idNumber';
+
 export function normalizeScanText(raw: string): string {
   if (!raw) return '';
   const cleaned = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
@@ -176,4 +183,25 @@ export function extractAamvaIdentity(rawNormalized: string): ExtractedAamvaIdent
     jurisdiction,
     idType,
   };
+}
+
+const ACTIVE_MARKERS: Array<{ code: string; field: AamvaActiveField }> = [
+  { code: 'DAC', field: 'firstName' },
+  { code: 'DCS', field: 'lastName' },
+  { code: 'DBB', field: 'dob' },
+  { code: 'DBA', field: 'idExpirationDate' },
+  { code: 'DAQ', field: 'idNumber' },
+];
+
+export function getAamvaActiveField(rawNormalized: string): AamvaActiveField | null {
+  let active: AamvaActiveField | null = null;
+  let lastIdx = -1;
+  for (const marker of ACTIVE_MARKERS) {
+    const idx = rawNormalized.lastIndexOf(marker.code);
+    if (idx > lastIdx) {
+      lastIdx = idx;
+      active = marker.field;
+    }
+  }
+  return active;
 }

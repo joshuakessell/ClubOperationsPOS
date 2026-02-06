@@ -5,7 +5,7 @@ import '@club-ops/ui/styles/index.css';
 import './styles.css';
 import './styles.home.css';
 import './styles.components.css';
-import './styles.camera-scan.css';
+import './styles.scan-entry.css';
 import { OrientationGuard } from './ui/orientation/OrientationGuard';
 import './ui/orientation/orientation.css';
 import { FatalEnvScreen } from './components/FatalEnvScreen';

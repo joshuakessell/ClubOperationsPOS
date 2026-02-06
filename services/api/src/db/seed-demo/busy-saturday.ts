@@ -1179,10 +1179,10 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       const openedAt = new Date(now.getTime() - 6 * 60 * 60 * 1000);
       const insertOpenRegister = await client.query<{ id: string; created_at: Date }>(
         `INSERT INTO register_sessions
-           (employee_id, device_id, register_number, last_heartbeat, last_activity_at, created_at)
-           VALUES ($1, $2, $3, $4, $5, $6)
+           (employee_id, device_id, register_number, last_heartbeat, created_at)
+           VALUES ($1, $2, $3, $4, $5)
            RETURNING id, created_at`,
-        [primaryStaff.id, openRegisterDeviceId, openRegisterNumber, now, now, openedAt]
+        [primaryStaff.id, openRegisterDeviceId, openRegisterNumber, now, openedAt]
       );
       openRegisterSessionId = insertOpenRegister.rows[0]!.id;
       openRegisterOpenedAt = insertOpenRegister.rows[0]!.created_at;
@@ -1195,14 +1195,13 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
     const closedRegisterSignedOutAt = new Date(now.getTime() - 2 * 60 * 60 * 1000);
     const insertClosedRegister = await client.query<{ id: string; created_at: Date }>(
       `INSERT INTO register_sessions
-         (employee_id, device_id, register_number, last_heartbeat, last_activity_at, created_at, signed_out_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         (employee_id, device_id, register_number, last_heartbeat, created_at, signed_out_at)
+         VALUES ($1, $2, $3, $4, $5, $6)
          RETURNING id, created_at`,
       [
         secondaryStaff.id,
         closedRegisterDeviceId,
         closedRegisterNumber,
-        closedRegisterSignedOutAt,
         closedRegisterSignedOutAt,
         closedRegisterOpenedAt,
         closedRegisterSignedOutAt,

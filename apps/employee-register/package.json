@@ -15,7 +15,6 @@
   "dependencies": {
     "@club-ops/shared": "workspace:*",
     "@club-ops/ui": "workspace:*",
-    "@zxing/browser": "^0.1.5",
     "@zxing/library": "^0.21.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0"

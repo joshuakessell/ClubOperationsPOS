@@ -4,12 +4,6 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
-    inputs:
-      run_demo_seed:
-        description: 'Run demo seed via SSM before deploy'
-        required: false
-        default: false
-        type: boolean
 
 concurrency:
   group: deploy-dev-${{ github.ref }}
@@ -63,7 +57,6 @@ jobs:
           echo "/usr/local/sessionmanagerplugin/bin" >> $GITHUB_PATH
 
       - name: Seed demo DB via SSM tunnel
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_demo_seed == 'true' }}
         env:
           DEMO_INCREMENTAL: 'true'
           DEMO_RESET_ON_STARTUP: 'true'
