@@ -3,6 +3,11 @@ import { getErrorMessage, isRecord } from '@club-ops/ui';
 import type { ActiveCheckinDetails } from '../components/register/modals/AlreadyCheckedInModal';
 
 const API_BASE = getApiUrl('/api');
+const rawEnv = import.meta.env as unknown as Record<string, unknown>;
+const kioskToken =
+  typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
+    ? rawEnv.VITE_KIOSK_TOKEN.trim()
+    : null;
 
 export type StartLaneResponse = {
   sessionId?: string;
@@ -47,6 +52,7 @@ export async function startLaneCheckin(params: {
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${sessionToken}`,
+      ...(kioskToken ? { 'x-kiosk-token': kioskToken } : {}),
     },
     body: JSON.stringify({
       customerId,
