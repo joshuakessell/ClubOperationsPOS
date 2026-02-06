@@ -210,9 +210,29 @@ export function useScanState({
   const cameraOverlayVisible = cameraRequested && scanEnabled;
 
   const startCameraScan = useCallback(() => {
-    if (!scanEnabled) return;
-    setCameraRequested(true);
-  }, [scanEnabled]);
+    if (!scanEnabled || cameraRequested) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScanToastMessage('Camera unavailable on this device.');
+      return;
+    }
+    void (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: 'user' } },
+        });
+        stream.getTracks().forEach((track) => track.stop());
+        setCameraRequested(true);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Camera permission denied. Enable camera access in iPad Settings.';
+        setScanToastMessage(message);
+        setCameraRequested(false);
+      }
+    })();
+  }, [cameraRequested, scanEnabled, setScanToastMessage]);
 
   const stopCameraScan = useCallback(() => {
     setCameraRequested(false);
