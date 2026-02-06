@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useScanCaptureInput } from '../../../scanner/useScanCaptureInput';
 import { useCameraBarcodeScanner } from '../../../scanner/useCameraBarcodeScanner';
+import { isLikelyAamvaPdf417Text } from '../../../scanner/aamvaParser';
 import { useScanResolutionState } from './useScanResolutionState';
+import { useScanReviewState } from './useScanReviewState';
 import type { HomeTab, ScanResult, StaffSession } from '../shared/types';
 
 type Params = {
@@ -27,12 +29,19 @@ export function useScanState({
   startLaneSessionByCustomerId,
 }: Params) {
   const resolution = useScanResolutionState({ session, lane, startLaneSessionByCustomerId });
+  const review = useScanReviewState({
+    session,
+    lane,
+    startLaneSessionByCustomerId,
+    setIdScanIssue: resolution.setIdScanIssue,
+  });
 
   const blockingModalOpen =
     externalBlocking ||
     !!resolution.pendingScanResolution ||
     resolution.showCreateFromScanPrompt ||
-    !!resolution.idScanIssue;
+    !!resolution.idScanIssue ||
+    review.scanReviewOpen;
 
   const [scanOverlayMounted, setScanOverlayMounted] = useState(false);
   const [scanOverlayActive, setScanOverlayActive] = useState(false);
@@ -137,6 +146,10 @@ export function useScanState({
         return;
       }
       setScanToastMessage(null);
+      if (isLikelyAamvaPdf417Text(normalized)) {
+        review.beginScanReview(normalized);
+        return;
+      }
       if (options?.showProcessingOverlay) {
         showScanOverlay();
       }
@@ -162,7 +175,7 @@ export function useScanState({
         }
       }
     },
-    [hideScanOverlay, normalizeScanText, resolution, showScanOverlay]
+    [hideScanOverlay, normalizeScanText, resolution, review, showScanOverlay]
   );
 
   useEffect(() => {
@@ -210,9 +223,29 @@ export function useScanState({
   const cameraOverlayVisible = cameraRequested && scanEnabled;
 
   const startCameraScan = useCallback(() => {
-    if (!scanEnabled) return;
-    setCameraRequested(true);
-  }, [scanEnabled]);
+    if (!scanEnabled || cameraRequested) return;
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setScanToastMessage('Camera unavailable on this device.');
+      return;
+    }
+    void (async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: 'user' } },
+        });
+        stream.getTracks().forEach((track) => track.stop());
+        setCameraRequested(true);
+      } catch (err) {
+        const message =
+          err instanceof Error
+            ? err.message
+            : 'Camera permission denied. Enable camera access in iPad Settings.';
+        setScanToastMessage(message);
+        setCameraRequested(false);
+      }
+    })();
+  }, [cameraRequested, scanEnabled, setScanToastMessage]);
 
   const stopCameraScan = useCallback(() => {
     setCameraRequested(false);
@@ -265,6 +298,14 @@ export function useScanState({
     setCreateFromScanError: resolution.setCreateFromScanError,
     setCreateFromScanSubmitting: resolution.setCreateFromScanSubmitting,
     handleCreateFromNoMatch: resolution.handleCreateFromNoMatch,
+    scanReviewData: review.scanReviewData,
+    scanReviewOpen: review.scanReviewOpen,
+    scanReviewError: review.scanReviewError,
+    scanReviewSubmitting: review.scanReviewSubmitting,
+    beginScanReview: review.beginScanReview,
+    cancelScanReview: review.cancelScanReview,
+    updateScanReviewField: review.updateScanReviewField,
+    submitScanReview: review.submitScanReview,
     blockingModalOpen,
     startCameraScan,
     stopCameraScan,
