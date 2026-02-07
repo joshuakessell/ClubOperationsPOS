@@ -99,17 +99,20 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
     idType: CustomerIdType;
     idTypeOther: string | null;
     idExpirationDate: Date;
+    idState: string;
   } {
     const idType = buildSeedIdType(seed);
     const prefix = idType === 'PASSPORT' ? 'P' : idType === 'STATE_ID' ? 'S' : 'D';
     const idNumber = `${prefix}${String(seed).padStart(8, '0')}`;
     const idTypeOther = idType === 'OTHER' ? `Municipal ID ${seed}` : null;
+    const idStates = ['TX', 'OK', 'LA', 'NM', 'AR'];
+    const idState = idStates[seed % idStates.length] ?? 'TX';
     const idExpirationDate = new Date(
       now.getFullYear() + 2 + (seed % 3),
       (seed * 7) % 12,
       ((seed * 11) % 27) + 1
     );
-    return { idNumber, idType, idTypeOther, idExpirationDate };
+    return { idNumber, idType, idTypeOther, idExpirationDate, idState };
   }
 
   // Choose one STANDARD room to remain free at NOW
@@ -483,8 +486,8 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
 
       await client.query(
         `INSERT INTO customers
-           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_type, id_type_other, primary_language, past_due_balance, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, NULL, NULL, $5, $6, $7, $8, 'EN', 0, NOW(), NOW())`,
+           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_state, id_type, id_type_other, primary_language, past_due_balance, created_at, updated_at)
+           VALUES ($1, $2, $3, $4, NULL, NULL, $5, $6, $7, $8, $9, 'EN', 0, NOW(), NOW())`,
         [
           id,
           name,
@@ -492,6 +495,7 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
           membershipNumber,
           idProfile.idExpirationDate,
           idProfile.idNumber,
+          idProfile.idState,
           idProfile.idType,
           idProfile.idTypeOther,
         ]
@@ -513,14 +517,15 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       const idProfile = buildSeedIdProfile(idx + 1);
       await client.query(
         `INSERT INTO customers
-           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_type, id_type_other, primary_language, past_due_balance, created_at, updated_at)
-           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, 'EN', 0, NOW(), NOW())`,
+           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_state, id_type, id_type_other, primary_language, past_due_balance, created_at, updated_at)
+           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, $8, 'EN', 0, NOW(), NOW())`,
         [
           id,
           name,
           dob,
           idProfile.idExpirationDate,
           idProfile.idNumber,
+          idProfile.idState,
           idProfile.idType,
           idProfile.idTypeOther,
         ]
@@ -550,10 +555,11 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
              id_scan_value = $4,
              id_expiration_date = $5,
              id_number = $6,
-             id_type = $7,
-             id_type_other = $8,
+             id_state = $7,
+             id_type = $8,
+             id_type_other = $9,
              updated_at = NOW()
-         WHERE id = $9`,
+         WHERE id = $10`,
       [
         'Joshua Kessell',
         new Date('1988-07-15'),
@@ -561,6 +567,7 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
         dlNormalized,
         new Date('2032-07-15'),
         '21026653',
+        'TX',
         'DRIVERS_LICENSE',
         null,
         dlTestCustomerId,
@@ -613,14 +620,15 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       const idProfile = buildSeedIdProfile(MEMBER_COUNT + EXTRA_GUEST_COUNT + index + 1);
       await client.query(
         `INSERT INTO customers
-           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_type, id_type_other, primary_language, past_due_balance, notes, created_at, updated_at)
-           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, 'EN', 0, $8, NOW(), NOW())`,
+           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_state, id_type, id_type_other, primary_language, past_due_balance, notes, created_at, updated_at)
+           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, $8, 'EN', 0, $9, NOW(), NOW())`,
         [
           id,
           seed.name,
           seed.dob,
           idProfile.idExpirationDate,
           idProfile.idNumber,
+          idProfile.idState,
           idProfile.idType,
           idProfile.idTypeOther,
           seed.notes,
@@ -834,8 +842,8 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       }
     }
 
-    // 3) Create churn: MANY completed stays over the last ~48 hours
-    // - Bias check-ins toward NOW (higher density in last ~4-6 hours)
+    // 3) Create churn: MANY completed stays over the last ~14 days
+    // - Use regular 6-hour slots with light jitter
     // - Most checkouts within 0..15 minutes early, some 30..120 minutes early
     // - Never overlap with the current active assignment for the same room/locker
     function completedCustomerIdFor(idx: number): string {
@@ -960,14 +968,20 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       return { roomId: null, lockerId, rentalType: RentalType.LOCKER };
     }
 
+    const completedHistoryDays = 14;
+    const completedSlotHours = 6;
+    const completedSlotMs = completedSlotHours * 60 * 60 * 1000;
+    const completedWindowMs = completedHistoryDays * 24 * 60 * 60 * 1000;
+    const completedSlotCount = Math.max(1, Math.floor(completedWindowMs / completedSlotMs));
+
     for (let idx = 0; idx < COMPLETED_TARGET; idx++) {
       const customerId = completedCustomerIdFor(idx);
       const resource = pickCompletedResource(idx);
 
-      // Bias check-ins toward NOW using squared distribution (more density near now)
-      // ageHours in [0..48], but rng^2 biases toward 0 (recent)
-      const ageHours = rng() * rng() * 48;
-      let checkInAt = new Date(now.getTime() - ageHours * 60 * 60 * 1000);
+      const slotIndex = idx % completedSlotCount;
+      const slotStart = new Date(now.getTime() - (slotIndex + 1) * completedSlotMs);
+      const jitterMinutes = randInt(0, 60);
+      let checkInAt = new Date(slotStart.getTime() - jitterMinutes * 60 * 1000);
 
       const durationMinutes = randInt(120, 360); // 2h..6h
       let scheduledCheckoutAt = scheduledCheckoutFromCheckin(checkInAt, durationMinutes);
