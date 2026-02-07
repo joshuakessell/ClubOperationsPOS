@@ -153,6 +153,8 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     exitCheckout: navState.exitCheckout,
     accountCustomerId: navState.accountCustomerId,
     accountCustomerLabel: navState.accountCustomerLabel,
+    accountCustomerSummary: navState.accountCustomerSummary,
+    accountAutoStartCheckin: navState.accountAutoStartCheckin,
     laneSession,
     laneSessionActions,
     currentSessionId,

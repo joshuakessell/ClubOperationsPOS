@@ -15,9 +15,10 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
    * Used for idempotence: if a lane session is already active for this same customer, do not restart.
    */
   currentLaneSession: { currentSessionId: string | null; customerId: string | null };
+  autoStart?: boolean;
   onStarted?: (data: StartLaneResponse) => void;
 }) {
-  const { lane, sessionToken, customerId, currentLaneSession, onStarted } = params;
+  const { lane, sessionToken, customerId, currentLaneSession, onStarted, autoStart } = params;
   const onStartedRef = useRef<typeof onStarted>(onStarted);
   useEffect(() => {
     onStartedRef.current = onStarted;
@@ -26,13 +27,15 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
   const key = useMemo(() => `${lane}::${customerId ?? ''}`, [lane, customerId]);
   const [retryNonce, setRetryNonce] = useState(0);
   const lastAttemptKeyRef = useRef<string | null>(null);
+  const shouldAutoStart = autoStart !== false;
+  const [hasAttemptedStart, setHasAttemptedStart] = useState(false);
 
   const [state, setState] = useState<StartLaneCheckinState>(() => {
     if (!customerId)
       return { mode: 'ERROR', isStarting: false, errorMessage: 'No customer selected.' };
     if (!sessionToken)
       return { mode: 'ERROR', isStarting: false, errorMessage: 'Not authenticated.' };
-    return { mode: 'CHECKING_IN', isStarting: true };
+    return { mode: 'CHECKING_IN', isStarting: shouldAutoStart };
   });
 
   // Reset state when target customer changes.
@@ -46,12 +49,19 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
       return;
     }
     // New customer selection: start in CHECKING_IN and let the effect decide whether it needs to POST /start.
-    setState({ mode: 'CHECKING_IN', isStarting: true });
+    setState({ mode: 'CHECKING_IN', isStarting: shouldAutoStart });
     lastAttemptKeyRef.current = null;
-  }, [customerId, sessionToken, key]);
+    setRetryNonce(0);
+    setHasAttemptedStart(false);
+  }, [customerId, sessionToken, key, shouldAutoStart]);
 
   useEffect(() => {
     if (!customerId || !sessionToken) return;
+
+    if (!shouldAutoStart && retryNonce === 0) {
+      setState({ mode: 'CHECKING_IN', isStarting: false });
+      return;
+    }
 
     // Idempotent guard: if we already have a lane session for this same customer, don't restart.
     if (currentLaneSession.currentSessionId && currentLaneSession.customerId === customerId) {
@@ -60,7 +70,8 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
     }
 
     // Prevent repeated attempts for the same customer unless explicitly retried.
-    if (lastAttemptKeyRef.current === key && retryNonce === 0) {
+    const attemptKey = `${key}::${retryNonce}`;
+    if (lastAttemptKeyRef.current === attemptKey) {
       setState((prev) =>
         prev.mode === 'CHECKING_IN' ? { mode: 'CHECKING_IN', isStarting: false } : prev
       );
@@ -68,7 +79,8 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
     }
 
     let cancelled = false;
-    lastAttemptKeyRef.current = key;
+    lastAttemptKeyRef.current = attemptKey;
+    setHasAttemptedStart(true);
     setState({ mode: 'CHECKING_IN', isStarting: true });
 
     void (async () => {
@@ -112,6 +124,7 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
     lane,
     key,
     retryNonce,
+    shouldAutoStart,
     currentLaneSession.currentSessionId,
     currentLaneSession.customerId,
   ]);
@@ -121,5 +134,5 @@ export function useStartLaneCheckinForCustomerIfNotVisiting(params: {
     lastAttemptKeyRef.current = null;
   }, []);
 
-  return { state, retry };
+  return { state, retry, start: retry, hasAttemptedStart };
 }

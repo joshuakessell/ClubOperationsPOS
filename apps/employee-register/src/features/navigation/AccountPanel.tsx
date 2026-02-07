@@ -9,6 +9,8 @@ export function AccountPanel() {
   const {
     accountCustomerId,
     accountCustomerLabel,
+    accountCustomerSummary,
+    accountAutoStartCheckin,
     lane,
     session,
     openRenewalSelection,
@@ -62,6 +64,8 @@ export function AccountPanel() {
         sessionToken={session?.sessionToken}
         customerId={accountCustomerId}
         customerLabel={accountCustomerLabel}
+        customerSummary={accountCustomerSummary}
+        autoStartCheckin={accountAutoStartCheckin}
         onStartCheckout={startCheckoutFromCustomerAccount}
         onStartRenewal={(activeCheckin) => openRenewalSelection(activeCheckin)}
         onClearSession={() => void handleClearSession().then(() => selectHomeTab('scan'))}
