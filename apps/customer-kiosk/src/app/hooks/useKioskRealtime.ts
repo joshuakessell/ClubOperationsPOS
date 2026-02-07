@@ -193,6 +193,46 @@ export function useKioskRealtime({
     onRealtimeMessage(lastMessage);
   }, [lastMessage, onRealtimeMessage]);
 
+  const initialSnapshotLaneRef = useRef<string | null>(null);
+  useEffect(() => {
+    const laneId = lane;
+    if (!laneId) return;
+    if (initialSnapshotLaneRef.current === laneId) return;
+    initialSnapshotLaneRef.current = laneId;
+    let cancelled = false;
+
+    const fetchSnapshot = async () => {
+      try {
+        const res = await fetch(
+          `${api.apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
+          { headers: api.kioskAuthHeaders() }
+        );
+        if (!res.ok || cancelled) return;
+        const data = await readJson<unknown>(res);
+        if (cancelled || !isRecord(data)) return;
+        const sessionPayload = data['session'];
+        if (sessionPayload == null) {
+          sessionActions.resetToIdle();
+          return;
+        }
+        if (isRecord(sessionPayload)) {
+          const parsedPayload = SessionUpdatedPayloadSchema.safeParse(sessionPayload);
+          if (parsedPayload.success) {
+            sessionActions.applySessionUpdatedPayload(parsedPayload.data);
+          }
+        }
+      } catch {
+        // Best-effort; realtime/polling will continue.
+      }
+    };
+
+    void fetchSnapshot();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [api, lane, sessionActions]);
+
   const pollingStartedRef = useRef(false);
   const pollingDelayTimerRef = useRef<number | null>(null);
   const pollingIntervalRef = useRef<number | null>(null);

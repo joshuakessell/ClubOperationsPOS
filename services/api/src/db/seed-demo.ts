@@ -8,7 +8,7 @@ import { generateAgreementPdf } from '../utils/pdf-generator';
 loadEnvFromDotEnvIfPresent();
 
 const DEMO_STATE_KEY = 'busy_saturday_demo_v1';
-const DEMO_SNAPSHOT_VERSION = 1;
+const DEMO_SNAPSHOT_VERSION = 2;
 const DEMO_FORCE_RESEED = process.env.DEMO_FORCE_RESEED === 'true';
 const DEMO_SHIFT_REGENERATE_PDFS = process.env.DEMO_SHIFT_REGENERATE_PDFS !== 'false';
 const DEMO_RESET_ON_STARTUP = process.env.DEMO_RESET_ON_STARTUP !== 'false';
