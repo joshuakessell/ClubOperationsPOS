@@ -5,13 +5,11 @@ import { useStartLaneCheckinForCustomerIfNotVisiting } from '../../../app/useSta
 import { PanelHeader } from '../../../views/PanelHeader';
 import { PanelShell } from '../../../views/PanelShell';
 import type { ActiveCheckinDetails } from '../modals/AlreadyCheckedInModal';
-
 function formatLocal(value: string | null): string {
   if (!value) return '—';
   const d = new Date(value);
   return Number.isFinite(d.getTime()) ? d.toLocaleString() : '—';
 }
-
 function getRenewalEligibility(activeCheckin: ActiveCheckinDetails | null) {
   if (!activeCheckin?.checkoutAt) {
     return { withinWindow: false, allowTwoHour: false, allowSixHour: false, totalHours: null };
@@ -108,7 +106,9 @@ export function CustomerAccountPanel(props: {
     autoStart: props.autoStartCheckin,
     onStarted: props.onStartedSession,
   });
-  const hasActiveSession = Boolean(props.currentSessionId && props.customerName);
+  const hasActiveSession =
+    Boolean(props.currentSessionId && props.customerName) &&
+    props.currentSessionCustomerId === props.customerId;
   const fallbackName = props.customerSummary?.name || props.customerLabel || '—';
   const fallbackDob = props.customerSummary?.dobMonthDay ?? null;
   const fallbackMembership = props.customerSummary?.membershipNumber ?? null;
@@ -116,25 +116,25 @@ export function CustomerAccountPanel(props: {
   const displayDob = props.customerDobMonthDay || fallbackDob;
   const displayMembership = props.membershipNumber || fallbackMembership;
   const showManualStart = !hasActiveSession && props.autoStartCheckin === false;
-  const manualStartPending = showManualStart && (state.isStarting || hasAttemptedStart);
+  const manualStartPending = showManualStart && state.isStarting;
   const showGoBack =
     state.mode === 'ERROR' &&
     (state.errorCode === 'UNDERAGE' || state.errorCode === 'ID_EXPIRED');
   const renderProfileCard = (footer: JSX.Element | null) => (
     <CustomerProfileCard
       name={displayName}
-      preferredLanguage={props.customerPrimaryLanguage || null}
+      preferredLanguage={hasActiveSession ? props.customerPrimaryLanguage || null : null}
       dobMonthDay={displayDob}
-      idExpirationDate={props.customerIdExpirationDate}
-      idType={props.customerIdType}
-      idTypeOther={props.customerIdTypeOther}
+      idExpirationDate={hasActiveSession ? props.customerIdExpirationDate : null}
+      idType={hasActiveSession ? props.customerIdType : null}
+      idTypeOther={hasActiveSession ? props.customerIdTypeOther : null}
       membershipNumber={displayMembership}
-      membershipValidUntil={props.customerMembershipValidUntil || null}
-      lastVisitAt={props.customerLastVisitAt || null}
-      hasEncryptedLookupMarker={Boolean(props.hasEncryptedLookupMarker)}
-      checkinStage={props.checkinStage}
-      waitlistDesiredTier={props.waitlistDesiredTier}
-      waitlistBackupType={props.waitlistBackupType}
+      membershipValidUntil={hasActiveSession ? props.customerMembershipValidUntil || null : null}
+      lastVisitAt={hasActiveSession ? props.customerLastVisitAt || null : null}
+      hasEncryptedLookupMarker={hasActiveSession ? Boolean(props.hasEncryptedLookupMarker) : false}
+      checkinStage={hasActiveSession ? props.checkinStage : null}
+      waitlistDesiredTier={hasActiveSession ? props.waitlistDesiredTier : null}
+      waitlistBackupType={hasActiveSession ? props.waitlistBackupType : null}
       footer={footer ?? undefined}
     />
   );
@@ -156,7 +156,7 @@ export function CustomerAccountPanel(props: {
       disabled={manualStartPending}
       style={{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
     >
-      {manualStartPending ? 'Starting Check-in…' : 'Begin Checkin'}
+      {manualStartPending ? 'Starting Check-in…' : 'Start Checkin'}
     </button>
   );
   return (
@@ -383,9 +383,9 @@ export function CustomerAccountPanel(props: {
             <>
               {renderProfileCard(beginCheckinButton)}
               <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                {manualStartPending
+                {hasAttemptedStart
                   ? 'Waiting for the customer kiosk to begin check-in…'
-                  : 'Review the customer details, then begin the check-in.'}
+                  : 'Review the customer details, then start the check-in.'}
               </div>
             </>
           ) : (
