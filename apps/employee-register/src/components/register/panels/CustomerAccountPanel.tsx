@@ -349,7 +349,7 @@ export function CustomerAccountPanel(props: {
             <>
               {renderProfileCard(clearSessionButton)}
               <EmployeeAssistPanel
-                sessionId={props.currentSessionId}
+                sessionId={props.currentSessionId!}
                 customerName={props.customerName}
                 customerPrimaryLanguage={props.customerPrimaryLanguage}
                 membershipNumber={props.membershipNumber || null}

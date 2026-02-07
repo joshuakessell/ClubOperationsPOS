@@ -117,7 +117,7 @@ export function useHomeNavigationState({
       return;
     }
     selectHomeTab('scan');
-  }, [selectHomeTab]);
+  }, [selectHomeTab, setAccountCustomerIdSafe]);
 
   const openCustomerAccount = useCallback(
     (customerId: string, label?: string | null, opts?: OpenCustomerAccountOptions) => {
