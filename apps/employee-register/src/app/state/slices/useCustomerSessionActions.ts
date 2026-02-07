@@ -4,7 +4,14 @@ import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
-  openCustomerAccount: (customerId: string, label?: string | null) => void;
+  openCustomerAccount: (
+    customerId: string,
+    label?: string | null,
+    opts?: {
+      autoStart?: boolean;
+      summary?: { name?: string; dobMonthDay?: string; membershipNumber?: string } | null;
+    }
+  ) => void;
   setIsSubmitting: (value: boolean) => void;
   notifications: ToastNotifier;
 };
@@ -18,7 +25,12 @@ export function useCustomerSessionActions({
   const startLaneSessionByCustomerId = useCallback(
     (
       customerId: string,
-      opts?: { suppressAlerts?: boolean; customerLabel?: string | null }
+      opts?: {
+        suppressAlerts?: boolean;
+        customerLabel?: string | null;
+        autoStart?: boolean;
+        summary?: { name?: string; dobMonthDay?: string; membershipNumber?: string } | null;
+      }
     ): Promise<ScanResult> => {
       if (!session?.sessionToken) {
         const msg = 'Not authenticated';
@@ -28,7 +40,10 @@ export function useCustomerSessionActions({
 
       setIsSubmitting(true);
       try {
-        openCustomerAccount(customerId, opts?.customerLabel ?? null);
+        openCustomerAccount(customerId, opts?.customerLabel ?? null, {
+          autoStart: opts?.autoStart,
+          summary: opts?.summary ?? null,
+        });
         return Promise.resolve({ outcome: 'matched' });
       } catch (error) {
         console.error('Failed to open customer account:', error);

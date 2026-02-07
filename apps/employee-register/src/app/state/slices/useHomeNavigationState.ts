@@ -6,6 +6,17 @@ type CheckoutPrefill = {
   number?: string;
 };
 
+type AccountCustomerSummary = {
+  name?: string;
+  dobMonthDay?: string;
+  membershipNumber?: string;
+};
+
+type OpenCustomerAccountOptions = {
+  autoStart?: boolean;
+  summary?: AccountCustomerSummary | null;
+};
+
 type UseHomeNavigationStateParams = {
   setManualEntry: (value: boolean) => void;
   currentSessionId: string | null;
@@ -20,12 +31,23 @@ export function useHomeNavigationState({
   const [homeTab, setHomeTab] = useState<HomeTab>('scan');
   const [accountCustomerId, setAccountCustomerId] = useState<string | null>(null);
   const [accountCustomerLabel, setAccountCustomerLabel] = useState<string | null>(null);
+  const [accountCustomerSummary, setAccountCustomerSummary] =
+    useState<AccountCustomerSummary | null>(null);
+  const [accountAutoStartCheckin, setAccountAutoStartCheckin] = useState(true);
   const [checkoutPrefill, setCheckoutPrefill] = useState<CheckoutPrefill | null>(null);
   const [checkoutEntryMode, setCheckoutEntryMode] = useState<'default' | 'direct-confirm'>(
     'default'
   );
   const checkoutReturnToTabRef = useRef<HomeTab | null>(null);
   const lastNonAccountTabRef = useRef<HomeTab>('scan');
+  const setAccountCustomerIdSafe = useCallback((value: string | null) => {
+    setAccountCustomerId(value);
+    if (!value) {
+      setAccountCustomerLabel(null);
+      setAccountCustomerSummary(null);
+      setAccountAutoStartCheckin(true);
+    }
+  }, []);
 
   const selectHomeTab = useCallback(
     (next: HomeTab) => {
@@ -89,22 +111,23 @@ export function useHomeNavigationState({
     setCheckoutEntryMode('default');
     if (returnTo) {
       if (returnTo === 'scan') {
-        setAccountCustomerId(null);
-        setAccountCustomerLabel(null);
+        setAccountCustomerIdSafe(null);
       }
       selectHomeTab(returnTo);
       return;
     }
     selectHomeTab('scan');
-  }, [selectHomeTab]);
+  }, [selectHomeTab, setAccountCustomerIdSafe]);
 
   const openCustomerAccount = useCallback(
-    (customerId: string, label?: string | null) => {
-      setAccountCustomerId(customerId);
+    (customerId: string, label?: string | null, opts?: OpenCustomerAccountOptions) => {
+      setAccountCustomerIdSafe(customerId);
       setAccountCustomerLabel(label ?? null);
+      setAccountCustomerSummary(opts?.summary ?? null);
+      setAccountAutoStartCheckin(opts?.autoStart ?? true);
       selectHomeTab('account');
     },
-    [selectHomeTab]
+    [selectHomeTab, setAccountCustomerIdSafe]
   );
 
   const prevSessionIdForTabRef = useRef<string | null>(null);
@@ -113,18 +136,25 @@ export function useHomeNavigationState({
     prevSessionIdForTabRef.current = currentSessionId;
     if (!prev && currentSessionId) {
       if (laneSessionCustomerId && !accountCustomerId) {
-        setAccountCustomerId(laneSessionCustomerId);
+        setAccountCustomerIdSafe(laneSessionCustomerId);
       }
+      setAccountCustomerSummary(null);
+      setAccountAutoStartCheckin(true);
       selectHomeTab('account');
     }
-  }, [accountCustomerId, currentSessionId, laneSessionCustomerId, selectHomeTab]);
+  }, [
+    accountCustomerId,
+    currentSessionId,
+    laneSessionCustomerId,
+    selectHomeTab,
+    setAccountCustomerIdSafe,
+  ]);
 
   useEffect(() => {
     if (homeTab !== 'account' && !currentSessionId && accountCustomerId) {
-      setAccountCustomerId(null);
-      setAccountCustomerLabel(null);
+      setAccountCustomerIdSafe(null);
     }
-  }, [accountCustomerId, currentSessionId, homeTab]);
+  }, [accountCustomerId, currentSessionId, homeTab, setAccountCustomerIdSafe]);
 
   const canOpenAccountTab = Boolean(currentSessionId || accountCustomerId);
 
@@ -133,8 +163,12 @@ export function useHomeNavigationState({
     selectHomeTab,
     accountCustomerId,
     accountCustomerLabel,
-    setAccountCustomerId,
+    accountCustomerSummary,
+    accountAutoStartCheckin,
+    setAccountCustomerId: setAccountCustomerIdSafe,
     setAccountCustomerLabel,
+    setAccountCustomerSummary,
+    setAccountAutoStartCheckin,
     canOpenAccountTab,
     checkoutPrefill,
     setCheckoutPrefill,

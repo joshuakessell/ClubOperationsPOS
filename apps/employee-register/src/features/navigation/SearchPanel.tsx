@@ -59,7 +59,14 @@ export function SearchPanel() {
                   type="button"
                   className="cs-liquid-button cs-liquid-button--secondary"
                   onClick={() => {
-                    openCustomerAccount(s.id, label);
+                    openCustomerAccount(s.id, label, {
+                      autoStart: false,
+                      summary: {
+                        name: `${s.firstName} ${s.lastName}`.trim(),
+                        dobMonthDay: s.dobMonthDay,
+                        membershipNumber: s.membershipNumber,
+                      },
+                    });
                     setCustomerSearch('');
                     setCustomerSuggestions([]);
                   }}

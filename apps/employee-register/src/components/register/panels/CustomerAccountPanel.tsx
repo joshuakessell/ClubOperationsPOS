@@ -31,6 +31,12 @@ export function CustomerAccountPanel(props: {
   sessionToken: string | null | undefined;
   customerId: string;
   customerLabel?: string | null;
+  customerSummary?: {
+    name?: string;
+    dobMonthDay?: string;
+    membershipNumber?: string;
+  } | null;
+  autoStartCheckin?: boolean;
   onStartCheckout: (prefill?: { number?: string | null }) => void;
   onClearSession: () => void;
 
@@ -91,7 +97,7 @@ export function CustomerAccountPanel(props: {
   onSelectWaitlistBackupAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onApproveRental: () => void;
 }) {
-  const { state, retry } = useStartLaneCheckinForCustomerIfNotVisiting({
+  const { state, retry, start, hasAttemptedStart } = useStartLaneCheckinForCustomerIfNotVisiting({
     lane: props.lane,
     sessionToken: props.sessionToken,
     customerId: props.customerId,
@@ -99,12 +105,60 @@ export function CustomerAccountPanel(props: {
       currentSessionId: props.currentSessionId,
       customerId: props.currentSessionCustomerId,
     },
+    autoStart: props.autoStartCheckin,
     onStarted: props.onStartedSession,
   });
+  const hasActiveSession = Boolean(props.currentSessionId && props.customerName);
+  const fallbackName = props.customerSummary?.name || props.customerLabel || '—';
+  const fallbackDob = props.customerSummary?.dobMonthDay ?? null;
+  const fallbackMembership = props.customerSummary?.membershipNumber ?? null;
+  const displayName = props.customerName || fallbackName;
+  const displayDob = props.customerDobMonthDay || fallbackDob;
+  const displayMembership = props.membershipNumber || fallbackMembership;
+  const showManualStart = !hasActiveSession && props.autoStartCheckin === false;
+  const manualStartPending = showManualStart && (state.isStarting || hasAttemptedStart);
   const showGoBack =
     state.mode === 'ERROR' &&
     (state.errorCode === 'UNDERAGE' || state.errorCode === 'ID_EXPIRED');
-
+  const renderProfileCard = (footer: JSX.Element | null) => (
+    <CustomerProfileCard
+      name={displayName}
+      preferredLanguage={props.customerPrimaryLanguage || null}
+      dobMonthDay={displayDob}
+      idExpirationDate={props.customerIdExpirationDate}
+      idType={props.customerIdType}
+      idTypeOther={props.customerIdTypeOther}
+      membershipNumber={displayMembership}
+      membershipValidUntil={props.customerMembershipValidUntil || null}
+      lastVisitAt={props.customerLastVisitAt || null}
+      hasEncryptedLookupMarker={Boolean(props.hasEncryptedLookupMarker)}
+      checkinStage={props.checkinStage}
+      waitlistDesiredTier={props.waitlistDesiredTier}
+      waitlistBackupType={props.waitlistBackupType}
+      footer={footer ?? undefined}
+    />
+  );
+  const clearSessionButton = props.checkinStage ? (
+    <button
+      type="button"
+      className="cs-liquid-button cs-liquid-button--danger"
+      onClick={props.onClearSession}
+      style={{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
+    >
+      Clear Session
+    </button>
+  ) : null;
+  const beginCheckinButton = (
+    <button
+      type="button"
+      className="cs-liquid-button"
+      onClick={start}
+      disabled={manualStartPending}
+      style={{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
+    >
+      {manualStartPending ? 'Starting Check-in…' : 'Begin Checkin'}
+    </button>
+  );
   return (
     <PanelShell align="top" scroll="hidden">
       <PanelHeader
@@ -118,7 +172,6 @@ export function CustomerAccountPanel(props: {
           ) : null
         }
       />
-
       {state.mode === 'ALREADY_VISITING' ? (
         <div
           className="er-account-already-visiting"
@@ -140,7 +193,6 @@ export function CustomerAccountPanel(props: {
               This customer already has an active visit.
             </div>
           </div>
-
           <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
             {(() => {
               const renewalEligibility = getRenewalEligibility(state.activeCheckin);
@@ -293,38 +345,11 @@ export function CustomerAccountPanel(props: {
             minHeight: 0,
           }}
         >
-          {props.currentSessionId && props.customerName ? (
+          {hasActiveSession ? (
             <>
-              <CustomerProfileCard
-                name={props.customerName}
-                preferredLanguage={props.customerPrimaryLanguage || null}
-                dobMonthDay={props.customerDobMonthDay || null}
-                idExpirationDate={props.customerIdExpirationDate}
-                idType={props.customerIdType}
-                idTypeOther={props.customerIdTypeOther}
-                membershipNumber={props.membershipNumber || null}
-                membershipValidUntil={props.customerMembershipValidUntil || null}
-                lastVisitAt={props.customerLastVisitAt || null}
-                hasEncryptedLookupMarker={Boolean(props.hasEncryptedLookupMarker)}
-                checkinStage={props.checkinStage}
-                waitlistDesiredTier={props.waitlistDesiredTier}
-                waitlistBackupType={props.waitlistBackupType}
-                footer={
-                  props.checkinStage ? (
-                    <button
-                      type="button"
-                      className="cs-liquid-button cs-liquid-button--danger"
-                      onClick={props.onClearSession}
-                      style={{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
-                    >
-                      Clear Session
-                    </button>
-                  ) : null
-                }
-              />
-
+              {renderProfileCard(clearSessionButton)}
               <EmployeeAssistPanel
-                sessionId={props.currentSessionId}
+                sessionId={props.currentSessionId!}
                 customerName={props.customerName}
                 customerPrimaryLanguage={props.customerPrimaryLanguage}
                 membershipNumber={props.membershipNumber || null}
@@ -353,6 +378,15 @@ export function CustomerAccountPanel(props: {
                 onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
                 onApproveRental={props.onApproveRental}
               />
+            </>
+          ) : showManualStart ? (
+            <>
+              {renderProfileCard(beginCheckinButton)}
+              <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                {manualStartPending
+                  ? 'Waiting for the customer kiosk to begin check-in…'
+                  : 'Review the customer details, then begin the check-in.'}
+              </div>
             </>
           ) : (
             <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
