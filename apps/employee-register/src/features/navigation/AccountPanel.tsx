@@ -11,6 +11,7 @@ import { isRecord, readJson } from '@club-ops/ui';
 type CustomerProfile = {
   id: string;
   name: string;
+  dob: string | null;
   dobMonthDay: string | null;
   membershipNumber: string | null;
   membershipValidUntil: string | null;
@@ -126,6 +127,7 @@ export function AccountPanel() {
         const next: CustomerProfile = {
           id: typeof rawCustomer['id'] === 'string' ? rawCustomer['id'] : '',
           name: typeof rawCustomer['name'] === 'string' ? rawCustomer['name'] : '',
+          dob: typeof rawCustomer['dob'] === 'string' ? rawCustomer['dob'] : null,
           dobMonthDay: typeof rawCustomer['dobMonthDay'] === 'string' ? rawCustomer['dobMonthDay'] : null,
           membershipNumber:
             typeof rawCustomer['membershipNumber'] === 'string' ? rawCustomer['membershipNumber'] : null,

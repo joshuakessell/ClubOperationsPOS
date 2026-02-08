@@ -10,6 +10,7 @@ type CustomerProfile = Pick<
   CustomerProfileCardProps,
   | 'name'
   | 'preferredLanguage'
+  | 'dob'
   | 'dobMonthDay'
   | 'idNumber'
   | 'idExpirationDate'
@@ -34,7 +35,6 @@ export function CustomerAccountPanel(props: {
   autoStartCheckin?: boolean;
   onStartCheckout: (prefill?: { number?: string | null }) => void;
   onClearSession: () => void;
-
   // lane session state (server-authoritative via WS)
   currentSessionId: string | null;
   currentSessionCustomerId: string | null;
@@ -122,6 +122,7 @@ export function CustomerAccountPanel(props: {
     <CustomerProfileCard
       name={displayName}
       preferredLanguage={props.customerPrimaryLanguage || profile?.preferredLanguage || null}
+      dob={profile?.dob || null}
       dobMonthDay={displayDob}
       idNumber={profile?.idNumber || null}
       idExpirationDate={props.customerIdExpirationDate || profile?.idExpirationDate || null}

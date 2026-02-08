@@ -6,6 +6,7 @@ export type CheckinStage = { number: 1 | 2 | 3 | 4 | 5 | 6; label: string };
 export interface CustomerProfileCardProps {
   name: string;
   preferredLanguage?: 'EN' | 'ES' | null;
+  dob?: string | null; // YYYY-MM-DD
   dobMonthDay?: string | null; // MM/DD
   idNumber?: string | null;
   idExpirationDate?: string | null; // YYYY-MM-DD
@@ -45,25 +46,46 @@ function Detail({ label, value }: { label: string; value: ReactNode }) {
   );
 }
 
-function formatMmYy(value: Date | null): string {
+function formatMmYyFromYyyyMmDd(value: string | null | undefined): string {
   if (!value) return '—';
-  const mm = String(value.getMonth() + 1).padStart(2, '0');
-  const yy = String(value.getFullYear()).slice(-2);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const yyyy = value.slice(0, 4);
+    const mm = value.slice(5, 7);
+    const yy = yyyy.slice(-2);
+    return `${mm}/${yy}`;
+  }
+
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return '—';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
   return `${mm}/${yy}`;
 }
 
-function formatMmDdYyyy(value: Date | null): string {
+function formatMmDdYyyyFromYyyyMmDd(value: string | null | undefined): string {
   if (!value) return '—';
-  const mm = String(value.getMonth() + 1).padStart(2, '0');
-  const dd = String(value.getDate()).padStart(2, '0');
-  const yyyy = String(value.getFullYear());
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const yyyy = value.slice(0, 4);
+    const mm = value.slice(5, 7);
+    const dd = value.slice(8, 10);
+    return `${mm}/${dd}/${yyyy}`;
+  }
+
+  const d = new Date(value);
+  if (!Number.isFinite(d.getTime())) return '—';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  const yyyy = String(d.getFullYear());
   return `${mm}/${dd}/${yyyy}`;
 }
 
-function parseIsoDate(value: string | null | undefined): Date | null {
-  if (!value) return null;
+function formatMmYyFromTimestamp(value: string | null | undefined): string {
+  if (!value) return '—';
   const d = new Date(value);
-  return Number.isFinite(d.getTime()) ? d : null;
+  if (!Number.isFinite(d.getTime())) return '—';
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yy = String(d.getFullYear()).slice(-2);
+  return `${mm}/${yy}`;
 }
 
 export function CustomerProfileCard(props: CustomerProfileCardProps) {
@@ -75,9 +97,11 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
     new Date()
   );
   const isMember = membershipStatus === 'ACTIVE';
-  const expires = parseIsoDate(props.membershipValidUntil || null);
-  const lastVisit = parseIsoDate(props.lastVisitAt || null);
-  const idExpiration = parseIsoDate(props.idExpirationDate || null);
+  const dobDisplay = props.dob
+    ? formatMmDdYyyyFromYyyyMmDd(props.dob)
+    : props.dobMonthDay
+      ? `${props.dobMonthDay}/—`
+      : '—';
 
   const languageLabel =
     props.preferredLanguage === 'EN'
@@ -129,14 +153,20 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
       >
         <Detail label="Name" value={props.name || '—'} />
         <Detail label="Preferred Language" value={languageLabel} />
-        <Detail label="DOB (MM/DD)" value={props.dobMonthDay || '—'} />
+        <Detail label="DOB (MM/DD/YYYY)" value={dobDisplay} />
         <Detail label="ID Type" value={idTypeLabel} />
         <Detail label="ID #" value={props.idNumber || '—'} />
-        <Detail label="ID Exp (MM/DD/YYYY)" value={formatMmDdYyyy(idExpiration)} />
+        <Detail
+          label="ID Exp (MM/DD/YYYY)"
+          value={formatMmDdYyyyFromYyyyMmDd(props.idExpirationDate)}
+        />
         <Detail label="Member" value={isMember ? 'Yes' : 'No'} />
         <Detail label="Membership ID" value={props.membershipNumber || '—'} />
-        <Detail label="Membership Exp (MM/YY)" value={isMember ? formatMmYy(expires) : '—'} />
-        <Detail label="Last Visit (MM/YY)" value={formatMmYy(lastVisit)} />
+        <Detail
+          label="Membership Exp (MM/YY)"
+          value={isMember ? formatMmYyFromYyyyMmDd(props.membershipValidUntil) : '—'}
+        />
+        <Detail label="Last Visit (MM/YY)" value={formatMmYyFromTimestamp(props.lastVisitAt)} />
       </div>
 
       <div style={{ marginTop: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
