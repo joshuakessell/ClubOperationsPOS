@@ -160,6 +160,7 @@ export function useEmployeeRegisterStateValue() {
 
   const realtimeState = useRegisterRealtimeState({
     lane,
+    staffToken: session?.sessionToken,
     currentSessionId,
     selectedCheckoutRequest: checkoutState.selectedCheckoutRequest,
     customerSelectedType,
@@ -194,6 +195,8 @@ export function useEmployeeRegisterStateValue() {
   const { pollOnce } = usePollingFallback({
     lane,
     realtimeConnected: realtimeState.realtimeConnected,
+    staffToken: session?.sessionToken,
+    currentSessionId,
     laneSessionActions: {
       applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
       resetCleared: laneBindings.laneSessionActions.resetCleared,

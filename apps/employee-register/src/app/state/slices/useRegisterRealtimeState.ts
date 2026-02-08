@@ -38,6 +38,7 @@ type CustomerConfirmationType = {
 
 type Params = {
   lane: string;
+  staffToken?: string | null;
   currentSessionId: string | null;
   selectedCheckoutRequest: string | null;
   customerSelectedType: string | null;
@@ -65,6 +66,7 @@ type Params = {
 
 export function useRegisterRealtimeState({
   lane,
+  staffToken,
   currentSessionId,
   selectedCheckoutRequest,
   customerSelectedType,
@@ -106,6 +108,7 @@ export function useRegisterRealtimeState({
 
   const realtime = useRegisterRealtimeEvents({
     lane,
+    staffToken,
     currentSessionIdRef,
     selectedCheckoutRequestRef,
     customerSelectedTypeRef,

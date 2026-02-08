@@ -8,7 +8,7 @@ import { generateAgreementPdf } from '../utils/pdf-generator';
 loadEnvFromDotEnvIfPresent();
 
 const DEMO_STATE_KEY = 'busy_saturday_demo_v1';
-const DEMO_SNAPSHOT_VERSION = 2;
+const DEMO_SNAPSHOT_VERSION = 3;
 const DEMO_FORCE_RESEED = process.env.DEMO_FORCE_RESEED === 'true';
 const DEMO_SHIFT_REGENERATE_PDFS = process.env.DEMO_SHIFT_REGENERATE_PDFS !== 'false';
 const DEMO_RESET_ON_STARTUP = process.env.DEMO_RESET_ON_STARTUP !== 'false';
@@ -130,8 +130,15 @@ async function ensureSnapshotSchema(client: DbClient) {
   }
 }
 
-async function createDemoSnapshot(client: DbClient): Promise<void> {
+async function resetSnapshotSchema(client: DbClient): Promise<void> {
+  // Easiest way to keep snapshot tables schema-aligned after migrations.
+  await client.query('DROP SCHEMA IF EXISTS demo_snapshot CASCADE');
   await ensureSnapshotSchema(client);
+}
+
+async function createDemoSnapshot(client: DbClient): Promise<void> {
+  // Keep snapshot tables schema-aligned after migrations.
+  await resetSnapshotSchema(client);
   await client.query('SET session_replication_role = replica');
   try {
     for (const table of DEMO_SNAPSHOT_TABLES) {
@@ -155,6 +162,44 @@ async function restoreDemoSnapshot(client: DbClient): Promise<void> {
     }
   } finally {
     await client.query('SET session_replication_role = origin');
+  }
+}
+
+async function validateSeededCustomers(client: DbClient): Promise<void> {
+  const missingProfile = await client.query<{ count: string }>(
+    `SELECT COUNT(*)::text as count
+     FROM customers
+     WHERE COALESCE(NULLIF(TRIM(name), ''), NULL) IS NULL
+        OR dob IS NULL
+        OR COALESCE(NULLIF(TRIM(id_number), ''), NULL) IS NULL
+        OR COALESCE(NULLIF(TRIM(id_type), ''), NULL) IS NULL
+        OR id_expiration_date IS NULL
+        OR COALESCE(NULLIF(TRIM(primary_language), ''), NULL) IS NULL`
+  );
+  const missingProfileCount = parseInt(missingProfile.rows[0]?.count || '0', 10);
+  if (missingProfileCount > 0) {
+    throw new Error(
+      `Seeded demo customers missing required profile fields: ${missingProfileCount}. ` +
+        'Expected name, dob, id_number, id_type, id_expiration_date, primary_language.'
+    );
+  }
+
+  const missingLastVisit = await client.query<{ count: string }>(
+    `SELECT COUNT(*)::text as count
+     FROM customers c
+     WHERE NOT EXISTS (
+       SELECT 1
+       FROM visits v
+       JOIN checkin_blocks cb ON cb.visit_id = v.id
+       WHERE v.customer_id = c.id
+     )`
+  );
+  const missingLastVisitCount = parseInt(missingLastVisit.rows[0]?.count || '0', 10);
+  if (missingLastVisitCount > 0) {
+    throw new Error(
+      `Seeded demo customers missing visit history: ${missingLastVisitCount}. ` +
+        'Expected at least one visit/checkin block per customer so last-visit can be derived.'
+    );
   }
 }
 
@@ -473,11 +518,15 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
 
       if (DEMO_INCREMENTAL) {
         await transaction(async (client) => {
+          await validateSeededCustomers(client);
           await createDemoSnapshot(client);
         });
         await saveDemoState({ seedAnchor: now, lastShifted: now });
         console.log('✅ Demo snapshot refreshed with incremental data.');
       } else {
+        await transaction(async (client) => {
+          await validateSeededCustomers(client);
+        });
         await saveDemoState({ seedAnchor, lastShifted: now });
       }
       console.log(
@@ -493,6 +542,13 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
     const progress = new SeedProgress({ title: 'Demo seed' });
     progress.setMessage('Seeding busy Saturday data');
     await seedBusySaturdayDemo(now, progress);
+
+    progress.setMessage('Validating seeded customers');
+    progress.addTotal(1);
+    await transaction(async (client) => {
+      await validateSeededCustomers(client);
+    });
+    progress.tick();
 
     // -----------------------------------------------------------------------
     // Shifts / timeclock / documents (existing behavior)
@@ -514,6 +570,13 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
 
     if (!shouldSeedShifts) {
       progress.log('⚠️  Demo shifts already exist. Skipping shift/timeclock seed.');
+      progress.setMessage('Saving demo snapshot');
+      progress.addTotal(1);
+      await transaction(async (client) => {
+        await createDemoSnapshot(client);
+      });
+      await saveDemoState({ seedAnchor: now, lastShifted: now });
+      progress.tick();
       progress.done('Demo seed complete');
       return;
     }

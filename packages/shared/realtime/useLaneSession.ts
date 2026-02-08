@@ -46,12 +46,14 @@ export function useLaneSession({
   laneId,
   role,
   kioskToken,
+  staffToken,
   enabled = true,
   reconnectMode = 'default',
 }: {
   laneId?: string;
   role: LaneRole;
   kioskToken: string;
+  staffToken?: string;
   enabled?: boolean;
   reconnectMode?: 'default' | 'aggressive';
 }): {
@@ -95,7 +97,7 @@ export function useLaneSession({
       clearTimeout(cooldownTimerRef.current);
       cooldownTimerRef.current = null;
     }
-  }, [laneId, role, kioskToken]);
+  }, [laneId, role, kioskToken, staffToken]);
 
   // Ensure we don't keep background sockets alive when this hook is not mounted anymore,
   // or when the lane/role changes.
@@ -135,9 +137,11 @@ export function useLaneSession({
     }
 
     if (!kioskToken) {
-      setConnected(false);
-      setLastError(new Event('missing_kiosk_token'));
-      return;
+      if (!staffToken) {
+        setConnected(false);
+        setLastError(new Event('missing_kiosk_token'));
+        return;
+      }
     }
 
     const scheduleReconnect = () => {
@@ -181,6 +185,7 @@ export function useLaneSession({
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
+            ...(staffToken ? { Authorization: `Bearer ${staffToken}` } : {}),
             ...(kioskToken ? { 'x-kiosk-token': kioskToken } : {}),
           },
           body: JSON.stringify({ channels }),
@@ -322,7 +327,16 @@ export function useLaneSession({
         reconnectTimerRef.current = null;
       }
     };
-  }, [authUrl, channelNamespace, connectNonce, effectiveEnabled, laneId, kioskToken, role]);
+  }, [
+    authUrl,
+    channelNamespace,
+    connectNonce,
+    effectiveEnabled,
+    laneId,
+    kioskToken,
+    role,
+    staffToken,
+  ]);
 
   return { connected, lastMessage, lastError };
 }
