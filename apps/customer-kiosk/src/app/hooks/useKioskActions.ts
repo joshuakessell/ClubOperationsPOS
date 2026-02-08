@@ -84,10 +84,8 @@ export function useKioskActions({
     try {
       const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/kiosk-ack`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
+        // No request body; avoid sending JSON content-type (Fastify may 400 on empty JSON body).
+        headers: kioskAuthHeaders(),
       });
 
       if (!response.ok) {
