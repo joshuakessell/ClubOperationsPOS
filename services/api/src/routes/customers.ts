@@ -252,11 +252,17 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
       }
 
       const customerId = request.params.id;
-      if (!customerId) {
+      const normalizedId = customerId?.trim();
+      if (!normalizedId) {
         return reply.status(400).send({ error: 'Invalid customer id' });
       }
 
       try {
+        const looksLikeUuid =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+            normalizedId
+          );
+
         const result = await query<CustomerProfileRow>(
           `
           SELECT
@@ -272,10 +278,10 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
             primary_language,
             id_scan_hash
           FROM customers
-          WHERE id = $1
+          WHERE ${looksLikeUuid ? 'id = $1' : 'membership_number = $1'}
           LIMIT 1
           `,
-          [customerId]
+          [normalizedId]
         );
 
         if (result.rows.length === 0) {
@@ -300,7 +306,7 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
           ORDER BY cb.starts_at DESC
           LIMIT 1
           `,
-          [customerId]
+          [row.id]
         );
         const lastVisitAt =
           lastVisitResult.rows.length > 0

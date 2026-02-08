@@ -24,42 +24,68 @@ function looksLikeRealtimeEvent(value: Record<string, unknown>): boolean {
   return typeof value['type'] === 'string' && Object.prototype.hasOwnProperty.call(value, 'payload');
 }
 
-function extractAppSyncEventPayload(raw: unknown): string | null {
-  // AppSync Events may deliver either:
-  // - the event payload string we published, OR
-  // - an object wrapper like { payload: "{...}" }, OR
-  // - an object wrapper like { event: { payload: "{...}" } }.
-  // Normalize everything to a JSON string for downstream parsing.
-  const queue: unknown[] = [raw];
-  let depth = 0;
-  while (queue.length > 0 && depth < 6) {
+function extractAppSyncRealtimeEventJsonStrings(rawMessage: unknown): string[] {
+  const results: string[] = [];
+  const queue: unknown[] = [rawMessage];
+  const seen = new WeakSet<object>();
+
+  const parseJsonString = (value: string): unknown | null => {
+    try {
+      return JSON.parse(value) as unknown;
+    } catch {
+      return null;
+    }
+  };
+
+  // The AppSync Events websocket protocol has evolved and can deliver the published payload
+  // in a few different shapes (e.g. `{ events: ["{...}"] }`, `{ event: { events: [...] } }`,
+  // `{ payload: "{...}" }`, etc.). We robustly walk the message and pull out any JSON strings
+  // that parse into our internal realtime event schema.
+  let iterations = 0;
+  while (queue.length > 0 && iterations < 200) {
+    iterations += 1;
     const value = queue.shift();
-    depth += 1;
     if (value == null) continue;
+
     if (typeof value === 'string') {
-      return value;
+      const parsed = parseJsonString(value);
+      if (parsed && isRecord(parsed) && looksLikeRealtimeEvent(parsed)) {
+        results.push(value);
+        continue;
+      }
+      if (parsed && (isRecord(parsed) || Array.isArray(parsed))) {
+        queue.push(parsed);
+      }
+      continue;
     }
+
+    if (Array.isArray(value)) {
+      if (seen.has(value)) continue;
+      seen.add(value);
+      for (const item of value) {
+        queue.push(item);
+      }
+      continue;
+    }
+
     if (!isRecord(value)) continue;
+    if (seen.has(value)) continue;
+    seen.add(value);
+
     if (looksLikeRealtimeEvent(value)) {
-      return JSON.stringify(value);
+      results.push(JSON.stringify(value));
+      continue;
     }
 
-    const payload = value['payload'];
-    if (payload !== undefined) {
-      if (typeof payload === 'string') return payload;
-      queue.push(payload);
-    }
-
-    const event = value['event'];
-    if (event !== undefined) {
-      queue.push(event);
-    }
-    const data = value['data'];
-    if (data !== undefined) {
-      queue.push(data);
+    for (const key of ['events', 'event', 'payload', 'data']) {
+      const nested = value[key];
+      if (nested !== undefined) {
+        queue.push(nested);
+      }
     }
   }
-  return null;
+
+  return results;
 }
 
 function base64UrlEncode(input: string): string {
@@ -359,12 +385,9 @@ export function useLaneSession({
           }
 
           if (message.type === 'data') {
-            const rawEvents = message.events ?? message.event;
-            if (!rawEvents) return;
-            const events = Array.isArray(rawEvents) ? rawEvents : [rawEvents];
-            for (const payload of events) {
-              const data = extractAppSyncEventPayload(payload);
-              if (!data) continue;
+            const events = extractAppSyncRealtimeEventJsonStrings(message);
+            if (events.length === 0) return;
+            for (const data of events) {
               pendingMessagesRef.current.push({ data } as MessageEvent);
             }
             scheduleFlush();
