@@ -16,6 +16,52 @@ type AppSyncMessage =
   | { type: 'subscribe_error' | 'unsubscribe_error'; id?: string; error?: unknown }
   | { type: 'data'; id?: string; event?: unknown; events?: unknown[] };
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function looksLikeRealtimeEvent(value: Record<string, unknown>): boolean {
+  return typeof value['type'] === 'string' && Object.prototype.hasOwnProperty.call(value, 'payload');
+}
+
+function extractAppSyncEventPayload(raw: unknown): string | null {
+  // AppSync Events may deliver either:
+  // - the event payload string we published, OR
+  // - an object wrapper like { payload: "{...}" }, OR
+  // - an object wrapper like { event: { payload: "{...}" } }.
+  // Normalize everything to a JSON string for downstream parsing.
+  const queue: unknown[] = [raw];
+  let depth = 0;
+  while (queue.length > 0 && depth < 6) {
+    const value = queue.shift();
+    depth += 1;
+    if (value == null) continue;
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (!isRecord(value)) continue;
+    if (looksLikeRealtimeEvent(value)) {
+      return JSON.stringify(value);
+    }
+
+    const payload = value['payload'];
+    if (payload !== undefined) {
+      if (typeof payload === 'string') return payload;
+      queue.push(payload);
+    }
+
+    const event = value['event'];
+    if (event !== undefined) {
+      queue.push(event);
+    }
+    const data = value['data'];
+    if (data !== undefined) {
+      queue.push(data);
+    }
+  }
+  return null;
+}
+
 function base64UrlEncode(input: string): string {
   const base64 = btoa(unescape(encodeURIComponent(input)));
   return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -290,7 +336,8 @@ export function useLaneSession({
             if (!rawEvents) return;
             const events = Array.isArray(rawEvents) ? rawEvents : [rawEvents];
             for (const payload of events) {
-              const data = typeof payload === 'string' ? payload : JSON.stringify(payload ?? {});
+              const data = extractAppSyncEventPayload(payload);
+              if (!data) continue;
               setLastMessage({ data } as MessageEvent);
             }
           }
