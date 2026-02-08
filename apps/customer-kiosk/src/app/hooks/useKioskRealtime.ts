@@ -67,6 +67,11 @@ export function useKioskRealtime({
   sessionActions: KioskRealtimeSessionActions;
   inventoryActions: KioskRealtimeInventoryActions;
 }) {
+  const apiBase = api.apiBase;
+  const kioskAuthHeaders = api.kioskAuthHeaders;
+  const applySessionUpdatedPayload = sessionActions.applySessionUpdatedPayload;
+  const resetToIdle = sessionActions.resetToIdle;
+
   const { connected: realtimeConnected, lastMessage } = useLaneSession({
     laneId: lane ?? undefined,
     role: 'customer',
@@ -193,49 +198,47 @@ export function useKioskRealtime({
     onRealtimeMessage(lastMessage);
   }, [lastMessage, onRealtimeMessage]);
 
+  const pollSessionSnapshotOnce = useCallback(
+    async (laneId: string) => {
+      try {
+        const res = await fetch(
+          `${apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
+          { headers: kioskAuthHeaders() }
+        );
+        if (!res.ok) return;
+        const data = await readJson<unknown>(res);
+        if (!isRecord(data)) return;
+        const sessionPayload = data['session'];
+        if (sessionPayload == null) {
+          resetToIdle();
+          return;
+        }
+        if (isRecord(sessionPayload)) {
+          const parsedPayload = SessionUpdatedPayloadSchema.safeParse(sessionPayload);
+          if (parsedPayload.success) {
+            applySessionUpdatedPayload(parsedPayload.data);
+          }
+        }
+      } catch {
+        // Best-effort; realtime/polling will continue.
+      }
+    },
+    [apiBase, kioskAuthHeaders, applySessionUpdatedPayload, resetToIdle]
+  );
+
   const initialSnapshotLaneRef = useRef<string | null>(null);
   useEffect(() => {
     const laneId = lane;
     if (!laneId) return;
     if (initialSnapshotLaneRef.current === laneId) return;
     initialSnapshotLaneRef.current = laneId;
-    let cancelled = false;
-
-    const fetchSnapshot = async () => {
-      try {
-        const res = await fetch(
-          `${api.apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
-          { headers: api.kioskAuthHeaders() }
-        );
-        if (!res.ok || cancelled) return;
-        const data = await readJson<unknown>(res);
-        if (cancelled || !isRecord(data)) return;
-        const sessionPayload = data['session'];
-        if (sessionPayload == null) {
-          sessionActions.resetToIdle();
-          return;
-        }
-        if (isRecord(sessionPayload)) {
-          const parsedPayload = SessionUpdatedPayloadSchema.safeParse(sessionPayload);
-          if (parsedPayload.success) {
-            sessionActions.applySessionUpdatedPayload(parsedPayload.data);
-          }
-        }
-      } catch {
-        // Best-effort; realtime/polling will continue.
-      }
-    };
-
-    void fetchSnapshot();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [api, lane, sessionActions]);
+    void pollSessionSnapshotOnce(laneId);
+  }, [lane, pollSessionSnapshotOnce]);
 
   const pollingStartedRef = useRef(false);
   const pollingDelayTimerRef = useRef<number | null>(null);
   const pollingIntervalRef = useRef<number | null>(null);
+  const lastIdlePollAtRef = useRef(0);
   useEffect(() => {
     const laneId = lane;
     if (!laneId) return;
@@ -249,39 +252,25 @@ export function useKioskRealtime({
     }
     pollingStartedRef.current = false;
 
-    if (realtimeConnected) return;
-
-    const graceMs = hasConnectedRef.current ? 8000 : 6000;
+    const graceMs = realtimeConnected ? 0 : hasConnectedRef.current ? 8000 : 6000;
     pollingDelayTimerRef.current = window.setTimeout(() => {
-      if (realtimeConnected) return;
       if (!pollingStartedRef.current) {
         pollingStartedRef.current = true;
-        console.info('[customer-kiosk] Realtime disconnected; entering polling fallback');
+        if (!realtimeConnected) {
+          console.info('[customer-kiosk] Realtime disconnected; entering polling fallback');
+        }
       }
 
       const pollOnce = async () => {
-        try {
-          const res = await fetch(
-            `${api.apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
-            { headers: api.kioskAuthHeaders() }
-          );
-          if (!res.ok) return;
-          const data = await readJson<unknown>(res);
-          if (!isRecord(data)) return;
-          const sessionPayload = data['session'];
-          if (sessionPayload == null) {
-            sessionActions.resetToIdle();
+        if (realtimeConnected && !sessionIdRef.current) {
+          const now = Date.now();
+          if (now - lastIdlePollAtRef.current < 2500) {
             return;
           }
-          if (isRecord(sessionPayload)) {
-            const parsedPayload = SessionUpdatedPayloadSchema.safeParse(sessionPayload);
-            if (parsedPayload.success) {
-              sessionActions.applySessionUpdatedPayload(parsedPayload.data);
-            }
-          }
-        } catch {
-          // Best-effort; keep polling.
+          lastIdlePollAtRef.current = now;
         }
+
+        await pollSessionSnapshotOnce(laneId);
       };
 
       void pollOnce();
@@ -301,7 +290,7 @@ export function useKioskRealtime({
       }
       pollingStartedRef.current = false;
     };
-  }, [api, lane, sessionActions, realtimeConnected]);
+  }, [lane, pollSessionSnapshotOnce, realtimeConnected, sessionIdRef]);
 
   return { realtimeConnected };
 }
