@@ -14,7 +14,7 @@ export function SearchPanel() {
   } = useEmployeeRegisterState();
 
   return (
-    <PanelShell align="top" className="typeahead-section">
+    <PanelShell align="top" scroll="hidden" className="typeahead-section">
       <PanelHeader
         layout="inline"
         spacing="sm"
@@ -40,7 +40,8 @@ export function SearchPanel() {
           className="cs-liquid-card"
           style={{
             marginTop: '0.5rem',
-            maxHeight: '180px',
+            flex: 1,
+            minHeight: 0,
             overflowY: 'auto',
           }}
         >

@@ -63,6 +63,7 @@ export function usePollingFallback({
 
   const pollingDelayTimerRef = useRef<number | null>(null);
   const pollingIntervalRef = useRef<number | null>(null);
+  const connectedPollIntervalRef = useRef<number | null>(null);
 
   const hydrationKeyRef = useRef<string | null>(null);
   useEffect(() => {
@@ -80,6 +81,10 @@ export function usePollingFallback({
     if (pollingIntervalRef.current !== null) {
       window.clearInterval(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
+    }
+    if (connectedPollIntervalRef.current !== null) {
+      window.clearInterval(connectedPollIntervalRef.current);
+      connectedPollIntervalRef.current = null;
     }
 
     if (realtimeConnected) return;
@@ -101,8 +106,33 @@ export function usePollingFallback({
         window.clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      if (connectedPollIntervalRef.current !== null) {
+        window.clearInterval(connectedPollIntervalRef.current);
+        connectedPollIntervalRef.current = null;
+      }
     };
   }, [pollOnce, realtimeConnected]);
+
+  useEffect(() => {
+    if (connectedPollIntervalRef.current !== null) {
+      window.clearInterval(connectedPollIntervalRef.current);
+      connectedPollIntervalRef.current = null;
+    }
+
+    if (!realtimeConnected || !currentSessionId) return;
+
+    void pollOnce();
+    connectedPollIntervalRef.current = window.setInterval(() => {
+      void pollOnce();
+    }, 5000);
+
+    return () => {
+      if (connectedPollIntervalRef.current !== null) {
+        window.clearInterval(connectedPollIntervalRef.current);
+        connectedPollIntervalRef.current = null;
+      }
+    };
+  }, [currentSessionId, pollOnce, realtimeConnected]);
 
   return { pollOnce };
 }
