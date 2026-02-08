@@ -1,9 +1,27 @@
+import { useEffect, useRef, useState } from 'react';
 import { CustomerProfileCard } from '../../components/register/CustomerProfileCard';
 import { EmployeeAssistPanel } from '../../components/register/EmployeeAssistPanel';
 import { CustomerAccountPanel } from '../../components/register/panels/CustomerAccountPanel';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 import { PanelHeader } from '../../views/PanelHeader';
 import { PanelShell } from '../../views/PanelShell';
+import { getApiUrl, type CustomerIdType } from '@club-ops/shared';
+import { isRecord, readJson } from '@club-ops/ui';
+
+type CustomerProfile = {
+  id: string;
+  name: string;
+  dobMonthDay: string | null;
+  membershipNumber: string | null;
+  membershipValidUntil: string | null;
+  idNumber: string | null;
+  idType: CustomerIdType | null;
+  idTypeOther: string | null;
+  idExpirationDate: string | null;
+  preferredLanguage: 'EN' | 'ES' | null;
+  lastVisitAt: string | null;
+  hasEncryptedLookupMarker: boolean;
+};
 
 export function AccountPanel() {
   const {
@@ -55,6 +73,93 @@ export function AccountPanel() {
     laneSessionActions,
   } = useEmployeeRegisterState();
 
+  const profileAbortRef = useRef<AbortController | null>(null);
+  const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  useEffect(() => {
+    if (profileAbortRef.current) {
+      profileAbortRef.current.abort();
+    }
+
+    if (!accountCustomerId || !session?.sessionToken) {
+      setCustomerProfile(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    profileAbortRef.current = controller;
+    void (async () => {
+      try {
+        const response = await fetch(
+          getApiUrl(`/api/v1/customers/${encodeURIComponent(accountCustomerId)}`),
+          {
+            headers: { Authorization: `Bearer ${session.sessionToken}` },
+            signal: controller.signal,
+          }
+        );
+        if (!response.ok) {
+          setCustomerProfile(null);
+          return;
+        }
+        const payload = await readJson<unknown>(response);
+        if (!isRecord(payload)) {
+          setCustomerProfile(null);
+          return;
+        }
+        const rawCustomer = payload['customer'];
+        if (!isRecord(rawCustomer)) {
+          setCustomerProfile(null);
+          return;
+        }
+
+        const idType =
+          rawCustomer['idType'] === 'STATE_ID' ||
+          rawCustomer['idType'] === 'DRIVERS_LICENSE' ||
+          rawCustomer['idType'] === 'PASSPORT' ||
+          rawCustomer['idType'] === 'OTHER'
+            ? (rawCustomer['idType'] as CustomerIdType)
+            : null;
+        const preferredLanguage =
+          rawCustomer['primaryLanguage'] === 'EN' || rawCustomer['primaryLanguage'] === 'ES'
+            ? rawCustomer['primaryLanguage']
+            : null;
+
+        const next: CustomerProfile = {
+          id: typeof rawCustomer['id'] === 'string' ? rawCustomer['id'] : '',
+          name: typeof rawCustomer['name'] === 'string' ? rawCustomer['name'] : '',
+          dobMonthDay: typeof rawCustomer['dobMonthDay'] === 'string' ? rawCustomer['dobMonthDay'] : null,
+          membershipNumber:
+            typeof rawCustomer['membershipNumber'] === 'string' ? rawCustomer['membershipNumber'] : null,
+          membershipValidUntil:
+            typeof rawCustomer['membershipValidUntil'] === 'string'
+              ? rawCustomer['membershipValidUntil']
+              : null,
+          idNumber: typeof rawCustomer['idNumber'] === 'string' ? rawCustomer['idNumber'] : null,
+          idType,
+          idTypeOther:
+            typeof rawCustomer['idTypeOther'] === 'string' ? rawCustomer['idTypeOther'] : null,
+          idExpirationDate:
+            typeof rawCustomer['idExpirationDate'] === 'string'
+              ? rawCustomer['idExpirationDate']
+              : null,
+          preferredLanguage,
+          lastVisitAt:
+            typeof rawCustomer['lastVisitAt'] === 'string' ? rawCustomer['lastVisitAt'] : null,
+          hasEncryptedLookupMarker: Boolean(rawCustomer['hasEncryptedLookupMarker']),
+        };
+
+        setCustomerProfile(next);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          setCustomerProfile(null);
+        }
+      }
+    })();
+
+    return () => {
+      controller.abort();
+    };
+  }, [accountCustomerId, session?.sessionToken]);
+
   const directSelect = laneSessionMode === 'RENEWAL';
 
   if (accountCustomerId) {
@@ -65,6 +170,7 @@ export function AccountPanel() {
         customerId={accountCustomerId}
         customerLabel={accountCustomerLabel}
         customerSummary={accountCustomerSummary}
+        customerProfile={customerProfile}
         autoStartCheckin={accountAutoStartCheckin}
         onStartCheckout={startCheckoutFromCustomerAccount}
         onStartRenewal={(activeCheckin) => openRenewalSelection(activeCheckin)}
@@ -166,6 +272,7 @@ export function AccountPanel() {
             preferredLanguage={customerPrimaryLanguage || null}
             dobMonthDay={customerDobMonthDay || null}
             membershipNumber={membershipNumber || null}
+            idNumber={null}
             membershipValidUntil={customerMembershipValidUntil || null}
             lastVisitAt={customerLastVisitAt || null}
             idExpirationDate={customerIdExpirationDate || null}

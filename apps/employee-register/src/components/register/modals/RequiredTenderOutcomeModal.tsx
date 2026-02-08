@@ -161,7 +161,7 @@ export function RequiredTenderOutcomeModal({
   const cardAmountValid =
     resolvedCardAmount !== null && resolvedCardAmount > 0 && resolvedCardAmount < splitBaseTotal;
   const cashAmountValid =
-    resolvedCashAmount !== null && resolvedCashAmount > 0 && resolvedCashAmount < effectiveTotal;
+    resolvedCashAmount !== null && resolvedCashAmount > 0 && resolvedCashAmount <= effectiveTotal;
   const splitTotalsMatch = splitCommitted
     ? resolvedCashAmount !== null &&
       roundToCents(resolvedCashAmount) === roundToCents(effectiveTotal)

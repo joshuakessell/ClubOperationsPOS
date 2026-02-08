@@ -23,6 +23,20 @@ interface CustomerRow {
   dob: string | Date | null;
 }
 
+interface CustomerProfileRow {
+  id: string;
+  name: string;
+  dob: string | Date | null;
+  membership_number: string | null;
+  membership_valid_until: string | Date | null;
+  id_number: string | null;
+  id_type: string | null;
+  id_type_other: string | null;
+  id_expiration_date: string | Date | null;
+  primary_language: string | null;
+  id_scan_hash: string | null;
+}
+
 function normalizeScanText(raw: string): string {
   const lf = raw.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
   const lines = lf.split('\n').map((line) => line.replace(/[ \t]+/g, ' ').trimEnd());
@@ -39,6 +53,41 @@ function toDateOnly(dob: string): string | null {
   const d = new Date(`${dob}T00:00:00Z`);
   if (!Number.isFinite(d.getTime())) return null;
   return dob;
+}
+
+function toDateOnlyString(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+  }
+  if (value instanceof Date) {
+    return Number.isFinite(value.getTime()) ? value.toISOString().slice(0, 10) : null;
+  }
+  return null;
+}
+
+function toIsoTimestamp(value: Date | null | undefined): string | null {
+  if (!value) return null;
+  return Number.isFinite(value.getTime()) ? value.toISOString() : null;
+}
+
+function toDobMonthDay(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  if (typeof value === 'string') {
+    const parts = value.split('-');
+    if (parts.length >= 3) {
+      const mm = parts[1];
+      const dd = parts[2];
+      if (mm && dd) return `${mm}/${dd}`;
+    }
+    return null;
+  }
+  if (value instanceof Date) {
+    const mm = String(value.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(value.getUTCDate()).padStart(2, '0');
+    return `${mm}/${dd}`;
+  }
+  return null;
 }
 
 type NormalizedNameParts = {
@@ -181,6 +230,106 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.send({ suggestions });
       } catch (error) {
         request.log.error(error, 'Failed to search customers');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * GET /v1/customers/:id - Fetch full customer profile fields.
+   * Requires staff auth.
+   */
+  fastify.get<{
+    Params: { id: string };
+  }>(
+    '/v1/customers/:id',
+    {
+      preHandler: [requireAuth],
+    },
+    async (request, reply) => {
+      if (!request.staff) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      const customerId = request.params.id;
+      if (!customerId) {
+        return reply.status(400).send({ error: 'Invalid customer id' });
+      }
+
+      try {
+        const result = await query<CustomerProfileRow>(
+          `
+          SELECT
+            id,
+            name,
+            dob,
+            membership_number,
+            membership_valid_until,
+            id_number,
+            id_type,
+            id_type_other,
+            id_expiration_date,
+            primary_language,
+            id_scan_hash
+          FROM customers
+          WHERE id = $1
+          LIMIT 1
+          `,
+          [customerId]
+        );
+
+        if (result.rows.length === 0) {
+          return reply.status(404).send({ error: 'Customer not found' });
+        }
+
+        const row = result.rows[0]!;
+
+        const nameParts = row.name.split(' ');
+        const firstName = nameParts[0] || row.name;
+        const lastName = nameParts.slice(1).join(' ') || '';
+
+        const idTypeParsed = row.id_type ? IdTypeSchema.safeParse(row.id_type) : null;
+        const idType = idTypeParsed?.success ? idTypeParsed.data : null;
+
+        const lastVisitResult = await query<{ starts_at: Date }>(
+          `
+          SELECT cb.starts_at
+          FROM checkin_blocks cb
+          JOIN visits v ON v.id = cb.visit_id
+          WHERE v.customer_id = $1
+          ORDER BY cb.starts_at DESC
+          LIMIT 1
+          `,
+          [customerId]
+        );
+        const lastVisitAt =
+          lastVisitResult.rows.length > 0
+            ? toIsoTimestamp(lastVisitResult.rows[0]!.starts_at)
+            : null;
+
+        return reply.send({
+          customer: {
+            id: row.id,
+            name: row.name,
+            firstName,
+            lastName,
+            dob: toDateOnlyString(row.dob),
+            dobMonthDay: toDobMonthDay(row.dob),
+            membershipNumber: row.membership_number,
+            membershipValidUntil: toDateOnlyString(row.membership_valid_until),
+            idNumber: row.id_number,
+            idType,
+            idTypeOther: row.id_type_other,
+            idExpirationDate: toDateOnlyString(row.id_expiration_date),
+            primaryLanguage: row.primary_language === 'EN' || row.primary_language === 'ES'
+              ? (row.primary_language as 'EN' | 'ES')
+              : null,
+            lastVisitAt,
+            hasEncryptedLookupMarker: Boolean(row.id_scan_hash),
+          },
+        });
+      } catch (error) {
+        request.log.error(error, 'Failed to fetch customer profile');
         return reply.status(500).send({ error: 'Internal server error' });
       }
     }

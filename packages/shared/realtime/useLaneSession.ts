@@ -126,6 +126,23 @@ export function useLaneSession({
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
   const [lastError, setLastError] = useState<Event | null>(null);
 
+  const pendingMessagesRef = useRef<MessageEvent[]>([]);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scheduleFlush = () => {
+    if (flushTimerRef.current) return;
+    flushTimerRef.current = setTimeout(() => {
+      flushTimerRef.current = null;
+      const next = pendingMessagesRef.current.shift();
+      if (next) {
+        setLastMessage(next);
+      }
+      if (pendingMessagesRef.current.length > 0) {
+        scheduleFlush();
+      }
+    }, 0);
+  };
+
   // Force a re-connect effect when we need to build a fresh socket and re-attach listeners.
   const [connectNonce, setConnectNonce] = useState(0);
   const retryCountRef = useRef(0);
@@ -139,6 +156,11 @@ export function useLaneSession({
   useEffect(() => {
     consecutiveFailureRef.current = 0;
     hasEverConnectedRef.current = false;
+    pendingMessagesRef.current = [];
+    if (flushTimerRef.current) {
+      clearTimeout(flushTimerRef.current);
+      flushTimerRef.current = null;
+    }
     if (cooldownTimerRef.current) {
       clearTimeout(cooldownTimerRef.current);
       cooldownTimerRef.current = null;
@@ -152,6 +174,11 @@ export function useLaneSession({
       if (laneId === undefined) return;
       appSyncSocketRef.current?.close();
       appSyncSocketRef.current = null;
+      pendingMessagesRef.current = [];
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
+      }
     };
   }, [laneId, role]);
 
@@ -338,8 +365,9 @@ export function useLaneSession({
             for (const payload of events) {
               const data = extractAppSyncEventPayload(payload);
               if (!data) continue;
-              setLastMessage({ data } as MessageEvent);
+              pendingMessagesRef.current.push({ data } as MessageEvent);
             }
+            scheduleFlush();
           }
         };
 

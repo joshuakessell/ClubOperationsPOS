@@ -164,6 +164,8 @@ export function registerLaneSessionReducer(
       return { ...state, ...action.payload };
     case 'apply_session_updated': {
       const p = action.payload as SessionUpdatedPayloadExtras;
+      const hasKey = (key: keyof SessionUpdatedPayloadExtras) =>
+        Object.prototype.hasOwnProperty.call(p, key);
 
       if (p.status === 'COMPLETED' && (!p.customerName || p.customerName === '')) {
         return { ...initialRegisterLaneSessionState };
@@ -192,16 +194,15 @@ export function registerLaneSessionReducer(
         next.agreementSignedMethod = p.agreementSignedMethod ?? null;
       }
 
-      const nextProposedRentalType = p.proposedRentalType ?? null;
-      const nextSelectionConfirmed = Boolean(p.selectionConfirmed);
+      if (hasKey('proposedRentalType')) next.proposedRentalType = p.proposedRentalType ?? null;
+      if (hasKey('proposedBy')) next.proposedBy = p.proposedBy ?? null;
+      if (hasKey('selectionConfirmed')) next.selectionConfirmed = Boolean(p.selectionConfirmed);
+      if (hasKey('selectionConfirmedBy')) {
+        next.selectionConfirmedBy = p.selectionConfirmedBy ?? null;
+      }
 
-      next.proposedRentalType = nextProposedRentalType;
-      next.proposedBy = p.proposedBy ?? null;
-      next.selectionConfirmed = nextSelectionConfirmed;
-      next.selectionConfirmedBy = p.selectionConfirmedBy ?? null;
-
-      next.paymentIntentId = p.paymentIntentId ?? null;
-      next.paymentStatus = p.paymentStatus ?? null;
+      if (hasKey('paymentIntentId')) next.paymentIntentId = p.paymentIntentId ?? null;
+      if (hasKey('paymentStatus')) next.paymentStatus = p.paymentStatus ?? null;
 
       if (p.paymentLineItems !== undefined || p.paymentTotal !== undefined) {
         const lineItems = Array.isArray(p.paymentLineItems)
@@ -218,17 +219,29 @@ export function registerLaneSessionReducer(
         }
       }
 
-      next.assignedResourceType = p.assignedResourceType ?? null;
-      next.assignedResourceNumber = p.assignedResourceNumber ?? null;
-      next.checkoutAt = p.checkoutAt ?? null;
+      if (hasKey('assignedResourceType')) {
+        next.assignedResourceType = p.assignedResourceType ?? null;
+      }
+      if (hasKey('assignedResourceNumber')) {
+        next.assignedResourceNumber = p.assignedResourceNumber ?? null;
+      }
+      if (hasKey('checkoutAt')) next.checkoutAt = p.checkoutAt ?? null;
 
-      next.customerPrimaryLanguage = p.customerPrimaryLanguage;
+      if (hasKey('customerPrimaryLanguage')) {
+        next.customerPrimaryLanguage = p.customerPrimaryLanguage;
+      }
 
-      next.waitlistDesiredTier = p.waitlistDesiredType ?? null;
-      next.waitlistBackupType = p.backupRentalType ?? null;
+      if (hasKey('waitlistDesiredType')) {
+        next.waitlistDesiredTier = p.waitlistDesiredType ?? null;
+      }
+      if (hasKey('backupRentalType')) {
+        next.waitlistBackupType = p.backupRentalType ?? null;
+      }
 
-      next.membershipChoice = p.membershipChoice ?? null;
-      next.membershipPurchaseIntent = p.membershipPurchaseIntent ?? null;
+      if (hasKey('membershipChoice')) next.membershipChoice = p.membershipChoice ?? null;
+      if (hasKey('membershipPurchaseIntent')) {
+        next.membershipPurchaseIntent = p.membershipPurchaseIntent ?? null;
+      }
 
       if (sessionIdChanged) {
         next.selectionAcknowledged = false;

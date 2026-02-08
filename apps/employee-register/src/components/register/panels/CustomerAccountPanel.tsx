@@ -1,29 +1,25 @@
-import type { CheckinStage } from '../CustomerProfileCard';
+import type { CheckinStage, CustomerProfileCardProps } from '../CustomerProfileCard';
 import { CustomerProfileCard } from '../CustomerProfileCard';
 import { EmployeeAssistPanel } from '../EmployeeAssistPanel';
 import { useStartLaneCheckinForCustomerIfNotVisiting } from '../../../app/useStartLaneCheckinForCustomerIfNotVisiting';
 import { PanelHeader } from '../../../views/PanelHeader';
 import { PanelShell } from '../../../views/PanelShell';
+import { formatLocal, getRenewalEligibility } from '../renewalEligibility';
 import type { ActiveCheckinDetails } from '../modals/AlreadyCheckedInModal';
-function formatLocal(value: string | null): string {
-  if (!value) return '—';
-  const d = new Date(value);
-  return Number.isFinite(d.getTime()) ? d.toLocaleString() : '—';
-}
-function getRenewalEligibility(activeCheckin: ActiveCheckinDetails | null) {
-  if (!activeCheckin?.checkoutAt) {
-    return { withinWindow: false, allowTwoHour: false, allowSixHour: false, totalHours: null };
-  }
-  const checkoutAt = new Date(activeCheckin.checkoutAt);
-  const totalHours =
-    typeof activeCheckin.currentTotalHours === 'number' ? activeCheckin.currentTotalHours : null;
-  const diffMs = Math.abs(checkoutAt.getTime() - Date.now());
-  const withinWindow = Number.isFinite(diffMs) && diffMs <= 60 * 60 * 1000;
-  const allowTwoHour = withinWindow && totalHours !== null && totalHours + 2 <= 14;
-  const allowSixHour = withinWindow && totalHours !== null && totalHours + 6 <= 14;
-  return { withinWindow, allowTwoHour, allowSixHour, totalHours };
-}
-
+type CustomerProfile = Pick<
+  CustomerProfileCardProps,
+  | 'name'
+  | 'preferredLanguage'
+  | 'dobMonthDay'
+  | 'idNumber'
+  | 'idExpirationDate'
+  | 'idType'
+  | 'idTypeOther'
+  | 'membershipNumber'
+  | 'membershipValidUntil'
+  | 'lastVisitAt'
+  | 'hasEncryptedLookupMarker'
+>;
 export function CustomerAccountPanel(props: {
   lane: string;
   sessionToken: string | null | undefined;
@@ -34,6 +30,7 @@ export function CustomerAccountPanel(props: {
     dobMonthDay?: string;
     membershipNumber?: string;
   } | null;
+  customerProfile?: CustomerProfile | null;
   autoStartCheckin?: boolean;
   onStartCheckout: (prefill?: { number?: string | null }) => void;
   onClearSession: () => void;
@@ -109,9 +106,10 @@ export function CustomerAccountPanel(props: {
   const hasActiveSession =
     Boolean(props.currentSessionId && props.customerName) &&
     props.currentSessionCustomerId === props.customerId;
-  const fallbackName = props.customerSummary?.name || props.customerLabel || '—';
-  const fallbackDob = props.customerSummary?.dobMonthDay ?? null;
-  const fallbackMembership = props.customerSummary?.membershipNumber ?? null;
+  const profile = props.customerProfile;
+  const fallbackName = profile?.name || props.customerSummary?.name || props.customerLabel || '—';
+  const fallbackDob = profile?.dobMonthDay ?? props.customerSummary?.dobMonthDay ?? null;
+  const fallbackMembership = profile?.membershipNumber ?? props.customerSummary?.membershipNumber ?? null;
   const displayName = props.customerName || fallbackName;
   const displayDob = props.customerDobMonthDay || fallbackDob;
   const displayMembership = props.membershipNumber || fallbackMembership;
@@ -123,15 +121,16 @@ export function CustomerAccountPanel(props: {
   const renderProfileCard = (footer: JSX.Element | null) => (
     <CustomerProfileCard
       name={displayName}
-      preferredLanguage={hasActiveSession ? props.customerPrimaryLanguage || null : null}
+      preferredLanguage={props.customerPrimaryLanguage || profile?.preferredLanguage || null}
       dobMonthDay={displayDob}
-      idExpirationDate={hasActiveSession ? props.customerIdExpirationDate : null}
-      idType={hasActiveSession ? props.customerIdType : null}
-      idTypeOther={hasActiveSession ? props.customerIdTypeOther : null}
+      idNumber={profile?.idNumber || null}
+      idExpirationDate={props.customerIdExpirationDate || profile?.idExpirationDate || null}
+      idType={props.customerIdType || profile?.idType || null}
+      idTypeOther={props.customerIdTypeOther || profile?.idTypeOther || null}
       membershipNumber={displayMembership}
-      membershipValidUntil={hasActiveSession ? props.customerMembershipValidUntil || null : null}
-      lastVisitAt={hasActiveSession ? props.customerLastVisitAt || null : null}
-      hasEncryptedLookupMarker={hasActiveSession ? Boolean(props.hasEncryptedLookupMarker) : false}
+      membershipValidUntil={props.customerMembershipValidUntil || profile?.membershipValidUntil || null}
+      lastVisitAt={props.customerLastVisitAt || profile?.lastVisitAt || null}
+      hasEncryptedLookupMarker={Boolean(props.hasEncryptedLookupMarker || profile?.hasEncryptedLookupMarker)}
       checkinStage={hasActiveSession ? props.checkinStage : null}
       waitlistDesiredTier={hasActiveSession ? props.waitlistDesiredTier : null}
       waitlistBackupType={hasActiveSession ? props.waitlistBackupType : null}

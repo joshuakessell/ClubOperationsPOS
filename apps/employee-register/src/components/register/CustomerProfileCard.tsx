@@ -7,6 +7,7 @@ export interface CustomerProfileCardProps {
   name: string;
   preferredLanguage?: 'EN' | 'ES' | null;
   dobMonthDay?: string | null; // MM/DD
+  idNumber?: string | null;
   idExpirationDate?: string | null; // YYYY-MM-DD
   idType?: 'STATE_ID' | 'DRIVERS_LICENSE' | 'PASSPORT' | 'OTHER' | null;
   idTypeOther?: string | null;
@@ -130,8 +131,10 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
         <Detail label="Preferred Language" value={languageLabel} />
         <Detail label="DOB (MM/DD)" value={props.dobMonthDay || '—'} />
         <Detail label="ID Type" value={idTypeLabel} />
+        <Detail label="ID #" value={props.idNumber || '—'} />
         <Detail label="ID Exp (MM/DD/YYYY)" value={formatMmDdYyyy(idExpiration)} />
         <Detail label="Member" value={isMember ? 'Yes' : 'No'} />
+        <Detail label="Membership ID" value={props.membershipNumber || '—'} />
         <Detail label="Membership Exp (MM/YY)" value={isMember ? formatMmYy(expires) : '—'} />
         <Detail label="Last Visit (MM/YY)" value={formatMmYy(lastVisit)} />
       </div>
