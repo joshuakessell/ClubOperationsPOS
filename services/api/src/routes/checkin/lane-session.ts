@@ -180,10 +180,12 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
           const resolveActiveAssignment = async (activeVisitId: string) => {
             const activeBlock = await client.query<{
               rental_type: string;
+              room_id: string | null;
+              locker_id: string | null;
               room_number: string | null;
               locker_number: string | null;
             }>(
-              `SELECT cb.rental_type, r.number as room_number, l.number as locker_number
+              `SELECT cb.rental_type, cb.room_id, cb.locker_id, r.number as room_number, l.number as locker_number
                FROM checkin_blocks cb
                LEFT JOIN rooms r ON cb.room_id = r.id
                LEFT JOIN lockers l ON cb.locker_id = l.id
@@ -195,10 +197,10 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
             const row = activeBlock.rows[0];
             if (!row) return;
             activeRentalType = row.rental_type;
-            if (row.room_number) {
+            if (row.room_id && row.room_number) {
               activeAssignedResourceType = 'room';
               activeAssignedResourceNumber = row.room_number;
-            } else if (row.locker_number) {
+            } else if (row.locker_id && row.locker_number) {
               activeAssignedResourceType = 'locker';
               activeAssignedResourceNumber = row.locker_number;
             }
@@ -335,6 +337,23 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
 
           let session: LaneSessionRow;
 
+          if (computedMode === 'RENEWAL' && !activeRentalType) {
+            throw { statusCode: 400, message: 'Unable to determine rental type for renewal' };
+          }
+
+          const desiredRentalTypeForSession =
+            computedMode === 'RENEWAL' && activeRentalType ? activeRentalType : null;
+          // For RENEWAL we do NOT set assigned_resource_* on the lane session.
+          // The customer is already occupying a room/locker; persisting assignment here causes the
+          // customer-kiosk state machine to jump straight to the "complete" screen and skip payment.
+          const assignedResourceIdForSession = null;
+          const assignedResourceTypeForSession = null;
+          const selectionConfirmedForSession = computedMode === 'RENEWAL';
+          const selectionConfirmedByForSession =
+            computedMode === 'RENEWAL' ? 'EMPLOYEE' : null;
+          const selectionLockedAtForSession = computedMode === 'RENEWAL' ? new Date() : null;
+          const membershipChoiceForSession = null;
+
           if (existingSession.rows.length > 0 && existingSession.rows[0]!.status !== 'COMPLETED') {
             // Update existing session
             const updateResult = await client.query<LaneSessionRow>(
@@ -346,6 +365,23 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
                  staff_id = $4,
                  checkin_mode = $5,
                  renewal_hours = $6,
+                 desired_rental_type = $8,
+                 waitlist_desired_type = NULL,
+                 backup_rental_type = NULL,
+                 assigned_resource_id = $9,
+                 assigned_resource_type = $10,
+                 membership_choice = $11,
+                 membership_purchase_intent = NULL,
+                 membership_purchase_requested_at = NULL,
+                 payment_intent_id = NULL,
+                 price_quote_json = NULL,
+                 disclaimers_ack_json = NULL,
+                 kiosk_acknowledged_at = NULL,
+                 proposed_rental_type = NULL,
+                 proposed_by = NULL,
+                 selection_confirmed = $12,
+                 selection_confirmed_by = $13,
+                 selection_locked_at = $14,
                  updated_at = NOW()
              WHERE id = $7
              RETURNING *`,
@@ -357,6 +393,13 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
                 computedMode,
                 renewalHoursForSession,
                 existingSession.rows[0]!.id,
+                desiredRentalTypeForSession,
+                assignedResourceIdForSession,
+                assignedResourceTypeForSession,
+                membershipChoiceForSession,
+                selectionConfirmedForSession,
+                selectionConfirmedByForSession,
+                selectionLockedAtForSession,
               ]
             );
             session = updateResult.rows[0]!;
@@ -364,8 +407,8 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
             // Create new session
             const newSessionResult = await client.query<LaneSessionRow>(
               `INSERT INTO lane_sessions 
-             (lane_id, status, staff_id, customer_id, customer_display_name, membership_number, checkin_mode, renewal_hours)
-             VALUES ($1, 'ACTIVE', $2, $3, $4, $5, $6, $7)
+             (lane_id, status, staff_id, customer_id, customer_display_name, membership_number, checkin_mode, renewal_hours, desired_rental_type, assigned_resource_id, assigned_resource_type, membership_choice, selection_confirmed, selection_confirmed_by, selection_locked_at)
+             VALUES ($1, 'ACTIVE', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
              RETURNING *`,
               [
                 laneId,
@@ -375,6 +418,13 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
                 membershipNumber,
                 computedMode,
                 renewalHoursForSession,
+                desiredRentalTypeForSession,
+                assignedResourceIdForSession,
+                assignedResourceTypeForSession,
+                membershipChoiceForSession,
+                selectionConfirmedForSession,
+                selectionConfirmedByForSession,
+                selectionLockedAtForSession,
               ]
             );
             session = newSessionResult.rows[0]!;

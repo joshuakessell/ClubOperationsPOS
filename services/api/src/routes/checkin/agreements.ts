@@ -28,6 +28,51 @@ import type {
   CustomerDeclinedPayload,
 } from '@club-ops/shared';
 
+function formatAgreementTimeBlock(params: {
+  startsAt: Date;
+  endsAt: Date;
+  timeZone?: string;
+}): string {
+  const timeZone = params.timeZone ?? 'America/Chicago';
+  const dateFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const timeFmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  });
+
+  const startDate = dateFmt.format(params.startsAt);
+  const endDate = dateFmt.format(params.endsAt);
+  const startTime = timeFmt.format(params.startsAt);
+  const endTime = timeFmt.format(params.endsAt);
+
+  if (startDate === endDate) {
+    return `${startDate} ${startTime} - ${endTime} (${timeZone})`;
+  }
+  return `${startDate} ${startTime} - ${endDate} ${endTime} (${timeZone})`;
+}
+
+function buildAgreementTimeBlockHtml(params: {
+  startsAt: Date;
+  endsAt: Date;
+  lang: 'EN' | 'ES';
+  timeZone?: string;
+}): string {
+  const label = params.lang === 'ES' ? 'Este acuerdo aplica a:' : 'Agreement Applies To:';
+  const block = formatAgreementTimeBlock({
+    startsAt: params.startsAt,
+    endsAt: params.endsAt,
+    timeZone: params.timeZone,
+  });
+  return `<p><strong>${label}</strong> ${block}</p>`;
+}
+
 export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
   /**
    * POST /v1/checkin/lane/:laneId/sign-agreement
@@ -162,10 +207,155 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
           }
 
           const signedAt = new Date();
-          const checkinAt = signedAt; // demo flow uses "now" for check-in start; keep PDF consistent with stored block.starts_at
 
-          const agreementTextSnapshot =
+          if (!session.customer_id) {
+            throw { statusCode: 400, message: 'Session has no customer; cannot complete check-in' };
+          }
+
+          const isRenewal = session.checkin_mode === 'RENEWAL';
+          const renewalHours =
+            session.renewal_hours === 2 || session.renewal_hours === 6
+              ? session.renewal_hours
+              : null;
+
+          let visitId: string | null = null;
+          let blockType: 'INITIAL' | 'RENEWAL' | 'FINAL2H';
+          let startsAt: Date;
+          let endsAt: Date;
+
+          let renewalAssignedResourceId: string | null = null;
+          let renewalAssignedResourceType: 'room' | 'locker' | null = null;
+          let renewalAssignedResourceNumber: string | undefined;
+
+          if (isRenewal) {
+            if (!renewalHours) {
+              throw { statusCode: 400, message: 'Renewal hours not set for this session' };
+            }
+
+            const visitResult = await client.query<{ id: string }>(
+              `SELECT id
+               FROM visits
+               WHERE customer_id = $1 AND ended_at IS NULL
+               ORDER BY started_at DESC
+               LIMIT 1`,
+              [session.customer_id]
+            );
+            if (visitResult.rows.length === 0) {
+              throw { statusCode: 400, message: 'No active visit found for renewal' };
+            }
+            visitId = visitResult.rows[0]!.id;
+
+            const blocksResult = await client.query<{
+              starts_at: Date;
+              ends_at: Date;
+              room_id: string | null;
+              locker_id: string | null;
+            }>(
+              `SELECT starts_at, ends_at, room_id, locker_id
+               FROM checkin_blocks
+               WHERE visit_id = $1
+               ORDER BY ends_at DESC`,
+              [visitId]
+            );
+            if (blocksResult.rows.length === 0) {
+              throw { statusCode: 400, message: 'Visit has no blocks' };
+            }
+
+            let currentTotalHours = 0;
+            for (const block of blocksResult.rows) {
+              const hours =
+                (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
+              currentTotalHours += hours;
+            }
+
+            const latestBlock = blocksResult.rows[0]!;
+            const latestBlockEnd = latestBlock.ends_at;
+            const diffMs = Math.abs(latestBlockEnd.getTime() - Date.now());
+            if (diffMs > 60 * 60 * 1000) {
+              throw {
+                statusCode: 400,
+                message: 'Renewal is only available within 1 hour of checkout',
+              };
+            }
+
+            if (currentTotalHours + renewalHours > 14) {
+              throw {
+                statusCode: 400,
+                message: `Renewal would exceed 14-hour maximum. Current total: ${currentTotalHours} hours, renewal would add ${renewalHours} hours.`,
+              };
+            }
+
+            startsAt = latestBlockEnd;
+            endsAt =
+              renewalHours === 2
+                ? new Date(startsAt.getTime() + 2 * 60 * 60 * 1000)
+                : roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
+            blockType = renewalHours === 2 ? 'FINAL2H' : 'RENEWAL';
+
+            if (latestBlock.room_id) {
+              const room = (
+                await client.query<RoomRow>(
+                  `SELECT id, number, type, status, assigned_to_customer_id
+                   FROM rooms
+                   WHERE id = $1
+                   LIMIT 1`,
+                  [latestBlock.room_id]
+                )
+              ).rows[0];
+              if (!room) {
+                throw { statusCode: 400, message: 'Renewal room assignment not found' };
+              }
+              if (room.assigned_to_customer_id !== session.customer_id || room.status !== 'OCCUPIED') {
+                throw {
+                  statusCode: 409,
+                  message: `Room ${room.number} is not currently assigned to this customer`,
+                };
+              }
+              renewalAssignedResourceId = room.id;
+              renewalAssignedResourceType = 'room';
+              renewalAssignedResourceNumber = room.number;
+            } else if (latestBlock.locker_id) {
+              const locker = (
+                await client.query<LockerRow>(
+                  `SELECT id, number, status, assigned_to_customer_id
+                   FROM lockers
+                   WHERE id = $1
+                   LIMIT 1`,
+                  [latestBlock.locker_id]
+                )
+              ).rows[0];
+              if (!locker) {
+                throw { statusCode: 400, message: 'Renewal locker assignment not found' };
+              }
+              if (
+                locker.assigned_to_customer_id !== session.customer_id ||
+                locker.status !== 'OCCUPIED'
+              ) {
+                throw {
+                  statusCode: 409,
+                  message: `Locker ${locker.number} is not currently assigned to this customer`,
+                };
+              }
+              renewalAssignedResourceId = locker.id;
+              renewalAssignedResourceType = 'locker';
+              renewalAssignedResourceNumber = locker.number;
+            } else {
+              throw { statusCode: 400, message: 'Active visit has no assigned room or locker' };
+            }
+          } else {
+            blockType = 'INITIAL';
+            startsAt = signedAt;
+            endsAt = roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
+          }
+
+          const agreementTimeBlockHtml = buildAgreementTimeBlockHtml({
+            startsAt,
+            endsAt,
+            lang: customerLang,
+          });
+          const baseAgreementTextSnapshot =
             customerLang === 'ES' ? AGREEMENT_LEGAL_BODY_HTML_BY_LANG.ES : agreement.body_text;
+          const agreementTextSnapshot = `${agreementTimeBlockHtml}${baseAgreementTextSnapshot}`;
           const agreementTitleForPdf = customerLang === 'ES' ? 'Acuerdo del Club' : agreement.title;
 
           // Generate PDF (robust pdf-lib)
@@ -178,7 +368,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
               customerName,
               customerDob,
               membershipNumber,
-              checkinAt,
+              checkinAt: startsAt,
               signedAt,
               signatureImageBase64: signatureData,
             });
@@ -204,7 +394,13 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
           let assignedResourceType = session.assigned_resource_type as 'room' | 'locker' | null;
           let assignedResourceNumber: string | undefined;
 
-          if (assignedResourceId && assignedResourceType) {
+          if (isRenewal) {
+            assignedResourceId = renewalAssignedResourceId;
+            assignedResourceType = renewalAssignedResourceType;
+            assignedResourceNumber = renewalAssignedResourceNumber;
+          }
+
+          if (!isRenewal && assignedResourceId && assignedResourceType) {
             if (assignedResourceType === 'room') {
               const room = (
                 await client.query<RoomRow>(
@@ -292,7 +488,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
               }
               assignedResourceNumber = locker.number;
             }
-          } else {
+          } else if (!isRenewal) {
             if (rentalType === 'LOCKER' || rentalType === 'GYM_LOCKER') {
               const locker = (
                 await client.query<LockerRow>(
@@ -333,15 +529,12 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
             }
           }
 
-          if (!session.customer_id) {
-            throw { statusCode: 400, message: 'Session has no customer; cannot complete check-in' };
-          }
           if (!assignedResourceId || !assignedResourceType) {
             throw { statusCode: 500, message: 'Failed to assign a room or locker' };
           }
 
           // Assign inventory + mark OCCUPIED (server-authoritative, transactional)
-          if (assignedResourceType === 'room') {
+          if (!isRenewal && assignedResourceType === 'room') {
             await client.query(
               `UPDATE rooms
              SET status = 'OCCUPIED',
@@ -351,7 +544,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
              WHERE id = $2`,
               [session.customer_id, assignedResourceId]
             );
-          } else {
+          } else if (!isRenewal) {
             await client.query(
               `UPDATE lockers
              SET status = 'OCCUPIED',
@@ -374,83 +567,13 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
             [assignedResourceId, assignedResourceType, session.id]
           );
 
-          // Complete check-in: create visit and check-in block with PDF
-          const isRenewal = session.checkin_mode === 'RENEWAL';
-          const renewalHours =
-            session.renewal_hours === 2 || session.renewal_hours === 6
-              ? session.renewal_hours
-              : null;
-
-          let visitId: string;
-          let blockType: 'INITIAL' | 'RENEWAL' | 'FINAL2H';
-          let startsAt: Date;
-          let endsAt: Date;
-
-          if (isRenewal) {
-            if (!renewalHours) {
-              throw { statusCode: 400, message: 'Renewal hours not set for this session' };
-            }
+          // Complete check-in: create visit (if needed) and check-in block with PDF
+          if (!visitId) {
             const visitResult = await client.query<{ id: string }>(
-              `SELECT id FROM visits WHERE customer_id = $1 AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1`,
-              [session.customer_id]
-            );
-            if (visitResult.rows.length === 0) {
-              throw { statusCode: 400, message: 'No active visit found for renewal' };
-            }
-            visitId = visitResult.rows[0]!.id;
-
-            const blocksResult = await client.query<{
-              starts_at: Date;
-              ends_at: Date;
-            }>(
-              `SELECT starts_at, ends_at
-               FROM checkin_blocks
-               WHERE visit_id = $1
-               ORDER BY ends_at DESC`,
-              [visitId]
-            );
-            if (blocksResult.rows.length === 0) {
-              throw { statusCode: 400, message: 'Visit has no blocks' };
-            }
-
-            let currentTotalHours = 0;
-            for (const block of blocksResult.rows) {
-              const hours =
-                (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
-              currentTotalHours += hours;
-            }
-
-            const latestBlockEnd = blocksResult.rows[0]!.ends_at;
-            const diffMs = Math.abs(latestBlockEnd.getTime() - Date.now());
-            if (diffMs > 60 * 60 * 1000) {
-              throw {
-                statusCode: 400,
-                message: 'Renewal is only available within 1 hour of checkout',
-              };
-            }
-
-            if (currentTotalHours + renewalHours > 14) {
-              throw {
-                statusCode: 400,
-                message: `Renewal would exceed 14-hour maximum. Current total: ${currentTotalHours} hours, renewal would add ${renewalHours} hours.`,
-              };
-            }
-
-            startsAt = latestBlockEnd;
-            endsAt =
-              renewalHours === 2
-                ? new Date(startsAt.getTime() + 2 * 60 * 60 * 1000)
-                : roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
-            blockType = renewalHours === 2 ? 'FINAL2H' : 'RENEWAL';
-          } else {
-            const visitResult = await client.query<{ id: string }>(
-              `INSERT INTO visits (customer_id, started_at) VALUES ($1, NOW()) RETURNING id`,
-              [session.customer_id]
+              `INSERT INTO visits (customer_id, started_at) VALUES ($1, $2) RETURNING id`,
+              [session.customer_id, startsAt]
             );
             visitId = visitResult.rows[0]!.id;
-            blockType = 'INITIAL';
-            startsAt = checkinAt; // demo: now (consistent with PDF)
-            endsAt = roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
           }
 
           // Create checkin_block with PDF
@@ -724,10 +847,155 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
           const agreement = agreementResult.rows[0]!;
 
           const signedAt = new Date();
-          const checkinAt = signedAt;
 
-          const agreementTextSnapshot =
+          if (!session.customer_id) {
+            throw { statusCode: 400, message: 'Session has no customer; cannot complete check-in' };
+          }
+
+          const isRenewal = session.checkin_mode === 'RENEWAL';
+          const renewalHours =
+            session.renewal_hours === 2 || session.renewal_hours === 6
+              ? session.renewal_hours
+              : null;
+
+          let visitId: string | null = null;
+          let blockType: 'INITIAL' | 'RENEWAL' | 'FINAL2H';
+          let startsAt: Date;
+          let endsAt: Date;
+
+          let renewalAssignedResourceId: string | null = null;
+          let renewalAssignedResourceType: 'room' | 'locker' | null = null;
+          let renewalAssignedResourceNumber: string | undefined;
+
+          if (isRenewal) {
+            if (!renewalHours) {
+              throw { statusCode: 400, message: 'Renewal hours not set for this session' };
+            }
+
+            const visitResult = await client.query<{ id: string }>(
+              `SELECT id
+               FROM visits
+               WHERE customer_id = $1 AND ended_at IS NULL
+               ORDER BY started_at DESC
+               LIMIT 1`,
+              [session.customer_id]
+            );
+            if (visitResult.rows.length === 0) {
+              throw { statusCode: 400, message: 'No active visit found for renewal' };
+            }
+            visitId = visitResult.rows[0]!.id;
+
+            const blocksResult = await client.query<{
+              starts_at: Date;
+              ends_at: Date;
+              room_id: string | null;
+              locker_id: string | null;
+            }>(
+              `SELECT starts_at, ends_at, room_id, locker_id
+               FROM checkin_blocks
+               WHERE visit_id = $1
+               ORDER BY ends_at DESC`,
+              [visitId]
+            );
+            if (blocksResult.rows.length === 0) {
+              throw { statusCode: 400, message: 'Visit has no blocks' };
+            }
+
+            let currentTotalHours = 0;
+            for (const block of blocksResult.rows) {
+              const hours =
+                (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
+              currentTotalHours += hours;
+            }
+
+            const latestBlock = blocksResult.rows[0]!;
+            const latestBlockEnd = latestBlock.ends_at;
+            const diffMs = Math.abs(latestBlockEnd.getTime() - Date.now());
+            if (diffMs > 60 * 60 * 1000) {
+              throw {
+                statusCode: 400,
+                message: 'Renewal is only available within 1 hour of checkout',
+              };
+            }
+
+            if (currentTotalHours + renewalHours > 14) {
+              throw {
+                statusCode: 400,
+                message: `Renewal would exceed 14-hour maximum. Current total: ${currentTotalHours} hours, renewal would add ${renewalHours} hours.`,
+              };
+            }
+
+            startsAt = latestBlockEnd;
+            endsAt =
+              renewalHours === 2
+                ? new Date(startsAt.getTime() + 2 * 60 * 60 * 1000)
+                : roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
+            blockType = renewalHours === 2 ? 'FINAL2H' : 'RENEWAL';
+
+            if (latestBlock.room_id) {
+              const room = (
+                await client.query<RoomRow>(
+                  `SELECT id, number, type, status, assigned_to_customer_id
+                   FROM rooms
+                   WHERE id = $1
+                   LIMIT 1`,
+                  [latestBlock.room_id]
+                )
+              ).rows[0];
+              if (!room) {
+                throw { statusCode: 400, message: 'Renewal room assignment not found' };
+              }
+              if (room.assigned_to_customer_id !== session.customer_id || room.status !== 'OCCUPIED') {
+                throw {
+                  statusCode: 409,
+                  message: `Room ${room.number} is not currently assigned to this customer`,
+                };
+              }
+              renewalAssignedResourceId = room.id;
+              renewalAssignedResourceType = 'room';
+              renewalAssignedResourceNumber = room.number;
+            } else if (latestBlock.locker_id) {
+              const locker = (
+                await client.query<LockerRow>(
+                  `SELECT id, number, status, assigned_to_customer_id
+                   FROM lockers
+                   WHERE id = $1
+                   LIMIT 1`,
+                  [latestBlock.locker_id]
+                )
+              ).rows[0];
+              if (!locker) {
+                throw { statusCode: 400, message: 'Renewal locker assignment not found' };
+              }
+              if (
+                locker.assigned_to_customer_id !== session.customer_id ||
+                locker.status !== 'OCCUPIED'
+              ) {
+                throw {
+                  statusCode: 409,
+                  message: `Locker ${locker.number} is not currently assigned to this customer`,
+                };
+              }
+              renewalAssignedResourceId = locker.id;
+              renewalAssignedResourceType = 'locker';
+              renewalAssignedResourceNumber = locker.number;
+            } else {
+              throw { statusCode: 400, message: 'Active visit has no assigned room or locker' };
+            }
+          } else {
+            blockType = 'INITIAL';
+            startsAt = signedAt;
+            endsAt = roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
+          }
+
+          const agreementTimeBlockHtml = buildAgreementTimeBlockHtml({
+            startsAt,
+            endsAt,
+            lang: customerLang,
+          });
+          const baseAgreementTextSnapshot =
             customerLang === 'ES' ? AGREEMENT_LEGAL_BODY_HTML_BY_LANG.ES : agreement.body_text;
+          const agreementTextSnapshot = `${agreementTimeBlockHtml}${baseAgreementTextSnapshot}`;
           const agreementTitleForPdf = customerLang === 'ES' ? 'Acuerdo del Club' : agreement.title;
 
           // Generate PDF with override text instead of signature image
@@ -740,7 +1008,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
               customerName,
               customerDob,
               membershipNumber,
-              checkinAt,
+              checkinAt: startsAt,
               signatureText: 'Manual Signature Override',
               signedAt,
             });
@@ -759,7 +1027,13 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
           let assignedResourceType = session.assigned_resource_type as 'room' | 'locker' | null;
           let assignedResourceNumber: string | undefined;
 
-          if (assignedResourceId && assignedResourceType) {
+          if (isRenewal) {
+            assignedResourceId = renewalAssignedResourceId;
+            assignedResourceType = renewalAssignedResourceType;
+            assignedResourceNumber = renewalAssignedResourceNumber;
+          }
+
+          if (!isRenewal && assignedResourceId && assignedResourceType) {
             if (assignedResourceType === 'room') {
               const room = (
                 await client.query<RoomRow>(
@@ -847,7 +1121,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
               }
               assignedResourceNumber = locker.number;
             }
-          } else {
+          } else if (!isRenewal) {
             if (rentalType === 'LOCKER' || rentalType === 'GYM_LOCKER') {
               const locker = (
                 await client.query<LockerRow>(
@@ -887,16 +1161,12 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
               assignedResourceNumber = room.number;
             }
           }
-
-          if (!session.customer_id) {
-            throw { statusCode: 400, message: 'Session has no customer; cannot complete check-in' };
-          }
           if (!assignedResourceId || !assignedResourceType) {
             throw { statusCode: 500, message: 'Failed to assign a room or locker' };
           }
 
           // Assign inventory + mark OCCUPIED (server-authoritative, transactional)
-          if (assignedResourceType === 'room') {
+          if (!isRenewal && assignedResourceType === 'room') {
             await client.query(
               `UPDATE rooms
              SET status = 'OCCUPIED',
@@ -906,7 +1176,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
              WHERE id = $2`,
               [session.customer_id, assignedResourceId]
             );
-          } else {
+          } else if (!isRenewal) {
             await client.query(
               `UPDATE lockers
              SET status = 'OCCUPIED',
@@ -929,90 +1199,24 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
             [assignedResourceId, assignedResourceType, session.id]
           );
 
-          // Complete check-in: create visit and check-in block with PDF (same as normal flow)
-          const isRenewal = session.checkin_mode === 'RENEWAL';
-          const renewalHours =
-            session.renewal_hours === 2 || session.renewal_hours === 6
-              ? session.renewal_hours
-              : null;
-
-          let visitId: string;
-          let blockType: 'INITIAL' | 'RENEWAL' | 'FINAL2H';
-          let startsAt: Date;
-          let endsAt: Date;
-
-          if (isRenewal) {
-            if (!renewalHours) {
-              throw { statusCode: 400, message: 'Renewal hours not set for this session' };
-            }
-            const visitResult = await client.query<{ id: string }>(
-              `SELECT id FROM visits WHERE customer_id = $1 AND ended_at IS NULL ORDER BY started_at DESC LIMIT 1`,
-              [session.customer_id]
-            );
-            if (visitResult.rows.length === 0) {
-              throw { statusCode: 400, message: 'No active visit found for renewal' };
-            }
-            visitId = visitResult.rows[0]!.id;
-
-            const blocksResult = await client.query<{
-              starts_at: Date;
-              ends_at: Date;
-            }>(
-              `SELECT starts_at, ends_at
-               FROM checkin_blocks
-               WHERE visit_id = $1
-               ORDER BY ends_at DESC`,
-              [visitId]
-            );
-            if (blocksResult.rows.length === 0) {
-              throw { statusCode: 400, message: 'Visit has no blocks' };
-            }
-
-            let currentTotalHours = 0;
-            for (const block of blocksResult.rows) {
-              const hours =
-                (block.ends_at.getTime() - block.starts_at.getTime()) / (1000 * 60 * 60);
-              currentTotalHours += hours;
-            }
-
-            const latestBlockEnd = blocksResult.rows[0]!.ends_at;
-            const diffMs = Math.abs(latestBlockEnd.getTime() - Date.now());
-            if (diffMs > 60 * 60 * 1000) {
-              throw {
-                statusCode: 400,
-                message: 'Renewal is only available within 1 hour of checkout',
-              };
-            }
-
-            if (currentTotalHours + renewalHours > 14) {
-              throw {
-                statusCode: 400,
-                message: `Renewal would exceed 14-hour maximum. Current total: ${currentTotalHours} hours, renewal would add ${renewalHours} hours.`,
-              };
-            }
-
-            startsAt = latestBlockEnd;
-            endsAt =
-              renewalHours === 2
-                ? new Date(startsAt.getTime() + 2 * 60 * 60 * 1000)
-                : roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
-            blockType = renewalHours === 2 ? 'FINAL2H' : 'RENEWAL';
-          } else {
+          // Complete check-in: create visit (if needed) and check-in block with PDF
+          if (!visitId) {
             const visitResult = await client.query<{ id: string }>(
               `INSERT INTO visits (customer_id, started_at) VALUES ($1, $2) RETURNING id`,
-              [session.customer_id, signedAt]
+              [session.customer_id, startsAt]
             );
-            visitId = visitResult.rows[0]!.id;
-            blockType = 'INITIAL';
-            startsAt = signedAt;
-            endsAt = roundUpToQuarterHour(new Date(startsAt.getTime() + 6 * 60 * 60 * 1000));
+            visitId = visitResult.rows[0]?.id ?? null;
           }
+          if (!visitId) {
+            throw { statusCode: 500, message: 'Failed to create visit' };
+          }
+
           const checkoutAt = endsAt;
 
           const blockResult = await client.query<{ id: string }>(
             `INSERT INTO checkin_blocks
-           (visit_id, block_type, starts_at, ends_at, rental_type, room_id, locker_id, session_id, agreement_signed, agreement_pdf)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9)
+           (visit_id, block_type, starts_at, ends_at, rental_type, room_id, locker_id, session_id, agreement_signed, agreement_pdf, agreement_signed_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, true, $9, $10)
            RETURNING id`,
             [
               visitId,
@@ -1024,10 +1228,29 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
               assignedResourceType === 'locker' ? assignedResourceId : null,
               session.id,
               pdfBuffer,
+              signedAt,
             ]
           );
 
           const blockId = blockResult.rows[0]!.id;
+
+          await client.query(
+            `INSERT INTO agreement_signatures
+           (agreement_id, checkin_block_id, customer_name, membership_number, signed_at, signature_png_base64, agreement_text_snapshot, agreement_version, user_agent, ip_address)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
+            [
+              agreement.id,
+              blockId,
+              customerName,
+              membershipNumber || null,
+              signedAt,
+              null,
+              agreementTextSnapshot,
+              agreement.version,
+              request.headers['user-agent'] || null,
+              request.ip || null,
+            ]
+          );
 
           // If customer elected a waitlist/upgrade path (desired tier + backup tier), persist waitlist entry now.
           if (session.waitlist_desired_type && session.backup_rental_type) {
@@ -1082,6 +1305,16 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
            WHERE id = $1`,
             [session.id]
           );
+
+          const assignmentPayload: AssignmentCreatedPayload = {
+            sessionId: session.id,
+            roomId: assignedResourceType === 'room' ? assignedResourceId : undefined,
+            roomNumber: assignedResourceType === 'room' ? assignedResourceNumber : undefined,
+            lockerId: assignedResourceType === 'locker' ? assignedResourceId : undefined,
+            lockerNumber: assignedResourceType === 'locker' ? assignedResourceNumber : undefined,
+            rentalType,
+          };
+          fastify.broadcaster.broadcastAssignmentCreated(assignmentPayload, laneId);
 
           // Log audit entry for manual override
           await insertAuditLog(client, {
