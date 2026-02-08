@@ -10,7 +10,7 @@ import {
 export function useRegisterRealtimeEvents(params: RegisterRealtimeParams): {
   connected: boolean;
 } {
-  const { lane } = params;
+  const { lane, staffToken } = params;
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
@@ -21,7 +21,9 @@ export function useRegisterRealtimeEvents(params: RegisterRealtimeParams): {
     laneId: lane,
     role: 'employee',
     kioskToken: kioskToken ?? '',
-    enabled: true,
+    staffToken: staffToken ?? undefined,
+    enabled: Boolean(lane) && Boolean((kioskToken && kioskToken.trim()) || staffToken),
+    reconnectMode: 'aggressive',
   });
 
   const paramsRef = useRef(params);

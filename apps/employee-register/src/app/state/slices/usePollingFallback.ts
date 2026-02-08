@@ -11,10 +11,18 @@ type LaneSessionActions = {
 type Params = {
   lane: string;
   realtimeConnected: boolean;
+  staffToken?: string | null;
+  currentSessionId?: string | null;
   laneSessionActions: LaneSessionActions;
 };
 
-export function usePollingFallback({ lane, realtimeConnected, laneSessionActions }: Params) {
+export function usePollingFallback({
+  lane,
+  realtimeConnected,
+  staffToken,
+  currentSessionId,
+  laneSessionActions,
+}: Params) {
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
@@ -24,6 +32,9 @@ export function usePollingFallback({ lane, realtimeConnected, laneSessionActions
   const pollOnce = useCallback(async () => {
     try {
       const headers: Record<string, string> = {};
+      if (staffToken) {
+        headers['Authorization'] = `Bearer ${staffToken}`;
+      }
       if (typeof kioskToken === 'string' && kioskToken) {
         headers['x-kiosk-token'] = kioskToken;
       }
@@ -48,10 +59,18 @@ export function usePollingFallback({ lane, realtimeConnected, laneSessionActions
     } catch {
       // Best-effort; polling is a fallback.
     }
-  }, [kioskToken, lane, laneSessionActions]);
+  }, [kioskToken, lane, laneSessionActions, staffToken]);
 
   const pollingDelayTimerRef = useRef<number | null>(null);
   const pollingIntervalRef = useRef<number | null>(null);
+
+  const hydrationKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const hydrationKey = `${lane}:${currentSessionId ?? 'none'}`;
+    if (hydrationKeyRef.current === hydrationKey) return;
+    hydrationKeyRef.current = hydrationKey;
+    void pollOnce();
+  }, [currentSessionId, lane, pollOnce]);
 
   useEffect(() => {
     if (pollingDelayTimerRef.current !== null) {

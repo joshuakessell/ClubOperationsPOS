@@ -10,6 +10,7 @@ import type { BottomToastTone } from '../components/register/toasts/BottomToastS
 
 export type RegisterRealtimeParams = {
   lane: string;
+  staffToken?: string | null;
   currentSessionIdRef: MutableRefObject<string | null>;
   selectedCheckoutRequestRef: MutableRefObject<string | null>;
   customerSelectedTypeRef: MutableRefObject<string | null>;
