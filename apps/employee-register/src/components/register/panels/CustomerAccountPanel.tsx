@@ -196,10 +196,7 @@ export function CustomerAccountPanel(props: {
           <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
             {(() => {
               const renewalEligibility = getRenewalEligibility(state.activeCheckin);
-              const showRenewal =
-                !!state.activeCheckin?.visitId &&
-                renewalEligibility.withinWindow &&
-                (renewalEligibility.allowTwoHour || renewalEligibility.allowSixHour);
+              const canRenew = renewalEligibility.allowTwoHour || renewalEligibility.allowSixHour;
 
               return (
                 <div style={{ display: 'grid', gap: '0.6rem' }}>
@@ -271,11 +268,12 @@ export function CustomerAccountPanel(props: {
                       >
                         Checkout
                       </button>
-                      {showRenewal && props.onStartRenewal ? (
+                      {props.onStartRenewal ? (
                         <button
                           type="button"
                           className="cs-liquid-button cs-liquid-button--secondary"
                           onClick={() => props.onStartRenewal?.(state.activeCheckin)}
+                          disabled={!canRenew}
                           style={{
                             width: '100%',
                             maxWidth: 260,
