@@ -120,7 +120,6 @@ export function AgreementFlow({
     const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0]?.clientY : e.clientY;
     if (clientX == null || clientY == null) return;
-    if ('touches' in e) e.preventDefault();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     const x = (clientX - rect.left) * scaleX;
@@ -139,7 +138,6 @@ export function AgreementFlow({
     const clientX = 'touches' in e ? e.touches[0]?.clientX : e.clientX;
     const clientY = 'touches' in e ? e.touches[0]?.clientY : e.clientY;
     if (clientX == null || clientY == null) return;
-    if ('touches' in e) e.preventDefault();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     const x = (clientX - rect.left) * scaleX;
