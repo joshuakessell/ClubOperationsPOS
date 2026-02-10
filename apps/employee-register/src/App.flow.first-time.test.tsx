@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import { buildRealtimeAuthResponse, setupRegisterAppTest } from './test-utils/registerAppTestUtils';
 
 const { getApp } = setupRegisterAppTest();
@@ -8,7 +9,7 @@ describe('App flow: first time customer', () => {
   it('First Time Customer: if identity matches an existing customer, prompts and allows loading existing customer', async () => {
     const App = getApp();
     localStorage.setItem(
-      'staff_session',
+      CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
         staffId: 'staff-1',
         sessionToken: 'test-token',

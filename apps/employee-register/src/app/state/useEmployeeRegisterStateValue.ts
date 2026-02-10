@@ -340,6 +340,7 @@ export function useEmployeeRegisterStateValue() {
     manualEntry,
     isSubmitting,
     externalBlocking,
+    notifications: notifier,
     startLaneSessionByCustomerId: customerSessionActions.startLaneSessionByCustomerId,
   });
 

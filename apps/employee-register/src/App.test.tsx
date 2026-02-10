@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
+import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import {
   buildRealtimeAuthResponse,
   createdSockets,
@@ -71,7 +72,7 @@ describe('App', () => {
     const App = getApp();
     // Mock a signed-in register + staff session
     localStorage.setItem(
-      'staff_session',
+      CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
         staffId: 'staff-1',
         sessionToken: 'test-token',
@@ -92,7 +93,7 @@ describe('App', () => {
   it('shows lane session section when authenticated', async () => {
     const App = getApp();
     localStorage.setItem(
-      'staff_session',
+      CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
         staffId: 'staff-1',
         sessionToken: 'test-token',
@@ -118,7 +119,7 @@ describe('App', () => {
     const App = getApp();
     const STEP_TIMEOUT_MS = 1000;
     localStorage.setItem(
-      'staff_session',
+      CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
         staffId: 'staff-1',
         sessionToken: 'test-token',
@@ -178,7 +179,7 @@ describe('App', () => {
   it('shows transaction completion modal (with PDF verify + complete) after assignment + agreement signed', async () => {
     const App = getApp();
     localStorage.setItem(
-      'staff_session',
+      CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
         staffId: 'staff-1',
         sessionToken: 'test-token',

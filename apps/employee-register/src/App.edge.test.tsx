@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 let App: (typeof import('./App'))['default'];
 
 // Mock realtime socket
@@ -146,7 +147,7 @@ function toUrlString(url: RequestInfo | URL) {
 
 function mockAuthenticatedFetch() {
   localStorage.setItem(
-    'staff_session',
+    CLUBOPS_STORAGE_KEYS.staffSession,
     JSON.stringify({
       staffId: 'staff-1',
       sessionToken: 'test-token',
@@ -283,7 +284,6 @@ describe('App edge flows', () => {
     Object.defineProperty(window, 'localStorage', { value: storage, writable: true });
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
     localStorage.clear();
-    sessionStorage.setItem('lane', 'lane-1');
 
     (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
       json: () => Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),

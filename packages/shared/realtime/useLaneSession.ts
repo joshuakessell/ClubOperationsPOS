@@ -141,8 +141,6 @@ export function useLaneSession({
   const realtimeDisabled =
     disableRealtimeRaw === true || disableRealtimeRaw === 'true' || disableRealtimeRaw === '1';
   const effectiveEnabled = enabled && !realtimeDisabled;
-  const realtimeProvider = getEnvString(env, 'VITE_REALTIME_PROVIDER') ?? 'appsync-events';
-  const useAppSyncEvents = realtimeProvider === 'appsync-events';
   const channelNamespace = getChannelNamespace(env);
   const authUrl = getApiUrl('/api/v1/realtime/auth');
   const MAX_CONSECUTIVE_FAILURES =
@@ -228,12 +226,6 @@ export function useLaneSession({
     }
 
     closedIntentionallyRef.current = false;
-
-    if (!useAppSyncEvents) {
-      setConnected(false);
-      setLastError(new Event('realtime_provider_disabled'));
-      return;
-    }
 
     if (!kioskToken) {
       if (!staffToken) {

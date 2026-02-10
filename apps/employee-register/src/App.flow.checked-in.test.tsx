@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
+import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import { buildRealtimeAuthResponse, setupRegisterAppTest } from './test-utils/registerAppTestUtils';
 
 const { getApp } = setupRegisterAppTest();
@@ -8,7 +9,7 @@ describe('App flow: already checked in', () => {
   it('Customer Account: if customer is already checked in, shows inline status (no modal)', async () => {
     const App = getApp();
     localStorage.setItem(
-      'staff_session',
+      CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
         staffId: 'staff-1',
         sessionToken: 'test-token',

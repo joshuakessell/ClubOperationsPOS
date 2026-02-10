@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
+import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import App from './App';
 
 const routerFuture = {
@@ -227,7 +228,7 @@ describe('App', () => {
       name: 'Test User',
       role: 'ADMIN',
     };
-    window.localStorage.setItem('staff_session', JSON.stringify(mockSession));
+    window.localStorage.setItem(CLUBOPS_STORAGE_KEYS.staffSession, JSON.stringify(mockSession));
 
     await act(async () => {
       render(

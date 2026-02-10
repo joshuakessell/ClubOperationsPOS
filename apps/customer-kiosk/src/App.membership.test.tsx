@@ -136,6 +136,7 @@ describe('App membership flow', () => {
 
   it('auto-confirms selection after non-member completes membership + rental selection', async () => {
     const App = getApp();
+    let mockSessionSnapshot: unknown = null;
     // Override inventory to allow immediate rental selection (avoid waitlist path).
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL) => {
       const u =
@@ -183,6 +184,9 @@ describe('App membership flow', () => {
           json: () => Promise.resolve({ success: true }),
         } as unknown as Response);
       }
+      if (u.includes('/v1/checkin/lane/') && u.includes('/session-snapshot')) {
+        return Promise.resolve(makeJsonResponse({ session: mockSessionSnapshot }));
+      }
       return Promise.resolve(makeJsonResponse({}));
     });
 
@@ -191,17 +195,19 @@ describe('App membership flow', () => {
     });
 
     await act(async () => {
+      const payload = {
+        sessionId: 'session-1',
+        customerName: 'Test Customer',
+        membershipNumber: null,
+        allowedRentals: ['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'],
+        pastDueBlocked: false,
+        customerPrimaryLanguage: 'EN',
+      };
+      mockSessionSnapshot = payload;
       await emitRealtimeEvent({
         type: 'SESSION_UPDATED',
         timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-1',
-          customerName: 'Test Customer',
-          membershipNumber: null,
-          allowedRentals: ['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'],
-          pastDueBlocked: false,
-          customerPrimaryLanguage: 'EN',
-        },
+        payload,
       });
     });
 
