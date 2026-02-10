@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 
 export function TransactionCompleteModal({
   isOpen,
@@ -10,6 +10,7 @@ export function TransactionCompleteModal({
   assignedLabel,
   assignedNumber,
   checkoutAt,
+  assignmentActions,
   verifyDisabled,
   showComplete,
   completeLabel,
@@ -35,6 +36,7 @@ export function TransactionCompleteModal({
   assignedLabel: string;
   assignedNumber: string | null;
   checkoutAt: string | null;
+  assignmentActions?: ReactNode;
   verifyDisabled: boolean;
   showComplete: boolean;
   completeLabel: string;
@@ -57,6 +59,9 @@ export function TransactionCompleteModal({
     first?.focus();
 
     const onKeyDown = (e: KeyboardEvent) => {
+      const active = document.activeElement as HTMLElement | null;
+      if (active && !root.contains(active)) return;
+
       if (e.key === 'Escape') {
         // Transaction completion gate: prevent ESC from bubbling to other app handlers.
         e.preventDefault();
@@ -71,7 +76,6 @@ export function TransactionCompleteModal({
         )
       ).filter((el) => el.offsetParent !== null);
       if (focusables.length === 0) return;
-      const active = document.activeElement as HTMLElement | null;
       const idx = active ? focusables.indexOf(active) : -1;
       const nextIdx = e.shiftKey
         ? idx <= 0
@@ -150,6 +154,10 @@ export function TransactionCompleteModal({
             </div>
           )}
         </div>
+
+        {assignmentActions ? (
+          <div style={{ display: 'grid', gap: '0.6rem' }}>{assignmentActions}</div>
+        ) : null}
 
         {agreementSigned && agreementSignedMethod !== 'MANUAL' && (
           <button

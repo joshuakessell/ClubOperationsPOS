@@ -125,6 +125,14 @@ describe('App flow: already checked in', () => {
       fireEvent.click(suggestion);
     });
 
+    expect(await screen.findByText('Customer Profile')).toBeDefined();
+
+    // Search opens the account in "manual start" mode.
+    const startCheckinButton = await screen.findByRole('button', { name: 'Start Checkin' });
+    act(() => {
+      fireEvent.click(startCheckinButton);
+    });
+
     expect(await screen.findByText('Currently Checked In')).toBeDefined();
     expect(screen.queryByText('Already Checked In')).toBeNull();
     expect(screen.queryByText('Customer Profile')).toBeNull();

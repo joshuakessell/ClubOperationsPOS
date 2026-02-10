@@ -1,5 +1,6 @@
 import { TransactionCompleteModal } from '../../components/register/modals/TransactionCompleteModal';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
+import { AssignRoomPeek } from '../workspace/AssignRoomPeek';
 
 export function TransactionModal() {
   const {
@@ -36,6 +37,15 @@ export function TransactionModal() {
     (agreementPending || (assignedResourceType && assignedResourceNumber))
   );
 
+  const showAssignRoomPeek = Boolean(
+    agreementPending &&
+      !assignedResourceNumber &&
+      (customerSelectedType === 'STANDARD' ||
+        customerSelectedType === 'DOUBLE' ||
+        customerSelectedType === 'SPECIAL' ||
+        customerSelectedType === 'LOCKER')
+  );
+
   return (
     <TransactionCompleteModal
       isOpen={canShowModal}
@@ -52,6 +62,7 @@ export function TransactionModal() {
       assignedLabel={assignedLabel}
       assignedNumber={assignedResourceNumber}
       checkoutAt={checkoutAt}
+      assignmentActions={showAssignRoomPeek ? <AssignRoomPeek /> : null}
       verifyDisabled={!session?.sessionToken || !currentSessionIdRef.current}
       showComplete={Boolean(agreementSigned && assignedResourceType)}
       completeLabel={isSubmitting ? 'Processing...' : 'Complete Transaction'}

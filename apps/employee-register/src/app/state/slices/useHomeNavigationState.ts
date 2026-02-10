@@ -135,8 +135,9 @@ export function useHomeNavigationState({
     const prev = prevSessionIdForTabRef.current;
     prevSessionIdForTabRef.current = currentSessionId;
     if (!prev && currentSessionId) {
-      if (laneSessionCustomerId && !accountCustomerId) {
+      if (laneSessionCustomerId && laneSessionCustomerId !== accountCustomerId) {
         setAccountCustomerIdSafe(laneSessionCustomerId);
+        setAccountCustomerLabel(null);
       }
       setAccountCustomerSummary(null);
       setAccountAutoStartCheckin(true);
@@ -148,13 +149,8 @@ export function useHomeNavigationState({
     laneSessionCustomerId,
     selectHomeTab,
     setAccountCustomerIdSafe,
+    setAccountCustomerLabel,
   ]);
-
-  useEffect(() => {
-    if (homeTab !== 'account' && !currentSessionId && accountCustomerId) {
-      setAccountCustomerIdSafe(null);
-    }
-  }, [accountCustomerId, currentSessionId, homeTab, setAccountCustomerIdSafe]);
 
   const canOpenAccountTab = Boolean(currentSessionId || accountCustomerId);
 

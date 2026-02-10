@@ -150,6 +150,7 @@ describe('App flow: double tap proposal', () => {
       render(<App />);
     });
 
+    // Home is now the default tab; switch to Search.
     const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
     act(() => {
       fireEvent.click(searchTab);

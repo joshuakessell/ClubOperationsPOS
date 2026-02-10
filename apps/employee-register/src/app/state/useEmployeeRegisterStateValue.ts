@@ -10,6 +10,7 @@ import { useHealthStatus } from './slices/useHealthStatus';
 import { useHomeNavigationState } from './slices/useHomeNavigationState';
 import { useInventorySelectionState } from './slices/useInventorySelectionState';
 import { useLaneSessionBindings } from './slices/useLaneSessionBindings';
+import { useLaneSessionCustomerLink } from './slices/useLaneSessionCustomerLink';
 import { useManualEntryState } from './slices/useManualEntryState';
 import { useMembershipActions } from './slices/useMembershipActions';
 import { useMembershipPromptState } from './slices/useMembershipPromptState';
@@ -84,10 +85,18 @@ export function useEmployeeRegisterStateValue() {
   const { health } = useHealthStatus(lane);
   const addOnState = useAddOnSaleState();
 
+  const laneSessionCustomerId = laneBindings.customerId ?? null;
   const navState = useHomeNavigationState({
     setManualEntry,
     currentSessionId,
-    laneSessionCustomerId: laneBindings.customerId ?? null,
+    laneSessionCustomerId,
+  });
+
+  useLaneSessionCustomerLink({
+    accountCustomerId: navState.accountCustomerId,
+    currentSessionId,
+    laneSessionCustomerId,
+    setCurrentSessionCustomerId: laneBindings.setCurrentSessionCustomerId,
   });
 
   const customerSessionActions = useCustomerSessionActions({

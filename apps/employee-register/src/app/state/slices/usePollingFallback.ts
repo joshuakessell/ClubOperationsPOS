@@ -45,6 +45,12 @@ export function usePollingFallback({
       if (!res.ok) return;
       const data = await readJson<unknown>(res);
       if (!isRecord(data)) return;
+
+      // Defensive: only act on snapshots that explicitly include the `session` key.
+      // Some edge responses may return `{}` on transient failures; treating that as
+      // "no active session" can cause UI flicker (and close important modals).
+      if (!Object.prototype.hasOwnProperty.call(data, 'session')) return;
+
       const sessionPayload = data['session'];
       if (sessionPayload == null) {
         laneSessionActions.resetCleared();
