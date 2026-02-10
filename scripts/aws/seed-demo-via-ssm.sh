@@ -41,6 +41,19 @@ get_secret_payload() {
     echo "ERROR: secret id is empty" >&2
     exit 1
   fi
+
+  # GitHub secrets sometimes store App Runner-style JSON key references, e.g.
+  #   arn:aws:secretsmanager:...:secret:my-secret:DATABASE_URL::
+  # Secrets Manager GetSecretValue expects just the secret ARN (or name).
+  if [[ "$secret_id" == arn:* ]]; then
+    IFS=':' read -r a b c d e f g rest <<<"$secret_id"
+    if [[ -n "${rest:-}" ]]; then
+      secret_id="$a:$b:$c:$d:$e:$f:$g"
+    fi
+  else
+    # If a non-ARN secret id is accidentally suffixed with ":KEY::", drop it.
+    secret_id="${secret_id%%:*}"
+  fi
   local errfile
   errfile="$(mktemp)"
   local output=""
