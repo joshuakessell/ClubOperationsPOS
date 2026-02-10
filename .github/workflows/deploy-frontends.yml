@@ -47,10 +47,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Resolve kiosk token (Secrets Manager)
+        env:
+          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
+        run: |
+          value=$(aws secretsmanager get-secret-value --secret-id "$KIOSK_TOKEN_SECRET_ARN" --query SecretString --output text)
+          echo "VITE_KIOSK_TOKEN=$value" >> $GITHUB_ENV
+
       - name: Deploy employee-register
         env:
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_KIOSK_TOKEN: ${{ secrets.VITE_KIOSK_TOKEN }}
+          VITE_KIOSK_TOKEN: ${{ env.VITE_KIOSK_TOKEN }}
           EMPLOYEE_BUCKET: ${{ vars.EMPLOYEE_BUCKET }}
           EMPLOYEE_DISTRIBUTION_ID: ${{ vars.EMPLOYEE_DISTRIBUTION_ID }}
         run: scripts/aws/deploy-employee-register.sh
@@ -58,7 +65,7 @@ jobs:
       - name: Deploy customer-kiosk
         env:
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_KIOSK_TOKEN: ${{ secrets.VITE_KIOSK_TOKEN }}
+          VITE_KIOSK_TOKEN: ${{ env.VITE_KIOSK_TOKEN }}
           CUSTOMER_BUCKET: ${{ vars.CUSTOMER_BUCKET }}
           CUSTOMER_DISTRIBUTION_ID: ${{ vars.CUSTOMER_DISTRIBUTION_ID }}
         run: scripts/aws/deploy-customer-kiosk.sh
