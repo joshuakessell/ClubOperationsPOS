@@ -40,6 +40,16 @@ if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
   DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%\"}"
   DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN#\'}"
   DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%\'}"
+
+  # Allow App Runner-style secret references (arn:...:secret:NAME:KEY::).
+  if [[ "$DATABASE_URL_SECRET_ARN" == arn:* ]]; then
+    IFS=':' read -r a b c d e f g rest <<<"$DATABASE_URL_SECRET_ARN"
+    if [[ -n "${rest:-}" ]]; then
+      DATABASE_URL_SECRET_ARN="$a:$b:$c:$d:$e:$f:$g"
+    fi
+  else
+    DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%%:*}"
+  fi
   USE_DB_SECRET=true
 else
   required RDS_SECRET_ARN
@@ -220,6 +230,16 @@ if [[ -n "${KIOSK_TOKEN_SECRET_ARN:-}" ]]; then
   KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%\"}"
   KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN#\'}"
   KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%\'}"
+
+  # Allow App Runner-style secret references (arn:...:secret:NAME:KEY::).
+  if [[ "$KIOSK_TOKEN_SECRET_ARN" == arn:* ]]; then
+    IFS=':' read -r a b c d e f g rest <<<"$KIOSK_TOKEN_SECRET_ARN"
+    if [[ -n "${rest:-}" ]]; then
+      KIOSK_TOKEN_SECRET_ARN="$a:$b:$c:$d:$e:$f:$g"
+    fi
+  else
+    KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%%:*}"
+  fi
   USE_KIOSK_SECRET=true
 fi
 
