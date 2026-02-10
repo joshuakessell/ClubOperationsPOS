@@ -30,6 +30,16 @@ required APP_RUNNER_SERVICE_ARN
 
 USE_DB_SECRET=false
 if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
+  # Normalize accidental whitespace/quotes.
+  DATABASE_URL_SECRET_ARN="$(
+    printf '%s' "$DATABASE_URL_SECRET_ARN" |
+      tr -d '\r\n' |
+      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+  )"
+  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN#\"}"
+  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%\"}"
+  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN#\'}"
+  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%\'}"
   USE_DB_SECRET=true
 else
   required RDS_SECRET_ARN
@@ -200,6 +210,16 @@ has_secret() {
 
 USE_KIOSK_SECRET=false
 if [[ -n "${KIOSK_TOKEN_SECRET_ARN:-}" ]]; then
+  # Normalize accidental whitespace/quotes.
+  KIOSK_TOKEN_SECRET_ARN="$(
+    printf '%s' "$KIOSK_TOKEN_SECRET_ARN" |
+      tr -d '\r\n' |
+      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+  )"
+  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN#\"}"
+  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%\"}"
+  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN#\'}"
+  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%\'}"
   USE_KIOSK_SECRET=true
 fi
 
