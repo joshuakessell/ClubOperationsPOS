@@ -23,7 +23,24 @@ need_cmd pnpm
 need_cmd python3
 
 get_secret_payload() {
-  local secret_id="$1"
+  local secret_id_raw="$1"
+  local secret_id
+  secret_id="$(
+    printf '%s' "$secret_id_raw" |
+      tr -d '\r\n' |
+      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
+  )"
+
+  # Strip accidental surrounding quotes.
+  secret_id="${secret_id#\"}"
+  secret_id="${secret_id%\"}"
+  secret_id="${secret_id#\'}"
+  secret_id="${secret_id%\'}"
+
+  if [[ -z "$secret_id" ]]; then
+    echo "ERROR: secret id is empty" >&2
+    exit 1
+  fi
   local errfile
   errfile="$(mktemp)"
   local output=""

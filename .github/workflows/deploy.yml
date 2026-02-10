@@ -54,6 +54,7 @@ jobs:
           KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
         run: |
           value=$(aws secretsmanager get-secret-value --secret-id "$KIOSK_TOKEN_SECRET_ARN" --query SecretString --output text)
+          echo "::add-mask::$value"
           echo "VITE_KIOSK_TOKEN=$value" >> $GITHUB_ENV
 
       - name: Install session-manager-plugin
