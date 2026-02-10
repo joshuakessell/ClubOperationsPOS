@@ -14,10 +14,10 @@ Usage:
 3. Set environment variables:
    - `baseUrl` (defaults to `https://api-demo.joshuakessell.com`)
    - `kioskToken` (from `apps/employee-register/.env*` as `VITE_KIOSK_TOKEN`)
-   - `staffToken` (copied from browser localStorage key `clubops.staffSession.sessionToken` after sign-in)
-    - `deviceId` (whatever the iPad/browser is using; can be any string for status/heartbeat)
-    - `laneId` (defaults to `lane-1`)
-    - `roomId` / `lockerId` (UUIDs for assignment testing)
+   - `staffToken` (copied from browser localStorage key `clubops.staffSession` → JSON field `sessionToken`)
+   - `deviceId` (whatever the iPad/browser is using; can be any string for status/heartbeat)
+   - `laneId` (defaults to `lane-1`)
+   - `roomId` / `lockerId` (UUIDs for assignment testing)
 
 Notes:
 
