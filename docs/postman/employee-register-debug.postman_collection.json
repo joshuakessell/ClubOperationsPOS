@@ -1,0 +1,269 @@
+{
+  "info": {
+    "_postman_id": "8fe7f50c-c5b0-4d76-8b57-b8ac2b39c4d4",
+    "name": "Employee Register - Debug Suite",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Focused requests for Employee Register troubleshooting: heartbeat, inventory, waitlist, realtime auth, and lane assignment."
+  },
+  "item": [
+    {
+      "name": "Register",
+      "item": [
+        {
+          "name": "Register Status (GET /v1/registers/status)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/registers/status?deviceId={{deviceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "registers", "status"],
+              "query": [
+                {
+                  "key": "deviceId",
+                  "value": "{{deviceId}}"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Register Heartbeat (POST /v1/registers/heartbeat)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/registers/heartbeat",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "registers", "heartbeat"]
+            }
+          }
+        },
+        {
+          "name": "Register Activity (POST /v1/registers/activity)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deviceId\": \"{{deviceId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/registers/activity",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "registers", "activity"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Inventory",
+      "item": [
+        {
+          "name": "Inventory Available (GET /v1/inventory/available)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/inventory/available",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "inventory", "available"]
+            }
+          }
+        },
+        {
+          "name": "Rooms by Tier (GET /v1/inventory/rooms-by-tier) [Auth]",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/inventory/rooms-by-tier",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "inventory", "rooms-by-tier"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Waitlist",
+      "item": [
+        {
+          "name": "Waitlist ACTIVE (GET /v1/waitlist?status=ACTIVE) [Auth]",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/waitlist?status=ACTIVE",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "waitlist"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "ACTIVE"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Waitlist OFFERED (GET /v1/waitlist?status=OFFERED) [Auth]",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/waitlist?status=OFFERED",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "waitlist"],
+              "query": [
+                {
+                  "key": "status",
+                  "value": "OFFERED"
+                }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Realtime",
+      "item": [
+        {
+          "name": "Realtime Auth (POST /v1/realtime/auth) [Kiosk token or Staff auth]",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-kiosk-token",
+                "value": "{{kioskToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"channels\": [\n    \"/club-ops/global\"\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/realtime/auth",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "realtime", "auth"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Convenience: capture endpoint for quick inspection.",
+                  "try {",
+                  "  const json = pm.response.json();",
+                  "  if (json && json.realtimeEndpoint) pm.environment.set('realtimeEndpoint', json.realtimeEndpoint);",
+                  "} catch (e) {}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Check-in",
+      "item": [
+        {
+          "name": "Lane Session Snapshot (GET /v1/checkin/lane/:laneId/session-snapshot)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-kiosk-token",
+                "value": "{{kioskToken}}",
+                "type": "text"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/checkin/lane/{{laneId}}/session-snapshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "checkin", "lane", "{{laneId}}", "session-snapshot"]
+            }
+          }
+        },
+        {
+          "name": "Assign Resource (POST /v1/checkin/lane/:laneId/assign) [Auth]",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{staffToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"resourceType\": \"room\",\n  \"resourceId\": \"{{roomId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/checkin/lane/{{laneId}}/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "checkin", "lane", "{{laneId}}", "assign"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+

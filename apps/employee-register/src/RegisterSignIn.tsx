@@ -3,7 +3,13 @@ import { SignInModal } from './SignInModal';
 import type { RealtimeEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
-import { getApiUrl } from '@club-ops/shared';
+import {
+  clearStorageValue,
+  CLUBOPS_STORAGE_KEYS,
+  CLUBOPS_STORAGE_LEGACY_KEYS,
+  getApiUrl,
+  writeStorageValue,
+} from '@club-ops/shared';
 
 const API_BASE = getApiUrl('/api');
 
@@ -68,7 +74,11 @@ export function RegisterSignIn({
     setRegisterSession(null);
 
     // Clear staff session from localStorage
-    localStorage.removeItem('staff_session');
+    clearStorageValue(
+      localStorage,
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+    );
 
     // Return to splash (component will re-render showing sign-in modal)
   }, [stopHeartbeat]);
@@ -262,7 +272,12 @@ export function RegisterSignIn({
         if (response.ok) {
           const staffSession = await readJson<Record<string, unknown>>(response);
           // Store staff session for API authentication
-          localStorage.setItem('staff_session', JSON.stringify(staffSession));
+          writeStorageValue(
+            localStorage,
+            CLUBOPS_STORAGE_KEYS.staffSession,
+            JSON.stringify(staffSession),
+            CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+          );
         }
       } catch (error) {
         console.error('Failed to create staff session:', error);

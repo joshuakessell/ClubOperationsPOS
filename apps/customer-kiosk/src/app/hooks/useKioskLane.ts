@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 
 type LaneId = 'lane-1' | 'lane-2';
 
@@ -18,18 +18,6 @@ export function useKioskLane() {
 
     return null;
   });
-
-  useEffect(() => {
-    try {
-      if (lane) {
-        sessionStorage.setItem('lane', lane);
-      } else {
-        sessionStorage.removeItem('lane');
-      }
-    } catch {
-      // Ignore if sessionStorage unavailable
-    }
-  }, [lane]);
 
   const buildRegisterPath = useCallback((laneId: LaneId) => {
     const laneNumber = laneId.replace('lane-', '');

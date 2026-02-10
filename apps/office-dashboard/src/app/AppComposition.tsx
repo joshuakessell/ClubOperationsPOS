@@ -10,12 +10,23 @@ import { CustomerAdminToolsView } from '../CustomerAdminToolsView';
 import { ReportsDemoView } from '../ReportsDemoView';
 import { MessagesView } from '../MessagesView';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
-import { getApiUrl } from '@club-ops/shared';
+import {
+  clearStorageValue,
+  CLUBOPS_STORAGE_KEYS,
+  CLUBOPS_STORAGE_LEGACY_KEYS,
+  getApiUrl,
+  readStorageValueWithMigration,
+  writeStorageValue,
+} from '@club-ops/shared';
 
 export function AppComposition() {
   const [session, setSession] = useState<StaffSession | null>(() => {
     // Load session from localStorage on mount
-    const stored = window.localStorage.getItem('staff_session');
+    const stored = readStorageValueWithMigration(
+      window.localStorage,
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+    );
     if (stored) {
       try {
         return JSON.parse(stored);
@@ -29,24 +40,43 @@ export function AppComposition() {
   // If we boot with a stored session, validate it once before mounting the app views.
   // This avoids spamming 401s when the token is expired/revoked.
   const [isValidatingSession, setIsValidatingSession] = useState<boolean>(() =>
-    Boolean(window.localStorage.getItem('staff_session'))
+    Boolean(
+      readStorageValueWithMigration(
+        window.localStorage,
+        CLUBOPS_STORAGE_KEYS.staffSession,
+        CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+      )
+    )
   );
   const [sessionValidationError, setSessionValidationError] = useState<string | null>(null);
 
   const deviceId = useState(() => {
     // Generate or retrieve device ID
     const storage = window.localStorage;
-    let id = storage.getItem('device_id');
+    let id = readStorageValueWithMigration(
+      storage,
+      CLUBOPS_STORAGE_KEYS.deviceId,
+      CLUBOPS_STORAGE_LEGACY_KEYS.deviceId
+    );
     if (!id) {
       id = `device-${crypto.randomUUID()}`;
-      storage.setItem('device_id', id);
+      writeStorageValue(
+        storage,
+        CLUBOPS_STORAGE_KEYS.deviceId,
+        id,
+        CLUBOPS_STORAGE_LEGACY_KEYS.deviceId
+      );
     }
     return id;
   })[0];
 
   const clearSession = () => {
     setSession(null);
-    window.localStorage.removeItem('staff_session');
+    clearStorageValue(
+      window.localStorage,
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+    );
     setSessionValidationError(null);
     setIsValidatingSession(false);
   };
@@ -93,7 +123,12 @@ export function AppComposition() {
 
   const handleLogin = (newSession: StaffSession) => {
     setSession(newSession);
-    window.localStorage.setItem('staff_session', JSON.stringify(newSession));
+    writeStorageValue(
+      window.localStorage,
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      JSON.stringify(newSession),
+      CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+    );
     setSessionValidationError(null);
     setIsValidatingSession(false);
   };

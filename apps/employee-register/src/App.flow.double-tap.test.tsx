@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
+import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import {
   buildRealtimeAuthResponse,
   createdSockets,
@@ -14,7 +15,7 @@ describe('App flow: double tap proposal', () => {
   it('double tap on same proposal forces selection (to payment)', async () => {
     const App = getApp();
     localStorage.setItem(
-      'staff_session',
+      CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
         staffId: 'staff-1',
         sessionToken: 'test-token',

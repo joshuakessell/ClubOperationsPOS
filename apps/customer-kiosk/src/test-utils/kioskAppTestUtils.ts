@@ -29,6 +29,7 @@ export type MockRealtimeSocket = {
 
 let lastSocket: MockRealtimeSocket | null = null;
 const createdSockets: MockRealtimeSocket[] = [];
+let mockSessionSnapshot: unknown = null;
 
 const RealtimeSocketMock = vi.fn((url?: string) => {
   const listeners: Record<'open' | 'close' | 'message' | 'error', Array<(ev: unknown) => void>> = {
@@ -149,6 +150,15 @@ export function emitRealtime(socket: MockRealtimeSocket | null, event: unknown) 
 }
 
 export async function emitRealtimeEvent(event: unknown) {
+  if (
+    event &&
+    typeof event === 'object' &&
+    'type' in event &&
+    (event as { type?: unknown }).type === 'SESSION_UPDATED' &&
+    'payload' in event
+  ) {
+    mockSessionSnapshot = (event as { payload?: unknown }).payload ?? null;
+  }
   const testBus = globalThis as { __kioskRealtimeTest__?: (event: unknown) => void };
   if (!testBus.__kioskRealtimeTest__) {
     await new Promise((resolve) => setTimeout(resolve, 0));
@@ -167,6 +177,7 @@ export function setupKioskAppTest() {
     vi.useRealTimers();
     lastSocket = null;
     createdSockets.length = 0;
+    mockSessionSnapshot = null;
     const fetchMock = vi.fn();
     Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
@@ -188,14 +199,12 @@ export function setupKioskAppTest() {
     // Some environments expose localStorage only on window; App reads the global name.
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
 
-    sessionStorage.setItem('lane', 'lane-1');
     // Tests rely on realtime handlers; ensure kiosk token exists for guarded realtime init.
     const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
       .process?.env;
     if (processEnv) {
       processEnv.VITE_KIOSK_TOKEN = 'test-kiosk-token';
       processEnv.VITE_DISABLE_REALTIME = 'false';
-      processEnv.VITE_REALTIME_PROVIDER = 'appsync-events';
     }
 
     App = (await import('../App')).default;
@@ -245,6 +254,9 @@ export function setupKioskAppTest() {
             ok: true,
             json: () => Promise.resolve({ success: true }),
           } as unknown as Response);
+        }
+        if (u.includes('/v1/checkin/lane/') && u.includes('/session-snapshot')) {
+          return Promise.resolve(makeJsonResponse({ session: mockSessionSnapshot }));
         }
         return Promise.resolve(makeJsonResponse({}));
       }

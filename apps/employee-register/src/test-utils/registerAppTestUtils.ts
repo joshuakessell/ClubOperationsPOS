@@ -193,8 +193,6 @@ export function setupRegisterAppTest() {
     Object.defineProperty(window, 'localStorage', { value: storage, writable: true });
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
     localStorage.clear();
-    // Ensure lane-scoped realtime wiring uses a stable lane id in tests.
-    sessionStorage.setItem('lane', 'lane-1');
 
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
@@ -231,7 +229,6 @@ export function setupRegisterAppTest() {
     if (processEnv) {
       processEnv.VITE_KIOSK_TOKEN = 'test-kiosk-token';
       processEnv.VITE_DISABLE_REALTIME = 'false';
-      processEnv.VITE_REALTIME_PROVIDER = 'appsync-events';
     }
 
     // Import after env + realtime socket mocks are in place (Vite can inline import.meta.env at load time).

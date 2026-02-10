@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import { getErrorMessage } from '@club-ops/ui';
+import {
+  CLUBOPS_STORAGE_KEYS,
+  CLUBOPS_STORAGE_LEGACY_KEYS,
+  clearStorageValue,
+  readStorageValueWithMigration,
+  writeStorageValue,
+} from '@club-ops/shared';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
 import { generateUUID, parseStaffSession } from '../shared/utils';
@@ -26,7 +33,11 @@ export function useStaffSessionState({
   notifications,
 }: UseStaffSessionStateParams) {
   const [session, setSession] = useState<StaffSession | null>(() => {
-    const stored = localStorage.getItem('staff_session');
+    const stored = readStorageValueWithMigration(
+      localStorage,
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+    );
     if (stored) {
       try {
         const parsed: unknown = JSON.parse(stored) as unknown;
@@ -47,7 +58,11 @@ export function useStaffSessionState({
 
       let baseId: string | null = null;
       try {
-        baseId = localStorage.getItem('device_id');
+        baseId = readStorageValueWithMigration(
+          localStorage,
+          CLUBOPS_STORAGE_KEYS.deviceId,
+          CLUBOPS_STORAGE_LEGACY_KEYS.deviceId
+        );
       } catch {
         // localStorage might not be available (e.g., private browsing)
       }
@@ -55,7 +70,12 @@ export function useStaffSessionState({
       if (!baseId) {
         baseId = `device-${generateUUID()}`;
         try {
-          localStorage.setItem('device_id', baseId);
+          writeStorageValue(
+            localStorage,
+            CLUBOPS_STORAGE_KEYS.deviceId,
+            baseId,
+            CLUBOPS_STORAGE_LEGACY_KEYS.deviceId
+          );
         } catch {
           // If we can't store it, that's okay - we'll regenerate each time
         }
@@ -63,7 +83,11 @@ export function useStaffSessionState({
 
       let instanceId: string | null = null;
       try {
-        instanceId = sessionStorage.getItem('device_instance_id');
+        instanceId = readStorageValueWithMigration(
+          sessionStorage,
+          CLUBOPS_STORAGE_KEYS.deviceInstanceId,
+          CLUBOPS_STORAGE_LEGACY_KEYS.deviceInstanceId
+        );
       } catch {
         // sessionStorage might not be available
       }
@@ -71,7 +95,12 @@ export function useStaffSessionState({
       if (!instanceId) {
         instanceId = generateUUID();
         try {
-          sessionStorage.setItem('device_instance_id', instanceId);
+          writeStorageValue(
+            sessionStorage,
+            CLUBOPS_STORAGE_KEYS.deviceInstanceId,
+            instanceId,
+            CLUBOPS_STORAGE_LEGACY_KEYS.deviceInstanceId
+          );
         } catch {
           // If we can't store it, that's okay
         }
@@ -89,7 +118,11 @@ export function useStaffSessionState({
   const handleRegisterSignIn = useCallback(
     (nextSession: RegisterSession) => {
       setRegisterSession(nextSession);
-      const stored = localStorage.getItem('staff_session');
+      const stored = readStorageValueWithMigration(
+        localStorage,
+        CLUBOPS_STORAGE_KEYS.staffSession,
+        CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+      );
       if (stored) {
         try {
           const parsed: unknown = JSON.parse(stored) as unknown;
@@ -162,7 +195,11 @@ export function useStaffSessionState({
       } catch (err) {
         console.warn('Logout failed (continuing):', err);
       } finally {
-        localStorage.removeItem('staff_session');
+        clearStorageValue(
+          localStorage,
+          CLUBOPS_STORAGE_KEYS.staffSession,
+          CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+        );
         setSession(null);
         window.location.reload();
       }
@@ -187,7 +224,11 @@ export function useStaffSessionState({
   }, [handleLogout]);
 
   useEffect(() => {
-    const stored = localStorage.getItem('staff_session');
+    const stored = readStorageValueWithMigration(
+      localStorage,
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+    );
     if (stored) {
       try {
         const parsed: unknown = JSON.parse(stored) as unknown;

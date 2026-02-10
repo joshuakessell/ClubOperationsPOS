@@ -122,3 +122,13 @@ export { AGREEMENT_LEGAL_BODY_HTML_BY_LANG, type AgreementLanguage } from './agr
 
 // API base helpers for frontend apps
 export { API_BASE_URL, getApiUrl } from './apiBase.js';
+
+// Browser storage keys + migration helpers
+export {
+  CLUBOPS_STORAGE_KEYS,
+  CLUBOPS_STORAGE_LEGACY_KEYS,
+  readStorageValueWithMigration,
+  writeStorageValue,
+  clearStorageValue,
+  type StorageLike,
+} from './storageKeys.js';

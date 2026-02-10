@@ -33,7 +33,6 @@ describe('App idle states', () => {
   it('prompts for lane selection on the default URL', () => {
     const App = getApp();
     window.history.replaceState({}, '', '/');
-    sessionStorage.removeItem('lane');
     act(() => {
       render(<App />);
     });

@@ -11,6 +11,7 @@ const { getApp } = setupKioskAppTest();
 describe('App language flow', () => {
   it('persists language: after set-language, reload does not show language prompt again', async () => {
     const App = getApp();
+    let mockSessionSnapshot: unknown = null;
     // Make set-language succeed
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL) => {
       const u =
@@ -50,6 +51,12 @@ describe('App language flow', () => {
           json: () => Promise.resolve({ success: true }),
         } as unknown as Response);
       }
+      if (u.includes('/v1/checkin/lane/') && u.includes('/session-snapshot')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ session: mockSessionSnapshot }),
+        } as unknown as Response);
+      }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
     });
 
@@ -57,17 +64,19 @@ describe('App language flow', () => {
 
     // Initial session with no language set should show language prompt.
     await act(async () => {
+      const payload = {
+        sessionId: 'session-1',
+        customerName: 'Test Customer',
+        membershipNumber: null,
+        allowedRentals: ['LOCKER'],
+        pastDueBlocked: false,
+        // customerPrimaryLanguage intentionally omitted
+      };
+      mockSessionSnapshot = payload;
       await emitRealtimeEvent({
         type: 'SESSION_UPDATED',
         timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-1',
-          customerName: 'Test Customer',
-          membershipNumber: null,
-          allowedRentals: ['LOCKER'],
-          pastDueBlocked: false,
-          // customerPrimaryLanguage intentionally omitted
-        },
+        payload,
       });
     });
 
@@ -81,17 +90,19 @@ describe('App language flow', () => {
 
     // Server broadcasts updated session with language set; kiosk should not show language prompt.
     await act(async () => {
+      const payload = {
+        sessionId: 'session-1',
+        customerName: 'Test Customer',
+        membershipNumber: null,
+        allowedRentals: ['LOCKER'],
+        pastDueBlocked: false,
+        customerPrimaryLanguage: 'EN',
+      };
+      mockSessionSnapshot = payload;
       await emitRealtimeEvent({
         type: 'SESSION_UPDATED',
         timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-1',
-          customerName: 'Test Customer',
-          membershipNumber: null,
-          allowedRentals: ['LOCKER'],
-          pastDueBlocked: false,
-          customerPrimaryLanguage: 'EN',
-        },
+        payload,
       });
     });
 
@@ -104,17 +115,19 @@ describe('App language flow', () => {
       render(<App />);
     });
     await act(async () => {
+      const payload = {
+        sessionId: 'session-1',
+        customerName: 'Test Customer',
+        membershipNumber: null,
+        allowedRentals: ['LOCKER'],
+        pastDueBlocked: false,
+        customerPrimaryLanguage: 'EN',
+      };
+      mockSessionSnapshot = payload;
       await emitRealtimeEvent({
         type: 'SESSION_UPDATED',
         timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-1',
-          customerName: 'Test Customer',
-          membershipNumber: null,
-          allowedRentals: ['LOCKER'],
-          pastDueBlocked: false,
-          customerPrimaryLanguage: 'EN',
-        },
+        payload,
       });
     });
 
@@ -123,6 +136,7 @@ describe('App language flow', () => {
 
   it('shows language prompt even when customer is past-due blocked (so messaging can be localized)', async () => {
     const App = getApp();
+    let mockSessionSnapshot: unknown = null;
     // Make set-language succeed
     (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL) => {
       const u =
@@ -162,6 +176,12 @@ describe('App language flow', () => {
           json: () => Promise.resolve({ success: true }),
         } as unknown as Response);
       }
+      if (u.includes('/v1/checkin/lane/') && u.includes('/session-snapshot')) {
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({ session: mockSessionSnapshot }),
+        } as unknown as Response);
+      }
       return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
     });
 
@@ -169,18 +189,20 @@ describe('App language flow', () => {
 
     // Past-due blocked session with no language set should still show language prompt.
     await act(async () => {
+      const payload = {
+        sessionId: 'session-1',
+        customerName: 'Test Customer',
+        membershipNumber: null,
+        allowedRentals: ['LOCKER'],
+        pastDueBlocked: true,
+        pastDueBalance: 12.34,
+        // customerPrimaryLanguage intentionally omitted
+      };
+      mockSessionSnapshot = payload;
       await emitRealtimeEvent({
         type: 'SESSION_UPDATED',
         timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-1',
-          customerName: 'Test Customer',
-          membershipNumber: null,
-          allowedRentals: ['LOCKER'],
-          pastDueBlocked: true,
-          pastDueBalance: 12.34,
-          // customerPrimaryLanguage intentionally omitted
-        },
+        payload,
       });
     });
 
@@ -194,18 +216,20 @@ describe('App language flow', () => {
 
     // After language is set, we should transition to selection view (still blocked) and show the localized message.
     await act(async () => {
+      const payload = {
+        sessionId: 'session-1',
+        customerName: 'Test Customer',
+        membershipNumber: null,
+        allowedRentals: ['LOCKER'],
+        pastDueBlocked: true,
+        pastDueBalance: 12.34,
+        customerPrimaryLanguage: 'EN',
+      };
+      mockSessionSnapshot = payload;
       await emitRealtimeEvent({
         type: 'SESSION_UPDATED',
         timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-1',
-          customerName: 'Test Customer',
-          membershipNumber: null,
-          allowedRentals: ['LOCKER'],
-          pastDueBlocked: true,
-          pastDueBalance: 12.34,
-          customerPrimaryLanguage: 'EN',
-        },
+        payload,
       });
     });
 

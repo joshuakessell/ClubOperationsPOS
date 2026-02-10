@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { isRecord, readJson } from '@club-ops/ui';
+import {
+  clearStorageValue,
+  CLUBOPS_STORAGE_KEYS,
+  CLUBOPS_STORAGE_LEGACY_KEYS,
+} from '@club-ops/shared';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
 
@@ -68,7 +73,11 @@ export function useWaitlistDataState({ session, registerSession, onUnauthorized 
       ]);
 
       if (activeResponse.status === 401 || offeredResponse.status === 401) {
-        localStorage.removeItem('staff_session');
+        clearStorageValue(
+          localStorage,
+          CLUBOPS_STORAGE_KEYS.staffSession,
+          CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+        );
         onUnauthorized?.();
         return;
       }

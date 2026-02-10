@@ -270,6 +270,6 @@ And for the concrete schema snapshot:
 - Subscribes to `REGISTER_SESSION_UPDATED` events
 - If event matches current `deviceId` and `active: false`, immediately:
   - Clear `registerSession` state
-  - Clear `staff_session` from localStorage
+  - Clear `clubops.staffSession` from localStorage
   - Return to splash screen (RegisterSignIn component)
 - Heartbeat loop checks for 404/DEVICE_DISABLED errors and handles same way

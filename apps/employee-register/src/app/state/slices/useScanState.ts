@@ -2,6 +2,7 @@ import { useCallback } from 'react';
 import { useScanCaptureInput } from '../../../scanner/useScanCaptureInput';
 import { useScanResolutionState } from './useScanResolutionState';
 import type { HomeTab, ScanResult, StaffSession } from '../shared/types';
+import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
@@ -10,6 +11,7 @@ type Params = {
   manualEntry: boolean;
   isSubmitting: boolean;
   externalBlocking: boolean;
+  notifications: ToastNotifier;
   startLaneSessionByCustomerId: (
     customerId: string,
     opts?: { suppressAlerts?: boolean; customerLabel?: string | null }
@@ -23,6 +25,7 @@ export function useScanState({
   manualEntry,
   isSubmitting,
   externalBlocking,
+  notifications,
   startLaneSessionByCustomerId,
 }: Params) {
   const resolution = useScanResolutionState({ session, lane, startLaneSessionByCustomerId });
@@ -66,13 +69,34 @@ export function useScanState({
     return 400;
   }, []);
 
+  const submitScanText = useCallback(
+    async (rawScanText: string) => {
+      const result = await resolution.onBarcodeCaptured(rawScanText);
+
+      if (result.outcome === 'error') {
+        if (result.message) notifications.warn(result.message);
+        return;
+      }
+
+      if (result.outcome === 'no_match') {
+        notifications.info(result.message);
+        if (result.canCreate) {
+          resolution.setShowCreateFromScanPrompt(true);
+        }
+      }
+    },
+    [notifications, resolution]
+  );
+
   const scanInput = useScanCaptureInput({
     enabled: scanEnabled,
     keepFocus: true,
     captureMode: 'document',
     idleTimeoutMs: 260,
     getIdleTimeoutMs: computeIdleTimeout,
-    onCapture: () => undefined,
+    onCapture: (raw) => {
+      void submitScanText(raw);
+    },
   });
 
   return {
@@ -81,6 +105,7 @@ export function useScanState({
     scanInputRef: scanInput.scanInputRef,
     scanInputHandlers: scanInput.scanInputHandlers,
     scanInputEnabled: scanEnabled,
+    submitScanText,
     pendingScanResolution: resolution.pendingScanResolution,
     scanResolutionError: resolution.scanResolutionError,
     scanResolutionSubmitting: resolution.scanResolutionSubmitting,

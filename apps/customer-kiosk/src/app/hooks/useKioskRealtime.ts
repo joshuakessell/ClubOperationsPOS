@@ -200,6 +200,7 @@ export function useKioskRealtime({
 
   const pollSessionSnapshotOnce = useCallback(
     async (laneId: string) => {
+      const sessionIdAtStart = sessionIdRef.current;
       try {
         const res = await fetch(
           `${apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
@@ -210,7 +211,16 @@ export function useKioskRealtime({
         if (!isRecord(data)) return;
         const sessionPayload = data['session'];
         if (sessionPayload == null) {
-          resetToIdle();
+          const sessionIdNow = sessionIdRef.current;
+          if (!sessionIdAtStart) {
+            // If the request was made while idle, ignore stale "no session" responses once a
+            // session starts (race between polling and realtime events).
+            if (!sessionIdNow) resetToIdle();
+          } else {
+            // If the request started while a session was active, only clear when we haven't
+            // switched to another session in the meantime.
+            if (sessionIdNow === sessionIdAtStart) resetToIdle();
+          }
           return;
         }
         if (isRecord(sessionPayload)) {
@@ -223,7 +233,7 @@ export function useKioskRealtime({
         // Best-effort; realtime/polling will continue.
       }
     },
-    [apiBase, kioskAuthHeaders, applySessionUpdatedPayload, resetToIdle]
+    [apiBase, kioskAuthHeaders, applySessionUpdatedPayload, resetToIdle, sessionIdRef]
   );
 
   const initialSnapshotLaneRef = useRef<string | null>(null);
