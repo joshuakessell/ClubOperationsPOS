@@ -158,11 +158,20 @@ describe('App flow: checkout', () => {
       fireEvent.click(suggestion);
     });
 
-    expect(await screen.findByText('Currently Checked In')).toBeDefined();
-    const accountPanel = document.querySelector('.er-account-already-visiting');
-    expect(accountPanel).not.toBeNull();
+    expect(await screen.findByText('Customer Profile')).toBeDefined();
 
-    const checkoutButton = within(accountPanel as HTMLElement).getByRole('button', {
+    const startCheckinButton = await screen.findByRole('button', { name: /Start Checkin/i });
+    act(() => {
+      fireEvent.click(startCheckinButton);
+    });
+
+    const accountPanel = await waitFor(() => {
+      const node = document.querySelector('.er-account-already-visiting');
+      expect(node).not.toBeNull();
+      return node as HTMLElement;
+    });
+
+    const checkoutButton = within(accountPanel).getByRole('button', {
       name: 'Checkout',
     });
     act(() => {
