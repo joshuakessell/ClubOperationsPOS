@@ -151,7 +151,7 @@ export function useLaneSession({
   const authUrl = getApiUrl('/api/v1/realtime/auth');
   const MAX_CONSECUTIVE_FAILURES =
     reconnectMode === 'aggressive' ? Number.MAX_SAFE_INTEGER : 3;
-  const COOLDOWN_MS = reconnectMode === 'aggressive' ? 0 : 60_000;
+  const COOLDOWN_MS = reconnectMode === 'aggressive' ? 0 : 5_000;
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
   const [lastError, setLastError] = useState<Event | null>(null);

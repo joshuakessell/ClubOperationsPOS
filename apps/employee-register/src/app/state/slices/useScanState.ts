@@ -55,22 +55,11 @@ export function useScanState({
             ? 'Modal open'
             : null;
 
-  const computeIdleTimeout = useCallback((value: string) => {
-    const trimmed = value.trim();
-    if (!trimmed) return 400;
-
-    const hasInternalWhitespace = /\s/.test(trimmed);
-    const looksLong = trimmed.length >= 24;
-
-    if (hasInternalWhitespace || looksLong) {
-      return 2400;
-    }
-
-    return 400;
-  }, []);
+  const getIdleTimeoutMs = useCallback(() => 500, []);
 
   const submitScanText = useCallback(
     async (rawScanText: string) => {
+      if (resolution.scanCaptureSubmitting) return;
       const result = await resolution.onBarcodeCaptured(rawScanText);
 
       if (result.outcome === 'error') {
@@ -91,9 +80,9 @@ export function useScanState({
   const scanInput = useScanCaptureInput({
     enabled: scanEnabled,
     keepFocus: true,
-    captureMode: 'document',
-    idleTimeoutMs: 260,
-    getIdleTimeoutMs: computeIdleTimeout,
+    captureMode: 'input',
+    idleTimeoutMs: 500,
+    getIdleTimeoutMs,
     onCapture: (raw) => {
       void submitScanText(raw);
     },
@@ -105,6 +94,7 @@ export function useScanState({
     scanInputRef: scanInput.scanInputRef,
     scanInputHandlers: scanInput.scanInputHandlers,
     scanInputEnabled: scanEnabled,
+    scanCaptureSubmitting: resolution.scanCaptureSubmitting,
     submitScanText,
     pendingScanResolution: resolution.pendingScanResolution,
     scanResolutionError: resolution.scanResolutionError,

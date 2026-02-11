@@ -42,6 +42,7 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
   z
     .object({
       sessionId: z.string(),
+      customerId: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerName: z.string(),
       // Some producers may send null for "missing" optional fields; normalize null -> undefined.
       membershipNumber: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
@@ -75,7 +76,9 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
         (v) => (v === null ? undefined : v),
         z.enum(['EN', 'ES']).optional()
       ),
+      customerDob: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerDobMonthDay: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+      customerIdNumber: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerLastVisitAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerNotes: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerIdExpirationDate: z.preprocess(

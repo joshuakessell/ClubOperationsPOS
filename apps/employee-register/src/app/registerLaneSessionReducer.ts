@@ -40,7 +40,9 @@ export type RegisterLaneSessionState = {
   waitlistBackupType: string | null;
 
   customerPrimaryLanguage: 'EN' | 'ES' | undefined;
+  customerDob: string | null;
   customerDobMonthDay: string | undefined;
+  customerIdNumber: string | null;
   customerLastVisitAt: string | undefined;
   customerNotes: string | undefined;
   customerIdExpirationDate: string | null;
@@ -91,7 +93,9 @@ export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
   waitlistBackupType: null,
 
   customerPrimaryLanguage: undefined,
+  customerDob: null,
   customerDobMonthDay: undefined,
+  customerIdNumber: null,
   customerLastVisitAt: undefined,
   customerNotes: undefined,
   customerIdExpirationDate: null,
@@ -178,7 +182,12 @@ export function registerLaneSessionReducer(
         ? { ...initialRegisterLaneSessionState }
         : { ...state };
 
+      if (sessionIdChanged) {
+        next.customerId = state.customerId;
+      }
+
       if (p.sessionId !== undefined) next.currentSessionId = p.sessionId || null;
+      if (hasKey('customerId')) next.customerId = p.customerId ?? null;
       if (p.customerName !== undefined) next.customerName = p.customerName || '';
       if (p.membershipNumber !== undefined) next.membershipNumber = p.membershipNumber || '';
       if (p.customerMembershipValidUntil !== undefined) {
@@ -252,8 +261,14 @@ export function registerLaneSessionReducer(
       if (p.customerSelectedType !== undefined) {
         next.customerSelectedType = p.customerSelectedType || null;
       }
+      if (p.customerDob !== undefined) {
+        next.customerDob = p.customerDob || null;
+      }
       if (p.customerDobMonthDay !== undefined) {
         next.customerDobMonthDay = p.customerDobMonthDay || undefined;
+      }
+      if (p.customerIdNumber !== undefined) {
+        next.customerIdNumber = p.customerIdNumber || null;
       }
       if (p.customerLastVisitAt !== undefined) {
         next.customerLastVisitAt = p.customerLastVisitAt || undefined;

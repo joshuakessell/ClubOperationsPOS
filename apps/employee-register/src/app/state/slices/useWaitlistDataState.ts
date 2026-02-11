@@ -172,15 +172,6 @@ export function useWaitlistDataState({ session, registerSession, onUnauthorized 
     }
   }, [registerSession, session?.sessionToken]);
 
-  useEffect(() => {
-    if (!session?.sessionToken || !registerSession) return;
-    const interval = window.setInterval(() => {
-      void fetchWaitlistRef.current?.();
-      void fetchInventoryAvailableRef.current?.();
-    }, 60000);
-    return () => window.clearInterval(interval);
-  }, [registerSession, session?.sessionToken]);
-
   return {
     waitlistEntries,
     inventoryAvailable,

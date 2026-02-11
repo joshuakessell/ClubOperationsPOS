@@ -41,6 +41,10 @@ export function NavigationRoot() {
   } = useEmployeeRegisterState();
 
   const active = navTabToShellKey(navTab);
+  const laneLabel =
+    lane && lane.trim()
+      ? lane.trim().replace(/^lane[-\s]*/i, 'Lane ')
+      : 'Lane 1';
 
   const items: ShellNavItem[] = [
     { key: 'scan', label: 'Scan', icon: <span aria-hidden="true">📷</span> },
@@ -111,8 +115,7 @@ export function NavigationRoot() {
           <RegisterShell
             active={active}
             onNavigate={(key) => selectShellNav(key)}
-            title="Employee Register"
-            subtitle={lane}
+            title={laneLabel}
             statusPill={
               <span
                 className={`cs-badge ${realtimeConnected ? 'cs-badge--success' : 'cs-badge--error'}`}

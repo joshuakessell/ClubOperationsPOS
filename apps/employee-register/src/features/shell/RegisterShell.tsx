@@ -34,7 +34,7 @@ export type RegisterShellProps = {
 export function RegisterShell({
   active,
   onNavigate,
-  title = 'Employee Register',
+  title = 'Lane 1',
   subtitle,
   statusPill,
   headerRight,
@@ -89,12 +89,6 @@ export function RegisterShell({
               );
             })}
           </nav>
-
-          <div className="er-shell__sidebar-footer">
-            <div className="er-text-xs er-text-muted" style={{ fontWeight: 800 }}>
-              AppSync events driven
-            </div>
-          </div>
         </aside>
 
         <div className="er-shell__content">

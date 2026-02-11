@@ -12,6 +12,7 @@ export function ScanPanel() {
     scanInputRef,
     scanInputHandlers,
     scanInputEnabled,
+    scanCaptureSubmitting,
   } = useEmployeeRegisterState();
 
   return (
@@ -28,21 +29,43 @@ export function ScanPanel() {
         />
       </div>
 
+      <div className="er-scan-demo-badge" role="status" aria-live="polite">
+        DEMO MODE
+      </div>
+
+      <label className="er-scan-label" htmlFor="scan-input-area">
+        Scanner Input
+      </label>
       <textarea
+        id="scan-input-area"
         ref={scanInputRef}
-        className="er-scan-input"
-        aria-label="Scan input"
-        tabIndex={-1}
+        className="er-scan-input er-scan-input--entry"
+        aria-label="Scanner input"
         autoComplete="off"
         autoCorrect="off"
         spellCheck={false}
-        inputMode="none"
+        inputMode="text"
         disabled={!scanInputEnabled}
+        placeholder="Scan or type code here..."
         {...scanInputHandlers}
       />
 
+      <div
+        className={`er-scan-processing-overlay ${scanCaptureSubmitting ? 'er-scan-processing-overlay--active' : ''}`}
+        aria-hidden={!scanCaptureSubmitting}
+      >
+        <div className="cs-liquid-card er-scan-processing-card">
+          <span className="er-spinner" aria-hidden="true" />
+          <span className="er-scan-processing-text">Processing scan…</span>
+        </div>
+      </div>
+
       <div className="er-scan-status">
-        {scanReady ? 'Scanner ready' : `Scanner paused: ${scanBlockedReason || 'Unavailable'}`}
+        {scanReady
+          ? scanCaptureSubmitting
+            ? 'Processing scan...'
+            : 'Scanner ready'
+          : `Scanner paused: ${scanBlockedReason || 'Unavailable'}`}
       </div>
 
       {currentSessionId && customerName ? (

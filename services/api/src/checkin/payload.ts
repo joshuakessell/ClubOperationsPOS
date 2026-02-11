@@ -115,7 +115,7 @@ export async function buildFullSessionUpdatedPayload(
   const customer = session.customer_id
     ? (
         await client.query<CustomerRow>(
-          `SELECT id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_type, id_type_other, past_due_balance, primary_language, notes, id_scan_hash
+          `SELECT id, name, dob, membership_number, membership_card_type, membership_valid_until, id_number, id_expiration_date, id_type, id_type_other, past_due_balance, primary_language, notes, id_scan_hash
              FROM customers
              WHERE id = $1
              LIMIT 1`,
@@ -316,6 +316,7 @@ export async function buildFullSessionUpdatedPayload(
 
   const payload: SessionUpdatedPayload = {
     sessionId: session.id,
+    customerId: session.customer_id ?? undefined,
     customerName: customer?.name || session.customer_display_name || '',
     membershipNumber,
     customerMembershipValidUntil,
@@ -334,7 +335,9 @@ export async function buildFullSessionUpdatedPayload(
     selectionConfirmedBy:
       (session.selection_confirmed_by as 'CUSTOMER' | 'EMPLOYEE' | null) || undefined,
     customerPrimaryLanguage: (customer?.primary_language as 'EN' | 'ES' | undefined) || undefined,
+    customerDob: customer?.dob ? customer.dob.toISOString().slice(0, 10) : undefined,
     customerDobMonthDay,
+    customerIdNumber: customer?.id_number ?? undefined,
     customerLastVisitAt,
     customerNotes: customer?.notes || undefined,
     customerIdExpirationDate,

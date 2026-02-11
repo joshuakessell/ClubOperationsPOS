@@ -60,6 +60,7 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
   }>(null);
   const [scanResolutionError, setScanResolutionError] = useState<string | null>(null);
   const [scanResolutionSubmitting, setScanResolutionSubmitting] = useState(false);
+  const [scanCaptureSubmitting, setScanCaptureSubmitting] = useState(false);
 
   const onBarcodeCaptured = useCallback(
     async (rawScanText: string): Promise<ScanResult> => {
@@ -67,6 +68,7 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
         return { outcome: 'error', message: 'Not authenticated' };
       }
 
+      setScanCaptureSubmitting(true);
       try {
         setIdScanIssue(null);
         const response = await fetch(`${API_BASE}/v1/checkin/scan`, {
@@ -223,6 +225,8 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
           outcome: 'error',
           message: error instanceof Error ? error.message : 'Scan failed',
         };
+      } finally {
+        setScanCaptureSubmitting(false);
       }
     },
     [lane, session?.sessionToken, startLaneSessionByCustomerId]
@@ -366,6 +370,7 @@ export function useScanResolutionState({ session, lane, startLaneSessionByCustom
     pendingScanResolution,
     scanResolutionError,
     scanResolutionSubmitting,
+    scanCaptureSubmitting,
     setPendingScanResolution,
     setScanResolutionError,
     setScanResolutionSubmitting,

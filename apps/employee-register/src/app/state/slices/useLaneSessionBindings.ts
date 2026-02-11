@@ -33,7 +33,9 @@ export function useLaneSessionBindings() {
     pastDueBlocked,
     pastDueBalance,
     customerPrimaryLanguage,
+    customerDob,
     customerDobMonthDay,
+    customerIdNumber,
     customerLastVisitAt,
     customerNotes,
     customerIdExpirationDate,
@@ -109,6 +111,14 @@ export function useLaneSessionBindings() {
     (value: string | undefined) => laneSessionActions.patch({ customerDobMonthDay: value }),
     [laneSessionActions]
   );
+  const setCustomerDob = useCallback(
+    (value: string | null) => laneSessionActions.patch({ customerDob: value }),
+    [laneSessionActions]
+  );
+  const setCustomerIdNumber = useCallback(
+    (value: string | null) => laneSessionActions.patch({ customerIdNumber: value }),
+    [laneSessionActions]
+  );
   const setCustomerLastVisitAt = useCallback(
     (value: string | undefined) => laneSessionActions.patch({ customerLastVisitAt: value }),
     [laneSessionActions]
@@ -164,7 +174,9 @@ export function useLaneSessionBindings() {
     pastDueBlocked,
     pastDueBalance,
     customerPrimaryLanguage,
+    customerDob,
     customerDobMonthDay,
+    customerIdNumber,
     customerLastVisitAt,
     customerNotes,
     customerIdExpirationDate,
@@ -188,7 +200,9 @@ export function useLaneSessionBindings() {
     setPaymentQuote,
     setPaymentStatus,
     setCustomerPrimaryLanguage,
+    setCustomerDob,
     setCustomerDobMonthDay,
+    setCustomerIdNumber,
     setCustomerLastVisitAt,
     setCustomerNotes,
     setAssignedResourceType,

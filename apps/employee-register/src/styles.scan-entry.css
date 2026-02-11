@@ -38,6 +38,54 @@
   margin-bottom: 0.75rem;
 }
 
+.er-scan-demo-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  margin-bottom: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(251, 191, 36, 0.45);
+  background: rgba(251, 191, 36, 0.16);
+  color: #fde68a;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+}
+
+.er-scan-label {
+  margin-bottom: 0.4rem;
+  color: #cbd5e1;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
+.er-scan-input--entry {
+  position: relative;
+  width: 100%;
+  min-height: 128px;
+  max-height: 38vh;
+  padding: 0.75rem 0.85rem;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  background: rgba(15, 23, 42, 0.45);
+  color: #e2e8f0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  line-height: 1.35;
+  resize: vertical;
+  overflow: auto;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+.er-scan-input--entry:focus {
+  outline: none;
+  border-color: rgba(56, 189, 248, 0.8);
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+}
+
 .er-scan-icon {
   font-size: 3.5rem;
   line-height: 1;

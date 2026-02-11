@@ -56,6 +56,9 @@ export function RegisterSignIn({
   const [showSignInModal, setShowSignInModal] = useState(false);
   const [registerSession, setRegisterSession] = useState<RegisterSession | null>(null);
   const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastHeartbeatOkRef = useRef(false);
+  const heartbeatFailureCountRef = useRef(0);
+  const heartbeatInvalidationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivitySentRef = useRef(0);
   const activityInFlightRef = useRef(false);
 
@@ -63,6 +66,10 @@ export function RegisterSignIn({
     if (heartbeatIntervalRef.current) {
       clearInterval(heartbeatIntervalRef.current);
       heartbeatIntervalRef.current = null;
+    }
+    if (heartbeatInvalidationTimerRef.current) {
+      clearTimeout(heartbeatInvalidationTimerRef.current);
+      heartbeatInvalidationTimerRef.current = null;
     }
   }, []);
 
@@ -72,6 +79,8 @@ export function RegisterSignIn({
 
     // Clear register session state
     setRegisterSession(null);
+    lastHeartbeatOkRef.current = false;
+    heartbeatFailureCountRef.current = 0;
 
     // Clear staff session from localStorage
     clearStorageValue(
@@ -142,23 +151,63 @@ export function RegisterSignIn({
 
       if (!response.ok) {
         const errorPayload: unknown = await response.json().catch(() => null);
-        // If 404 or DEVICE_DISABLED, session is invalid
-        if (
-          response.status === 404 ||
-          (isRecord(errorPayload) && errorPayload.code === 'DEVICE_DISABLED')
-        ) {
+        if (isRecord(errorPayload) && errorPayload.code === 'DEVICE_DISABLED') {
           handleSessionInvalidated();
+          return;
+        }
+        if (response.status === 404) {
+          if (lastHeartbeatOkRef.current) {
+            heartbeatFailureCountRef.current += 1;
+            if (heartbeatFailureCountRef.current < 3) {
+              return;
+            }
+          }
+
+          const stillActive = await checkRegisterStatus();
+          if (!stillActive) {
+            if (heartbeatInvalidationTimerRef.current) {
+              clearTimeout(heartbeatInvalidationTimerRef.current);
+            }
+            heartbeatInvalidationTimerRef.current = setTimeout(() => {
+              heartbeatInvalidationTimerRef.current = null;
+              void checkRegisterStatus().then((active) => {
+                if (!active) {
+                  handleSessionInvalidated();
+                }
+              });
+            }, 3000);
+          }
           return;
         }
         throw new Error('Heartbeat failed');
       }
+
+      lastHeartbeatOkRef.current = true;
+      heartbeatFailureCountRef.current = 0;
+      if (heartbeatInvalidationTimerRef.current) {
+        clearTimeout(heartbeatInvalidationTimerRef.current);
+        heartbeatInvalidationTimerRef.current = null;
+      }
     } catch (error) {
       console.error('Heartbeat failed:', error);
-      // If heartbeat fails, session may have been cleaned up
-      // Check status again
+      heartbeatFailureCountRef.current += 1;
+      if (lastHeartbeatOkRef.current && heartbeatFailureCountRef.current < 3) {
+        return;
+      }
+
       const stillActive = await checkRegisterStatus();
       if (!stillActive) {
-        handleSessionInvalidated();
+        if (heartbeatInvalidationTimerRef.current) {
+          clearTimeout(heartbeatInvalidationTimerRef.current);
+        }
+        heartbeatInvalidationTimerRef.current = setTimeout(() => {
+          heartbeatInvalidationTimerRef.current = null;
+          void checkRegisterStatus().then((active) => {
+            if (!active) {
+              handleSessionInvalidated();
+            }
+          });
+        }, 3000);
       }
     }
   }, [checkRegisterStatus, deviceId, handleSessionInvalidated]);
@@ -289,6 +338,8 @@ export function RegisterSignIn({
     const { pin, ...sessionWithoutPin } = session;
     void pin;
     lastActivitySentRef.current = 0;
+    lastHeartbeatOkRef.current = false;
+    heartbeatFailureCountRef.current = 0;
     setRegisterSession(sessionWithoutPin);
     onSignedIn(sessionWithoutPin);
   };

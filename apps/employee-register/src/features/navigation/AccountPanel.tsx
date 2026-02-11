@@ -49,7 +49,9 @@ export function AccountPanel() {
     proposedBy,
     selectionConfirmed,
     customerPrimaryLanguage,
+    customerDob,
     customerDobMonthDay,
+    customerIdNumber,
     customerLastVisitAt,
     customerIdExpirationDate,
     customerIdType,
@@ -190,7 +192,9 @@ export function AccountPanel() {
         proposedBy={proposedBy}
         selectionConfirmed={selectionConfirmed}
         customerPrimaryLanguage={customerPrimaryLanguage}
+        customerDob={customerDob}
         customerDobMonthDay={customerDobMonthDay}
+        customerIdNumber={customerIdNumber}
         customerLastVisitAt={customerLastVisitAt}
         customerIdExpirationDate={customerIdExpirationDate}
         customerIdType={customerIdType}
@@ -272,9 +276,10 @@ export function AccountPanel() {
           <CustomerProfileCard
             name={customerName}
             preferredLanguage={customerPrimaryLanguage || null}
+            dob={customerDob || null}
             dobMonthDay={customerDobMonthDay || null}
             membershipNumber={membershipNumber || null}
-            idNumber={null}
+            idNumber={customerIdNumber || null}
             membershipValidUntil={customerMembershipValidUntil || null}
             lastVisitAt={customerLastVisitAt || null}
             idExpirationDate={customerIdExpirationDate || null}

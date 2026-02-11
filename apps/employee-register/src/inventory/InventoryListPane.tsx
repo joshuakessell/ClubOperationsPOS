@@ -48,7 +48,16 @@ export function InventoryListPane({
   const selectionLockedToType: 'room' | 'locker' | null = selectedItem?.type ?? null;
 
   return (
-    <div style={{ minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+    <div
+      style={{
+        minWidth: 0,
+        minHeight: 0,
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
+    >
       <div
         className="cs-liquid-card"
         style={{
@@ -56,6 +65,8 @@ export function InventoryListPane({
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
+          WebkitOverflowScrolling: 'touch',
+          overscrollBehavior: 'contain',
           paddingRight: '0.65rem',
         }}
       >
