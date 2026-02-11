@@ -157,13 +157,35 @@ jobs:
 
       - name: Test customer-kiosk accessibility
         run: |
+          timeout 120 bash -c '
+            until curl -fsSI http://localhost:5173/ >/dev/null; do
+              sleep 2
+            done
+          '
           curl -f http://localhost:5173/ -I
           echo "Customer kiosk accessible"
 
       - name: Test employee-register accessibility
         run: |
+          timeout 120 bash -c '
+            until curl -fsSI http://localhost:5175/ >/dev/null; do
+              sleep 2
+            done
+          '
           curl -f http://localhost:5175/ -I
           echo "Employee register accessible"
+
+      - name: Diagnose frontend startup failure
+        if: failure()
+        run: |
+          echo "Frontend container failed readiness checks"
+          docker compose ps
+          echo "--- customer-kiosk logs (last 200 lines) ---"
+          docker compose logs --tail=200 customer-kiosk || true
+          echo "--- employee-register logs (last 200 lines) ---"
+          docker compose logs --tail=200 employee-register || true
+          echo "--- office-dashboard logs (last 200 lines) ---"
+          docker compose logs --tail=200 office-dashboard || true
 
       - name: Show logs on failure
         if: failure()
