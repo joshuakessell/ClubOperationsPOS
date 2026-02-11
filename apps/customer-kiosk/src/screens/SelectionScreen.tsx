@@ -67,6 +67,11 @@ export function SelectionScreen({
     inventory?.rooms?.[rental] ??
     (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : undefined);
   const hasUnavailableRentals = rentalsToShow.some((rental) => getAvailableCount(rental) === 0);
+  const hasStaffProposedUnavailable =
+    proposedBy === 'EMPLOYEE' &&
+    !selectionConfirmed &&
+    proposedRentalType != null &&
+    getAvailableCount(proposedRentalType) === 0;
 
   const selectionTone: 'success' | 'info' | 'muted' = selectionConfirmed
     ? 'success'
@@ -118,6 +123,7 @@ export function SelectionScreen({
             {proposedRentalType && (
               <KioskNoticeBanner
                 tone={selectionTone}
+                className="ck-selection-proposed-banner"
                 title={
                   selectionConfirmed
                     ? `✓ ${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${selectionConfirmedBy === 'CUSTOMER' ? t(session.customerPrimaryLanguage, 'common.you') : t(session.customerPrimaryLanguage, 'common.staff')})`
@@ -191,7 +197,13 @@ export function SelectionScreen({
                     {hasUnavailableRentals ? (
                       <button
                         type="button"
-                        className="cs-liquid-button cs-liquid-button--secondary ck-waitlist-entry-btn"
+                        className={[
+                          'cs-liquid-button',
+                          hasStaffProposedUnavailable
+                            ? 'cs-liquid-button--staff-proposed'
+                            : 'cs-liquid-button--secondary',
+                          'ck-waitlist-entry-btn',
+                        ].join(' ')}
                         onClick={() => {
                           if (!canInteract) return;
                           onJoinWaitlist();

@@ -115,6 +115,10 @@ describe('EmployeeAssistPanel', () => {
     const joinWaitlist = screen.getByRole('button', { name: 'Join the Waiting List' });
     fireEvent.click(joinWaitlist);
     expect(props.onHighlightRental).toHaveBeenCalledWith('STANDARD');
+    expect(props.onApproveRental).not.toHaveBeenCalled();
+
+    fireEvent.click(joinWaitlist);
+    expect(props.onApproveRental).toHaveBeenCalled();
   });
 
   it('RENTAL step: first tap proposes, second tap confirms', () => {

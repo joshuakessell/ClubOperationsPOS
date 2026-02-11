@@ -328,7 +328,21 @@ export function AccountPanel() {
             minHeight: 0,
           }}
         >
-          <PanelHeader title="Customer Account" spacing="none" />
+          <PanelHeader
+            title="Customer Account"
+            spacing="none"
+            action={
+              checkinStage ? (
+                <button
+                  type="button"
+                  className="cs-liquid-button cs-liquid-button--danger er-header-action-btn"
+                  onClick={() => void handleClearSession().then(() => selectNavTab('scan'))}
+                >
+                  Clear Session
+                </button>
+              ) : null
+            }
+          />
           <div
             style={{
               minHeight: '14rem',
@@ -353,23 +367,6 @@ export function AccountPanel() {
               checkinStage={checkinStage}
               waitlistDesiredTier={waitlistDesiredTier}
               waitlistBackupType={waitlistBackupType}
-              footer={
-                checkinStage ? (
-                  <button
-                    type="button"
-                    className="cs-liquid-button cs-liquid-button--danger"
-                    onClick={() => void handleClearSession().then(() => selectNavTab('scan'))}
-                    style={{
-                      width: '100%',
-                      maxWidth: 320,
-                      padding: '0.7rem',
-                      fontWeight: 900,
-                    }}
-                  >
-                    Clear Session
-                  </button>
-                ) : null
-              }
             />
           </div>
           <EmployeeAssistPanel

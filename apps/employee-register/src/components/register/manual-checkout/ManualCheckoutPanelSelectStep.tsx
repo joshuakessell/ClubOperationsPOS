@@ -84,7 +84,7 @@ export function ManualCheckoutPanelSelectStep({
                   className={[
                     'cs-liquid-card',
                     'er-inv-item',
-                    selected ? 'er-inv-item--selected' : '',
+                    selected ? 'cs-liquid-button--staff-proposed' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}

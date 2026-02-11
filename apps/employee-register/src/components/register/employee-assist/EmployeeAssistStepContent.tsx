@@ -305,7 +305,12 @@ export function EmployeeAssistStepContent({
         {unavailableJoinTarget ? (
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className={[
+              'cs-liquid-button',
+              pending?.step === 'WAITLIST_JOIN' && pending.option === unavailableJoinTarget
+                ? 'cs-liquid-button--staff-proposed'
+                : 'cs-liquid-button--secondary',
+            ].join(' ')}
             disabled={isSubmitting}
             onClick={() => {
               if (isSubmitting) return;
@@ -313,7 +318,19 @@ export function EmployeeAssistStepContent({
                 void onDirectSelectRental(unavailableJoinTarget);
                 return;
               }
-              void onHighlightRental(unavailableJoinTarget);
+              const isPending =
+                pending?.step === 'WAITLIST_JOIN' && pending.option === unavailableJoinTarget;
+              runTwoStep(
+                'WAITLIST_JOIN',
+                unavailableJoinTarget,
+                isPending,
+                () => {
+                  void onHighlightRental(unavailableJoinTarget);
+                },
+                () => {
+                  void onApproveRental();
+                }
+              );
             }}
             style={{ width: '100%', padding: '0.65rem 0.85rem', minHeight: '3rem', fontWeight: 900 }}
           >

@@ -145,9 +145,8 @@ export function CustomerAccountPanel(props: {
   const clearSessionButton = props.checkinStage ? (
     <button
       type="button"
-      className="cs-liquid-button cs-liquid-button--danger"
+      className="cs-liquid-button cs-liquid-button--danger er-header-action-btn"
       onClick={props.onClearSession}
-      style={{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
     >
       Clear Session
     </button>
@@ -163,19 +162,18 @@ export function CustomerAccountPanel(props: {
       {manualStartPending ? 'Starting Check-in…' : 'Start Checkin'}
     </button>
   );
+  const headerAction = hasActiveSession
+    ? clearSessionButton
+    : props.customerLabel
+      ? (
+          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+            {props.customerLabel}
+          </div>
+        )
+      : null;
   return (
     <PanelShell align="top" scroll="hidden">
-      <PanelHeader
-        title="Customer Account"
-        spacing="none"
-        action={
-          props.customerLabel ? (
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              {props.customerLabel}
-            </div>
-          ) : null
-        }
-      />
+      <PanelHeader title="Customer Account" spacing="none" action={headerAction} />
       {state.mode === 'ALREADY_VISITING' ? (
         <div
           className="er-account-already-visiting"
@@ -256,7 +254,7 @@ export function CustomerAccountPanel(props: {
                   paddingRight: '0.2rem',
                 }}
               >
-                {renderProfileCard(clearSessionButton)}
+                {renderProfileCard(null)}
               </div>
               <EmployeeAssistPanel
                 sessionId={props.currentSessionId!}

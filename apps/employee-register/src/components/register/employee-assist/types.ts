@@ -8,6 +8,7 @@ export type Pending =
   | { step: 'LANGUAGE'; option: LanguageOption }
   | { step: 'RENTAL_ADDON'; option: MembershipOption }
   | { step: 'WAITLIST_BACKUP'; option: RentalOption }
+  | { step: 'WAITLIST_JOIN'; option: RentalOption }
   | { step: 'RENTAL'; option: RentalOption };
 
 export type PendingState = Pending | null;
