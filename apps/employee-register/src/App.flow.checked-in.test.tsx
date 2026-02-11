@@ -139,6 +139,139 @@ describe('App flow: already checked in', () => {
     expect(screen.queryByText('Customer Profile')).toBeNull();
   });
 
+  it('shows selected customer account immediately after search selection', async () => {
+    const App = getApp();
+    localStorage.setItem(
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      JSON.stringify({
+        staffId: 'staff-1',
+        sessionToken: 'test-token',
+        name: 'Test User',
+        role: 'STAFF',
+      })
+    );
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : url instanceof Request
+                ? url.url
+                : '';
+
+        if (u.includes('/v1/realtime/auth')) {
+          return Promise.resolve(buildRealtimeAuthResponse(init));
+        }
+
+        if (u.includes('/v1/registers/status')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                signedIn: true,
+                employee: { id: 'emp-1', name: 'Test Employee' },
+                registerNumber: 1,
+              }),
+          } as unknown as Response);
+        }
+
+        if (u.includes('/v1/customers/search')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                suggestions: [
+                  {
+                    id: 'c0ffee00-0000-4000-8000-000000000001',
+                    name: 'Alex Rivera',
+                    firstName: 'Alex',
+                    lastName: 'Rivera',
+                    dobMonthDay: '03/14',
+                    membershipNumber: '700001',
+                    disambiguator: '0001',
+                  },
+                ],
+              }),
+          } as unknown as Response);
+        }
+
+        if (u.includes('/v1/customers/c0ffee00-0000-4000-8000-000000000001')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                customer: {
+                  id: 'c0ffee00-0000-4000-8000-000000000001',
+                  name: 'Alex Rivera',
+                  dob: '2000-03-14',
+                  dobMonthDay: '03/14',
+                  membershipNumber: '700001',
+                },
+              }),
+          } as unknown as Response);
+        }
+
+        if (u.includes('/v1/checkin/lane/lane-1/start')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ sessionId: 'sess-1', customerName: 'Alex Rivera' }),
+          } as unknown as Response);
+        }
+
+        if (u.includes('/v1/checkin/lane/lane-1/session-snapshot')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({ session: null }),
+          } as unknown as Response);
+        }
+
+        if (u.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
+          } as unknown as Response);
+        }
+
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve({}),
+        } as unknown as Response);
+      }
+    );
+
+    act(() => {
+      render(<App />);
+    });
+
+    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    act(() => {
+      fireEvent.click(searchTab);
+    });
+
+    const searchInput = await screen.findByPlaceholderText('Start typing name...');
+    act(() => {
+      fireEvent.change(searchInput, { target: { value: 'Ale' } });
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    });
+
+    const suggestion = await screen.findByText(/Rivera, Alex/);
+    act(() => {
+      fireEvent.click(suggestion);
+    });
+
+    expect(await screen.findByText('Alex Rivera')).toBeDefined();
+    expect(screen.queryByText('Waiting for lane session…')).toBeNull();
+  });
+
   it('allows switching room/locker and handles payment-required follow-up', async () => {
     const App = getApp();
     localStorage.setItem(

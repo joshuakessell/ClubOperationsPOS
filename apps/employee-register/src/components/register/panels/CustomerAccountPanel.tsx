@@ -109,10 +109,7 @@ export function CustomerAccountPanel(props: {
   const hasActiveSession =
     Boolean(props.currentSessionId) &&
     (!props.currentSessionCustomerId || props.currentSessionCustomerId === props.customerId);
-  const hasSelectedCustomerProfile = Boolean(
-    props.customerId &&
-      (props.customerProfile || props.customerSummary || props.customerLabel || props.customerName)
-  );
+  const hasSelectedCustomerProfile = Boolean(props.customerId);
   const profile = props.customerProfile;
   const fallbackName = profile?.name || props.customerSummary?.name || props.customerLabel || '—';
   const fallbackDob = profile?.dobMonthDay ?? props.customerSummary?.dobMonthDay ?? null;
