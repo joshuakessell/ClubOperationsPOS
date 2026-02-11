@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
 import Fastify, { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { cleaningRoutes } from '../src/routes/cleaning.js';
-import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
 import { generateSessionToken } from '../src/auth/utils.js';
 import { RoomStatus, validateTransition } from '@club-ops/shared';
 import { truncateAllTables } from './testDb.js';

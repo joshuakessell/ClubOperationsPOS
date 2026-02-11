@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } from 'vitest';
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
-import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
 import { waitlistRoutes } from '../src/routes/waitlist.js';
 import { truncateAllTables } from './testDb.js';
 

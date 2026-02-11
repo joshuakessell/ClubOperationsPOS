@@ -3,7 +3,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { query, initializeDatabase, closeDatabase } from '../src/db/index.js';
-import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
 import { checkinRoutes } from '../src/routes/checkin.js';
 import { customerRoutes } from '../src/routes/customers.js';
 import { inventoryRoutes } from '../src/routes/inventory.js';
@@ -143,8 +143,8 @@ describe('Check-in Flow', () => {
 
     // Create test customer
     const customerResult = await query<{ id: string }>(
-      `INSERT INTO customers (name, membership_number)
-       VALUES ('Test Customer', '12345')
+      `INSERT INTO customers (name, membership_number, primary_language)
+       VALUES ('Test Customer', '12345', 'EN')
        RETURNING id`
     );
     customerId = customerResult.rows[0]!.id;

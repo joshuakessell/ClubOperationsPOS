@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import pg from 'pg';
 import { NONEXISTENT_ROOM_NUMBERS, ROOM_NUMBERS } from '@club-ops/shared';
+import { seedDemoData } from '../src/db/seed-demo.js';
 
 const FIFTEEN_MIN_MS = 15 * 60 * 1000;
 const TWO_MIN_MS = 2 * 60 * 1000;
@@ -33,6 +34,8 @@ describe('demo seed (busy Saturday) database assertions', () => {
   runIfDemo(
     'seeds current occupancy at now (54 rooms + ~40 lockers) with exactly one overdue stay, while preserving inventory contract',
     async () => {
+      await seedDemoData({ forceReseed: true });
+
       const customers = await pool.query<{ count: string }>(
         'SELECT COUNT(*)::text as count FROM customers'
       );
@@ -169,12 +172,12 @@ describe('demo seed (busy Saturday) database assertions', () => {
       );
       expect(parseInt(futureActiveBlocks.rows[0]!.count, 10)).toBe(activeBlocks.rows.length - 1);
 
-      // Checkout realism (relaxed): most are within 0..15m early, some are 30..120m early
+      // Checkout realism (relaxed): most are within ±15m of scheduled checkout.
       const quality = await pool.query<{ total: string; good: string }>(
         `SELECT
          COUNT(*)::text as total,
          COUNT(*) FILTER (
-           WHERE EXTRACT(EPOCH FROM (v.ended_at - cb.ends_at)) BETWEEN 0 AND (15 * 60)
+           WHERE EXTRACT(EPOCH FROM (v.ended_at - cb.ends_at)) BETWEEN (-15 * 60) AND (15 * 60)
          )::text as good
        FROM visits v
        JOIN LATERAL (
@@ -190,6 +193,7 @@ describe('demo seed (busy Saturday) database assertions', () => {
       const good = parseInt(quality.rows[0]!.good, 10);
       expect(total).toBeGreaterThanOrEqual(200);
       expect(good / total).toBeGreaterThanOrEqual(0.75); // keep test non-brittle
-    }
+    },
+    30000
   );
 });

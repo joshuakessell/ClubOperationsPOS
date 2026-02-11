@@ -86,7 +86,13 @@ describe('Customers manual identity endpoints', () => {
     const res = await app.inject({
       method: 'POST',
       url: '/v1/customers/create-manual',
-      payload: { firstName: 'Alex', lastName: 'Rivera', dob: '1992-03-14' },
+      payload: {
+        firstName: 'Alex',
+        lastName: 'Rivera',
+        dob: '1992-03-14',
+        idExpirationDate: '2035-03-14',
+        idType: 'STATE_ID',
+      },
     });
     expect(res.statusCode).toBe(200);
     const body = JSON.parse(res.body) as {

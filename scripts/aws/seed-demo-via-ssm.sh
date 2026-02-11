@@ -234,6 +234,7 @@ for i in {1..30}; do
 done
 
 echo "Starting SSM tunnel localhost:${LOCAL_PORT} -> ${RDS_ENDPOINT}:${RDS_PORT}"
+mkdir -p "$(dirname "$LOG_PATH")"
 PATH="$(dirname "$SESSION_MANAGER_PLUGIN"):$PATH" \
   nohup aws ssm start-session \
     --target "$BASTION_INSTANCE_ID" \

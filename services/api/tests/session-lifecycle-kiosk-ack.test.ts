@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { checkinRoutes } from '../src/routes/checkin.js';
-import { createBroadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster } from '../src/realtime/broadcaster.js';
 import { truncateAllTables } from './testDb.js';
 
 const TEST_KIOSK_TOKEN = 'test-kiosk-token';

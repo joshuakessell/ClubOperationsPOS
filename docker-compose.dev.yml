@@ -1,0 +1,74 @@
+# Development override - use with: docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  db:
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_PASSWORD: club-ops-dev
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+      target: builder
+    command: pnpm --filter @club-ops/api dev
+    volumes:
+      - ./services/api:/repo/services/api
+      - ./packages/shared:/repo/packages/shared
+      - /repo/node_modules
+      - /repo/services/api/node_modules
+      - /repo/packages/shared/node_modules
+    environment:
+      NODE_ENV: development
+      DB_LOG_QUERIES: ${DB_LOG_QUERIES:-false}
+
+  customer-kiosk:
+    build:
+      context: .
+      dockerfile: Dockerfile.customer-kiosk
+      target: builder
+    command: pnpm --filter @club-ops/customer-kiosk dev
+    volumes:
+      - ./apps/customer-kiosk:/repo/apps/customer-kiosk
+      - ./packages/shared:/repo/packages/shared
+      - ./packages/ui:/repo/packages/ui
+      - /repo/node_modules
+      - /repo/apps/customer-kiosk/node_modules
+      - /repo/packages/shared/node_modules
+      - /repo/packages/ui/node_modules
+    ports:
+      - "5173:5173"
+
+  employee-register:
+    build:
+      context: .
+      dockerfile: Dockerfile.employee-register
+      target: builder
+    command: pnpm --filter @club-ops/employee-register dev
+    volumes:
+      - ./apps/employee-register:/repo/apps/employee-register
+      - ./packages/shared:/repo/packages/shared
+      - ./packages/ui:/repo/packages/ui
+      - /repo/node_modules
+      - /repo/apps/employee-register/node_modules
+      - /repo/packages/shared/node_modules
+      - /repo/packages/ui/node_modules
+    ports:
+      - "5175:5175"
+
+  office-dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.office-dashboard
+      target: builder
+    command: pnpm --filter @club-ops/office-dashboard dev
+    volumes:
+      - ./apps/office-dashboard:/repo/apps/office-dashboard
+      - ./packages/shared:/repo/packages/shared
+      - ./packages/ui:/repo/packages/ui
+      - /repo/node_modules
+      - /repo/apps/office-dashboard/node_modules
+      - /repo/packages/shared/node_modules
+      - /repo/packages/ui/node_modules
+    ports:
+      - "5176:5176"

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import Fastify, { FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { visitRoutes } from '../src/routes/visits.js';
-import { createBroadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster } from '../src/realtime/broadcaster.js';
 import { truncateAllTables } from './testDb.js';
 
 const SIX_HOURS_MS = 6 * 60 * 60 * 1000;

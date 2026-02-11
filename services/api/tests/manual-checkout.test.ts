@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } 
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { checkoutRoutes } from '../src/routes/checkout.js';
-import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
 import { truncateAllTables } from './testDb.js';
 
 // Mock auth middleware to allow test requests (same pattern as checkout.test.ts)
@@ -83,6 +83,7 @@ declare module 'fastify' {
 }
 
 describe('Manual Checkout APIs', () => {
+  let previousDemoMode: string | undefined;
   let fastify: FastifyInstance;
   let pool: pg.Pool;
   let testCustomerId: string;
@@ -94,6 +95,9 @@ describe('Manual Checkout APIs', () => {
   let testStaffToken: string;
 
   beforeAll(async () => {
+    previousDemoMode = process.env.DEMO_MODE;
+    process.env.DEMO_MODE = 'false';
+
     const config = {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432', 10),
@@ -162,6 +166,12 @@ describe('Manual Checkout APIs', () => {
 
   afterAll(async () => {
     await pool.end();
+
+    if (previousDemoMode === undefined) {
+      delete process.env.DEMO_MODE;
+    } else {
+      process.env.DEMO_MODE = previousDemoMode;
+    }
   });
 
   beforeEach(async () => {

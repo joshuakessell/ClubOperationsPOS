@@ -28,6 +28,7 @@ function parseDatabaseUrl(urlString: string): {
   port?: number;
   database?: string;
   user?: string;
+  password?: string;
 } {
   try {
     const url = new URL(urlString);
@@ -42,12 +43,14 @@ function parseDatabaseUrl(urlString: string): {
     const databaseFromPath = url.pathname.replace(/^\/+/, '');
     const database = databaseFromPath ? databaseFromPath : undefined;
     const user = url.username || undefined;
+    const password = url.password || undefined;
 
     return {
       host,
       port: typeof port === 'number' && !Number.isNaN(port) ? port : undefined,
       database,
       user,
+      password,
     };
   } catch {
     return {};
@@ -61,15 +64,34 @@ export function loadDatabaseConfig(): pg.PoolConfig {
   const connectionTimeoutMillis = parseConnectionTimeoutMillis();
 
   if (process.env.DATABASE_URL) {
-    const parsed = parseDatabaseUrl(process.env.DATABASE_URL);
+    const databaseUrlRaw = process.env.DATABASE_URL;
+    const parsed = parseDatabaseUrl(databaseUrlRaw);
     const sslEnabled = process.env.DB_SSL === 'true';
     const sslCaPath = process.env.DB_SSL_CA_PATH || process.env.PGSSLROOTCERT;
+
+    // `pg` reads the `DATABASE_URL` environment variable implicitly, even when
+    // passing a config object without `connectionString`.
+    //
+    // To ensure SSL behavior is controlled exclusively by `DB_SSL` and
+    // `DB_SSL_CA_PATH`, we provide an explicit `connectionString` that strips
+    // query params like `sslmode=require` from hosting-provider URLs.
+    const sanitizedConnectionString = (() => {
+      try {
+        const url = new URL(databaseUrlRaw);
+        url.search = '';
+        return url.toString();
+      } catch {
+        return databaseUrlRaw;
+      }
+    })();
+
     return {
-      connectionString: process.env.DATABASE_URL,
+      connectionString: sanitizedConnectionString,
       ...(parsed.host ? { host: parsed.host } : {}),
       ...(typeof parsed.port === 'number' ? { port: parsed.port } : {}),
       ...(parsed.database ? { database: parsed.database } : {}),
       ...(parsed.user ? { user: parsed.user } : {}),
+      ...(parsed.password ? { password: parsed.password } : {}),
       ssl: sslEnabled
         ? sslCaPath
           ? { ca: fs.readFileSync(sslCaPath, 'utf8'), rejectUnauthorized: true }

@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, vi } from 'vites
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { checkinRoutes } from '../src/routes/checkin.js';
-import { createBroadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster } from '../src/realtime/broadcaster.js';
 import { truncateAllTables } from './testDb.js';
 
 const TEST_KIOSK_TOKEN = 'test-kiosk-token';
@@ -97,8 +97,8 @@ describe('Membership purchase/renew integration', () => {
       const sessionId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 
       await pool.query(
-        `INSERT INTO customers (id, name, dob, membership_number, membership_card_type, membership_valid_until)
-         VALUES ($1, 'Test Customer', '1990-01-01', NULL, 'NONE', NULL)`,
+        `INSERT INTO customers (id, name, dob, membership_number, membership_card_type, membership_valid_until, primary_language)
+         VALUES ($1, 'Test Customer', '1990-01-01', NULL, 'NONE', NULL, 'EN')`,
         [customerId]
       );
       await pool.query(
@@ -181,8 +181,8 @@ describe('Membership purchase/renew integration', () => {
       const sessionId = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
 
       await pool.query(
-        `INSERT INTO customers (id, name, dob, membership_number, membership_card_type, membership_valid_until)
-         VALUES ($1, 'Expired Customer', '1990-01-01', 'OLD-1', 'SIX_MONTH', '2000-01-01')`,
+        `INSERT INTO customers (id, name, dob, membership_number, membership_card_type, membership_valid_until, primary_language)
+         VALUES ($1, 'Expired Customer', '1990-01-01', 'OLD-1', 'SIX_MONTH', '2000-01-01', 'EN')`,
         [customerId]
       );
       await pool.query(
@@ -242,8 +242,8 @@ describe('Membership purchase/renew integration', () => {
       const sessionId = 'ffffffff-ffff-ffff-ffff-ffffffffffff';
 
       await pool.query(
-        `INSERT INTO customers (id, name, dob, membership_number, membership_card_type, membership_valid_until)
-         VALUES ($1, 'Expired Customer 2', '1990-01-01', 'OLD-2', 'SIX_MONTH', '2000-01-01')`,
+        `INSERT INTO customers (id, name, dob, membership_number, membership_card_type, membership_valid_until, primary_language)
+         VALUES ($1, 'Expired Customer 2', '1990-01-01', 'OLD-2', 'SIX_MONTH', '2000-01-01', 'EN')`,
         [customerId]
       );
       await pool.query(

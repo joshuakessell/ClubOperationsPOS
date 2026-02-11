@@ -20,6 +20,7 @@ export class SeedProgress implements ProgressReporter {
   private lastRenderAt = 0;
   private lastLineLength = 0;
   private lastLoggedPercent = -1;
+  private lastNonTtyLogAt = 0;
   private enabled: boolean;
   private isTTY: boolean;
 
@@ -109,6 +110,15 @@ export class SeedProgress implements ProgressReporter {
 
     if (force || percent !== this.lastLoggedPercent) {
       this.lastLoggedPercent = percent;
+      this.lastNonTtyLogAt = now;
+      console.log(`${this.title} ${percent}% (${this.current}/${this.total})${suffix}`);
+      return;
+    }
+
+    // In CI (non-TTY), long-running steps can appear "stuck" when percent doesn't change.
+    // Emit a heartbeat log occasionally to confirm work is still in progress.
+    if (now - this.lastNonTtyLogAt > 15000) {
+      this.lastNonTtyLogAt = now;
       console.log(`${this.title} ${percent}% (${this.current}/${this.total})${suffix}`);
     }
   }

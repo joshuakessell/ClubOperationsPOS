@@ -16,6 +16,13 @@
     "dev:fast": "turbo run dev --filter=@club-ops/api --filter=@club-ops/customer-kiosk --filter=@club-ops/employee-register --filter=@club-ops/office-dashboard",
     "build": "turbo run build",
     "build:api:image:prep": "turbo run build --filter=@club-ops/shared --filter=@club-ops/api",
+    "docker:build": "docker compose build",
+    "docker:build:api": "docker build -f Dockerfile.api -t club-ops-api .",
+    "docker:build:frontends": "docker build -f Dockerfile.customer-kiosk -t club-ops-customer-kiosk . && docker build -f Dockerfile.employee-register -t club-ops-employee-register . && docker build -f Dockerfile.office-dashboard -t club-ops-office-dashboard .",
+    "docker:up": "docker compose up -d",
+    "docker:dev": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
     "docker:api:build": "pnpm build:api:image:prep && docker build -t club-ops-api -f services/api/Dockerfile .",
     "docker:api:run": "docker run --rm -e KIOSK_TOKEN=dummy -e SKIP_DB=true -p 3000:3000 club-ops-api",
     "docker:api:smoke": "pnpm docker:api:build && pnpm docker:api:run",
@@ -63,6 +70,13 @@
       "allowedVersions": {
         "eslint": "9"
       }
+    },
+    "overrides": {
+      "tar": "^7.5.7",
+      "axios": "^1.13.5",
+      "glob": "^11.1.0",
+      "@isaacs/brace-expansion": "^5.0.1",
+      "diff": "^5.2.2"
     }
   }
 }
