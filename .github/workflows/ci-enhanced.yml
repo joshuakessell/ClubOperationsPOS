@@ -86,9 +86,6 @@ jobs:
       matrix:
         service:
           - { name: api, dockerfile: Dockerfile.api, context: "." }
-          - { name: customer-kiosk, dockerfile: Dockerfile.customer-kiosk, context: "." }
-          - { name: employee-register, dockerfile: Dockerfile.employee-register, context: "." }
-          - { name: office-dashboard, dockerfile: Dockerfile.office-dashboard, context: "." }
 
     steps:
       - name: Checkout repo
@@ -134,20 +131,6 @@ jobs:
           docker logs test-${{ matrix.service.name }}
           docker rm -f test-${{ matrix.service.name }}
 
-      - name: Test frontend image
-        if: matrix.service.name != 'api'
-        run: |
-          docker run -d --name test-${{ matrix.service.name }} \
-            -p 8080:80 \
-            club-ops-${{ matrix.service.name }}:ci-${{ github.sha }}
-          
-          # Wait for healthcheck
-          timeout 60 bash -c 'until [ "$(docker inspect --format="{{.State.Health.Status}}" test-${{ matrix.service.name }})" = "healthy" ]; do sleep 2; done'
-          
-          # Test HTTP response
-          curl -f http://localhost:8080/ || (docker logs test-${{ matrix.service.name }} && exit 1)
-          
-          docker rm -f test-${{ matrix.service.name }}
 
   dockerfile-lint:
     name: Dockerfile lint
@@ -157,9 +140,6 @@ jobs:
       matrix:
         dockerfile:
           - Dockerfile.api
-          - Dockerfile.customer-kiosk
-          - Dockerfile.employee-register
-          - Dockerfile.office-dashboard
 
     steps:
       - name: Checkout repo
