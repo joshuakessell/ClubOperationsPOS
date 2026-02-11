@@ -31,24 +31,7 @@ The system consists of:
 
 ## CI/CD Pipelines
 
-### 1. Continuous Integration (`.github/workflows/ci-enhanced.yml`)
-
-Runs on every PR and push to `main`.
-
-**Jobs:**
-- **validate**: Builds all packages, runs typecheck, lint, and spec compliance
-- **docker-validate**: Validates all Dockerfiles build successfully (matrix job)
-- **docker-compose-test**: Integration test with full stack using Docker Compose
-- **security-scan**: Trivy vulnerability scanning
-
-**Quality Gates:**
-```bash
-pnpm lint          # ESLint validation
-pnpm typecheck     # TypeScript type checking
-pnpm spec:check    # Business spec compliance
-```
-
-### 2. Development Deployment (`.github/workflows/deploy.yml`)
+### Development Deployment (`.github/workflows/deploy.yml`)
 
 Deploys to demo environment on every `main` push.
 
@@ -64,23 +47,6 @@ Deploys to demo environment on every `main` push.
 - `DEMO_RESET_ON_STARTUP=true`
 - `DEMO_INCREMENTAL=true`
 - `SEED_ON_STARTUP=false`
-
-### 3. Production Deployment (`.github/workflows/deploy-production.yml`)
-
-Triggered by git tags (`v*` pattern) or manual dispatch.
-
-**Jobs:**
-1. **validate**: Pre-deployment quality gates
-2. **deploy-api**: Build and deploy API to App Runner
-3. **deploy-frontends**: Deploy all frontend apps (parallel matrix)
-4. **smoke-test**: Post-deployment health checks
-5. **notify**: Deployment summary
-
-**Production Settings:**
-- Database migrations run automatically
-- Demo mode disabled
-- No data seeding
-- SSL enabled for database connections
 
 ## Deployment Scripts
 

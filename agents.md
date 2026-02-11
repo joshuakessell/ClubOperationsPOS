@@ -21,6 +21,7 @@ Agents MUST:
 
 - Use Turbo for builds (`pnpm turbo run build`)
 - Ensure quality gates pass before committing: `pnpm lint && pnpm typecheck && pnpm spec:check`
+- After every chat session, run `pnpm lint && pnpm typecheck` with no errors, then write an itemized commit message summarizing the changes, commit them, and push to the current branch.
 - Keep API build output deterministic at `services/api/dist/index.js`
 - Consult `docs/DEPLOYMENT.md` before modifying deployment pipelines
 - Test Docker builds locally before pushing changes to Dockerfiles

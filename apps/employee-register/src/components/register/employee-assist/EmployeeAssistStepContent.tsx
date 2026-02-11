@@ -234,11 +234,12 @@ export function EmployeeAssistStepContent({
             </button>
           </div>
         ) : null}
-        <div style={{ display: 'grid', gap: '0.6rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.6rem' }}>
           {rentalButtons.map((btn) => {
             const isPending = pending?.step === 'RENTAL' && pending.option === btn.id;
             const { label: countLabel, tone } = remainingCountLabel(btn.count);
             const disabled = isSubmitting || !btn.allowed || btn.count === 0;
+            const spanTwo = btn.id === 'LOCKER' || btn.id === 'STANDARD';
             const toneClass =
               tone === 'none'
                 ? 'cs-liquid-button--secondary'
@@ -274,13 +275,15 @@ export function EmployeeAssistStepContent({
                 }}
                 style={{
                   width: '100%',
-                  padding: '0.85rem 1rem',
+                  padding: '0.65rem 0.85rem',
+                  minHeight: '3rem',
                   fontWeight: 950,
                   textAlign: 'left',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'baseline',
                   gap: '0.75rem',
+                  gridColumn: spanTwo ? '1 / -1' : undefined,
                 }}
               >
                 <span>{btn.label}</span>
@@ -312,7 +315,7 @@ export function EmployeeAssistStepContent({
               }
               void onHighlightRental(unavailableJoinTarget);
             }}
-            style={{ width: '100%', padding: '0.85rem 1rem', fontWeight: 900 }}
+            style={{ width: '100%', padding: '0.65rem 0.85rem', minHeight: '3rem', fontWeight: 900 }}
           >
             Join the Waiting List
           </button>
