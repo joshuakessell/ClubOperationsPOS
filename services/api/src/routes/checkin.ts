@@ -14,6 +14,7 @@ import { registerCheckinPaymentIntentRoutes } from './checkin/payment-intent';
 import { registerCheckinResetRoutes } from './checkin/reset';
 import { registerCheckinScanRoutes } from './checkin/scan';
 import { registerCheckinSelectionRoutes } from './checkin/selection';
+import { registerCheckinSwitchResourceRoutes } from './checkin/switch-resource';
 import { registerCheckinWaitlistRoutes } from './checkin/waitlist';
 
 declare module 'fastify' {
@@ -31,6 +32,8 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
   registerCheckinScanRoutes(fastify);
 
   registerCheckinSelectionRoutes(fastify);
+
+  registerCheckinSwitchResourceRoutes(fastify);
 
   registerCheckinWaitlistRoutes(fastify);
 

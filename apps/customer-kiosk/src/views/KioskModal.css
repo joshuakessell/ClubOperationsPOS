@@ -134,3 +134,16 @@
   font-weight: 600;
   min-height: 56px;
 }
+
+.ck-waitlist-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.ck-waitlist-checkbox-row input {
+  width: 18px;
+  height: 18px;
+}

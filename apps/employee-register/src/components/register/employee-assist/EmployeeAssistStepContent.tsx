@@ -113,64 +113,6 @@ export function EmployeeAssistStepContent({
     );
   }
 
-  if (step === 'MEMBERSHIP') {
-    return (
-      <div style={{ display: 'grid', gap: '0.75rem' }}>
-        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-          {directSelect
-            ? 'Tap once to select the membership option.'
-            : 'Tap once to highlight on kiosk, tap again to confirm.'}
-        </div>
-        {(
-          [
-            { id: 'ONE_TIME' as const, label: 'One-time Membership' },
-            { id: 'SIX_MONTH' as const, label: '6-Month Membership' },
-          ] as const
-        ).map((opt) => {
-          const isPending = pending?.step === 'MEMBERSHIP' && pending.option === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              className={[
-                'cs-liquid-button',
-                isPending ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-              ].join(' ')}
-              disabled={isSubmitting}
-              onClick={() => {
-                if (directSelect) {
-                  if (opt.id === 'ONE_TIME') {
-                    void onConfirmMembershipOneTime();
-                    return;
-                  }
-                  void onConfirmMembershipSixMonth();
-                  return;
-                }
-                runTwoStep(
-                  'MEMBERSHIP',
-                  opt.id,
-                  isPending,
-                  () => onHighlightMembership(opt.id),
-                  () => {
-                    if (opt.id === 'ONE_TIME') {
-                      void onConfirmMembershipOneTime();
-                      return;
-                    }
-                    void onConfirmMembershipSixMonth();
-                  },
-                  () => onHighlightMembership(null)
-                );
-              }}
-              style={{ width: '100%', padding: '0.9rem 1rem', fontWeight: 900 }}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-    );
-  }
-
   if (step === 'UPGRADE') {
     return (
       <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -253,6 +195,54 @@ export function EmployeeAssistStepContent({
           {directSelect
             ? 'Tap once to select a rental.'
             : 'Tap once to propose on kiosk, tap again to confirm.'}
+        </div>
+        <div style={{ display: 'grid', gap: '0.6rem' }}>
+          {(
+            [
+              { id: 'ONE_TIME' as const, label: 'One-time Membership (default)' },
+              { id: 'SIX_MONTH' as const, label: 'Add 6-Month Membership' },
+            ] as const
+          ).map((opt) => {
+            const isPending = pending?.step === 'RENTAL_ADDON' && pending.option === opt.id;
+            return (
+              <button
+                key={opt.id}
+                type="button"
+                className={[
+                  'cs-liquid-button',
+                  isPending ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+                ].join(' ')}
+                disabled={isSubmitting}
+                onClick={() => {
+                  if (directSelect) {
+                    if (opt.id === 'ONE_TIME') {
+                      void onConfirmMembershipOneTime();
+                      return;
+                    }
+                    void onConfirmMembershipSixMonth();
+                    return;
+                  }
+                  runTwoStep(
+                    'RENTAL_ADDON',
+                    opt.id,
+                    isPending,
+                    () => onHighlightMembership(opt.id),
+                    () => {
+                      if (opt.id === 'ONE_TIME') {
+                        void onConfirmMembershipOneTime();
+                        return;
+                      }
+                      void onConfirmMembershipSixMonth();
+                    },
+                    () => onHighlightMembership(null)
+                  );
+                }}
+                style={{ width: '100%', padding: '0.75rem 1rem', fontWeight: 900 }}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
         </div>
         <div style={{ display: 'grid', gap: '0.6rem' }}>
           {rentalButtons.map((btn) => {

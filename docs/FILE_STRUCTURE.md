@@ -41,13 +41,13 @@ Dockerfile.office-dashboard  # Office dashboard image definition
 
 # CI/CD Pipelines
 .github/workflows/
-  ci-enhanced.yml          # CI pipeline: build, typecheck, lint, Docker validation, security scan
+  ci-enhanced.yml          # CI pipeline: build, typecheck, lint, Docker validation, Dockerfile lint, security scan
   deploy.yml               # Demo deployment: auto-deploys on push to main
   deploy-production.yml    # Production deployment: triggered by git tags (v*)
   rollback.yml             # Emergency rollback: manual dispatch to revert to previous version
-  lint.yml                 # Lightweight lint-only check
   seed-demo.yml            # Demo database seeding workflow
-  docker-image-scan.yml    # Docker image vulnerability scanning
+  docker-image-scan.yml    # Scheduled/manual Docker image vulnerability scanning
+  docker-multi-arch.yml    # Manual/scheduled multi-arch Docker build + push
   deploy-frontends.yml     # Frontend-only deployment workflow
 ```
 
@@ -67,6 +67,7 @@ Notable sub-areas:
 ```
 apps/employee-register/src/
   components/register/employee-assist/   # Employee assist step UIs
+  components/register/panels/active-visit/ # Active-visit switch-room/locker flow helpers
   components/register/manual-checkout/   # Shared manual checkout UI (panel + modal)
   components/register/required-tender/   # Required tender split payment UI
   inventory/                             # Inventory drawer components + data hooks
@@ -90,6 +91,7 @@ Backend runtime(s).
 ```
 services/
   api/                     # Main API service (HTTP + realtime/websocket)
+    src/routes/checkin/switch-resource.ts # Check-in route to switch assigned room/locker
 ```
 
 ## docs/

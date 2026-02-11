@@ -90,9 +90,15 @@ Other markdown files may describe workflows, but **must not redefine** these ent
     - `proposed_rental_type`, `proposed_by`
     - `selection_confirmed`, `selection_confirmed_by`, `selection_locked_at`
   - Waitlist coordination:
-    - `waitlist_desired_type`, `backup_rental_type`
+    - `waitlist_desired_type`, `waitlist_desired_types_json`, `backup_rental_type`
+    - `waitlist_requested_resource_type`, `waitlist_requested_resource_number`
+  - Assignment / active visit context:
+    - `assigned_resource_type`, `assigned_resource_id`, `assigned_resource_number`
+    - `checkout_at` (active block end timestamp when in-progress or checked in)
   - Renewal coordination:
     - `renewal_hours` (2 or 6 when the session is a renewal; null otherwise)
+  - Membership intent coordination:
+    - `membership_purchase_intent` (e.g. pending six-month purchase request)
   - Pricing / acknowledgement:
     - `price_quote_json` (server-authoritative quote snapshot)
     - `disclaimers_ack_json` (record of acknowledgements, when applicable)

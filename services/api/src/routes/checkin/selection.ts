@@ -37,6 +37,14 @@ async function checkPastDueBlocked(
 }
 
 export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
+  const normalizeDesiredTypes = (desiredTypes: unknown): string[] => {
+    if (!Array.isArray(desiredTypes)) return [];
+    return desiredTypes
+      .filter((entry): entry is string => typeof entry === 'string')
+      .map((entry) => entry.trim())
+      .filter((entry) => entry.length > 0);
+  };
+
   /**
    * POST /v1/checkin/lane/:laneId/select-rental
    *
@@ -48,7 +56,10 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
     Body: {
       rentalType: string;
       waitlistDesiredType?: string;
+      waitlistDesiredTypes?: string[];
       backupRentalType?: string;
+      waitlistRequestedResourceNumber?: string;
+      waitlistRequestedResourceType?: 'room' | 'locker';
     };
   }>(
     '/v1/checkin/lane/:laneId/select-rental',
@@ -61,7 +72,14 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
       }
 
       const { laneId } = request.params;
-      const { rentalType, waitlistDesiredType, backupRentalType } = request.body;
+      const {
+        rentalType,
+        waitlistDesiredType,
+        waitlistDesiredTypes,
+        backupRentalType,
+        waitlistRequestedResourceNumber,
+        waitlistRequestedResourceType,
+      } = request.body;
 
       try {
         const result = await transaction(async (client) => {
@@ -80,24 +98,40 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
 
           const session = sessionResult.rows[0]!;
 
+          const normalizedDesiredTypes = normalizeDesiredTypes(waitlistDesiredTypes);
+
           // Update session with rental selection
           const updateResult = await client.query<LaneSessionRow>(
             `UPDATE lane_sessions
            SET desired_rental_type = $1,
                waitlist_desired_type = $2,
-               backup_rental_type = $3,
+               waitlist_desired_types_json = $3,
+               backup_rental_type = $4,
+               waitlist_requested_resource_number = $5,
+               waitlist_requested_resource_type = $6,
                status = 'AWAITING_ASSIGNMENT',
                updated_at = NOW()
-           WHERE id = $4
+           WHERE id = $7
            RETURNING *`,
-            [rentalType, waitlistDesiredType || null, backupRentalType || null, session.id]
+            [
+              rentalType,
+              waitlistDesiredType || normalizedDesiredTypes[0] || null,
+              normalizedDesiredTypes.length > 0 ? JSON.stringify(normalizedDesiredTypes) : null,
+              backupRentalType || null,
+              waitlistRequestedResourceNumber || null,
+              waitlistRequestedResourceType || null,
+              session.id,
+            ]
           );
 
           return {
             sessionId: updateResult.rows[0]!.id,
             desiredRentalType: rentalType,
             waitlistDesiredType: waitlistDesiredType || null,
+            waitlistDesiredTypes: normalizedDesiredTypes,
             backupRentalType: backupRentalType || null,
+            waitlistRequestedResourceNumber: waitlistRequestedResourceNumber || null,
+            waitlistRequestedResourceType: waitlistRequestedResourceType || null,
           };
         });
 
@@ -137,7 +171,10 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
       rentalType: string;
       proposedBy: 'CUSTOMER' | 'EMPLOYEE';
       waitlistDesiredType?: string;
+      waitlistDesiredTypes?: string[];
       backupRentalType?: string;
+      waitlistRequestedResourceNumber?: string;
+      waitlistRequestedResourceType?: 'room' | 'locker';
     };
   }>(
     '/v1/checkin/lane/:laneId/propose-selection',
@@ -146,7 +183,15 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
     },
     async (request, reply) => {
       const { laneId } = request.params;
-      const { rentalType, proposedBy, waitlistDesiredType, backupRentalType } = request.body;
+      const {
+        rentalType,
+        proposedBy,
+        waitlistDesiredType,
+        waitlistDesiredTypes,
+        backupRentalType,
+        waitlistRequestedResourceNumber,
+        waitlistRequestedResourceType,
+      } = request.body;
 
       // Validate proposedBy
       if (proposedBy !== 'CUSTOMER' && proposedBy !== 'EMPLOYEE') {
@@ -193,20 +238,28 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
             throw { statusCode: 400, message: 'Selection is already locked' };
           }
 
+          const normalizedDesiredTypes = normalizeDesiredTypes(waitlistDesiredTypes);
+
           const updateResult = await client.query<LaneSessionRow>(
             `UPDATE lane_sessions
            SET proposed_rental_type = $1,
                proposed_by = $2,
                waitlist_desired_type = COALESCE($3, waitlist_desired_type),
-               backup_rental_type = COALESCE($4, backup_rental_type),
+               waitlist_desired_types_json = COALESCE($4, waitlist_desired_types_json),
+               backup_rental_type = COALESCE($5, backup_rental_type),
+               waitlist_requested_resource_number = COALESCE($6, waitlist_requested_resource_number),
+               waitlist_requested_resource_type = COALESCE($7, waitlist_requested_resource_type),
                updated_at = NOW()
-           WHERE id = $5
+           WHERE id = $8
            RETURNING *`,
             [
               rentalType,
               proposedBy,
-              waitlistDesiredType || null,
+              waitlistDesiredType || normalizedDesiredTypes[0] || null,
+              normalizedDesiredTypes.length > 0 ? JSON.stringify(normalizedDesiredTypes) : null,
               backupRentalType || null,
+              waitlistRequestedResourceNumber || null,
+              waitlistRequestedResourceType || null,
               session.id,
             ]
           );
@@ -313,7 +366,10 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
           await client.query(
             `UPDATE lane_sessions
              SET waitlist_desired_type = $1,
+                 waitlist_desired_types_json = CASE WHEN $1 IS NULL THEN NULL ELSE jsonb_build_array($1) END,
                  backup_rental_type = NULL,
+                 waitlist_requested_resource_number = NULL,
+                 waitlist_requested_resource_type = NULL,
                  updated_at = NOW()
              WHERE id = $2`,
             [desired, session.id]

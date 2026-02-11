@@ -182,8 +182,8 @@ export function registerLaneSessionReducer(
         ? { ...initialRegisterLaneSessionState }
         : { ...state };
 
-      if (sessionIdChanged) {
-        next.customerId = state.customerId;
+      if (sessionIdChanged && !hasKey('customerId')) {
+        next.customerId = null;
       }
 
       if (p.sessionId !== undefined) next.currentSessionId = p.sessionId || null;

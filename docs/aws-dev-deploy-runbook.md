@@ -99,7 +99,8 @@ Add these in GitHub repo settings → Secrets:
 - `ECR_REPO_URI` = `146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api`
 - `DATABASE_URL_SECRET_ARN` = Terraform output `database_url_secret_arn`
 - `KIOSK_TOKEN_SECRET_ARN` = Terraform output `kiosk_token_secret_arn`
-- Optional: `DB_SSL_CA_PATH` if you want to verify the RDS certificate chain (not required for `sslmode=require`)
+
+**Important:** use literal secret names only (no alias/fallback names). The deploy scripts now fail fast if required names are missing.
 
 Note: If you change the App Runner service name via `api_service_name`, Terraform will recreate the service.
 After apply, update `APP_RUNNER_SERVICE_ARN` to the new value and re-run DNS validation if required.
@@ -107,7 +108,6 @@ Terraform also attaches an App Runner instance role that allows reading the Secr
 
 **Frontends**
 
-- `VITE_KIOSK_TOKEN` = required by both frontends
 - `EMPLOYEE_BUCKET` = Terraform output `employee_bucket_name`
 - `EMPLOYEE_DISTRIBUTION_ID` = Terraform output `employee_cloudfront_distribution_id`
 - `CUSTOMER_BUCKET` = Terraform output `customer_bucket_name`
@@ -128,9 +128,9 @@ You can also run a **frontends-only** deploy manually from GitHub Actions:
 
 ## Where Variables Live
 
-- **GitHub Secrets**: deploy-time values (`DATABASE_URL_SECRET_ARN`, `KIOSK_TOKEN_SECRET_ARN`, `VITE_KIOSK_TOKEN`)
+- **GitHub Secrets**: deploy-time values (`DATABASE_URL_SECRET_ARN`, `KIOSK_TOKEN_SECRET_ARN`)
 - **App Runner runtime env**: set on deploy via `deploy-api.sh`
-- **Vite build-time env**: passed in deploy scripts/workflow
+- **Vite build-time env**: `VITE_KIOSK_TOKEN` is fetched from `KIOSK_TOKEN_SECRET_ARN` inside deploy scripts/workflow
 
 ## Demo Data Seeding
 

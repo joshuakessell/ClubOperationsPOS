@@ -580,6 +580,217 @@ describe('Check-in Flow', () => {
     );
   });
 
+  describe('POST /v1/checkin/visits/:visitId/switch-resource', () => {
+    it(
+      'should require and then apply differential payment for higher-tier room switch',
+      runIfDbAvailable(async () => {
+        const currentRoomResult = await query<{ id: string }>(
+          `INSERT INTO rooms (number, type, status, floor, assigned_to_customer_id)
+           VALUES ('200', 'STANDARD', 'OCCUPIED', 1, $1)
+           RETURNING id`,
+          [customerId]
+        );
+        const currentRoomId = currentRoomResult.rows[0]!.id;
+
+        const targetRoomResult = await query<{ id: string }>(
+          `INSERT INTO rooms (number, type, status, floor)
+           VALUES ('201', 'SPECIAL', 'CLEAN', 1)
+           RETURNING id`
+        );
+        const targetRoomId = targetRoomResult.rows[0]!.id;
+
+        const visitResult = await query<{ id: string }>(
+          `INSERT INTO visits (customer_id, started_at, ended_at)
+           VALUES ($1, NOW() - INTERVAL '1 hour', NULL)
+           RETURNING id`,
+          [customerId]
+        );
+        const visitId = visitResult.rows[0]!.id;
+
+        const blockResult = await query<{ id: string }>(
+          `INSERT INTO checkin_blocks (visit_id, block_type, starts_at, ends_at, rental_type, room_id)
+           VALUES ($1, 'INITIAL', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '5 hours', 'STANDARD', $2)
+           RETURNING id`,
+          [visitId, currentRoomId]
+        );
+        const blockId = blockResult.rows[0]!.id;
+
+        const paymentRequiredRes = await app.inject({
+          method: 'POST',
+          url: `/v1/checkin/visits/${visitId}/switch-resource`,
+          headers: {
+            Authorization: `Bearer ${staffToken}`,
+          },
+          payload: {
+            targetResourceType: 'room',
+            targetResourceId: targetRoomId,
+          },
+        });
+
+        expect(paymentRequiredRes.statusCode).toBe(409);
+        const paymentRequiredBody = JSON.parse(paymentRequiredRes.body);
+        expect(paymentRequiredBody.code).toBe('PAYMENT_REQUIRED');
+        expect(paymentRequiredBody.additionalFee).toBe(19);
+
+        const paidRes = await app.inject({
+          method: 'POST',
+          url: `/v1/checkin/visits/${visitId}/switch-resource`,
+          headers: {
+            Authorization: `Bearer ${staffToken}`,
+          },
+          payload: {
+            targetResourceType: 'room',
+            targetResourceId: targetRoomId,
+            paymentOutcome: 'CASH_SUCCESS',
+            previousRoomStatus: 'DIRTY',
+          },
+        });
+
+        expect(paidRes.statusCode).toBe(200);
+        const paidBody = JSON.parse(paidRes.body);
+        expect(paidBody.success).toBe(true);
+        expect(paidBody.additionalFee).toBe(19);
+        expect(paidBody.newResourceType).toBe('room');
+        expect(paidBody.newRentalType).toBe('SPECIAL');
+
+        const oldRoomCheck = await query<{ status: string; assigned_to_customer_id: string | null }>(
+          `SELECT status, assigned_to_customer_id FROM rooms WHERE id = $1`,
+          [currentRoomId]
+        );
+        expect(oldRoomCheck.rows[0]!.status).toBe('DIRTY');
+        expect(oldRoomCheck.rows[0]!.assigned_to_customer_id).toBeNull();
+
+        const newRoomCheck = await query<{ status: string; assigned_to_customer_id: string | null }>(
+          `SELECT status, assigned_to_customer_id FROM rooms WHERE id = $1`,
+          [targetRoomId]
+        );
+        expect(newRoomCheck.rows[0]!.status).toBe('OCCUPIED');
+        expect(newRoomCheck.rows[0]!.assigned_to_customer_id).toBe(customerId);
+
+        const blockCheck = await query<{
+          room_id: string | null;
+          locker_id: string | null;
+          rental_type: string;
+        }>(`SELECT room_id, locker_id, rental_type::text FROM checkin_blocks WHERE id = $1`, [blockId]);
+        expect(blockCheck.rows[0]!.room_id).toBe(targetRoomId);
+        expect(blockCheck.rows[0]!.locker_id).toBeNull();
+        expect(blockCheck.rows[0]!.rental_type).toBe('SPECIAL');
+
+        const chargeCheck = await query<{ count: string }>(
+          `SELECT COUNT(*)::text as count
+           FROM charges
+           WHERE visit_id = $1 AND checkin_block_id = $2 AND type = 'UPGRADE_FEE'`,
+          [visitId, blockId]
+        );
+        expect(parseInt(chargeCheck.rows[0]!.count, 10)).toBe(1);
+
+        const paidIntentCheck = await query<{ count: string }>(
+          `SELECT COUNT(*)::text as count
+           FROM payment_intents
+           WHERE status = 'PAID'
+             AND quote_json->>'type' = 'SWITCH_UPCHARGE'
+             AND quote_json->>'checkinBlockId' = $1`,
+          [blockId]
+        );
+        expect(parseInt(paidIntentCheck.rows[0]!.count, 10)).toBe(1);
+      })
+    );
+
+    it(
+      'should reject switch when credit is declined and keep current assignment',
+      runIfDbAvailable(async () => {
+        const currentRoomResult = await query<{ id: string }>(
+          `INSERT INTO rooms (number, type, status, floor, assigned_to_customer_id)
+           VALUES ('202', 'STANDARD', 'OCCUPIED', 1, $1)
+           RETURNING id`,
+          [customerId]
+        );
+        const currentRoomId = currentRoomResult.rows[0]!.id;
+
+        const targetRoomResult = await query<{ id: string }>(
+          `INSERT INTO rooms (number, type, status, floor)
+           VALUES ('201', 'SPECIAL', 'CLEAN', 1)
+           RETURNING id`
+        );
+        const targetRoomId = targetRoomResult.rows[0]!.id;
+
+        const visitResult = await query<{ id: string }>(
+          `INSERT INTO visits (customer_id, started_at, ended_at)
+           VALUES ($1, NOW() - INTERVAL '1 hour', NULL)
+           RETURNING id`,
+          [customerId]
+        );
+        const visitId = visitResult.rows[0]!.id;
+
+        const blockResult = await query<{ id: string }>(
+          `INSERT INTO checkin_blocks (visit_id, block_type, starts_at, ends_at, rental_type, room_id)
+           VALUES ($1, 'INITIAL', NOW() - INTERVAL '1 hour', NOW() + INTERVAL '5 hours', 'STANDARD', $2)
+           RETURNING id`,
+          [visitId, currentRoomId]
+        );
+        const blockId = blockResult.rows[0]!.id;
+
+        const declineRes = await app.inject({
+          method: 'POST',
+          url: `/v1/checkin/visits/${visitId}/switch-resource`,
+          headers: {
+            Authorization: `Bearer ${staffToken}`,
+          },
+          payload: {
+            targetResourceType: 'room',
+            targetResourceId: targetRoomId,
+            paymentOutcome: 'CREDIT_DECLINE',
+            declineReason: 'Card declined at register',
+          },
+        });
+
+        expect(declineRes.statusCode).toBe(402);
+        const declineBody = JSON.parse(declineRes.body);
+        expect(declineBody.code).toBe('PAYMENT_DECLINED');
+        expect(declineBody.error).toBe('Card declined at register');
+
+        const oldRoomCheck = await query<{ status: string; assigned_to_customer_id: string | null }>(
+          `SELECT status, assigned_to_customer_id FROM rooms WHERE id = $1`,
+          [currentRoomId]
+        );
+        expect(oldRoomCheck.rows[0]!.status).toBe('OCCUPIED');
+        expect(oldRoomCheck.rows[0]!.assigned_to_customer_id).toBe(customerId);
+
+        const newRoomCheck = await query<{ status: string; assigned_to_customer_id: string | null }>(
+          `SELECT status, assigned_to_customer_id FROM rooms WHERE id = $1`,
+          [targetRoomId]
+        );
+        expect(newRoomCheck.rows[0]!.status).toBe('CLEAN');
+        expect(newRoomCheck.rows[0]!.assigned_to_customer_id).toBeNull();
+
+        const blockCheck = await query<{ room_id: string | null; rental_type: string }>(
+          `SELECT room_id, rental_type::text FROM checkin_blocks WHERE id = $1`,
+          [blockId]
+        );
+        expect(blockCheck.rows[0]!.room_id).toBe(currentRoomId);
+        expect(blockCheck.rows[0]!.rental_type).toBe('STANDARD');
+
+        const chargeCheck = await query<{ count: string }>(
+          `SELECT COUNT(*)::text as count
+           FROM charges
+           WHERE visit_id = $1 AND checkin_block_id = $2 AND type = 'UPGRADE_FEE'`,
+          [visitId, blockId]
+        );
+        expect(parseInt(chargeCheck.rows[0]!.count, 10)).toBe(0);
+
+        const cancelledIntentCheck = await query<{ count: string }>(
+          `SELECT COUNT(*)::text as count
+           FROM payment_intents
+           WHERE status = 'CANCELLED'
+             AND quote_json->>'type' = 'SWITCH_UPCHARGE'
+             AND quote_json->>'checkinBlockId' = $1`,
+          [blockId]
+        );
+        expect(parseInt(cancelledIntentCheck.rows[0]!.count, 10)).toBe(1);
+      })
+    );
+  });
+
   describe('POST /v1/checkin/lane/:laneId/create-payment-intent', () => {
     it(
       'should create payment intent from locked desired_rental_type (no assignment required) and enforce <=1 DUE intent per session',

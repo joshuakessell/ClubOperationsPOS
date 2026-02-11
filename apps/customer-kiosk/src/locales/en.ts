@@ -106,7 +106,7 @@ export const en = {
   'membership.renewMembership': 'Renew Membership',
   'membership.ctaSeeStaffPurchase': 'Please see the employee to purchase membership.',
   'membership.ctaSeeStaffRenew': 'Please see the employee to renew membership.',
-  'membership.pending': 'Pending',
+  'membership.pending': 'Pending Member',
   'membership.modal.title': 'Membership',
   'membership.modal.body.purchase':
     'Save on daily membership fees with a 6-month membership. Ask the employee about current 6-month membership pricing.',
@@ -154,6 +154,12 @@ export const en = {
     'To join the waitlist, please select a backup rental that is available now.',
   'waitlist.noteChargedBackup':
     'You will be charged for the backup rental. If an upgrade becomes available, you may accept it (upgrade fees apply).',
+  'waitlist.joinButton': 'Join the Waiting List',
+  'waitlist.selectDesired': 'Choose room types to wait for',
+  'waitlist.requestSpecific': 'Or request a specific room/locker number',
+  'waitlist.requestSpecificPlaceholder': 'Select a specific number (optional)',
+  'waitlist.nextToBackup': 'Next: choose backup rental',
+  'waitlist.backToPreferences': 'Back',
   'waitlist.selectBackup': 'Select backup rental:',
   'waitlist.unavailableSuffix': '(Unavailable)',
 
@@ -192,6 +198,8 @@ export const en = {
   'error.process': 'Failed to process. Please try again.',
   'error.rentalNotAvailable':
     'This rental type is not available. Please select an available option.',
+  'error.noUnavailableForWaitlist': 'No unavailable options right now.',
+  'error.waitlistNeedsDesired': 'Choose at least one desired room type or a specific number.',
   'error.signAgreement': 'Failed to sign agreement. Please try again.',
   'error.setLanguage': 'Failed to set language. Please try again.',
   'error.confirmSelection': 'Failed to confirm selection. Please try again.',

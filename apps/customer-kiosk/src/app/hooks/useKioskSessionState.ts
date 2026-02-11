@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { CustomerConfirmationRequiredPayload, SessionUpdatedPayload } from '@club-ops/shared';
 import { getMembershipStatus, type SessionState } from '../../utils/membership';
+import type { WaitlistUnavailableOptions } from '../selection/types';
 
 export type AppView =
   | 'idle'
@@ -42,7 +43,12 @@ export function useKioskSessionState() {
     useState<CustomerConfirmationRequiredPayload | null>(null);
   const [showWaitlistModal, setShowWaitlistModal] = useState(false);
   const [waitlistDesiredType, setWaitlistDesiredType] = useState<string | null>(null);
+  const [waitlistDesiredTypes, setWaitlistDesiredTypes] = useState<string[]>([]);
   const [waitlistBackupType, setWaitlistBackupType] = useState<string | null>(null);
+  const [waitlistRequestedResourceNumber, setWaitlistRequestedResourceNumber] = useState<string | null>(null);
+  const [waitlistRequestedResourceType, setWaitlistRequestedResourceType] = useState<'room' | 'locker' | null>(null);
+  const [waitlistUnavailableOptions, setWaitlistUnavailableOptions] =
+    useState<WaitlistUnavailableOptions>(null);
   const [waitlistPosition, setWaitlistPosition] = useState<number | null>(null);
   const [waitlistETA, setWaitlistETA] = useState<string | null>(null);
   const [waitlistUpgradeFee, setWaitlistUpgradeFee] = useState<number | null>(null);
@@ -122,7 +128,11 @@ export function useKioskSessionState() {
     setCheckinMode(null);
     setShowWaitlistModal(false);
     setWaitlistDesiredType(null);
+    setWaitlistDesiredTypes([]);
     setWaitlistBackupType(null);
+    setWaitlistRequestedResourceNumber(null);
+    setWaitlistRequestedResourceType(null);
+    setWaitlistUnavailableOptions(null);
     setProposedRentalType(null);
     setProposedBy(null);
     setSelectionConfirmed(false);
@@ -236,15 +246,26 @@ export function useKioskSessionState() {
         setView('selection');
       }
 
-      if (payload.proposedRentalType) {
-        setProposedRentalType(payload.proposedRentalType);
+      if (hasKey('proposedRentalType')) {
+        setProposedRentalType(payload.proposedRentalType ?? null);
+      }
+      if (hasKey('proposedBy')) {
         setProposedBy(payload.proposedBy || null);
       }
       if (payload.waitlistDesiredType !== undefined) {
         setWaitlistDesiredType(payload.waitlistDesiredType || null);
       }
+      if (payload.waitlistDesiredTypes !== undefined) {
+        setWaitlistDesiredTypes(Array.isArray(payload.waitlistDesiredTypes) ? payload.waitlistDesiredTypes : []);
+      }
       if (payload.backupRentalType !== undefined) {
         setWaitlistBackupType(payload.backupRentalType || null);
+      }
+      if (payload.waitlistRequestedResourceNumber !== undefined) {
+        setWaitlistRequestedResourceNumber(payload.waitlistRequestedResourceNumber || null);
+      }
+      if (payload.waitlistRequestedResourceType !== undefined) {
+        setWaitlistRequestedResourceType(payload.waitlistRequestedResourceType || null);
       }
       if (payload.selectionConfirmed !== undefined) {
         setSelectionConfirmed(Boolean(payload.selectionConfirmed));
@@ -317,8 +338,16 @@ export function useKioskSessionState() {
     setShowWaitlistModal,
     waitlistDesiredType,
     setWaitlistDesiredType,
+    waitlistDesiredTypes,
+    setWaitlistDesiredTypes,
     waitlistBackupType,
     setWaitlistBackupType,
+    waitlistRequestedResourceNumber,
+    setWaitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
+    setWaitlistRequestedResourceType,
+    waitlistUnavailableOptions,
+    setWaitlistUnavailableOptions,
     waitlistPosition,
     setWaitlistPosition,
     waitlistETA,

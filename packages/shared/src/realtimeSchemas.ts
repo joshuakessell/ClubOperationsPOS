@@ -66,7 +66,19 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
       blockEndsAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       visitId: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       waitlistDesiredType: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+      waitlistDesiredTypes: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.array(z.string()).optional()
+      ),
       backupRentalType: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+      waitlistRequestedResourceNumber: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.string().optional()
+      ),
+      waitlistRequestedResourceType: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.enum(['room', 'locker']).optional()
+      ),
       status: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       proposedRentalType: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       proposedBy: z.enum(['CUSTOMER', 'EMPLOYEE']).optional(),

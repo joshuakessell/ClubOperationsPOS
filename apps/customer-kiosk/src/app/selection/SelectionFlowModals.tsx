@@ -1,16 +1,19 @@
 import type { CustomerConfirmationRequiredPayload } from '@club-ops/shared';
 import { CustomerConfirmationModal } from '../../components/modals/CustomerConfirmationModal';
-import { MembershipModal } from '../../components/modals/MembershipModal';
 import { RenewalDisclaimerModal } from '../../components/modals/RenewalDisclaimerModal';
 import { UpgradeDisclaimerModal } from '../../components/modals/UpgradeDisclaimerModal';
 import { WaitlistModal } from '../../components/modals/WaitlistModal';
 import type { SessionState } from '../../utils/membership';
-import type { SelectionInventory } from './types';
+import type { SelectionInventory, WaitlistUnavailableOptions } from './types';
 
 type SelectionFlowModalsProps = {
   session: SessionState;
   inventory: SelectionInventory;
   waitlistDesiredType: string | null;
+  waitlistDesiredTypes: string[];
+  waitlistRequestedResourceNumber: string | null;
+  waitlistRequestedResourceType: 'room' | 'locker' | null;
+  waitlistUnavailableOptions: WaitlistUnavailableOptions;
   waitlistPosition: number | null;
   waitlistETA: string | null;
   waitlistUpgradeFee: number | null;
@@ -20,24 +23,33 @@ type SelectionFlowModalsProps = {
   showCustomerConfirmation: boolean;
   customerConfirmationData: CustomerConfirmationRequiredPayload | null;
   showRenewalDisclaimer: boolean;
-  showMembershipModal: boolean;
-  membershipModalIntent: 'PURCHASE' | 'RENEW' | null;
   isSubmitting: boolean;
   onAcknowledgeUpgrade: () => void;
   onCloseUpgrade: () => void;
   onCustomerConfirm: (confirmed: boolean) => void;
+  onWaitlistDesiredTypesChange: (next: string[]) => void;
+  onWaitlistSpecificSelection: (params: {
+    resourceType: 'room' | 'locker' | null;
+    resourceNumber: string | null;
+  }) => void;
+  onWaitlistSpecificFocus: () => void;
   onWaitlistBackupSelection: (rental: string) => void;
+  onWaitlistSubmit: () => void;
   onWaitlistCancel: () => void;
   onCloseRenewal: () => void;
   onProceedRenewal: () => void;
-  onMembershipContinue: () => void;
-  onMembershipClose: () => void;
+  onMembershipContinue?: () => void;
+  onMembershipClose?: () => void;
 };
 
 export function SelectionFlowModals({
   session,
   inventory,
   waitlistDesiredType,
+  waitlistDesiredTypes,
+  waitlistRequestedResourceNumber,
+  waitlistRequestedResourceType,
+  waitlistUnavailableOptions,
   waitlistPosition,
   waitlistETA,
   waitlistUpgradeFee,
@@ -47,18 +59,18 @@ export function SelectionFlowModals({
   showCustomerConfirmation,
   customerConfirmationData,
   showRenewalDisclaimer,
-  showMembershipModal,
-  membershipModalIntent,
   isSubmitting,
   onAcknowledgeUpgrade,
   onCloseUpgrade,
   onCustomerConfirm,
+  onWaitlistDesiredTypesChange,
+  onWaitlistSpecificSelection,
+  onWaitlistSpecificFocus,
   onWaitlistBackupSelection,
+  onWaitlistSubmit,
   onWaitlistCancel,
   onCloseRenewal,
   onProceedRenewal,
-  onMembershipContinue,
-  onMembershipClose,
 }: SelectionFlowModalsProps) {
   return (
     <>
@@ -84,6 +96,10 @@ export function SelectionFlowModals({
           isOpen={showWaitlistModal}
           customerPrimaryLanguage={session.customerPrimaryLanguage}
           desiredType={waitlistDesiredType}
+          desiredTypes={waitlistDesiredTypes}
+          requestedResourceNumber={waitlistRequestedResourceNumber}
+          requestedResourceType={waitlistRequestedResourceType}
+          specificOptions={waitlistUnavailableOptions}
           allowedRentals={session.allowedRentals}
           inventory={inventory}
           position={waitlistPosition}
@@ -91,7 +107,11 @@ export function SelectionFlowModals({
           upgradeFee={waitlistUpgradeFee}
           isSubmitting={isSubmitting}
           highlightedBackupRental={highlightedWaitlistBackup}
+          onDesiredTypesChange={onWaitlistDesiredTypesChange}
+          onSpecificSelection={onWaitlistSpecificSelection}
+          onSpecificFocus={onWaitlistSpecificFocus}
           onBackupSelection={onWaitlistBackupSelection}
+          onSubmit={onWaitlistSubmit}
           onClose={onWaitlistCancel}
         />
       )}
@@ -103,16 +123,6 @@ export function SelectionFlowModals({
         onProceed={onProceedRenewal}
         isSubmitting={isSubmitting}
       />
-      {membershipModalIntent && (
-        <MembershipModal
-          isOpen={showMembershipModal}
-          customerPrimaryLanguage={session.customerPrimaryLanguage}
-          intent={membershipModalIntent}
-          onContinue={onMembershipContinue}
-          onClose={onMembershipClose}
-          isSubmitting={isSubmitting}
-        />
-      )}
     </>
   );
 }
