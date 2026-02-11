@@ -49,14 +49,6 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
-      - name: Resolve kiosk token (Secrets Manager)
-        env:
-          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
-        run: |
-          value=$(aws secretsmanager get-secret-value --secret-id "$KIOSK_TOKEN_SECRET_ARN" --query SecretString --output text)
-          echo "::add-mask::$value"
-          echo "VITE_KIOSK_TOKEN=$value" >> $GITHUB_ENV
-
       - name: Install session-manager-plugin
         run: |
           curl -sSL -o /tmp/session-manager-plugin.deb \
@@ -69,6 +61,11 @@ jobs:
           DEMO_INCREMENTAL: 'true'
           DEMO_RESET_ON_STARTUP: 'true'
           DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
+          LOG_PATH: /tmp/ssm-tunnel.log
+          TUNNEL_READY_TIMEOUT_SECONDS: '60'
+          KILL_PORT_LISTENER: 'true'
+          SKIP_PNPM_INSTALL: 'false'
+          SKIP_SHARED_BUILD: 'false'
         run: scripts/aws/seed-demo-via-ssm.sh
 
       - name: Deploy API (App Runner)
@@ -80,18 +77,30 @@ jobs:
           KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
           APPSYNC_EVENTS_HTTP_ENDPOINT: https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event
           APPSYNC_EVENTS_CHANNEL_NAMESPACE: club-ops
+          LOG_LEVEL: info
           DEMO_MODE: 'true'
+          DEMO_RESET_ON_STARTUP: 'true'
+          DEMO_SHIFT_REGENERATE_PDFS: 'true'
           SKIP_DB_MIGRATIONS: 'true'
           SKIP_DEMO_SEED: 'true'
           SKIP_DB_VERIFY: 'true'
           SEED_ON_STARTUP: 'false'
           DEMO_INCREMENTAL: 'true'
+          DEMO_FORCE_RESEED: 'false'
+          DB_SSL: 'true'
+          DB_SSL_CA_PATH: ''
+          DB_LOG_QUERIES: 'false'
+          SKIP_PNPM_INSTALL: 'false'
         run: scripts/aws/deploy-api.sh
 
       - name: Deploy employee-register
         env:
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_KIOSK_TOKEN: ${{ env.VITE_KIOSK_TOKEN }}
+          VITE_REALTIME_PROVIDER: appsync-events
+          VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
+          VITE_DISABLE_WS: 'false'
+          SKIP_PNPM_INSTALL: 'false'
+          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
           EMPLOYEE_BUCKET: ${{ vars.EMPLOYEE_BUCKET }}
           EMPLOYEE_DISTRIBUTION_ID: ${{ vars.EMPLOYEE_DISTRIBUTION_ID }}
         run: scripts/aws/deploy-employee-register.sh
@@ -99,7 +108,11 @@ jobs:
       - name: Deploy customer-kiosk
         env:
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_KIOSK_TOKEN: ${{ env.VITE_KIOSK_TOKEN }}
+          VITE_REALTIME_PROVIDER: appsync-events
+          VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
+          VITE_DISABLE_WS: 'false'
+          SKIP_PNPM_INSTALL: 'false'
+          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
           CUSTOMER_BUCKET: ${{ vars.CUSTOMER_BUCKET }}
           CUSTOMER_DISTRIBUTION_ID: ${{ vars.CUSTOMER_DISTRIBUTION_ID }}
         run: scripts/aws/deploy-customer-kiosk.sh

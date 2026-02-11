@@ -23,18 +23,30 @@ need_cmd pnpm
 
 aws sts get-caller-identity >/dev/null
 
-required VITE_KIOSK_TOKEN
+required KIOSK_TOKEN_SECRET_ARN
 required CUSTOMER_BUCKET
 required CUSTOMER_DISTRIBUTION_ID
 
-VITE_API_BASE_URL="${VITE_API_BASE_URL:-https://api-demo.joshuakessell.com}"
-VITE_REALTIME_PROVIDER="${VITE_REALTIME_PROVIDER:-appsync-events}"
-VITE_REALTIME_CHANNEL_NAMESPACE="${VITE_REALTIME_CHANNEL_NAMESPACE:-club-ops}"
-VITE_DISABLE_WS="${VITE_DISABLE_WS:-false}"
+required VITE_API_BASE_URL
+required VITE_REALTIME_PROVIDER
+required VITE_REALTIME_CHANNEL_NAMESPACE
+required VITE_DISABLE_WS
+
+VITE_KIOSK_TOKEN="$(
+  aws secretsmanager get-secret-value \
+    --secret-id "$KIOSK_TOKEN_SECRET_ARN" \
+    --query SecretString \
+    --output text
+)"
+
+if [[ -n "${GITHUB_ACTIONS:-}" ]]; then
+  echo "::add-mask::$VITE_KIOSK_TOKEN"
+fi
 
 cd "$ROOT_DIR"
 
-if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
+required SKIP_PNPM_INSTALL
+if [[ "$SKIP_PNPM_INSTALL" != "true" ]]; then
   pnpm install --frozen-lockfile
 fi
 
