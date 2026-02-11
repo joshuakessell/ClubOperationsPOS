@@ -109,8 +109,8 @@ describe('EmployeeAssistPanel', () => {
     };
     render(<EmployeeAssistPanel {...props} />);
 
-    const standard = screen.getByRole('button', { name: /Propose Standard/i }) as HTMLButtonElement;
-    expect(standard.disabled).toBe(true);
+    const standard = screen.getByRole('button', { name: /Propose Standard/i });
+    expect(standard.hasAttribute('disabled')).toBe(true);
 
     const joinWaitlist = screen.getByRole('button', { name: 'Join the Waiting List' });
     fireEvent.click(joinWaitlist);
