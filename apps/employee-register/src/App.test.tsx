@@ -176,6 +176,124 @@ describe('App', () => {
     ).toBeDefined();
   });
 
+  it('does not clear selected customer when SESSION_UPDATED is COMPLETED before session starts', async () => {
+    const App = getApp();
+    localStorage.setItem(
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      JSON.stringify({
+        staffId: 'staff-1',
+        sessionToken: 'test-token',
+        name: 'Test User',
+        role: 'STAFF',
+      })
+    );
+
+    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+      (url: RequestInfo | URL, init?: RequestInit) => {
+        const u =
+          typeof url === 'string'
+            ? url
+            : url instanceof URL
+              ? url.toString()
+              : url instanceof Request
+                ? url.url
+                : '';
+
+        if (u.includes('/v1/realtime/auth')) {
+          return Promise.resolve(buildRealtimeAuthResponse(init));
+        }
+        if (u.includes('/v1/registers/status')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                signedIn: true,
+                employee: { id: 'emp-1', name: 'Test Employee' },
+                registerNumber: 1,
+              }),
+          } as unknown as Response);
+        }
+        if (u.includes('/v1/customers/search')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({
+                suggestions: [
+                  {
+                    id: 'c0ffee00-0000-4000-8000-000000000001',
+                    name: 'Alex Rivera',
+                    firstName: 'Alex',
+                    lastName: 'Rivera',
+                    dobMonthDay: '03/14',
+                    membershipNumber: '700001',
+                    disambiguator: '0001',
+                  },
+                ],
+              }),
+          } as unknown as Response);
+        }
+        if (u.includes('/v1/checkin/lane/lane-1/start')) {
+          return Promise.resolve({
+            ok: true,
+            status: 200,
+            json: () => Promise.resolve({}),
+          } as unknown as Response);
+        }
+        if (u.includes('/health')) {
+          return Promise.resolve({
+            ok: true,
+            json: () =>
+              Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
+          } as unknown as Response);
+        }
+        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+      }
+    );
+
+    act(() => {
+      render(<App />);
+    });
+
+    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    act(() => {
+      fireEvent.click(searchTab);
+    });
+
+    const searchInput = await screen.findByPlaceholderText('Start typing name...');
+    act(() => {
+      fireEvent.change(searchInput, { target: { value: 'Ale' } });
+    });
+
+    const suggestion = await screen.findByText(/Rivera, Alex/);
+    act(() => {
+      fireEvent.click(suggestion);
+    });
+
+    expect(await screen.findByRole('button', { name: 'Start Checkin' })).toBeDefined();
+
+    let socketWithHandler: MockRealtimeSocket | null = null;
+    await waitFor(() => {
+      expect(createdSockets.length).toBeGreaterThan(0);
+      socketWithHandler =
+        createdSockets.find((w) => w.url.includes('lane=lane-1')) ?? createdSockets[0] ?? null;
+      expect(socketWithHandler).not.toBeNull();
+    });
+
+    act(() => {
+      emitRealtime(socketWithHandler, {
+        type: 'SESSION_UPDATED',
+        timestamp: new Date().toISOString(),
+        payload: {
+          status: 'COMPLETED',
+          customerName: '',
+        },
+      });
+    });
+
+    expect(await screen.findByRole('button', { name: 'Start Checkin' })).toBeDefined();
+    expect(screen.queryByText('Scan Now')).toBeNull();
+  });
+
   it('shows transaction completion modal (with PDF verify + complete) after assignment + agreement signed', async () => {
     const App = getApp();
     localStorage.setItem(

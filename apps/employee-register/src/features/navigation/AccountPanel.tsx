@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CustomerProfileCard } from '../../components/register/CustomerProfileCard';
 import { EmployeeAssistPanel } from '../../components/register/EmployeeAssistPanel';
 import { CustomerAccountPanel } from '../../components/register/panels/CustomerAccountPanel';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
@@ -329,40 +328,6 @@ export function AccountPanel() {
           }}
         >
           <PanelHeader title="Customer Account" spacing="none" />
-          <CustomerProfileCard
-            name={customerName}
-            preferredLanguage={customerPrimaryLanguage || null}
-            dob={customerDob || null}
-            dobMonthDay={customerDobMonthDay || null}
-            membershipNumber={membershipNumber || null}
-            idNumber={customerIdNumber || null}
-            membershipValidUntil={customerMembershipValidUntil || null}
-            lastVisitAt={customerLastVisitAt || null}
-            idExpirationDate={customerIdExpirationDate || null}
-            idType={customerIdType || null}
-            idTypeOther={customerIdTypeOther || null}
-            hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
-            checkinStage={checkinStage}
-            waitlistDesiredTier={waitlistDesiredTier}
-            waitlistBackupType={waitlistBackupType}
-            footer={
-              checkinStage ? (
-                <button
-                  type="button"
-                  className="cs-liquid-button cs-liquid-button--danger"
-                  onClick={() => void handleClearSession().then(() => selectNavTab('scan'))}
-                  style={{
-                    width: '100%',
-                    maxWidth: 320,
-                    padding: '0.7rem',
-                    fontWeight: 900,
-                  }}
-                >
-                  Clear Session
-                </button>
-              ) : null
-            }
-          />
           <EmployeeAssistPanel
             sessionId={currentSessionId}
             customerName={customerName}
@@ -380,6 +345,38 @@ export function AccountPanel() {
             inventoryAvailable={inventorySnapshot}
             isSubmitting={isSubmitting}
             directSelect={directSelect}
+            profile={{
+              name: customerName,
+              preferredLanguage: customerPrimaryLanguage || null,
+              dob: customerDob || null,
+              dobMonthDay: customerDobMonthDay || null,
+              membershipNumber: membershipNumber || null,
+              idNumber: customerIdNumber || null,
+              membershipValidUntil: customerMembershipValidUntil || null,
+              lastVisitAt: customerLastVisitAt || null,
+              idExpirationDate: customerIdExpirationDate || null,
+              idType: customerIdType || null,
+              idTypeOther: customerIdTypeOther || null,
+              hasEncryptedLookupMarker: Boolean(laneSession.customerHasEncryptedLookupMarker),
+              checkinStage,
+            }}
+            clearSessionButton={
+              checkinStage ? (
+                <button
+                  type="button"
+                  className="cs-liquid-button cs-liquid-button--danger"
+                  onClick={() => void handleClearSession().then(() => selectNavTab('scan'))}
+                  style={{
+                    width: '100%',
+                    maxWidth: 320,
+                    padding: '0.7rem',
+                    fontWeight: 900,
+                  }}
+                >
+                  Clear Session
+                </button>
+              ) : null
+            }
             {...employeeAssistInteractionProps}
           />
         </div>

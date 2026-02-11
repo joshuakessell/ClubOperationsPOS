@@ -52,6 +52,7 @@ export function SelectionScreen({
       : membershipStatus === 'PENDING' || membershipChoice === 'SIX_MONTH'
         ? t(lang, 'membership.pending')
         : t(lang, 'membership.nonMember');
+  const isPendingMembership = membershipStatus === 'PENDING' || membershipChoice === 'SIX_MONTH';
 
   const canInteract =
     !isSubmitting &&
@@ -82,7 +83,15 @@ export function SelectionScreen({
           <main className="main-content">
             <div className="customer-info">
               <h1 className="customer-name">{session.customerName || t(lang, 'welcome')}</h1>
-              <div className="customer-membership-subheader">{membershipLabel}</div>
+              <div
+                className={
+                  isPendingMembership
+                    ? 'customer-membership-subheader customer-membership-subheader--pending'
+                    : 'customer-membership-subheader'
+                }
+              >
+                {membershipLabel}
+              </div>
             </div>
 
             {notice && (

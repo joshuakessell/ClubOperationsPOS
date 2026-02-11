@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useState } from 'react';
+import { type ReactNode, useEffect, useMemo, useState } from 'react';
+import { getCustomerMembershipStatus } from '@club-ops/shared';
 import { EmployeeAssistStepContent } from './employee-assist/EmployeeAssistStepContent';
 import type { EmployeeAssistStep, PendingState, RentalButton } from './employee-assist/types';
+import { CustomerProfileCard } from './CustomerProfileCard';
 
 export interface EmployeeAssistPanelProps {
   sessionId: string;
@@ -32,7 +34,7 @@ export interface EmployeeAssistPanelProps {
   onConfirmLanguage: (lang: 'EN' | 'ES') => Promise<void> | void;
 
   onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) => void;
-  onConfirmMembershipOneTime: () => Promise<void> | void;
+  onConfirmMembershipOneTime?: () => Promise<void> | void;
   onConfirmMembershipSixMonth: () => Promise<void> | void;
 
   onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => Promise<void> | void;
@@ -50,6 +52,23 @@ export interface EmployeeAssistPanelProps {
     rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
+
+  profile?: {
+    name: string;
+    preferredLanguage?: 'EN' | 'ES' | null;
+    dob?: string | null;
+    dobMonthDay?: string | null;
+    idNumber?: string | null;
+    idExpirationDate?: string | null;
+    idType?: 'STATE_ID' | 'DRIVERS_LICENSE' | 'PASSPORT' | 'OTHER' | null;
+    idTypeOther?: string | null;
+    membershipNumber?: string | null;
+    membershipValidUntil?: string | null;
+    lastVisitAt?: string | null;
+    hasEncryptedLookupMarker?: boolean;
+    checkinStage?: { number: 1 | 2 | 3 | 4 | 5 | 6; label: string } | null;
+  };
+  clearSessionButton?: ReactNode;
 }
 
 export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
@@ -69,7 +88,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     onHighlightLanguage,
     onConfirmLanguage,
     onHighlightMembership,
-    onConfirmMembershipOneTime,
     onConfirmMembershipSixMonth,
     onHighlightRental,
     onHighlightWaitlistBackup,
@@ -77,11 +95,23 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     onDirectSelectWaitlistBackup,
     onApproveRental,
     onDirectSelectRental,
+    profile,
+    clearSessionButton,
   } = props;
 
   const [pending, setPending] = useState<PendingState>(null);
 
   const isLanguageNeeded = !customerPrimaryLanguage;
+  const membershipStatus = getCustomerMembershipStatus(
+    {
+      membershipNumber: props.membershipNumber || null,
+      membershipValidUntil: props.customerMembershipValidUntil || null,
+    },
+    new Date()
+  );
+  const isMembershipPending =
+    props.membershipPurchaseIntent === 'PURCHASE' || props.membershipChoice === 'SIX_MONTH';
+  const showSixMonthMembershipAdd = membershipStatus !== 'ACTIVE' && !isMembershipPending;
   const step: EmployeeAssistStep = useMemo(() => {
     if (!sessionId || !customerName) return 'DONE';
     if (isLanguageNeeded) return 'LANGUAGE';
@@ -221,21 +251,54 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
           marginTop: '0.75rem',
           overflowY: 'auto',
           paddingRight: '0.25rem',
+          display: 'grid',
+          gap: '0.7rem',
+          alignContent: 'start',
         }}
       >
+        {profile ? (
+          <div
+            className="cs-liquid-card"
+            style={{
+              padding: '0.65rem 0.75rem',
+              border: '1px solid rgba(148, 163, 184, 0.28)',
+              background: 'rgba(15, 23, 42, 0.45)',
+            }}
+          >
+            <CustomerProfileCard
+              compact
+              name={profile.name}
+              preferredLanguage={profile.preferredLanguage}
+              dob={profile.dob}
+              dobMonthDay={profile.dobMonthDay}
+              idNumber={profile.idNumber}
+              idExpirationDate={profile.idExpirationDate}
+              idType={profile.idType}
+              idTypeOther={profile.idTypeOther}
+              membershipNumber={profile.membershipNumber}
+              membershipValidUntil={profile.membershipValidUntil}
+              lastVisitAt={profile.lastVisitAt}
+              hasEncryptedLookupMarker={profile.hasEncryptedLookupMarker}
+              checkinStage={profile.checkinStage}
+              waitlistDesiredTier={waitlistDesiredTier}
+              waitlistBackupType={waitlistBackupType}
+              footer={clearSessionButton}
+            />
+          </div>
+        ) : null}
         <EmployeeAssistStepContent
           step={step}
           directSelect={directSelect}
           isSubmitting={isSubmitting}
           pending={pending}
           setPending={setPending}
+          showSixMonthMembershipAdd={showSixMonthMembershipAdd}
           waitlistDesiredTier={waitlistDesiredTier}
           rentalButtons={rentalButtons}
           waitlistBackupButtons={waitlistBackupButtons}
           onHighlightLanguage={onHighlightLanguage}
           onConfirmLanguage={onConfirmLanguage}
           onHighlightMembership={onHighlightMembership}
-          onConfirmMembershipOneTime={onConfirmMembershipOneTime}
           onConfirmMembershipSixMonth={onConfirmMembershipSixMonth}
           onHighlightRental={onHighlightRental}
           onApproveRental={onApproveRental}

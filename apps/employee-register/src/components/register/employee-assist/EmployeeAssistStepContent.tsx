@@ -15,13 +15,13 @@ type Props = {
   isSubmitting: boolean;
   pending: PendingState;
   setPending: (next: PendingState) => void;
+  showSixMonthMembershipAdd?: boolean;
   waitlistDesiredTier?: string | null;
   rentalButtons: RentalButton[];
   waitlistBackupButtons: RentalButton[];
   onHighlightLanguage: (lang: LanguageOption | null) => void;
   onConfirmLanguage: (lang: LanguageOption) => Promise<void> | void;
   onHighlightMembership: (choice: MembershipOption | null) => void;
-  onConfirmMembershipOneTime: () => Promise<void> | void;
   onConfirmMembershipSixMonth: () => Promise<void> | void;
   onHighlightRental: (rental: RentalOption) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
@@ -38,12 +38,12 @@ export function EmployeeAssistStepContent({
   pending,
   setPending,
   waitlistDesiredTier,
+  showSixMonthMembershipAdd = true,
   rentalButtons,
   waitlistBackupButtons,
   onHighlightLanguage,
   onConfirmLanguage,
   onHighlightMembership,
-  onConfirmMembershipOneTime,
   onConfirmMembershipSixMonth,
   onHighlightRental,
   onApproveRental,
@@ -189,6 +189,9 @@ export function EmployeeAssistStepContent({
   }
 
   if (step === 'RENTAL') {
+    const unavailableJoinTarget =
+      rentalButtons.find((btn) => btn.allowed && btn.count === 0)?.id ?? null;
+
     return (
       <div style={{ display: 'grid', gap: '0.75rem' }}>
         <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
@@ -196,59 +199,46 @@ export function EmployeeAssistStepContent({
             ? 'Tap once to select a rental.'
             : 'Tap once to propose on kiosk, tap again to confirm.'}
         </div>
-        <div style={{ display: 'grid', gap: '0.6rem' }}>
-          {(
-            [
-              { id: 'ONE_TIME' as const, label: 'One-time Membership (default)' },
-              { id: 'SIX_MONTH' as const, label: 'Add 6-Month Membership' },
-            ] as const
-          ).map((opt) => {
-            const isPending = pending?.step === 'RENTAL_ADDON' && pending.option === opt.id;
-            return (
-              <button
-                key={opt.id}
-                type="button"
-                className={[
-                  'cs-liquid-button',
-                  isPending ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
-                ].join(' ')}
-                disabled={isSubmitting}
-                onClick={() => {
-                  if (directSelect) {
-                    if (opt.id === 'ONE_TIME') {
-                      void onConfirmMembershipOneTime();
-                      return;
-                    }
+        {showSixMonthMembershipAdd ? (
+          <div style={{ display: 'grid', gap: '0.6rem' }}>
+            <button
+              type="button"
+              className={[
+                'cs-liquid-button',
+                pending?.step === 'RENTAL_ADDON' && pending.option === 'SIX_MONTH'
+                  ? 'cs-liquid-button--selected'
+                  : 'cs-liquid-button--secondary',
+              ].join(' ')}
+              disabled={isSubmitting}
+              onClick={() => {
+                const isPending =
+                  pending?.step === 'RENTAL_ADDON' && pending.option === 'SIX_MONTH';
+                if (directSelect) {
+                  void onConfirmMembershipSixMonth();
+                  return;
+                }
+                runTwoStep(
+                  'RENTAL_ADDON',
+                  'SIX_MONTH',
+                  isPending,
+                  () => onHighlightMembership('SIX_MONTH'),
+                  () => {
                     void onConfirmMembershipSixMonth();
-                    return;
-                  }
-                  runTwoStep(
-                    'RENTAL_ADDON',
-                    opt.id,
-                    isPending,
-                    () => onHighlightMembership(opt.id),
-                    () => {
-                      if (opt.id === 'ONE_TIME') {
-                        void onConfirmMembershipOneTime();
-                        return;
-                      }
-                      void onConfirmMembershipSixMonth();
-                    },
-                    () => onHighlightMembership(null)
-                  );
-                }}
-                style={{ width: '100%', padding: '0.75rem 1rem', fontWeight: 900 }}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
+                  },
+                  () => onHighlightMembership(null)
+                );
+              }}
+              style={{ width: '100%', padding: '0.75rem 1rem', fontWeight: 900 }}
+            >
+              Add 6-Month Membership
+            </button>
+          </div>
+        ) : null}
         <div style={{ display: 'grid', gap: '0.6rem' }}>
           {rentalButtons.map((btn) => {
             const isPending = pending?.step === 'RENTAL' && pending.option === btn.id;
             const { label: countLabel, tone } = remainingCountLabel(btn.count);
-            const disabled = isSubmitting || !btn.allowed;
+            const disabled = isSubmitting || !btn.allowed || btn.count === 0;
             const toneClass =
               tone === 'none'
                 ? 'cs-liquid-button--secondary'
@@ -308,6 +298,25 @@ export function EmployeeAssistStepContent({
             );
           })}
         </div>
+
+        {unavailableJoinTarget ? (
+          <button
+            type="button"
+            className="cs-liquid-button cs-liquid-button--secondary"
+            disabled={isSubmitting}
+            onClick={() => {
+              if (isSubmitting) return;
+              if (directSelect && onDirectSelectRental) {
+                void onDirectSelectRental(unavailableJoinTarget);
+                return;
+              }
+              void onHighlightRental(unavailableJoinTarget);
+            }}
+            style={{ width: '100%', padding: '0.85rem 1rem', fontWeight: 900 }}
+          >
+            Join the Waiting List
+          </button>
+        ) : null}
       </div>
     );
   }

@@ -52,25 +52,25 @@ describe('EmployeeAssistPanel', () => {
       membershipChoice: null,
     };
     render(<EmployeeAssistPanel {...props} />);
-    expect(screen.queryByRole('button', { name: 'One-time Membership' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Add 6-Month Membership' })).toBeNull();
     expect(screen.getByText('Step: RENTAL')).toBeTruthy();
   });
 
-  it('MEMBERSHIP step: first tap highlights, second tap confirms ONE_TIME', () => {
+  it('RENTAL step: first tap highlights, second tap confirms 6-month add-on', () => {
     const props = {
       ...baseProps(),
       customerPrimaryLanguage: 'EN' as const,
     };
     render(<EmployeeAssistPanel {...props} />);
 
-    const oneTime = screen.getByRole('button', { name: 'One-time Membership' });
-    fireEvent.click(oneTime);
-    expect(props.onHighlightMembership).toHaveBeenCalledWith('ONE_TIME');
-    expect(props.onConfirmMembershipOneTime).not.toHaveBeenCalled();
+    const addMembership = screen.getByRole('button', { name: 'Add 6-Month Membership' });
+    fireEvent.click(addMembership);
+    expect(props.onHighlightMembership).toHaveBeenCalledWith('SIX_MONTH');
+    expect(props.onConfirmMembershipSixMonth).not.toHaveBeenCalled();
 
-    fireEvent.click(oneTime);
+    fireEvent.click(addMembership);
     expect(props.onHighlightMembership).toHaveBeenCalledWith(null);
-    expect(props.onConfirmMembershipOneTime).toHaveBeenCalled();
+    expect(props.onConfirmMembershipSixMonth).toHaveBeenCalled();
   });
 
   it('RENTAL step: buttons are in required order and show exact counts', () => {
@@ -97,6 +97,24 @@ describe('EmployeeAssistPanel', () => {
     expect(screen.getByText(/\b10 remaining\b/)).toBeTruthy();
     expect(screen.getByText(/\b8 remaining\b/)).toBeTruthy();
     expect(screen.getByText(/\b2 remaining\b/)).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Join the Waiting List' })).toBeNull();
+  });
+
+  it('RENTAL step: disables unavailable rentals and shows Join the Waiting List', () => {
+    const props = {
+      ...baseProps(),
+      customerPrimaryLanguage: 'EN' as const,
+      membershipChoice: 'ONE_TIME' as const,
+      inventoryAvailable: { rooms: { STANDARD: 0, DOUBLE: 8, SPECIAL: 2 }, lockers: 12 },
+    };
+    render(<EmployeeAssistPanel {...props} />);
+
+    const standard = screen.getByRole('button', { name: /Propose Standard/i });
+    expect(standard.hasAttribute('disabled')).toBe(true);
+
+    const joinWaitlist = screen.getByRole('button', { name: 'Join the Waiting List' });
+    fireEvent.click(joinWaitlist);
+    expect(props.onHighlightRental).toHaveBeenCalledWith('STANDARD');
   });
 
   it('RENTAL step: first tap proposes, second tap confirms', () => {

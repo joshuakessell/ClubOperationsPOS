@@ -269,6 +269,10 @@ body {
   font-weight: 700;
 }
 
+.customer-membership-subheader--pending {
+  color: #60a5fa;
+}
+
 .membership-number {
   font-size: clamp(1rem, 2.5vw, 1.5rem);
   color: var(--text-muted);
