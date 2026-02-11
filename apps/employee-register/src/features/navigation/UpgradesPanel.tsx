@@ -8,7 +8,7 @@ export function UpgradesPanel() {
     hasEligibleEntries,
     isEntryOfferEligible,
     openOfferUpgradeModal,
-    selectHomeTab,
+    selectNavTab,
     resetUpgradeState,
     setSelectedWaitlistEntry,
     handleStartUpgradePayment,
@@ -35,7 +35,7 @@ export function UpgradesPanel() {
           const entry = waitlistEntries.find((e: { id: string }) => e.id === entryId);
           if (!entry) return;
           openOfferUpgradeModal(entry);
-          selectHomeTab('upgrades');
+          selectNavTab('upgrades');
         }}
         onStartPayment={(entry) => {
           resetUpgradeState();

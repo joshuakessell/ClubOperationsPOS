@@ -7,6 +7,7 @@ describe('Health endpoint', () => {
 
   beforeAll(async () => {
     fastify = Fastify();
+    fastify.decorate('dbHealthy', true);
     await fastify.register(healthRoutes);
     await fastify.ready();
   });

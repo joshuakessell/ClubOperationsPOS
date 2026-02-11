@@ -6,7 +6,7 @@ export function ScanPanel() {
   const {
     currentSessionId,
     customerName,
-    selectHomeTab,
+    selectNavTab,
     scanReady,
     scanBlockedReason,
     scanInputRef,
@@ -53,7 +53,7 @@ export function ScanPanel() {
           <button
             type="button"
             className="cs-liquid-button"
-            onClick={() => selectHomeTab('account')}
+            onClick={() => selectNavTab('account')}
             style={{ width: '100%', padding: '0.75rem', fontWeight: 900 }}
           >
             Open Customer Account

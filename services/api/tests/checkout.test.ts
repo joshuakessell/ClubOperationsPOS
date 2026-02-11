@@ -4,7 +4,7 @@ import pg from 'pg';
 import { checkoutRoutes } from '../src/routes/checkout.js';
 import { visitRoutes } from '../src/routes/visits.js';
 import { waitlistRoutes } from '../src/routes/waitlist.js';
-import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
 import { RoomStatus } from '@club-ops/shared';
 import { truncateAllTables } from './testDb.js';
 
@@ -95,6 +95,7 @@ declare module 'fastify' {
 }
 
 describe('Checkout Flow', () => {
+  let previousDemoMode: string | undefined;
   let fastify: FastifyInstance;
   let pool: pg.Pool;
   let testCustomerId: string;
@@ -108,6 +109,9 @@ describe('Checkout Flow', () => {
   let broadcastEvents: any[] = [];
 
   beforeAll(async () => {
+    previousDemoMode = process.env.DEMO_MODE;
+    process.env.DEMO_MODE = 'false';
+
     // Initialize database connection
     const config = {
       host: process.env.DB_HOST || 'localhost',
@@ -204,6 +208,12 @@ describe('Checkout Flow', () => {
     await pool.query('DELETE FROM staff WHERE id = $1', [testStaffId]);
     await pool.query('DELETE FROM customers WHERE id = $1', [testCustomerId]);
     await pool.end();
+
+    if (previousDemoMode === undefined) {
+      delete process.env.DEMO_MODE;
+    } else {
+      process.env.DEMO_MODE = previousDemoMode;
+    }
   });
 
   beforeEach(async () => {

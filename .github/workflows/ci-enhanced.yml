@@ -1,0 +1,183 @@
+name: CI (Enhanced)
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    name: Validate build & types
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --prod=false
+        env:
+          NODE_ENV: development
+          NPM_CONFIG_PRODUCTION: 'false'
+          PNPM_PRODUCTION: 'false'
+
+      - name: Build (Turbo)
+        run: pnpm turbo run build
+        env:
+          VITE_KIOSK_TOKEN: test-kiosk-token
+          VITE_API_BASE_URL: https://api-demo.joshuakessell.com
+
+      - name: Typecheck (Turbo)
+        run: pnpm turbo run typecheck
+
+      - name: Lint (Turbo)
+        run: pnpm turbo run lint
+
+      - name: Spec compliance check
+        run: pnpm spec:check
+
+  docker-validate:
+    name: Docker build validation
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - { name: api, dockerfile: Dockerfile.api, context: "." }
+          - { name: customer-kiosk, dockerfile: Dockerfile.customer-kiosk, context: "." }
+          - { name: employee-register, dockerfile: Dockerfile.employee-register, context: "." }
+          - { name: office-dashboard, dockerfile: Dockerfile.office-dashboard, context: "." }
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service.name }} image
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.service.context }}
+          file: ${{ matrix.service.dockerfile }}
+          push: false
+          tags: club-ops-${{ matrix.service.name }}:ci-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.service.name }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
+          build-args: |
+            VITE_API_BASE_URL=/api
+            VITE_KIOSK_TOKEN=test-token
+
+      - name: Inspect image
+        run: |
+          docker buildx imagetools inspect club-ops-${{ matrix.service.name }}:ci-${{ github.sha }} || true
+
+  docker-compose-test:
+    name: Docker Compose integration test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create .env file
+        run: |
+          cat > .env << EOF
+          KIOSK_TOKEN=test-kiosk-token
+          DB_NAME=club_operations_test
+          DB_USER=clubops
+          DB_PASSWORD=club-ops-test-pass
+          DB_PORT=5433
+          PORT=3000
+          DEMO_MODE=true
+          SEED_ON_STARTUP=true
+          EOF
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker images
+        run: docker compose build --parallel
+
+      - name: Start services
+        run: docker compose up -d
+
+      - name: Wait for API health
+        run: |
+          timeout 60 bash -c 'until curl -f http://localhost:3000/health; do sleep 2; done'
+
+      - name: Check service status
+        run: docker compose ps
+
+      - name: Test API endpoint
+        run: |
+          curl -f http://localhost:3000/health
+          echo "API health check passed"
+
+      - name: Test customer-kiosk accessibility
+        run: |
+          curl -f http://localhost:5173/ -I
+          echo "Customer kiosk accessible"
+
+      - name: Test employee-register accessibility
+        run: |
+          curl -f http://localhost:5175/ -I
+          echo "Employee register accessible"
+
+      - name: Show logs on failure
+        if: failure()
+        run: docker compose logs
+
+      - name: Teardown
+        if: always()
+        run: docker compose down -v
+
+  security-scan:
+    name: Security scan
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run Trivy vulnerability scanner (repo)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'

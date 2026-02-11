@@ -35,8 +35,8 @@ export function AccountPanel() {
     openRenewalSelection,
     startCheckoutFromCustomerAccount,
     handleClearSession,
-    selectHomeTab,
-    returnToPreviousHomeTab,
+    selectNavTab,
+    returnToPreviousTab,
     currentSessionId,
     laneSession,
     customerName,
@@ -176,8 +176,8 @@ export function AccountPanel() {
         autoStartCheckin={accountAutoStartCheckin}
         onStartCheckout={startCheckoutFromCustomerAccount}
         onStartRenewal={(activeCheckin) => openRenewalSelection(activeCheckin)}
-        onClearSession={() => void handleClearSession().then(() => selectHomeTab('scan'))}
-        onGoBack={returnToPreviousHomeTab}
+        onClearSession={() => void handleClearSession().then(() => selectNavTab('scan'))}
+        onGoBack={returnToPreviousTab}
         currentSessionId={currentSessionId}
         currentSessionCustomerId={laneSession.customerId}
         customerName={customerName}
@@ -289,7 +289,7 @@ export function AccountPanel() {
                 <button
                   type="button"
                   className="cs-liquid-button cs-liquid-button--danger"
-                  onClick={() => void handleClearSession().then(() => selectHomeTab('scan'))}
+                  onClick={() => void handleClearSession().then(() => selectNavTab('scan'))}
                   style={{
                     width: '100%',
                     maxWidth: 320,

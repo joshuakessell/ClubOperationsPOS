@@ -1,20 +1,35 @@
 ## CI and Deployment Rules
 
-- Production deployments are currently paused; local testing is the source of truth.
-- Vercel and Render are no longer used (services cancelled).
-- AWS deployment approach is in progress and should be documented here once finalized.
+### Deployment Architecture
 
-Agents MUST NOT:
+The system uses AWS infrastructure:
+- **API**: AWS App Runner (auto-scaling containers from ECR)
+- **Frontends**: S3 + CloudFront (static hosting)
+- **Database**: AWS RDS Postgres
+- **Realtime**: AWS AppSync Events
 
-- Add deploy scripts or platform-specific deployment code
-- Modify deployment platform behavior or infrastructure code without an explicit request
-- Add GitHub Actions that perform deployments
+### Environments
+
+- **Demo/Development**: Auto-deploys on every push to `main`
+  - URL: https://api-demo.joshuakessell.com, https://employee-demo.joshuakessell.com, https://customer-demo.joshuakessell.com
+  - Demo mode enabled with automatic data reseeding
+- **Production**: Deploys on git tags matching `v*` pattern
+  - Configured via GitHub secrets with `_PROD` suffix
+  - Demo mode disabled, migrations run automatically
 
 Agents MUST:
 
-- Use Turbo for builds (pnpm turbo run ...)
-- Ensure pnpm build and typecheck pass before committing
-- Keep API build output deterministic at dist/index.js
+- Use Turbo for builds (`pnpm turbo run build`)
+- Ensure quality gates pass before committing: `pnpm lint && pnpm typecheck && pnpm spec:check`
+- Keep API build output deterministic at `services/api/dist/index.js`
+- Consult `docs/DEPLOYMENT.md` before modifying deployment pipelines
+- Test Docker builds locally before pushing changes to Dockerfiles
+
+Agents MUST NOT:
+
+- Modify deployment scripts or infrastructure code without explicit request
+- Change GitHub Actions workflows without understanding the full deployment pipeline
+- Add new environment variables without updating both `.env.example` and deployment docs
 
 ## Code-Writing Docs (Index)
 

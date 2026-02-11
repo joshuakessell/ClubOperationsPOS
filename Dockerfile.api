@@ -12,6 +12,17 @@ COPY services/api/package.json ./services/api/package.json
 RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
     pnpm install --prod --frozen-lockfile
 
+# Build stage - build TypeScript to JavaScript
+FROM base AS builder
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json tsconfig.base.json tsconfig.json ./
+COPY packages/shared/ ./packages/shared/
+COPY services/api/ ./services/api/
+
+RUN --mount=type=cache,target=/root/.local/share/pnpm/store \
+    pnpm install --frozen-lockfile
+
+RUN pnpm turbo run build --filter=@club-ops/api
+
 # Production stage - minimal runtime
 FROM node:22-alpine AS runner
 WORKDIR /repo
@@ -29,9 +40,9 @@ COPY --from=deps /repo/node_modules ./node_modules
 COPY --from=deps /repo/packages/shared/node_modules ./packages/shared/node_modules
 COPY --from=deps /repo/services/api/node_modules ./services/api/node_modules
 
-# Copy prebuilt artifacts and certificate
-COPY packages/shared/dist ./packages/shared/dist
-COPY services/api/dist ./services/api/dist
+# Copy built artifacts and certificate
+COPY --from=builder /repo/packages/shared/dist ./packages/shared/dist
+COPY --from=builder /repo/services/api/dist ./services/api/dist
 COPY services/api/certs/rds-ca-bundle.pem ./services/api/certs/rds-ca-bundle.pem
 
 EXPOSE 3000

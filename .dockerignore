@@ -1,37 +1,42 @@
-.git
-.gitignore
-.github
-node_modules
-**/node_modules
-**/dist
-!packages/shared/dist
-!packages/shared/dist/**
-!services/api/dist
-!services/api/dist/**
-**/build
-**/.turbo
-**/.cache
-**/coverage
-**/.env
-**/.env.*
-**/.DS_Store
-**/tmp
-**/logs
-**/*.log
-**/pnpm-debug.log
+# Dependencies
+node_modules/
+.pnpm-store/
 
-# allow build artifacts needed for API image
-!services/api/dist
-!services/api/dist/**
-!packages/shared
-!packages/shared/**
-!packages/shared/dist
-!packages/shared/dist/**
+# Build outputs (will be copied explicitly)
+dist/
+build/
+.turbo/
 
-# allow build artifacts needed for API image
-!services/api/dist
-!services/api/dist/**
-!packages/shared
-!packages/shared/**
-!packages/shared/dist
-!packages/shared/dist/**
+# Development
+.git/
+.vscode/
+.idea/
+*.log
+*.lock
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Test files
+coverage/
+*.test.ts
+*.spec.ts
+**/__tests__/
+**/__mocks__/
+
+# Documentation
+*.md
+!package.json
+!pnpm-*.yaml
+
+# CI/CD
+.github/
+artifacts/
+
+# Misc
+.DS_Store
+*.swp
+*.swo
+*~

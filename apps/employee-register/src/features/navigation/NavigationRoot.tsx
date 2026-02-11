@@ -10,14 +10,13 @@ import { CheckoutPanel } from './CheckoutPanel';
 import { RoomCleaningPanel } from './RoomCleaningPanel';
 import { ManualEntryPanel } from './ManualEntryPanel';
 import { RetailPanel } from './RetailPanel';
-import type { HomeTab } from '../../app/state/shared/types';
+import type { NavTab } from '../../app/state/shared/types';
 import { RegisterShell, type ShellNavKey, type ShellNavItem } from '../shell/RegisterShell';
-import { HomeScreen } from '../home/HomeScreen';
 import { CheckoutWorkspace } from '../workspace/CheckoutWorkspace';
 
 export function NavigationRoot() {
   const {
-    homeTab,
+    navTab,
     checkoutRequests,
     selectedCheckoutRequest,
     checkoutItemsConfirmed,
@@ -32,20 +31,18 @@ export function NavigationRoot() {
     setCheckoutChecklist,
     setCheckoutItemsConfirmed,
     setCheckoutFeePaid,
-    selectHomeTab,
-    startCheckoutFromHome,
+    selectNavTab,
+    startCheckout,
     lane,
     realtimeConnected,
-    currentSessionId,
     inventoryHasLate,
     hasEligibleEntries,
     canOpenAccountTab,
   } = useEmployeeRegisterState();
 
-  const active = homeTabToShellKey(homeTab);
+  const active = navTabToShellKey(navTab);
 
   const items: ShellNavItem[] = [
-    { key: 'home', label: 'Home', icon: <span aria-hidden="true">🏠</span> },
     { key: 'scan', label: 'Scan', icon: <span aria-hidden="true">📷</span> },
     {
       key: 'search',
@@ -126,37 +123,17 @@ export function NavigationRoot() {
             items={items}
           >
             <div style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-              {active === 'home' ? (
-                <HomeScreen
-                  onStartScan={() => selectHomeTab('scan')}
-                  onStartSearch={() => selectHomeTab('search')}
-                  onStartManualEntry={() => selectHomeTab('firstTime')}
-                  onOpenInventory={() => selectHomeTab('inventory')}
-                  onOpenUpgrades={() => selectHomeTab('upgrades')}
-                  onOpenCheckout={() => startCheckoutFromHome()}
-                  onOpenRoomCleaning={() => selectHomeTab('roomCleaning')}
-                  onOpenRetail={() => selectHomeTab('retail')}
-                  health={{
-                    realtimeConnected,
-                  }}
-                  laneStatus={{
-                    activeLaneLabel: lane,
-                    activeSessionId: currentSessionId ?? undefined,
-                  }}
-                />
-              ) : null}
-
-              {homeTab === 'scan' && <ScanPanel />}
-              {homeTab === 'account' && <AccountPanel />}
-              {homeTab === 'search' && <SearchPanel />}
-              {homeTab === 'inventory' && <InventoryPanel />}
-              {homeTab === 'upgrades' && <UpgradesPanel />}
-              {homeTab === 'checkout' && (
+              {navTab === 'scan' && <ScanPanel />}
+              {navTab === 'account' && <AccountPanel />}
+              {navTab === 'search' && <SearchPanel />}
+              {navTab === 'inventory' && <InventoryPanel />}
+              {navTab === 'upgrades' && <UpgradesPanel />}
+              {navTab === 'checkout' && (
                 <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />
               )}
-              {homeTab === 'roomCleaning' && <RoomCleaningPanel />}
-              {homeTab === 'firstTime' && <ManualEntryPanel />}
-              {homeTab === 'retail' && <RetailPanel />}
+              {navTab === 'roomCleaning' && <RoomCleaningPanel />}
+              {navTab === 'firstTime' && <ManualEntryPanel />}
+              {navTab === 'retail' && <RetailPanel />}
             </div>
           </RegisterShell>
         </section>
@@ -165,32 +142,27 @@ export function NavigationRoot() {
   );
 
   function selectShellNav(key: ShellNavKey) {
-    if (key === 'home') {
-      selectHomeTab('home');
-      return;
-    }
-
     if (key === 'manual') {
-      selectHomeTab('firstTime');
+      selectNavTab('firstTime');
       return;
     }
 
     if (key === 'checkout') {
-      startCheckoutFromHome();
+      startCheckout();
       return;
     }
 
     if (key === 'account') {
       if (canOpenAccountTab) {
-        selectHomeTab('account');
+        selectNavTab('account');
       }
       return;
     }
 
-    selectHomeTab(key);
+    selectNavTab(key);
   }
 }
 
-function homeTabToShellKey(tab: HomeTab): ShellNavKey {
+function navTabToShellKey(tab: NavTab): ShellNavKey {
   return tab === 'firstTime' ? 'manual' : (tab as ShellNavKey);
 }

@@ -3,7 +3,7 @@ import Fastify, { FastifyInstance } from 'fastify';
 import cors from '@fastify/cors';
 import websocket from '@fastify/websocket';
 import { query, initializeDatabase, closeDatabase } from '../src/db/index.js';
-import { createBroadcaster, type Broadcaster } from '../src/websocket/broadcaster.js';
+import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
 import { checkinRoutes } from '../src/routes/checkin.js';
 import { customerRoutes } from '../src/routes/customers.js';
 import { inventoryRoutes } from '../src/routes/inventory.js';

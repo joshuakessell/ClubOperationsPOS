@@ -45,10 +45,6 @@
   --er-viewport-gap: 16px;
   /* Small inset so tabs/rails don't touch the toolbar or bottom edge */
   --er-rail-gap: 12px;
-  /* Left home rail width (fixed-position, like right drawer tabs) */
-  --er-home-rail-width: 210px;
-  /* Space between left rail buttons and the right-side card content */
-  --er-home-content-gap: 16px;
 }
 
 /* ------------------------------------------------------------
@@ -905,17 +901,11 @@ body::after {
   padding-bottom: var(--er-viewport-gap);
 }
 
-/* Make the home actions area occupy the remaining height so the left rail is height-stable
-   (Clear Session stays pinned to the bottom regardless of right-panel content height). */
+/* Make the actions area occupy remaining height. */
 .actions-panel {
   flex: 1;
   min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.actions-panel > .er-home-layout {
-  flex: 1;
-  min-height: 0;
 }

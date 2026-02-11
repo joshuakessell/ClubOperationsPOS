@@ -7,7 +7,7 @@ import type {
 } from '@club-ops/shared';
 import { useRegisterRealtimeEvents } from '../../useRegisterRealtimeEvents';
 import type { BottomToast } from '../../../components/register/toasts/BottomToastStack';
-import type { HomeTab } from '../shared/types';
+import type { NavTab } from '../shared/types';
 
 type LaneSessionActions = {
   applySessionUpdated: (payload: SessionUpdatedPayload) => void;
@@ -58,7 +58,7 @@ type Params = {
   setCurrentSessionCustomerId: (value: string | null) => void;
   setAccountCustomerId: (value: string | null) => void;
   setAccountCustomerLabel: (value: string | null) => void;
-  selectHomeTab: (value: HomeTab) => void;
+  selectNavTab: (value: NavTab) => void;
   pushBottomToast: (toast: Omit<BottomToast, 'id'> & { id?: string }, ttlMs?: number) => void;
   setShowCustomerConfirmationPending: (value: boolean) => void;
   setCustomerConfirmationType: (value: CustomerConfirmationType | null) => void;
@@ -86,7 +86,7 @@ export function useRegisterRealtimeState({
   setCurrentSessionCustomerId,
   setAccountCustomerId,
   setAccountCustomerLabel,
-  selectHomeTab,
+  selectNavTab,
   pushBottomToast,
   setShowCustomerConfirmationPending,
   setCustomerConfirmationType,
@@ -142,7 +142,7 @@ export function useRegisterRealtimeState({
       setCurrentSessionCustomerId(null);
       setAccountCustomerId(null);
       setAccountCustomerLabel(null);
-      selectHomeTab('scan');
+      selectNavTab('scan');
     },
     pushBottomToast,
     onAssignmentFailed: (payload: AssignmentFailedPayload) => {

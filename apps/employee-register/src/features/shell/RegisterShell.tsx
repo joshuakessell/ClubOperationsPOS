@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import './RegisterShell.css';
 
 export type ShellNavKey =
-  | 'home'
   | 'scan'
   | 'search'
   | 'inventory'

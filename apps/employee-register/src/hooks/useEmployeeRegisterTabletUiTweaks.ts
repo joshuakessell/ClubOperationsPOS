@@ -43,7 +43,7 @@ export function useEmployeeRegisterTabletUiTweaks() {
       );
       const labelEl =
         document.querySelector<HTMLElement>('label') ??
-        document.querySelector<HTMLElement>('.er-home-tab-btn');
+        document.querySelector<HTMLElement>('.er-shell__nav-btn');
       const searchEl = document.getElementById('customer-search');
       const iconEl = document.querySelector<HTMLElement>('.btn-icon');
 

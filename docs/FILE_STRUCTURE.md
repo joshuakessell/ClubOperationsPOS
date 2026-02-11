@@ -26,6 +26,29 @@ scripts/                   # Repo automation/dev scripts
 tools/                     # One-off tooling (e.g., RAG utilities)
 infra/                     # Deployment/infra config
 artifacts/                 # Non-source artifacts (e.g., generated reports)
+
+# Docker Configuration
+.dockerignore              # Files excluded from Docker builds
+DOCKER.md                  # Docker setup guide and best practices
+docker-compose.yml         # Production container orchestration
+docker-compose.dev.yml     # Development overrides with hot-reload
+docker.sh                  # Helper script for Docker operations
+Dockerfile.api             # API service image definition
+Dockerfile.customer-kiosk  # Customer kiosk image definition
+Dockerfile.employee-register # Employee register image definition
+Dockerfile.office-dashboard  # Office dashboard image definition
+.env.example               # Environment variable template
+
+# CI/CD Pipelines
+.github/workflows/
+  ci-enhanced.yml          # CI pipeline: build, typecheck, lint, Docker validation, security scan
+  deploy.yml               # Demo deployment: auto-deploys on push to main
+  deploy-production.yml    # Production deployment: triggered by git tags (v*)
+  rollback.yml             # Emergency rollback: manual dispatch to revert to previous version
+  lint.yml                 # Lightweight lint-only check
+  seed-demo.yml            # Demo database seeding workflow
+  docker-image-scan.yml    # Docker image vulnerability scanning
+  deploy-frontends.yml     # Frontend-only deployment workflow
 ```
 
 ## apps/
@@ -78,4 +101,8 @@ docs/
   database/                # DB meaning + entity details (source of truth for semantics)
   specs/                   # Feature specs (long-form); link from SPEC.md as needed
   demo/                    # Demo/smoke-test notes and reports
+  DEPLOYMENT.md            # Complete deployment documentation (AWS, CI/CD, monitoring)
+  DEPLOYMENT_QUICKREF.md   # Quick reference for common deployment commands
+  DEPLOYMENT_CHECKLIST.md  # Step-by-step checklists for deployments and operations
+  deployment-pipeline-diagram.md  # Visual diagrams of CI/CD pipelines and AWS architecture
 ```
