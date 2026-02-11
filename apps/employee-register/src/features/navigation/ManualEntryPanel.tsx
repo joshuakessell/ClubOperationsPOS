@@ -25,7 +25,7 @@ export function ManualEntryPanel() {
     isSubmitting,
     manualEntrySubmitting,
     setManualEntry,
-    selectHomeTab,
+    selectNavTab,
   } = useEmployeeRegisterState();
 
   return (
@@ -178,7 +178,7 @@ export function ManualEntryPanel() {
             setManualIdType('');
             setManualIdTypeOther('');
             setManualIdNumber('');
-            selectHomeTab('scan');
+            selectNavTab('scan');
           }}
           disabled={isSubmitting || manualEntrySubmitting}
         >

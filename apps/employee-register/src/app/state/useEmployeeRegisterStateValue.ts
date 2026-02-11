@@ -7,7 +7,7 @@ import { useCustomerSearchState } from './slices/useCustomerSearchState';
 import { useCustomerSessionActions } from './slices/useCustomerSessionActions';
 import { useDocumentsState } from './slices/useDocumentsState';
 import { useHealthStatus } from './slices/useHealthStatus';
-import { useHomeNavigationState } from './slices/useHomeNavigationState';
+import { useNavigationState } from './slices/useNavigationState';
 import { useInventorySelectionState } from './slices/useInventorySelectionState';
 import { useLaneSessionBindings } from './slices/useLaneSessionBindings';
 import { useLaneSessionCustomerLink } from './slices/useLaneSessionCustomerLink';
@@ -86,7 +86,7 @@ export function useEmployeeRegisterStateValue() {
   const addOnState = useAddOnSaleState();
 
   const laneSessionCustomerId = laneBindings.customerId ?? null;
-  const navState = useHomeNavigationState({
+  const navState = useNavigationState({
     setManualEntry,
     currentSessionId,
     laneSessionCustomerId,
@@ -124,7 +124,7 @@ export function useEmployeeRegisterStateValue() {
     session,
     registerSession,
     sessionActive: !!currentSessionId,
-    selectHomeTab: navState.selectHomeTab,
+    selectNavTab: navState.selectNavTab,
     setIsSubmitting,
     setPaymentDeclineError: laneBindings.setPaymentDeclineError,
     notifications: notifier,
@@ -195,7 +195,7 @@ export function useEmployeeRegisterStateValue() {
     setCurrentSessionCustomerId: laneBindings.setCurrentSessionCustomerId,
     setAccountCustomerId: navState.setAccountCustomerId,
     setAccountCustomerLabel: navState.setAccountCustomerLabel,
-    selectHomeTab: navState.selectHomeTab,
+    selectNavTab: navState.selectNavTab,
     pushBottomToast: toastState.pushBottomToast,
     setShowCustomerConfirmationPending: inventorySelectionState.setShowCustomerConfirmationPending,
     setCustomerConfirmationType: inventorySelectionState.setCustomerConfirmationType,
@@ -336,7 +336,7 @@ export function useEmployeeRegisterStateValue() {
   const scanState = useScanState({
     session,
     lane,
-    homeTab: navState.homeTab,
+    navTab: navState.navTab,
     manualEntry,
     isSubmitting,
     externalBlocking,

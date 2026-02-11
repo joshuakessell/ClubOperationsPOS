@@ -1,5 +1,4 @@
-export type HomeTab =
-  | 'home'
+export type NavTab =
   | 'account'
   | 'scan'
   | 'search'

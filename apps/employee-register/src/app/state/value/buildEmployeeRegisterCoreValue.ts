@@ -3,7 +3,7 @@ import type { useCheckoutState } from '../slices/useCheckoutState';
 import type { useCustomerSearchState } from '../slices/useCustomerSearchState';
 import type { useCustomerSessionActions } from '../slices/useCustomerSessionActions';
 import type { useHealthStatus } from '../slices/useHealthStatus';
-import type { useHomeNavigationState } from '../slices/useHomeNavigationState';
+import type { useNavigationState } from '../slices/useNavigationState';
 import type { useInventorySelectionState } from '../slices/useInventorySelectionState';
 import type { useLaneSessionBindings } from '../slices/useLaneSessionBindings';
 import type { useManualEntryState } from '../slices/useManualEntryState';
@@ -25,7 +25,7 @@ type EmployeeRegisterCoreParams = {
   registerSession: ReturnType<typeof useStaffSessionState>['registerSession'];
   session: ReturnType<typeof useStaffSessionState>['session'];
   checkoutState: ReturnType<typeof useCheckoutState>;
-  navState: ReturnType<typeof useHomeNavigationState>;
+  navState: ReturnType<typeof useNavigationState>;
   waitlistState: ReturnType<typeof useWaitlistUpgradeState>;
   laneBindings: ReturnType<typeof useLaneSessionBindings>;
   selectionActions: ReturnType<typeof useSelectionActions>;
@@ -138,16 +138,16 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     setCheckoutChecklist: checkoutState.setCheckoutChecklist,
     setCheckoutItemsConfirmed: checkoutState.setCheckoutItemsConfirmed,
     setCheckoutFeePaid: checkoutState.setCheckoutFeePaid,
-    homeTab: navState.homeTab,
-    selectHomeTab: navState.selectHomeTab,
-    returnToPreviousHomeTab: navState.returnToPreviousHomeTab,
+    navTab: navState.navTab,
+    selectNavTab: navState.selectNavTab,
+    returnToPreviousTab: navState.returnToPreviousTab,
     canOpenAccountTab: navState.canOpenAccountTab,
     inventoryHasLate: checkoutState.inventoryHasLate,
     setInventoryHasLate: checkoutState.setInventoryHasLate,
     hasEligibleEntries: waitlistState.hasEligibleEntries,
     isEntryOfferEligible: waitlistState.isEntryOfferEligible,
     dismissUpgradePulse: waitlistState.dismissUpgradePulse,
-    startCheckoutFromHome: navState.startCheckoutFromHome,
+    startCheckout: navState.startCheckout,
     startCheckoutFromInventory: navState.startCheckoutFromInventory,
     startCheckoutFromCustomerAccount: navState.startCheckoutFromCustomerAccount,
     exitCheckout: navState.exitCheckout,

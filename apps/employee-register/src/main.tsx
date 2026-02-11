@@ -3,7 +3,6 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import '@club-ops/ui/styles/index.css';
 import './styles.css';
-import './styles.home.css';
 import './styles.components.css';
 import './styles.scan-entry.css';
 import { OrientationGuard } from './ui/orientation/OrientationGuard';

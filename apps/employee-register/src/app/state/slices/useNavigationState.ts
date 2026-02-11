@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { HomeTab } from '../shared/types';
+import type { NavTab } from '../shared/types';
 
 type CheckoutPrefill = {
   occupancyId?: string;
@@ -17,18 +17,18 @@ type OpenCustomerAccountOptions = {
   summary?: AccountCustomerSummary | null;
 };
 
-type UseHomeNavigationStateParams = {
+type UseNavigationStateParams = {
   setManualEntry: (value: boolean) => void;
   currentSessionId: string | null;
   laneSessionCustomerId: string | null;
 };
 
-export function useHomeNavigationState({
+export function useNavigationState({
   setManualEntry,
   currentSessionId,
   laneSessionCustomerId,
-}: UseHomeNavigationStateParams) {
-  const [homeTab, setHomeTab] = useState<HomeTab>('scan');
+}: UseNavigationStateParams) {
+  const [navTab, setNavTab] = useState<NavTab>('scan');
   const [accountCustomerId, setAccountCustomerId] = useState<string | null>(null);
   const [accountCustomerLabel, setAccountCustomerLabel] = useState<string | null>(null);
   const [accountCustomerSummary, setAccountCustomerSummary] =
@@ -38,8 +38,8 @@ export function useHomeNavigationState({
   const [checkoutEntryMode, setCheckoutEntryMode] = useState<'default' | 'direct-confirm'>(
     'default'
   );
-  const checkoutReturnToTabRef = useRef<HomeTab | null>(null);
-  const lastNonAccountTabRef = useRef<HomeTab>('scan');
+  const checkoutReturnToTabRef = useRef<NavTab | null>(null);
+  const lastNonAccountTabRef = useRef<NavTab>('scan');
   const setAccountCustomerIdSafe = useCallback((value: string | null) => {
     setAccountCustomerId(value);
     if (!value) {
@@ -49,9 +49,9 @@ export function useHomeNavigationState({
     }
   }, []);
 
-  const selectHomeTab = useCallback(
-    (next: HomeTab) => {
-      setHomeTab((prev) => {
+  const selectNavTab = useCallback(
+    (next: NavTab) => {
+      setNavTab((prev) => {
         if (next === 'account' && prev !== 'account') {
           lastNonAccountTabRef.current = prev;
         }
@@ -70,38 +70,38 @@ export function useHomeNavigationState({
     [setManualEntry]
   );
 
-  const returnToPreviousHomeTab = useCallback(() => {
+  const returnToPreviousTab = useCallback(() => {
     const target = lastNonAccountTabRef.current || 'scan';
-    selectHomeTab(target);
-  }, [selectHomeTab]);
+    selectNavTab(target);
+  }, [selectNavTab]);
 
-  const startCheckoutFromHome = useCallback(() => {
+  const startCheckout = useCallback(() => {
     checkoutReturnToTabRef.current = null;
     setCheckoutPrefill(null);
     setCheckoutEntryMode('default');
-    selectHomeTab('checkout');
-  }, [selectHomeTab]);
+    selectNavTab('checkout');
+  }, [selectNavTab]);
 
   const startCheckoutFromInventory = useCallback(
     (prefill: { occupancyId?: string; number: string }) => {
       checkoutReturnToTabRef.current = 'inventory';
       setCheckoutEntryMode('direct-confirm');
       setCheckoutPrefill(prefill);
-      selectHomeTab('checkout');
+      selectNavTab('checkout');
     },
-    [selectHomeTab]
+    [selectNavTab]
   );
 
   const startCheckoutFromCustomerAccount = useCallback(
     (prefill?: { number?: string | null }) => {
-      const returnTo: HomeTab = currentSessionId ? 'account' : 'scan';
+      const returnTo: NavTab = currentSessionId ? 'account' : 'scan';
       checkoutReturnToTabRef.current = returnTo;
       const number = prefill?.number ?? null;
       setCheckoutEntryMode(number ? 'direct-confirm' : 'default');
       setCheckoutPrefill(number ? { number } : null);
-      selectHomeTab('checkout');
+      selectNavTab('checkout');
     },
-    [currentSessionId, selectHomeTab]
+    [currentSessionId, selectNavTab]
   );
 
   const exitCheckout = useCallback(() => {
@@ -113,11 +113,11 @@ export function useHomeNavigationState({
       if (returnTo === 'scan') {
         setAccountCustomerIdSafe(null);
       }
-      selectHomeTab(returnTo);
+      selectNavTab(returnTo);
       return;
     }
-    selectHomeTab('scan');
-  }, [selectHomeTab, setAccountCustomerIdSafe]);
+    selectNavTab('scan');
+  }, [selectNavTab, setAccountCustomerIdSafe]);
 
   const openCustomerAccount = useCallback(
     (customerId: string, label?: string | null, opts?: OpenCustomerAccountOptions) => {
@@ -125,9 +125,9 @@ export function useHomeNavigationState({
       setAccountCustomerLabel(label ?? null);
       setAccountCustomerSummary(opts?.summary ?? null);
       setAccountAutoStartCheckin(opts?.autoStart ?? true);
-      selectHomeTab('account');
+      selectNavTab('account');
     },
-    [selectHomeTab, setAccountCustomerIdSafe]
+    [selectNavTab, setAccountCustomerIdSafe]
   );
 
   const prevSessionIdForTabRef = useRef<string | null>(null);
@@ -141,13 +141,13 @@ export function useHomeNavigationState({
       }
       setAccountCustomerSummary(null);
       setAccountAutoStartCheckin(true);
-      selectHomeTab('account');
+      selectNavTab('account');
     }
   }, [
     accountCustomerId,
     currentSessionId,
     laneSessionCustomerId,
-    selectHomeTab,
+    selectNavTab,
     setAccountCustomerIdSafe,
     setAccountCustomerLabel,
   ]);
@@ -155,8 +155,8 @@ export function useHomeNavigationState({
   const canOpenAccountTab = Boolean(currentSessionId || accountCustomerId);
 
   return {
-    homeTab,
-    selectHomeTab,
+    navTab,
+    selectNavTab,
     accountCustomerId,
     accountCustomerLabel,
     accountCustomerSummary,
@@ -171,11 +171,11 @@ export function useHomeNavigationState({
     checkoutEntryMode,
     setCheckoutEntryMode,
     checkoutReturnToTabRef,
-    startCheckoutFromHome,
+    startCheckout,
     startCheckoutFromInventory,
     startCheckoutFromCustomerAccount,
     exitCheckout,
     openCustomerAccount,
-    returnToPreviousHomeTab,
+    returnToPreviousTab,
   };
 }

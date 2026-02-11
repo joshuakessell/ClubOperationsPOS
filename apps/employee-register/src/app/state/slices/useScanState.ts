@@ -1,13 +1,13 @@
 import { useCallback } from 'react';
 import { useScanCaptureInput } from '../../../scanner/useScanCaptureInput';
 import { useScanResolutionState } from './useScanResolutionState';
-import type { HomeTab, ScanResult, StaffSession } from '../shared/types';
+import type { NavTab, ScanResult, StaffSession } from '../shared/types';
 import type { ToastNotifier } from '../shared/notifications';
 
 type Params = {
   session: StaffSession | null;
   lane: string;
-  homeTab: HomeTab;
+  navTab: NavTab;
   manualEntry: boolean;
   isSubmitting: boolean;
   externalBlocking: boolean;
@@ -21,7 +21,7 @@ type Params = {
 export function useScanState({
   session,
   lane,
-  homeTab,
+  navTab,
   manualEntry,
   isSubmitting,
   externalBlocking,
@@ -37,7 +37,7 @@ export function useScanState({
     !!resolution.idScanIssue;
 
   const scanEnabled =
-    homeTab === 'scan' &&
+    navTab === 'scan' &&
     !!session?.sessionToken &&
     !isSubmitting &&
     !manualEntry &&
@@ -45,7 +45,7 @@ export function useScanState({
 
   const scanBlockedReason = !session?.sessionToken
     ? 'Not authenticated'
-    : homeTab !== 'scan'
+    : navTab !== 'scan'
       ? 'Scan tab inactive'
       : isSubmitting
         ? 'Submitting'

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getErrorMessage, readJson } from '@club-ops/ui';
 import { deriveWaitlistEligibility } from '../../../shared/derive/waitlistEligibility';
 import { API_BASE } from '../shared/api';
-import type { HomeTab, StaffSession } from '../shared/types';
+import type { NavTab, StaffSession } from '../shared/types';
 import { useWaitlistDataState, type WaitlistEntry } from './useWaitlistDataState';
 import type { ToastNotifier } from '../shared/notifications';
 
@@ -17,7 +17,7 @@ type Params = {
   session: StaffSession | null;
   registerSession: RegisterSession | null;
   sessionActive: boolean;
-  selectHomeTab: (tab: HomeTab) => void;
+  selectNavTab: (tab: NavTab) => void;
   setIsSubmitting: (value: boolean) => void;
   setPaymentDeclineError: (value: string | null) => void;
   notifications: ToastNotifier;
@@ -28,7 +28,7 @@ export function useWaitlistUpgradeState({
   session,
   registerSession,
   sessionActive,
-  selectHomeTab,
+  selectNavTab,
   setIsSubmitting,
   setPaymentDeclineError,
   notifications,
@@ -188,7 +188,7 @@ export function useWaitlistUpgradeState({
         newRoomNumber: payload.newRoomNumber ?? entry.offeredRoomNumber ?? null,
       });
       dismissUpgradePulse();
-      selectHomeTab('upgrades');
+      selectNavTab('upgrades');
       setShowUpgradePaymentModal(true);
     } catch (error) {
       console.error('Failed to start upgrade:', error);
