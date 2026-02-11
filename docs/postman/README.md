@@ -13,7 +13,7 @@ Usage:
 2. Select the **Employee Register (Debug)** environment.
 3. Set environment variables:
    - `baseUrl` (defaults to `https://api-demo.joshuakessell.com`)
-   - `kioskToken` (from `apps/employee-register/.env*` as `VITE_KIOSK_TOKEN`)
+   - `kioskToken` (resolved from AWS Secrets Manager secret referenced by `KIOSK_TOKEN_SECRET_ARN`)
    - `staffToken` (copied from browser localStorage key `clubops.staffSession` → JSON field `sessionToken`)
    - `deviceId` (whatever the iPad/browser is using; can be any string for status/heartbeat)
    - `laneId` (defaults to `lane-1`)

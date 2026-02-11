@@ -715,7 +715,10 @@ CREATE TABLE public.lane_sessions (
     membership_number character varying(50),
     desired_rental_type public.rental_type,
     waitlist_desired_type public.rental_type,
+    waitlist_desired_types_json jsonb,
     backup_rental_type public.rental_type,
+    waitlist_requested_resource_number character varying(20),
+    waitlist_requested_resource_type character varying(20),
     assigned_resource_id uuid,
     assigned_resource_type character varying(20),
     price_quote_json jsonb,
@@ -738,7 +741,8 @@ CREATE TABLE public.lane_sessions (
     CONSTRAINT lane_sessions_membership_choice_check CHECK ((((membership_choice)::text = ANY (ARRAY[('ONE_TIME'::character varying)::text, ('SIX_MONTH'::character varying)::text])) OR (membership_choice IS NULL))),
     CONSTRAINT lane_sessions_renewal_hours_check CHECK (((renewal_hours = ANY (ARRAY[2, 6])) OR (renewal_hours IS NULL))),
     CONSTRAINT lane_sessions_proposed_by_check CHECK (((proposed_by)::text = ANY (ARRAY[('CUSTOMER'::character varying)::text, ('EMPLOYEE'::character varying)::text]))),
-    CONSTRAINT lane_sessions_selection_confirmed_by_check CHECK (((selection_confirmed_by)::text = ANY (ARRAY[('CUSTOMER'::character varying)::text, ('EMPLOYEE'::character varying)::text])))
+    CONSTRAINT lane_sessions_selection_confirmed_by_check CHECK (((selection_confirmed_by)::text = ANY (ARRAY[('CUSTOMER'::character varying)::text, ('EMPLOYEE'::character varying)::text]))),
+    CONSTRAINT lane_sessions_waitlist_requested_resource_type_check CHECK ((((waitlist_requested_resource_type)::text = ANY (ARRAY[('room'::character varying)::text, ('locker'::character varying)::text])) OR (waitlist_requested_resource_type IS NULL)))
 );
 
 

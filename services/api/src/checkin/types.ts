@@ -14,7 +14,10 @@ export interface LaneSessionRow {
   membership_number: string | null;
   desired_rental_type: string | null;
   waitlist_desired_type: string | null;
+  waitlist_desired_types_json?: unknown;
   backup_rental_type: string | null;
+  waitlist_requested_resource_number?: string | null;
+  waitlist_requested_resource_type?: 'room' | 'locker' | null;
   assigned_resource_id: string | null;
   assigned_resource_type: string | null;
   price_quote_json: unknown;

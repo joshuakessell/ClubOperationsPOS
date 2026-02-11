@@ -26,7 +26,6 @@ export function SelectionFlow({
 
   const {
     session,
-    lane,
     inventory,
     selectedRental,
     proposedRentalType,
@@ -34,7 +33,11 @@ export function SelectionFlow({
     selectionConfirmed,
     selectionConfirmedBy,
     waitlistDesiredType,
+    waitlistDesiredTypes,
     waitlistBackupType,
+    waitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
+    waitlistUnavailableOptions,
     waitlistPosition,
     waitlistETA,
     waitlistUpgradeFee,
@@ -45,29 +48,15 @@ export function SelectionFlow({
     showCustomerConfirmation,
     customerConfirmationData,
     membershipChoice,
-    showMembershipModal,
-    membershipModalIntent,
-    highlightedMembershipChoice,
     highlightedWaitlistBackup,
   } = state;
 
   const { orientationOverlay, welcomeOverlay, isSubmitting } = ui;
   const {
-    setMembershipModalIntent,
-    setShowMembershipModal,
     setUpgradeAction,
     setShowUpgradeDisclaimer,
-    setShowWaitlistModal,
-    setWaitlistPosition,
-    setWaitlistETA,
-    setWaitlistUpgradeFee,
     setShowRenewalDisclaimer,
   } = setters;
-
-  const openMembershipModal = (intent: 'PURCHASE' | 'RENEW') => {
-    setMembershipModalIntent(intent);
-    setShowMembershipModal(true);
-  };
 
   useEffect(() => {
     if (!waitlistDesiredType || !waitlistBackupType) return;
@@ -84,52 +73,8 @@ export function SelectionFlow({
     setUpgradeAction,
   ]);
 
-  useEffect(() => {
-    if (!waitlistDesiredType) return;
-    if (waitlistBackupType) return;
-    if (!session.sessionId) return;
-    if (!lane) return;
-    setShowWaitlistModal(true);
-    void (async () => {
-      try {
-        const response = await fetch(
-          `${apiBase}/v1/checkin/lane/${lane}/waitlist-info?desiredTier=${waitlistDesiredType}&currentTier=${selectedRental || 'LOCKER'}`
-        );
-        if (response.ok) {
-          const data: unknown = await response.json();
-          if (data && typeof data === 'object') {
-            const record = data as Record<string, unknown>;
-            setWaitlistPosition(
-              typeof record.position === 'number' ? record.position : null
-            );
-            setWaitlistETA(
-              typeof record.estimatedReadyAt === 'string' ? record.estimatedReadyAt : null
-            );
-            setWaitlistUpgradeFee(
-              typeof record.upgradeFee === 'number' ? record.upgradeFee : null
-            );
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch waitlist info:', error);
-      }
-    })();
-  }, [
-    apiBase,
-    lane,
-    selectedRental,
-    session.sessionId,
-    setShowWaitlistModal,
-    setWaitlistETA,
-    setWaitlistPosition,
-    setWaitlistUpgradeFee,
-    waitlistBackupType,
-    waitlistDesiredType,
-  ]);
-
   const membershipStatus = getMembershipStatus(session, Date.now());
   const isMember = membershipStatus === 'ACTIVE' || membershipStatus === 'PENDING';
-  const isExpired = membershipStatus === 'EXPIRED';
 
   return (
     <>
@@ -147,14 +92,16 @@ export function SelectionFlow({
         notice={notices.notice}
         onSelectRental={(rental) => void actions.handleRentalSelection(rental)}
         membershipChoice={isMember ? null : membershipChoice}
-        onSelectOneTimeMembership={() => void actions.handleSelectOneTimeMembership()}
-        onSelectSixMonthMembership={() => openMembershipModal(isExpired ? 'RENEW' : 'PURCHASE')}
-        highlightedMembershipChoice={highlightedMembershipChoice}
+        onJoinWaitlist={() => void actions.handleOpenWaitlist()}
       />
       <SelectionFlowModals
         session={session}
         inventory={inventory}
         waitlistDesiredType={waitlistDesiredType}
+        waitlistDesiredTypes={waitlistDesiredTypes}
+        waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
+        waitlistRequestedResourceType={waitlistRequestedResourceType}
+        waitlistUnavailableOptions={waitlistUnavailableOptions}
         waitlistPosition={waitlistPosition}
         waitlistETA={waitlistETA}
         waitlistUpgradeFee={waitlistUpgradeFee}
@@ -164,23 +111,20 @@ export function SelectionFlow({
         showCustomerConfirmation={showCustomerConfirmation}
         customerConfirmationData={customerConfirmationData}
         showRenewalDisclaimer={showRenewalDisclaimer}
-        showMembershipModal={showMembershipModal}
-        membershipModalIntent={membershipModalIntent}
         isSubmitting={isSubmitting}
         onAcknowledgeUpgrade={() => void actions.handleDisclaimerAcknowledge()}
         onCloseUpgrade={() => setShowUpgradeDisclaimer(false)}
         onCustomerConfirm={(confirmed) => void actions.handleCustomerConfirmSelection(confirmed)}
+        onWaitlistDesiredTypesChange={actions.handleWaitlistDesiredTypesChange}
+        onWaitlistSpecificSelection={actions.handleWaitlistSpecificSelection}
+        onWaitlistSpecificFocus={() => void actions.handleWaitlistSpecificFocus()}
         onWaitlistBackupSelection={actions.handleWaitlistBackupSelection}
+        onWaitlistSubmit={() => void actions.handleWaitlistSubmit()}
         onWaitlistCancel={() => void actions.handleWaitlistCancel()}
         onCloseRenewal={() => setShowRenewalDisclaimer(false)}
         onProceedRenewal={() => {
           setShowRenewalDisclaimer(false);
           callbacks.onProceedToAgreement();
-        }}
-        onMembershipContinue={() => void actions.handleMembershipContinue()}
-        onMembershipClose={() => {
-          setShowMembershipModal(false);
-          setMembershipModalIntent(null);
         }}
       />
     </>

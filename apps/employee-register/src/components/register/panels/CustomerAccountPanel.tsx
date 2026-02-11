@@ -4,7 +4,7 @@ import { EmployeeAssistPanel } from '../EmployeeAssistPanel';
 import { useStartLaneCheckinForCustomerIfNotVisiting } from '../../../app/useStartLaneCheckinForCustomerIfNotVisiting';
 import { PanelHeader } from '../../../views/PanelHeader';
 import { PanelShell } from '../../../views/PanelShell';
-import { formatLocal, getRenewalEligibility } from '../renewalEligibility';
+import { ActiveVisitSummary } from './ActiveVisitSummary';
 import type { ActiveCheckinDetails } from '../modals/AlreadyCheckedInModal';
 type CustomerProfile = Pick<
   CustomerProfileCardProps,
@@ -68,6 +68,7 @@ export function CustomerAccountPanel(props: {
   onDirectSelectWaitlistBackup?: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onStartRenewal?: (activeCheckin: ActiveCheckinDetails) => void;
   onGoBack?: () => void;
+  onRefetchAccountState?: () => void;
 
   // callbacks to apply immediate REST response (WS will still be source-of-truth)
   onStartedSession: (payload: {
@@ -108,6 +109,10 @@ export function CustomerAccountPanel(props: {
   const hasActiveSession =
     Boolean(props.currentSessionId) &&
     (!props.currentSessionCustomerId || props.currentSessionCustomerId === props.customerId);
+  const hasSelectedCustomerProfile = Boolean(
+    props.customerId &&
+      (props.customerProfile || props.customerSummary || props.customerLabel || props.customerName)
+  );
   const profile = props.customerProfile;
   const fallbackName = profile?.name || props.customerSummary?.name || props.customerLabel || '—';
   const fallbackDob = profile?.dobMonthDay ?? props.customerSummary?.dobMonthDay ?? null;
@@ -196,114 +201,13 @@ export function CustomerAccountPanel(props: {
             </div>
           </div>
           <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
-            {(() => {
-              const renewalEligibility = getRenewalEligibility(state.activeCheckin);
-              const canRenew = renewalEligibility.allowTwoHour || renewalEligibility.allowSixHour;
-
-              return (
-                <div style={{ display: 'grid', gap: '0.6rem' }}>
-                  <div>
-                    <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                      Assigned
-                    </div>
-                    <div style={{ fontWeight: 900 }}>
-                      {state.activeCheckin.assignedResourceType &&
-                      state.activeCheckin.assignedResourceNumber
-                        ? `${state.activeCheckin.assignedResourceType === 'room' ? 'Room' : 'Locker'} ${
-                            state.activeCheckin.assignedResourceNumber
-                          }`
-                        : '—'}
-                    </div>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: '0.75rem',
-                      flexWrap: 'wrap',
-                    }}
-                  >
-                    <div
-                      style={{
-                        display: 'flex',
-                        gap: '1rem',
-                        alignItems: 'center',
-                        flexWrap: 'wrap',
-                      }}
-                    >
-                      <div>
-                        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                          Check-in
-                        </div>
-                        <div style={{ fontWeight: 800 }}>
-                          {formatLocal(state.activeCheckin.checkinAt)}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                          Checkout
-                        </div>
-                        <div style={{ fontWeight: 800 }}>
-                          {formatLocal(state.activeCheckin.checkoutAt)}{' '}
-                          {state.activeCheckin.overdue ? (
-                            <span style={{ color: '#f59e0b' }}>(overdue)</span>
-                          ) : null}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div
-                      className="er-account-actions"
-                      style={{ display: 'flex', justifyContent: 'center', flex: 1, minWidth: 220 }}
-                    >
-                      <button
-                        type="button"
-                        className="cs-liquid-button"
-                        onClick={() =>
-                          props.onStartCheckout({
-                            number: state.activeCheckin.assignedResourceNumber,
-                          })
-                        }
-                        style={{ width: '100%', maxWidth: 260, padding: '0.7rem', fontWeight: 900 }}
-                      >
-                        Checkout
-                      </button>
-                      {props.onStartRenewal ? (
-                        <button
-                          type="button"
-                          className="cs-liquid-button cs-liquid-button--secondary"
-                          onClick={() => props.onStartRenewal?.(state.activeCheckin)}
-                          disabled={!canRenew}
-                          style={{
-                            width: '100%',
-                            maxWidth: 260,
-                            padding: '0.7rem',
-                            fontWeight: 900,
-                          }}
-                        >
-                          Renew Checkin
-                        </button>
-                      ) : null}
-                    </div>
-                  </div>
-
-                  {state.activeCheckin.waitlist ? (
-                    <div>
-                      <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                        Pending upgrade request
-                      </div>
-                      <div style={{ fontWeight: 900 }}>
-                        {state.activeCheckin.waitlist.desiredTier} (backup:{' '}
-                        {state.activeCheckin.waitlist.backupTier}) •{' '}
-                        {state.activeCheckin.waitlist.status}
-                      </div>
-                    </div>
-                  ) : null}
-                </div>
-              );
-            })()}
+            <ActiveVisitSummary
+              activeCheckin={state.activeCheckin}
+              sessionToken={props.sessionToken}
+              onStartCheckout={props.onStartCheckout}
+              onStartRenewal={props.onStartRenewal}
+              onRefetch={props.onRefetchAccountState ?? (() => retry())}
+            />
           </div>
         </div>
       ) : state.mode === 'ERROR' ? (
@@ -386,6 +290,15 @@ export function CustomerAccountPanel(props: {
                 {hasAttemptedStart
                   ? 'Waiting for the customer kiosk to begin check-in…'
                   : 'Review the customer details, then start the check-in.'}
+              </div>
+            </>
+          ) : hasSelectedCustomerProfile ? (
+            <>
+              {renderProfileCard(beginCheckinButton)}
+              <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                {state.isStarting
+                  ? 'Starting check-in…'
+                  : 'Syncing lane session… customer account is loaded.'}
               </div>
             </>
           ) : (

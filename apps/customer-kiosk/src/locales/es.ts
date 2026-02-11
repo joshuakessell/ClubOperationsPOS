@@ -99,7 +99,7 @@ export const es: Record<keyof typeof en, string> = {
   'membership.renewMembership': 'Renovar membresía',
   'membership.ctaSeeStaffPurchase': 'Pasa con el empleado para comprarla.',
   'membership.ctaSeeStaffRenew': 'Pasa con el empleado para renovarla.',
-  'membership.pending': 'En proceso',
+  'membership.pending': 'Membresía pendiente',
   'membership.modal.title': 'Membresía',
   'membership.modal.body.purchase':
     'Ahorra en la membresía por día con la membresía de 6 meses. Pregunta al empleado el precio actual de la membresía de 6 meses.',
@@ -146,6 +146,12 @@ export const es: Record<keyof typeof en, string> = {
   'waitlist.instructions': 'Para anotarte, elige una opción de respaldo disponible.',
   'waitlist.noteChargedBackup':
     'Se cobra el respaldo. Si sale una mejora, puedes aceptarla (aplica costo).',
+  'waitlist.joinButton': 'Unirse a la lista de espera',
+  'waitlist.selectDesired': 'Elige tipos de cuarto para esperar',
+  'waitlist.requestSpecific': 'O solicita un número específico de cuarto/casillero',
+  'waitlist.requestSpecificPlaceholder': 'Selecciona un número específico (opcional)',
+  'waitlist.nextToBackup': 'Siguiente: elegir respaldo',
+  'waitlist.backToPreferences': 'Atrás',
   'waitlist.selectBackup': 'Elige respaldo:',
   'waitlist.unavailableSuffix': '(No hay)',
 
@@ -183,6 +189,9 @@ export const es: Record<keyof typeof en, string> = {
   'error.processSelection': 'No se pudo procesar. Intenta de nuevo.',
   'error.process': 'No se pudo procesar. Intenta de nuevo.',
   'error.rentalNotAvailable': 'No está disponible. Elige una opción disponible.',
+  'error.noUnavailableForWaitlist': 'No hay opciones no disponibles en este momento.',
+  'error.waitlistNeedsDesired':
+    'Elige al menos un tipo de cuarto deseado o un número específico.',
   'error.signAgreement': 'No se pudo firmar. Intenta de nuevo.',
   'error.setLanguage': 'No se pudo cambiar el idioma. Intenta de nuevo.',
   'error.confirmSelection': 'No se pudo confirmar. Intenta de nuevo.',

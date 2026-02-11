@@ -8,19 +8,6 @@ import { PurchaseCard } from '../views/PurchaseCard';
 import { getRentalDisplayName } from '../utils/display';
 import { getMembershipStatus, type SessionState } from '../utils/membership';
 
-function formatMembershipDate(
-  yyyyMmDd: string,
-  lang: SessionState['customerPrimaryLanguage']
-): string {
-  const locale = lang === 'ES' ? 'es-US' : 'en-US';
-  const d = new Date(`${yyyyMmDd}T00:00:00Z`);
-  // Guard against invalid payloads; fall back to raw string.
-  if (!Number.isFinite(d.getTime())) return yyyyMmDd;
-  return new Intl.DateTimeFormat(locale, { year: 'numeric', month: 'long', day: 'numeric' }).format(
-    d
-  );
-}
-
 export interface SelectionScreenProps {
   session: SessionState;
   inventory: {
@@ -38,9 +25,7 @@ export interface SelectionScreenProps {
   notice?: KioskNotice | null;
   onSelectRental: (rental: string) => void;
   membershipChoice: 'ONE_TIME' | 'SIX_MONTH' | null;
-  onSelectOneTimeMembership: () => void;
-  onSelectSixMonthMembership: () => void;
-  highlightedMembershipChoice?: 'ONE_TIME' | 'SIX_MONTH' | null;
+  onJoinWaitlist: () => void;
 }
 
 export function SelectionScreen({
@@ -57,31 +42,31 @@ export function SelectionScreen({
   notice,
   onSelectRental,
   membershipChoice,
-  onSelectOneTimeMembership,
-  onSelectSixMonthMembership,
-  highlightedMembershipChoice = null,
+  onJoinWaitlist,
 }: SelectionScreenProps) {
   const lang = session.customerPrimaryLanguage;
   const membershipStatus = getMembershipStatus(session, Date.now());
-  const isMember = membershipStatus === 'ACTIVE' || membershipStatus === 'PENDING';
-  const isNonMember = !isMember;
+  const membershipLabel =
+    membershipStatus === 'ACTIVE'
+      ? t(lang, 'membership.member')
+      : membershipStatus === 'PENDING' || membershipChoice === 'SIX_MONTH'
+        ? t(lang, 'membership.pending')
+        : t(lang, 'membership.nonMember');
 
-  const prereqsSatisfied = isMember || membershipChoice !== null;
   const canInteract =
     !isSubmitting &&
     !session.pastDueBlocked &&
     !selectionConfirmed &&
     !!session.customerPrimaryLanguage;
 
-  const activeStep: 'MEMBERSHIP' | 'RENTAL' | null = (() => {
-    if (!canInteract) return null;
-    if (!isMember && !membershipChoice) return 'MEMBERSHIP';
-    return 'RENTAL';
-  })();
-
   const rentalOrder = ['LOCKER', 'GYM_LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'] as const;
   const allowedSet = new Set(session.allowedRentals);
   const rentalsToShow = rentalOrder.filter((r) => allowedSet.has(r));
+  const getAvailableCount = (rental: string) =>
+    inventory?.rooms?.[rental] ??
+    (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : undefined);
+  const hasUnavailableRentals = rentalsToShow.some((rental) => getAvailableCount(rental) === 0);
+
   const selectionTone: 'success' | 'info' | 'muted' = selectionConfirmed
     ? 'success'
     : proposedBy === 'EMPLOYEE'
@@ -96,13 +81,8 @@ export function SelectionScreen({
         <div className="active-content">
           <main className="main-content">
             <div className="customer-info">
-              <h1 className="customer-name">
-                {session.customerName
-                  ? t(session.customerPrimaryLanguage, 'selection.welcomeWithName', {
-                      name: session.customerName,
-                    })
-                  : t(session.customerPrimaryLanguage, 'welcome')}
-              </h1>
+              <h1 className="customer-name">{session.customerName || t(lang, 'welcome')}</h1>
+              <div className="customer-membership-subheader">{membershipLabel}</div>
             </div>
 
             {notice && (
@@ -125,25 +105,6 @@ export function SelectionScreen({
               </div>
             )}
 
-            {/* Staff suggestion: membership */}
-            {highlightedMembershipChoice && !membershipChoice && (
-              <KioskNoticeBanner
-                tone="info"
-                title={
-                  <>
-                    {t(session.customerPrimaryLanguage, 'proposed')}:{' '}
-                    {t(
-                      session.customerPrimaryLanguage,
-                      highlightedMembershipChoice === 'ONE_TIME'
-                        ? 'membership.oneTimeOption'
-                        : 'membership.sixMonthOption'
-                    )}{' '}
-                    ({t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})
-                  </>
-                }
-              />
-            )}
-
             {/* Selection State Display */}
             {proposedRentalType && (
               <KioskNoticeBanner
@@ -159,92 +120,12 @@ export function SelectionScreen({
             )}
 
             <div className="purchase-cards">
-              {/* Membership card */}
-              <div className="ck-step-wrap">
-                {activeStep === 'MEMBERSHIP' && (
+              <PurchaseCard variant="rental" active={true} title={t(lang, 'rental.title')}>
+                {rentalsToShow.length > 0 ? (
                   <>
-                    <div className="ck-step-helper-text ck-glow-text">
-                      {t(lang, 'guidance.pleaseSelectOne')}
-                    </div>
-                    <div className="ck-arrow ck-arrow--step ck-arrow--bounce-x" aria-hidden="true">
-                      ▶
-                    </div>
-                  </>
-                )}
-                <PurchaseCard
-                  variant="membership"
-                  active={activeStep === 'MEMBERSHIP'}
-                  title={t(lang, 'membership')}
-                  status={isMember ? t(lang, 'membership.member') : t(lang, 'membership.nonMember')}
-                >
-                  {isMember ? (
-                    <>
-                      <p className="purchase-card__message">
-                        {t(lang, 'membership.thankYouMember')}
-                      </p>
-                      {session.membershipValidUntil && (
-                        <p className="purchase-card__message">
-                          {t(lang, 'membership.expiresOn', {
-                            date: formatMembershipDate(session.membershipValidUntil, lang),
-                          })}
-                        </p>
-                      )}
-                    </>
-                  ) : (
-                    <div className="membership-option-stack">
-                      <KioskOptionButton
-                        title={t(lang, 'membership.oneTimeOption')}
-                        selected={membershipChoice === 'ONE_TIME'}
-                        staffProposed={highlightedMembershipChoice === 'ONE_TIME'}
-                        highlight={highlightedMembershipChoice === 'ONE_TIME'}
-                        onClick={() => {
-                          if (!canInteract) return;
-                          onSelectOneTimeMembership();
-                        }}
-                        disabled={!canInteract}
-                      />
-
-                      <KioskOptionButton
-                        title={t(lang, 'membership.sixMonthOption')}
-                        selected={membershipChoice === 'SIX_MONTH'}
-                        staffProposed={highlightedMembershipChoice === 'SIX_MONTH'}
-                        highlight={highlightedMembershipChoice === 'SIX_MONTH'}
-                        onClick={() => {
-                          if (!canInteract) return;
-                          onSelectSixMonthMembership();
-                        }}
-                        disabled={!canInteract}
-                      />
-                    </div>
-                  )}
-                </PurchaseCard>
-              </div>
-
-              {/* Rental card */}
-              <div className="ck-step-wrap">
-                {activeStep === 'RENTAL' && (
-                  <>
-                    <div className="ck-step-helper-text ck-glow-text">
-                      {t(lang, 'guidance.pleaseSelectOne')}
-                    </div>
-                    <div className="ck-arrow ck-arrow--step ck-arrow--bounce-x" aria-hidden="true">
-                      ▶
-                    </div>
-                  </>
-                )}
-                <PurchaseCard
-                  variant="rental"
-                  active={activeStep === 'RENTAL'}
-                  title={t(lang, 'rental.title')}
-                >
-                  {rentalsToShow.length > 0 ? (
                     <div className="rental-grid">
                       {rentalsToShow.map((rental) => {
-                        const availableCount =
-                          inventory?.rooms?.[rental] ??
-                          (rental === 'LOCKER' || rental === 'GYM_LOCKER'
-                            ? inventory?.lockers
-                            : undefined);
+                        const availableCount = getAvailableCount(rental);
                         const showWarning =
                           typeof availableCount === 'number' &&
                           availableCount > 0 &&
@@ -253,19 +134,15 @@ export function SelectionScreen({
                         const isDisabled =
                           !session.customerPrimaryLanguage ||
                           session.pastDueBlocked ||
-                          (isNonMember && !membershipChoice) ||
-                          selectionConfirmed;
-                        // Show the customer's chosen rental as selected even while waiting for attendant approval,
-                        // so the UI gives immediate visual feedback before/under the pending overlay.
+                          selectionConfirmed ||
+                          isUnavailable;
                         const isSelected =
                           proposedRentalType === rental &&
                           (selectionConfirmed || proposedBy === 'CUSTOMER');
                         const isStaffProposed =
                           proposedBy === 'EMPLOYEE' &&
                           proposedRentalType === rental &&
-                          !selectionConfirmed &&
-                          prereqsSatisfied;
-                        const isPulsing = isStaffProposed;
+                          !selectionConfirmed;
                         const isForced =
                           selectedRental === rental &&
                           selectionConfirmed &&
@@ -277,8 +154,8 @@ export function SelectionScreen({
                         const subtext =
                           showWarning && !isUnavailable && typeof availableCount === 'number'
                             ? t(lang, 'availability.onlyAvailable', { count: availableCount })
-                            : isUnavailable && typeof availableCount === 'number'
-                              ? t(lang, 'availability.joinWaitlist')
+                            : isUnavailable
+                              ? t(lang, 'availability.unavailable')
                               : null;
 
                         return (
@@ -289,7 +166,6 @@ export function SelectionScreen({
                             staffProposed={isStaffProposed}
                             disabled={isDisabled}
                             disabledStyle={isDisabled}
-                            pulse={isPulsing}
                             stacked={true}
                             data-forced={isForced}
                             onClick={() => {
@@ -302,13 +178,27 @@ export function SelectionScreen({
                         );
                       })}
                     </div>
-                  ) : (
-                    <div className="cs-liquid-button cs-liquid-button--disabled">
-                      {t(lang, 'noOptionsAvailable')}
-                    </div>
-                  )}
-                </PurchaseCard>
-              </div>
+
+                    {hasUnavailableRentals ? (
+                      <button
+                        type="button"
+                        className="cs-liquid-button cs-liquid-button--secondary ck-waitlist-entry-btn"
+                        onClick={() => {
+                          if (!canInteract) return;
+                          onJoinWaitlist();
+                        }}
+                        disabled={!canInteract}
+                      >
+                        {t(lang, 'waitlist.joinButton')}
+                      </button>
+                    ) : null}
+                  </>
+                ) : (
+                  <div className="cs-liquid-button cs-liquid-button--disabled">
+                    {t(lang, 'noOptionsAvailable')}
+                  </div>
+                )}
+              </PurchaseCard>
             </div>
           </main>
         </div>

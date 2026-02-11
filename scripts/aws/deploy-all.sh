@@ -11,13 +11,6 @@ required() {
   fi
 }
 
-# API deploy env
-required APP_RUNNER_SERVICE_ARN
-required DATABASE_URL_SECRET_ARN
-required KIOSK_TOKEN_SECRET_ARN
-required AWS_REGION
-required ECR_REPO_URI
-required DB_SSL
 required_set() {
   local name="$1"
   if [[ -z "${!name+x}" ]]; then
@@ -25,6 +18,14 @@ required_set() {
     exit 1
   fi
 }
+
+# API deploy env
+required APP_RUNNER_SERVICE_ARN
+required DATABASE_URL_SECRET_ARN
+required KIOSK_TOKEN_SECRET_ARN
+required AWS_REGION
+required ECR_REPO_URI
+required DB_SSL
 
 required_set DB_SSL_CA_PATH
 required DB_LOG_QUERIES

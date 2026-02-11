@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react';
-import { getCustomerMembershipStatus } from '@club-ops/shared';
 import { EmployeeAssistStepContent } from './employee-assist/EmployeeAssistStepContent';
 import type { EmployeeAssistStep, PendingState, RentalButton } from './employee-assist/types';
 
@@ -58,10 +57,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     sessionId,
     customerName,
     customerPrimaryLanguage,
-    membershipNumber,
-    customerMembershipValidUntil,
-    membershipPurchaseIntent,
-    membershipChoice,
     allowedRentals,
     proposedRentalType,
     proposedBy,
@@ -87,27 +82,9 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   const [pending, setPending] = useState<PendingState>(null);
 
   const isLanguageNeeded = !customerPrimaryLanguage;
-  const membershipStatus = useMemo(() => {
-    if (membershipPurchaseIntent) return 'PENDING' as const;
-    const base = getCustomerMembershipStatus(
-      {
-        membershipNumber: membershipNumber || null,
-        membershipValidUntil: customerMembershipValidUntil || null,
-      },
-      new Date()
-    );
-    if (base === 'ACTIVE') return 'ACTIVE' as const;
-    if (base === 'EXPIRED') return 'EXPIRED' as const;
-    return 'NON_MEMBER' as const;
-  }, [membershipPurchaseIntent, membershipNumber, customerMembershipValidUntil]);
-
-  const isMember = membershipStatus === 'ACTIVE' || membershipStatus === 'PENDING';
-  const isMembershipNeeded = !isMember && !membershipChoice;
-
   const step: EmployeeAssistStep = useMemo(() => {
     if (!sessionId || !customerName) return 'DONE';
     if (isLanguageNeeded) return 'LANGUAGE';
-    if (isMembershipNeeded) return 'MEMBERSHIP';
     if (waitlistDesiredTier && !waitlistBackupType) return 'UPGRADE';
     if (selectionConfirmed) return 'DONE';
     if (proposedBy === 'CUSTOMER' && proposedRentalType) return 'DONE';
@@ -115,7 +92,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   }, [
     customerName,
     isLanguageNeeded,
-    isMembershipNeeded,
     proposedBy,
     proposedRentalType,
     selectionConfirmed,

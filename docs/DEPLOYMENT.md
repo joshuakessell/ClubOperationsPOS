@@ -206,9 +206,10 @@ Naming: `YYYYMMDDHHMMSS_description.sql`
 - `VITE_API_BASE_URL` - API base URL
 - `VITE_REALTIME_PROVIDER` - Realtime provider (appsync-events)
 - `VITE_REALTIME_CHANNEL_NAMESPACE` - Channel namespace
-- `VITE_KIOSK_TOKEN` - Kiosk authentication token
 - `EMPLOYEE_BUCKET` / `CUSTOMER_BUCKET` - S3 bucket names
 - `EMPLOYEE_DISTRIBUTION_ID` / `CUSTOMER_DISTRIBUTION_ID` - CloudFront distribution IDs
+
+`VITE_KIOSK_TOKEN` is injected during build by resolving `KIOSK_TOKEN_SECRET_ARN` in the deploy scripts; keep only the secret ARN in GitHub secrets.
 
 ### GitHub Secrets Configuration
 

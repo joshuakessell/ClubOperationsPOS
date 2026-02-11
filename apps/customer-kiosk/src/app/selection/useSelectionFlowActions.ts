@@ -7,7 +7,13 @@ import type {
   SelectionFlowState,
   SelectionFlowUi,
 } from './types';
-import { createMembershipFlowActions } from './membershipFlowActions';
+import {
+  getAvailableCount,
+  isLanguageRequiredConflict,
+  mapWaitlistUnavailableOptions,
+  parseConfirmedBy,
+  resetWaitlistDraft,
+} from './selectionFlowShared';
 
 type SelectionFlowActionParams = {
   apiBase: string;
@@ -34,7 +40,11 @@ export function useSelectionFlowActions({
     inventory,
     selectedRental,
     waitlistDesiredType,
+    waitlistDesiredTypes,
     waitlistBackupType,
+    waitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
+    waitlistUnavailableOptions,
     upgradeAction,
     customerConfirmationData,
   } = state;
@@ -49,6 +59,106 @@ export function useSelectionFlowActions({
 
   const { showNotice } = notices;
 
+  const showLanguageRequiredNotice = () => {
+    onSwitchToLanguage();
+    showNotice({ tone: 'warning', title: t('EN', 'selectLanguage') });
+  };
+
+  const buildUnavailableRentalTypes = () =>
+    session.allowedRentals.filter((rental) => getAvailableCount(inventory, rental) === 0);
+
+  const confirmSelectionAsCustomer = async ({
+    rentalType,
+    waitlistDesiredType,
+    waitlistDesiredTypes,
+    waitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
+  }: {
+    rentalType: string;
+    waitlistDesiredType?: string;
+    waitlistDesiredTypes?: string[];
+    waitlistRequestedResourceNumber?: string;
+    waitlistRequestedResourceType?: 'room' | 'locker';
+  }) => {
+    if (!lane) return null;
+
+    const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/propose-selection`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...kioskAuthHeaders(),
+      },
+      body: JSON.stringify({
+        rentalType,
+        proposedBy: 'CUSTOMER',
+        waitlistDesiredType,
+        waitlistDesiredTypes,
+        backupRentalType: rentalType,
+        waitlistRequestedResourceNumber,
+        waitlistRequestedResourceType,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorPayload: unknown = await response.json().catch(() => null);
+      if (isLanguageRequiredConflict(response.status, errorPayload)) {
+        showLanguageRequiredNotice();
+        return null;
+      }
+      throw new Error(getErrorMessage(errorPayload) || 'Failed to propose selection');
+    }
+
+    await response.json().catch(() => null);
+
+    const confirmResponse = await fetch(`${apiBase}/v1/checkin/lane/${lane}/confirm-selection`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        ...kioskAuthHeaders(),
+      },
+      body: JSON.stringify({
+        confirmedBy: 'CUSTOMER',
+      }),
+    });
+
+    if (!confirmResponse.ok) {
+      const errorPayload: unknown = await confirmResponse.json().catch(() => null);
+      if (isLanguageRequiredConflict(confirmResponse.status, errorPayload)) {
+        showLanguageRequiredNotice();
+        return null;
+      }
+      throw new Error(getErrorMessage(errorPayload) || 'Failed to confirm selection');
+    }
+
+    const confirmPayload: unknown = await confirmResponse.json().catch(() => null);
+    const confirmedBy = parseConfirmedBy(confirmPayload);
+
+    setters.setProposedRentalType(rentalType);
+    setters.setProposedBy('CUSTOMER');
+    setters.setSelectionConfirmed(true);
+    setters.setSelectionConfirmedBy(confirmedBy);
+
+    return confirmedBy;
+  };
+
+  const handleOpenWaitlist = () => {
+    const unavailableTypes = buildUnavailableRentalTypes();
+    if (!unavailableTypes.length) {
+      showNotice({
+        tone: 'warning',
+        title: t(session.customerPrimaryLanguage, 'error.noUnavailableForWaitlist'),
+      });
+      return;
+    }
+
+    setters.setWaitlistDesiredType(unavailableTypes[0] ?? null);
+    setters.setWaitlistDesiredTypes(unavailableTypes);
+    setters.setWaitlistRequestedResourceNumber(null);
+    setters.setWaitlistRequestedResourceType(null);
+    setters.setWaitlistUnavailableOptions(null);
+    setters.setShowWaitlistModal(true);
+  };
+
   const handleRentalSelection = async (rental: string) => {
     if (!session.sessionId) {
       showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.noActiveSession') });
@@ -56,9 +166,7 @@ export function useSelectionFlowActions({
     }
     if (!lane) return;
 
-    const availableCount =
-      inventory?.rooms?.[rental] ??
-      (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : undefined);
+    const availableCount = getAvailableCount(inventory, rental);
 
     if (availableCount === 0) {
       setters.setWaitlistDesiredType(rental);
@@ -100,68 +208,7 @@ export function useSelectionFlowActions({
     setIsSubmitting(true);
 
     try {
-      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/propose-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
-        body: JSON.stringify({
-          rentalType: rental,
-          proposedBy: 'CUSTOMER',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (
-          response.status === 409 &&
-          isRecord(errorPayload) &&
-          errorPayload.code === 'LANGUAGE_REQUIRED'
-        ) {
-          onSwitchToLanguage();
-          showNotice({ tone: 'warning', title: t('EN', 'selectLanguage') });
-          return;
-        }
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to propose selection');
-      }
-
-      await response.json().catch(() => null);
-      const confirmResponse = await fetch(`${apiBase}/v1/checkin/lane/${lane}/confirm-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
-        body: JSON.stringify({
-          confirmedBy: 'CUSTOMER',
-        }),
-      });
-
-      if (!confirmResponse.ok) {
-        const errorPayload: unknown = await confirmResponse.json().catch(() => null);
-        if (
-          confirmResponse.status === 409 &&
-          isRecord(errorPayload) &&
-          errorPayload.code === 'LANGUAGE_REQUIRED'
-        ) {
-          onSwitchToLanguage();
-          showNotice({ tone: 'warning', title: t('EN', 'selectLanguage') });
-          return;
-        }
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to confirm selection');
-      }
-
-      const confirmPayload: unknown = await confirmResponse.json().catch(() => null);
-      const confirmedBy =
-        isRecord(confirmPayload) &&
-        (confirmPayload.confirmedBy === 'CUSTOMER' || confirmPayload.confirmedBy === 'EMPLOYEE')
-          ? confirmPayload.confirmedBy
-          : 'CUSTOMER';
-      setters.setProposedRentalType(rental);
-      setters.setProposedBy('CUSTOMER');
-      setters.setSelectionConfirmed(true);
-      setters.setSelectionConfirmedBy(confirmedBy);
+      await confirmSelectionAsCustomer({ rentalType: rental });
     } catch (error) {
       console.error('Failed to propose selection:', error);
       showNotice({
@@ -179,72 +226,15 @@ export function useSelectionFlowActions({
 
     try {
       const backupType = waitlistBackupType || selectedRental || 'LOCKER';
-      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/propose-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
-        body: JSON.stringify({
-          rentalType: backupType,
-          proposedBy: 'CUSTOMER',
-          waitlistDesiredType: waitlistDesiredType || undefined,
-          backupRentalType: backupType,
-        }),
+      const confirmedBy = await confirmSelectionAsCustomer({
+        rentalType: backupType,
+        waitlistDesiredType: waitlistDesiredType || undefined,
       });
+      if (!confirmedBy) return;
 
-      if (!response.ok) {
-        const errorPayload: unknown = await response.json().catch(() => null);
-        if (
-          response.status === 409 &&
-          isRecord(errorPayload) &&
-          errorPayload.code === 'LANGUAGE_REQUIRED'
-        ) {
-          onSwitchToLanguage();
-          showNotice({ tone: 'warning', title: t('EN', 'selectLanguage') });
-          return;
-        }
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to process waitlist selection');
-      }
-
-      const confirmResponse = await fetch(`${apiBase}/v1/checkin/lane/${lane}/confirm-selection`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
-        body: JSON.stringify({
-          confirmedBy: 'CUSTOMER',
-        }),
-      });
-
-      if (!confirmResponse.ok) {
-        const errorPayload: unknown = await confirmResponse.json().catch(() => null);
-        if (
-          confirmResponse.status === 409 &&
-          isRecord(errorPayload) &&
-          errorPayload.code === 'LANGUAGE_REQUIRED'
-        ) {
-          onSwitchToLanguage();
-          showNotice({ tone: 'warning', title: t('EN', 'selectLanguage') });
-          return;
-        }
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to confirm selection');
-      }
-
-      const confirmPayload: unknown = await confirmResponse.json().catch(() => null);
-      const confirmedBy =
-        isRecord(confirmPayload) &&
-        (confirmPayload.confirmedBy === 'CUSTOMER' || confirmPayload.confirmedBy === 'EMPLOYEE')
-          ? confirmPayload.confirmedBy
-          : 'CUSTOMER';
       setters.setUpgradeDisclaimerAcknowledged(true);
       setters.setShowUpgradeDisclaimer(false);
       setters.setUpgradeAction(null);
-      setters.setProposedRentalType(waitlistBackupType || selectedRental || 'LOCKER');
-      setters.setProposedBy('CUSTOMER');
-      setters.setSelectionConfirmed(true);
-      setters.setSelectionConfirmedBy(confirmedBy);
     } catch (error) {
       console.error('Failed to acknowledge upgrade disclaimer:', error);
       showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.process') });
@@ -254,9 +244,7 @@ export function useSelectionFlowActions({
   const handleWaitlistBackupSelection = (rental: string) => {
     if (!session.sessionId || !waitlistDesiredType) return;
 
-    const availableCount =
-      inventory?.rooms?.[rental] ??
-      (rental === 'LOCKER' || rental === 'GYM_LOCKER' ? inventory?.lockers : undefined);
+    const availableCount = getAvailableCount(inventory, rental);
     if (availableCount === 0) {
       showNotice({
         tone: 'warning',
@@ -274,8 +262,7 @@ export function useSelectionFlowActions({
   const handleWaitlistCancel = async () => {
     setters.setShowWaitlistModal(false);
     if (!session.sessionId) {
-      setters.setWaitlistDesiredType(null);
-      setters.setWaitlistBackupType(null);
+      resetWaitlistDraft(setters);
       return;
     }
     if (!lane) return;
@@ -291,9 +278,67 @@ export function useSelectionFlowActions({
     } catch (error) {
       console.error('Failed to clear waitlist selection:', error);
     } finally {
-      setters.setWaitlistDesiredType(null);
-      setters.setWaitlistBackupType(null);
-      setters.setHighlightedWaitlistBackup(null);
+      resetWaitlistDraft(setters, { clearHighlightedBackup: true });
+    }
+  };
+
+  const handleWaitlistDesiredTypesChange = (next: string[]) => {
+    setters.setWaitlistDesiredTypes(next);
+    setters.setWaitlistDesiredType(next[0] ?? null);
+  };
+
+  const handleWaitlistSpecificSelection = (params: {
+    resourceType: 'room' | 'locker' | null;
+    resourceNumber: string | null;
+  }) => {
+    setters.setWaitlistRequestedResourceType(params.resourceType);
+    setters.setWaitlistRequestedResourceNumber(params.resourceNumber);
+  };
+
+  const handleWaitlistSpecificFocus = async () => {
+    if (!lane) return;
+    if (waitlistUnavailableOptions) return;
+    try {
+      const response = await fetch(`${apiBase}/v1/inventory/unavailable-options`, {
+        headers: kioskAuthHeaders(),
+      });
+      if (!response.ok) return;
+      const data: unknown = await response.json();
+      const mapped = mapWaitlistUnavailableOptions(data);
+      if (!mapped) return;
+      setters.setWaitlistUnavailableOptions(mapped);
+    } catch {
+      // Best effort only; waitlist still works without specific options.
+    }
+  };
+
+  const handleWaitlistSubmit = async () => {
+    if (!session.sessionId) return;
+    if (!lane) return;
+    if (!waitlistDesiredTypes.length) {
+      showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.waitlistNeedsDesired') });
+      return;
+    }
+
+    const backupType = waitlistBackupType || selectedRental || 'LOCKER';
+
+    setIsSubmitting(true);
+    try {
+      const confirmedBy = await confirmSelectionAsCustomer({
+        rentalType: backupType,
+        waitlistDesiredType: waitlistDesiredTypes[0],
+        waitlistDesiredTypes,
+        waitlistRequestedResourceNumber: waitlistRequestedResourceNumber || undefined,
+        waitlistRequestedResourceType: waitlistRequestedResourceType || undefined,
+      });
+      if (!confirmedBy) return;
+
+      setters.setShowWaitlistModal(false);
+    } catch (error) {
+      console.error('Failed to submit waitlist flow:', error);
+      showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.process') });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -325,22 +370,16 @@ export function useSelectionFlowActions({
     }
   };
 
-  const membershipActions = createMembershipFlowActions({
-    apiBase,
-    kioskAuthHeaders,
-    state,
-    setters,
-    ui,
-    callbacks,
-    notices,
-  });
-
   return {
+    handleOpenWaitlist,
     handleRentalSelection,
     handleDisclaimerAcknowledge,
+    handleWaitlistDesiredTypesChange,
+    handleWaitlistSpecificSelection,
+    handleWaitlistSpecificFocus,
+    handleWaitlistSubmit,
     handleWaitlistBackupSelection,
     handleWaitlistCancel,
     handleCustomerConfirmSelection,
-    ...membershipActions,
   };
 }

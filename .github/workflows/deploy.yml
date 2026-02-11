@@ -49,6 +49,23 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: us-east-1
 
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.ECR_REPO_URI }}
+          tags: |
+            type=sha,prefix=dev-,format=short
+            type=raw,value=dev-latest
+            type=raw,value=dev-{{date 'YYYYMMDD-HHmmss'}}
+
       - name: Install session-manager-plugin
         run: |
           curl -sSL -o /tmp/session-manager-plugin.deb \
@@ -67,6 +84,21 @@ jobs:
           SKIP_PNPM_INSTALL: 'false'
           SKIP_SHARED_BUILD: 'false'
         run: scripts/aws/seed-demo-via-ssm.sh
+
+      - name: Build API image with cache
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: Dockerfile.api
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: |
+            type=gha,scope=api
+            type=registry,ref=${{ secrets.ECR_REPO_URI }}:dev-latest
+          cache-to: type=gha,mode=max,scope=api
+          provenance: false
+          sbom: false
 
       - name: Deploy API (App Runner)
         env:
@@ -91,6 +123,7 @@ jobs:
           DB_SSL_CA_PATH: ''
           DB_LOG_QUERIES: 'false'
           SKIP_PNPM_INSTALL: 'false'
+          IMAGE_TAG: dev-${{ github.sha }}
         run: scripts/aws/deploy-api.sh
 
       - name: Deploy employee-register
@@ -119,7 +152,14 @@ jobs:
 
       - name: Deployment summary
         run: |
-          echo "### Dev deploy complete" >> $GITHUB_STEP_SUMMARY
+          echo "## Dev deployment complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Services" >> $GITHUB_STEP_SUMMARY
           echo "- API: https://api-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
           echo "- Employee: https://employee-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
           echo "- Customer: https://customer-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### Docker Image" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "${{ secrets.ECR_REPO_URI }}:dev-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

@@ -12,6 +12,20 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  repo-structure-lint:
+    name: Repo structure lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run ls-lint
+        uses: ls-lint/action@v2
+        with:
+          config: .ls-lint.yml
+          workdir: .
+
   validate:
     name: Validate build & types
     runs-on: ubuntu-latest
@@ -68,6 +82,7 @@ jobs:
     name: Docker build validation
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         service:
           - { name: api, dockerfile: Dockerfile.api, context: "." }
@@ -81,6 +96,10 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:latest
+            network=host
 
       - name: Build ${{ matrix.service.name }} image
         uses: docker/build-push-action@v5
@@ -88,6 +107,7 @@ jobs:
           context: ${{ matrix.service.context }}
           file: ${{ matrix.service.dockerfile }}
           push: false
+          load: true
           tags: club-ops-${{ matrix.service.name }}:ci-${{ github.sha }}
           cache-from: type=gha,scope=${{ matrix.service.name }}
           cache-to: type=gha,mode=max,scope=${{ matrix.service.name }}
@@ -95,9 +115,76 @@ jobs:
             VITE_API_BASE_URL=/api
             VITE_KIOSK_TOKEN=test-token
 
-      - name: Inspect image
+      - name: Inspect image size
         run: |
-          docker buildx imagetools inspect club-ops-${{ matrix.service.name }}:ci-${{ github.sha }} || true
+          docker images club-ops-${{ matrix.service.name }}:ci-${{ github.sha }} --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
+
+      - name: Test image health
+        if: matrix.service.name == 'api'
+        run: |
+          docker run -d --name test-${{ matrix.service.name }} \
+            -e SKIP_DB=true \
+            -e KIOSK_TOKEN=test-token \
+            -e LOG_LEVEL=error \
+            club-ops-${{ matrix.service.name }}:ci-${{ github.sha }}
+          
+          # Wait for healthcheck
+          timeout 60 bash -c 'until [ "$(docker inspect --format="{{.State.Health.Status}}" test-${{ matrix.service.name }})" = "healthy" ]; do sleep 2; done'
+          
+          docker logs test-${{ matrix.service.name }}
+          docker rm -f test-${{ matrix.service.name }}
+
+      - name: Test frontend image
+        if: matrix.service.name != 'api'
+        run: |
+          docker run -d --name test-${{ matrix.service.name }} \
+            -p 8080:80 \
+            club-ops-${{ matrix.service.name }}:ci-${{ github.sha }}
+          
+          # Wait for healthcheck
+          timeout 60 bash -c 'until [ "$(docker inspect --format="{{.State.Health.Status}}" test-${{ matrix.service.name }})" = "healthy" ]; do sleep 2; done'
+          
+          # Test HTTP response
+          curl -f http://localhost:8080/ || (docker logs test-${{ matrix.service.name }} && exit 1)
+          
+          docker rm -f test-${{ matrix.service.name }}
+
+  dockerfile-lint:
+    name: Dockerfile lint
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dockerfile:
+          - Dockerfile.api
+          - Dockerfile.customer-kiosk
+          - Dockerfile.employee-register
+          - Dockerfile.office-dashboard
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          format: sarif
+          output-file: hadolint-${{ matrix.dockerfile }}.sarif
+          no-fail: true
+
+      - name: Upload Hadolint results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: hadolint-${{ matrix.dockerfile }}.sarif
+          category: dockerfile-${{ matrix.dockerfile }}
+
+      - name: Run Hadolint (console output)
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: ${{ matrix.dockerfile }}
+          format: tty
 
   docker-compose-test:
     name: Docker Compose integration test
@@ -106,6 +193,9 @@ jobs:
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
 
       - name: Create .env file
         run: |
@@ -119,9 +209,6 @@ jobs:
           DEMO_MODE=false
           SEED_ON_STARTUP=false
           EOF
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
 
       - name: Build Docker images
         run: docker compose build --parallel

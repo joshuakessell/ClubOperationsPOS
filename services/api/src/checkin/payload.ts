@@ -7,6 +7,23 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+function extractWaitlistDesiredTypes(raw: unknown): string[] | undefined {
+  if (raw == null) return undefined;
+
+  let parsed: unknown = raw;
+  if (typeof parsed === 'string') {
+    try {
+      parsed = JSON.parse(parsed) as unknown;
+    } catch {
+      return undefined;
+    }
+  }
+
+  if (!Array.isArray(parsed)) return undefined;
+  const values = parsed.filter((item): item is string => typeof item === 'string' && item.length > 0);
+  return values.length > 0 ? values : undefined;
+}
+
 function extractPaymentLineItems(
   raw: unknown
 ): Array<{ description: string; amount: number }> | undefined {
@@ -364,7 +381,10 @@ export async function buildFullSessionUpdatedPayload(
     assignedResourceNumber,
     visitId: blockForSession?.visit_id || activeVisitId,
     waitlistDesiredType: session.waitlist_desired_type || undefined,
+    waitlistDesiredTypes: extractWaitlistDesiredTypes(session.waitlist_desired_types_json),
     backupRentalType: session.backup_rental_type || undefined,
+    waitlistRequestedResourceNumber: session.waitlist_requested_resource_number || undefined,
+    waitlistRequestedResourceType: session.waitlist_requested_resource_type || undefined,
     blockEndsAt: blockForSession?.ends_at
       ? blockForSession.ends_at.toISOString()
       : activeBlockEndsAt,

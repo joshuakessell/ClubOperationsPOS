@@ -161,7 +161,10 @@ export interface SessionUpdatedPayload {
    * This represents the customer's pending upgrade intent for this visit.
    */
   waitlistDesiredType?: string;
+  waitlistDesiredTypes?: string[];
   backupRentalType?: string;
+  waitlistRequestedResourceNumber?: string;
+  waitlistRequestedResourceType?: 'room' | 'locker';
   status?: string;
   proposedRentalType?: string;
   proposedBy?: 'CUSTOMER' | 'EMPLOYEE';

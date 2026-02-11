@@ -8,6 +8,11 @@ export type SelectionInventory = {
   lockers: number;
 } | null;
 
+export type WaitlistUnavailableOptions = {
+  rooms: Record<'SPECIAL' | 'DOUBLE' | 'STANDARD', Array<{ number: string; status: string }>>;
+  lockers: Array<{ number: string; status: string }>;
+} | null;
+
 export type SelectionFlowState = {
   session: SessionState;
   lane: string | null;
@@ -18,7 +23,11 @@ export type SelectionFlowState = {
   selectionConfirmed: boolean;
   selectionConfirmedBy: 'CUSTOMER' | 'EMPLOYEE' | null;
   waitlistDesiredType: string | null;
+  waitlistDesiredTypes: string[];
   waitlistBackupType: string | null;
+  waitlistRequestedResourceNumber: string | null;
+  waitlistRequestedResourceType: 'room' | 'locker' | null;
+  waitlistUnavailableOptions: WaitlistUnavailableOptions;
   waitlistPosition: number | null;
   waitlistETA: string | null;
   waitlistUpgradeFee: number | null;
@@ -42,7 +51,11 @@ export type SelectionFlowSetters = {
   setSelectionConfirmed: Dispatch<SetStateAction<boolean>>;
   setSelectionConfirmedBy: Dispatch<SetStateAction<'CUSTOMER' | 'EMPLOYEE' | null>>;
   setWaitlistDesiredType: Dispatch<SetStateAction<string | null>>;
+  setWaitlistDesiredTypes: Dispatch<SetStateAction<string[]>>;
   setWaitlistBackupType: Dispatch<SetStateAction<string | null>>;
+  setWaitlistRequestedResourceNumber: Dispatch<SetStateAction<string | null>>;
+  setWaitlistRequestedResourceType: Dispatch<SetStateAction<'room' | 'locker' | null>>;
+  setWaitlistUnavailableOptions: Dispatch<SetStateAction<WaitlistUnavailableOptions>>;
   setWaitlistPosition: Dispatch<SetStateAction<number | null>>;
   setWaitlistETA: Dispatch<SetStateAction<string | null>>;
   setWaitlistUpgradeFee: Dispatch<SetStateAction<number | null>>;

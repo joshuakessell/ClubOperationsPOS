@@ -1,29 +1,29 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { CustomerProfileCard } from '../../components/register/CustomerProfileCard';
 import { EmployeeAssistPanel } from '../../components/register/EmployeeAssistPanel';
 import { CustomerAccountPanel } from '../../components/register/panels/CustomerAccountPanel';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 import { PanelHeader } from '../../views/PanelHeader';
 import { PanelShell } from '../../views/PanelShell';
-import { getApiUrl, type CustomerIdType } from '@club-ops/shared';
+import { getApiUrl } from '@club-ops/shared';
 import { isRecord, readJson } from '@club-ops/ui';
+import type { CustomerProfile, LaneSessionPatch } from './accountTypes';
+import type { RegisterLaneSessionState } from '../../app/useRegisterLaneSessionState';
+const isCustomerIdType = (
+  value: unknown
+): value is CustomerProfile['idType'] =>
+  value === 'STATE_ID' ||
+  value === 'DRIVERS_LICENSE' ||
+  value === 'PASSPORT' ||
+  value === 'OTHER';
 
-type CustomerProfile = {
-  id: string;
-  name: string;
-  dob: string | null;
-  dobMonthDay: string | null;
-  membershipNumber: string | null;
-  membershipValidUntil: string | null;
-  idNumber: string | null;
-  idType: CustomerIdType | null;
-  idTypeOther: string | null;
-  idExpirationDate: string | null;
-  preferredLanguage: 'EN' | 'ES' | null;
-  lastVisitAt: string | null;
-  hasEncryptedLookupMarker: boolean;
-};
+const isLaneSessionMode = (value: unknown): value is LaneSessionPatch['mode'] =>
+  value === 'CHECKIN' || value === 'RENEWAL';
 
+const isAssignedResourceType = (
+  value: unknown
+): value is NonNullable<LaneSessionPatch['assignedResourceType']> =>
+  value === 'room' || value === 'locker';
 export function AccountPanel() {
   const {
     accountCustomerId,
@@ -76,8 +76,68 @@ export function AccountPanel() {
     laneSessionActions,
   } = useEmployeeRegisterState();
 
+  const patchLaneSession = useCallback(
+    (patch: LaneSessionPatch) => {
+      laneSessionActions.patch(patch as Partial<RegisterLaneSessionState>);
+    },
+    [laneSessionActions]
+  );
   const profileAbortRef = useRef<AbortController | null>(null);
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  useEffect(() => {
+    if (!accountCustomerId || !session?.sessionToken || currentSessionId) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const response = await fetch(
+          getApiUrl(`/api/v1/checkin/lane/${encodeURIComponent(lane)}/session-snapshot`),
+          {
+            headers: { Authorization: `Bearer ${session.sessionToken}` },
+            signal: controller.signal,
+          }
+        );
+        if (!response.ok) return;
+        const payload = await readJson<unknown>(response);
+        if (!isRecord(payload)) return;
+        const sessionPayload = payload['session'];
+        if (!isRecord(sessionPayload)) return;
+
+        const snapshotCustomerId =
+          typeof sessionPayload['customerId'] === 'string' ? sessionPayload['customerId'] : null;
+        if (snapshotCustomerId !== accountCustomerId) return;
+
+        if (cancelled) return;
+        const patch: LaneSessionPatch = {
+          currentSessionId:
+            typeof sessionPayload['sessionId'] === 'string' ? sessionPayload['sessionId'] : null,
+          customerId: snapshotCustomerId,
+          customerName:
+            typeof sessionPayload['customerName'] === 'string' ? sessionPayload['customerName'] : '',
+          membershipNumber:
+            typeof sessionPayload['membershipNumber'] === 'string'
+              ? sessionPayload['membershipNumber']
+              : '',
+        };
+        if (isLaneSessionMode(sessionPayload['mode'])) {
+          patch.mode = sessionPayload['mode'];
+        }
+        patchLaneSession(patch);
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'AbortError')) {
+          console.warn('Failed to hydrate account panel from lane snapshot', error);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [accountCustomerId, currentSessionId, lane, patchLaneSession, session?.sessionToken]);
+
   useEffect(() => {
     if (profileAbortRef.current) {
       profileAbortRef.current.abort();
@@ -114,13 +174,7 @@ export function AccountPanel() {
           return;
         }
 
-        const idType =
-          rawCustomer['idType'] === 'STATE_ID' ||
-          rawCustomer['idType'] === 'DRIVERS_LICENSE' ||
-          rawCustomer['idType'] === 'PASSPORT' ||
-          rawCustomer['idType'] === 'OTHER'
-            ? (rawCustomer['idType'] as CustomerIdType)
-            : null;
+        const idType = isCustomerIdType(rawCustomer['idType']) ? rawCustomer['idType'] : null;
         const preferredLanguage =
           rawCustomer['primaryLanguage'] === 'EN' || rawCustomer['primaryLanguage'] === 'ES'
             ? rawCustomer['primaryLanguage']
@@ -163,8 +217,37 @@ export function AccountPanel() {
       controller.abort();
     };
   }, [accountCustomerId, session?.sessionToken]);
-
   const directSelect = laneSessionMode === 'RENEWAL';
+  const inventorySnapshot = inventoryAvailable
+    ? {
+        rooms: inventoryAvailable.rooms,
+        lockers: inventoryAvailable.lockers,
+      }
+    : null;
+
+  const employeeAssistInteractionProps = {
+    onHighlightLanguage: (lang: 'EN' | 'ES' | null) =>
+      void highlightKioskOption({ step: 'LANGUAGE', option: lang }),
+    onConfirmLanguage: (lang: 'EN' | 'ES') => void handleConfirmLanguage(lang),
+    onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) =>
+      void highlightKioskOption({ step: 'MEMBERSHIP', option: choice }),
+    onConfirmMembershipOneTime: () => void handleConfirmMembershipOneTime(),
+    onConfirmMembershipSixMonth: () => void handleConfirmMembershipSixMonth(),
+    onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+      void handleProposeSelection(rental),
+    onSelectRentalAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+      void handleCustomerSelectRental(rental),
+    onDirectSelectRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+      void handleDirectSelectRental(rental),
+    onHighlightWaitlistBackup: (
+      rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
+    ) => void highlightKioskOption({ step: 'WAITLIST_BACKUP', option: rental }),
+    onSelectWaitlistBackupAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+      void handleSelectWaitlistBackupAsCustomer(rental),
+    onDirectSelectWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+      void handleDirectSelectWaitlistBackup(rental),
+    onApproveRental: () => void handleConfirmSelection(),
+  };
 
   if (accountCustomerId) {
     return (
@@ -202,21 +285,14 @@ export function AccountPanel() {
         hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
         waitlistDesiredTier={waitlistDesiredTier}
         waitlistBackupType={waitlistBackupType}
-        inventoryAvailable={
-          inventoryAvailable
-            ? {
-                rooms: inventoryAvailable.rooms,
-                lockers: inventoryAvailable.lockers,
-              }
-            : null
-        }
+        inventoryAvailable={inventorySnapshot}
         isSubmitting={isSubmitting}
         checkinStage={checkinStage}
         sessionMode={laneSessionMode ?? undefined}
         renewalHours={renewalHours}
         directSelect={directSelect}
         onStartedSession={(data) => {
-          const patch: Partial<typeof laneSession> = {};
+          const patch: LaneSessionPatch = {};
           if (accountCustomerId) patch.customerId = accountCustomerId;
           if (data.customerName) patch.customerName = data.customerName;
           if (data.membershipNumber) patch.membershipNumber = data.membershipNumber;
@@ -227,41 +303,21 @@ export function AccountPanel() {
             patch.customerHasEncryptedLookupMarker = Boolean(data.customerHasEncryptedLookupMarker);
           }
           if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-            if (data.activeAssignedResourceType)
+            if (isAssignedResourceType(data.activeAssignedResourceType)) {
               patch.assignedResourceType = data.activeAssignedResourceType;
+            }
             if (data.activeAssignedResourceNumber)
               patch.assignedResourceNumber = data.activeAssignedResourceNumber;
             patch.checkoutAt = data.blockEndsAt;
           }
-          if (Object.keys(patch).length > 0) {
-            laneSessionActions.patch(patch);
-          }
+          if (Object.keys(patch).length > 0) patchLaneSession(patch);
         }}
-        onHighlightLanguage={(lang) =>
-          void highlightKioskOption({ step: 'LANGUAGE', option: lang })
-        }
-        onConfirmLanguage={(lang) => void handleConfirmLanguage(lang)}
-        onHighlightMembership={(choice) =>
-          void highlightKioskOption({ step: 'MEMBERSHIP', option: choice })
-        }
-        onConfirmMembershipOneTime={() => void handleConfirmMembershipOneTime()}
-        onConfirmMembershipSixMonth={() => void handleConfirmMembershipSixMonth()}
-        onHighlightRental={(rental) => void handleProposeSelection(rental)}
-        onSelectRentalAsCustomer={(rental) => void handleCustomerSelectRental(rental)}
-        onDirectSelectRental={(rental) => void handleDirectSelectRental(rental)}
-        onHighlightWaitlistBackup={(rental) =>
-          void highlightKioskOption({ step: 'WAITLIST_BACKUP', option: rental })
-        }
-        onSelectWaitlistBackupAsCustomer={(rental) =>
-          void handleSelectWaitlistBackupAsCustomer(rental)
-        }
-        onDirectSelectWaitlistBackup={(rental) => void handleDirectSelectWaitlistBackup(rental)}
-        onApproveRental={() => void handleConfirmSelection()}
+        {...employeeAssistInteractionProps}
       />
     );
   }
 
-  if (currentSessionId && customerName) {
+  if (currentSessionId && (!laneSession.customerId || laneSession.customerId === accountCustomerId)) {
     return (
       <PanelShell align="top" scroll="hidden">
         <div
@@ -321,36 +377,10 @@ export function AccountPanel() {
             selectionConfirmed={selectionConfirmed}
             waitlistDesiredTier={waitlistDesiredTier}
             waitlistBackupType={waitlistBackupType}
-            inventoryAvailable={
-              inventoryAvailable
-                ? {
-                    rooms: inventoryAvailable.rooms,
-                    lockers: inventoryAvailable.lockers,
-                  }
-                : null
-            }
+            inventoryAvailable={inventorySnapshot}
             isSubmitting={isSubmitting}
             directSelect={directSelect}
-            onHighlightLanguage={(lang) =>
-              void highlightKioskOption({ step: 'LANGUAGE', option: lang })
-            }
-            onConfirmLanguage={(lang) => void handleConfirmLanguage(lang)}
-            onHighlightMembership={(choice) =>
-              void highlightKioskOption({ step: 'MEMBERSHIP', option: choice })
-            }
-            onConfirmMembershipOneTime={() => void handleConfirmMembershipOneTime()}
-            onConfirmMembershipSixMonth={() => void handleConfirmMembershipSixMonth()}
-            onHighlightRental={(rental) => void handleProposeSelection(rental)}
-            onSelectRentalAsCustomer={(rental) => void handleCustomerSelectRental(rental)}
-            onDirectSelectRental={(rental) => void handleDirectSelectRental(rental)}
-            onHighlightWaitlistBackup={(rental) =>
-              void highlightKioskOption({ step: 'WAITLIST_BACKUP', option: rental })
-            }
-            onSelectWaitlistBackupAsCustomer={(rental) =>
-              void handleSelectWaitlistBackupAsCustomer(rental)
-            }
-            onDirectSelectWaitlistBackup={(rental) => void handleDirectSelectWaitlistBackup(rental)}
-            onApproveRental={() => void handleConfirmSelection()}
+            {...employeeAssistInteractionProps}
           />
         </div>
       </PanelShell>

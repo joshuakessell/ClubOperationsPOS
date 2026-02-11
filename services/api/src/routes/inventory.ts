@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { query } from '../db';
 import { requireAuth } from '../auth/middleware';
+import { optionalAuth } from '../auth/middleware';
+import { requireKioskTokenOrStaff } from '../auth/kioskToken';
 import { getRoomTierFromNumber } from '@club-ops/shared';
 import { computeInventoryAvailable } from '../inventory/available';
 
@@ -134,6 +136,73 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
       return reply.status(500).send({ error: 'Internal server error' });
     }
   });
+
+  /**
+   * GET /v1/inventory/unavailable-options
+   *
+   * Returns currently unavailable room/locker numbers for waitlist-specific selection.
+   * Includes OCCUPIED, DIRTY, and CLEANING resources; excludes OUT_OF_SERVICE.
+   * Public for kiosk/staff via kiosk token or staff auth.
+   */
+  fastify.get(
+    '/v1/inventory/unavailable-options',
+    {
+      preHandler: [optionalAuth, requireKioskTokenOrStaff],
+    },
+    async (_request, reply) => {
+      try {
+        const roomResult = await query<{
+          number: string;
+          status: string;
+        }>(
+          `SELECT number, status
+           FROM rooms
+           WHERE type != 'LOCKER'
+             AND status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
+             AND status != 'OUT_OF_SERVICE'
+           ORDER BY number`
+        );
+
+        const lockerResult = await query<{
+          number: string;
+          status: string;
+        }>(
+          `SELECT number, status
+           FROM lockers
+           WHERE status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
+             AND status != 'OUT_OF_SERVICE'
+           ORDER BY number`
+        );
+
+        const rooms: Record<RoomTier, Array<{ number: string; status: string }>> = {
+          SPECIAL: [],
+          DOUBLE: [],
+          STANDARD: [],
+        };
+
+        for (const row of roomResult.rows) {
+          const num = Number.parseInt(row.number, 10);
+          if (!Number.isFinite(num)) continue;
+          try {
+            const tier = getRoomTier(row.number);
+            rooms[tier].push({ number: row.number, status: row.status });
+          } catch {
+            // Ignore malformed numbers that do not map to a real room tier.
+          }
+        }
+
+        const lockers = lockerResult.rows.map((row) => ({
+          number: row.number,
+          status: row.status,
+        }));
+
+        return reply.send({ rooms, lockers });
+      } catch (error) {
+        fastify.log.error(error, 'Failed to fetch unavailable inventory options');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
 
   /**
    * GET /v1/inventory/rooms-by-tier - Get all rooms grouped by tier for assignment
