@@ -40,13 +40,17 @@ required KIOSK_TOKEN_SECRET_ARN
 required AWS_REGION
 required ECR_REPO_URI
 required DB_SSL
+required IMAGE_TAG
 
 DB_SSL_VALUE="$DB_SSL"
 
-IMAGE_TAG_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
-IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG_SHA}"
+IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG}"
 IMAGE_LATEST_TAG="${ECR_REPO_URI}:dev-latest"
 export IMAGE_LATEST_TAG
+DEPLOY_IMAGE_TAG="$IMAGE_SHA_TAG"
+export DEPLOY_IMAGE_TAG
+
+PUSH_DEV_LATEST_TAG="${PUSH_DEV_LATEST_TAG:-false}"
 
 aws ecr get-login-password --region "$AWS_REGION" | \
   docker login --username AWS --password-stdin "${ECR_REPO_URI%/*}"
@@ -63,10 +67,13 @@ pnpm turbo run build --filter @club-ops/shared --filter @club-ops/api
 
 # Dockerfile expects dist outputs to exist and be included in context (ensure .dockerignore allows them)
 docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
-docker tag "$IMAGE_SHA_TAG" "$IMAGE_LATEST_TAG"
 
 docker push "$IMAGE_SHA_TAG"
-docker push "$IMAGE_LATEST_TAG"
+
+if [[ "$PUSH_DEV_LATEST_TAG" == "true" ]]; then
+  docker tag "$IMAGE_SHA_TAG" "$IMAGE_LATEST_TAG"
+  docker push "$IMAGE_LATEST_TAG"
+fi
 
 MIGRATION_DATABASE_URL="$(
   aws secretsmanager get-secret-value \
@@ -221,7 +228,7 @@ payload = {
     "ServiceArn": os.environ["APP_RUNNER_SERVICE_ARN"],
     "SourceConfiguration": {
         "ImageRepository": {
-            "ImageIdentifier": os.environ["IMAGE_LATEST_TAG"],
+            "ImageIdentifier": os.environ["DEPLOY_IMAGE_TAG"],
             "ImageRepositoryType": "ECR",
             "ImageConfiguration": {
                 "Port": "3000",

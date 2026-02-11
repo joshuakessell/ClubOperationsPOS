@@ -119,6 +119,8 @@ jobs:
           DB_SSL_CA_PATH: ''
           DB_LOG_QUERIES: 'false'
           SKIP_PNPM_INSTALL: 'true'
+          IMAGE_TAG: ${{ github.ref_name }}
+          PUSH_DEV_LATEST_TAG: 'false'
         run: scripts/aws/deploy-api.sh
 
   deploy-frontends:
