@@ -23,36 +23,10 @@ need_cmd pnpm
 need_cmd python3
 
 get_secret_payload() {
-  local secret_id_raw="$1"
-  local secret_id
-  secret_id="$(
-    printf '%s' "$secret_id_raw" |
-      tr -d '\r\n' |
-      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
-  )"
-
-  # Strip accidental surrounding quotes.
-  secret_id="${secret_id#\"}"
-  secret_id="${secret_id%\"}"
-  secret_id="${secret_id#\'}"
-  secret_id="${secret_id%\'}"
-
-  if [[ -z "$secret_id" ]]; then
+  local secret_id="$1"
+  if [[ -z "${secret_id:-}" ]]; then
     echo "ERROR: secret id is empty" >&2
     exit 1
-  fi
-
-  # GitHub secrets sometimes store App Runner-style JSON key references, e.g.
-  #   arn:aws:secretsmanager:...:secret:my-secret:DATABASE_URL::
-  # Secrets Manager GetSecretValue expects just the secret ARN (or name).
-  if [[ "$secret_id" == arn:* ]]; then
-    IFS=':' read -r a b c d e f g rest <<<"$secret_id"
-    if [[ -n "${rest:-}" ]]; then
-      secret_id="$a:$b:$c:$d:$e:$f:$g"
-    fi
-  else
-    # If a non-ARN secret id is accidentally suffixed with ":KEY::", drop it.
-    secret_id="${secret_id%%:*}"
   fi
   local errfile
   errfile="$(mktemp)"
@@ -65,7 +39,7 @@ get_secret_payload() {
       --output json 2>"$errfile"
   )"; then
     echo "ERROR: failed to read secret '${secret_id}'" >&2
-    cat "$errfile" >&2 || true
+    cat "$errfile" >&2
     rm -f "$errfile"
     exit 1
   fi
@@ -80,15 +54,8 @@ get_secret_payload() {
   printf '%s' "$output"
 }
 
-SESSION_MANAGER_PLUGIN="${SESSION_MANAGER_PLUGIN:-session-manager-plugin}"
-if ! command -v "$SESSION_MANAGER_PLUGIN" >/dev/null 2>&1; then
-  if [[ -x "${HOME}/.local/bin/session-manager-plugin" ]]; then
-    SESSION_MANAGER_PLUGIN="${HOME}/.local/bin/session-manager-plugin"
-  else
-    echo "ERROR: session-manager-plugin not found in PATH or ~/.local/bin." >&2
-    exit 1
-  fi
-fi
+SESSION_MANAGER_PLUGIN="session-manager-plugin"
+need_cmd "$SESSION_MANAGER_PLUGIN"
 
 BASTION_INSTANCE_ID="${BASTION_INSTANCE_ID:-i-01f7806cad897d3ee}"
 RDS_ENDPOINT="${RDS_ENDPOINT:-club-ops-dev-db.cobu0oqcipf5.us-east-1.rds.amazonaws.com}"
@@ -106,11 +73,11 @@ DB_WAIT_TIMEOUT_SECONDS="${DB_WAIT_TIMEOUT_SECONDS:-900}"
 DB_WAIT_RETRY_DELAY_MS="${DB_WAIT_RETRY_DELAY_MS:-1000}"
 DB_CONNECTION_TIMEOUT_MS="${DB_CONNECTION_TIMEOUT_MS:-20000}"
 
-DATABASE_URL_FOR_TUNNEL=""
-if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
-  SECRET_VALUE="$(get_secret_payload "$DATABASE_URL_SECRET_ARN")"
+required DATABASE_URL_SECRET_ARN
 
-  DATABASE_URL_FOR_TUNNEL="$(
+SECRET_VALUE="$(get_secret_payload "$DATABASE_URL_SECRET_ARN")"
+
+DATABASE_URL_FOR_TUNNEL="$(
     SECRET_PAYLOAD="$SECRET_VALUE" python3 - "$LOCAL_PORT" <<'PY'
 import base64
 import json
@@ -121,12 +88,15 @@ import urllib.parse
 payload = json.loads(os.environ.get("SECRET_PAYLOAD", ""))
 local_port = sys.argv[1]
 
-def build_url(user: str, password: str, dbname: str) -> str:
-    user_enc = urllib.parse.quote(user or "")
-    pass_enc = urllib.parse.quote(password or "")
+def build_local_url(parsed: urllib.parse.ParseResult) -> str:
+    user_enc = urllib.parse.quote(urllib.parse.unquote(parsed.username or ""))
+    pass_enc = urllib.parse.quote(urllib.parse.unquote(parsed.password or ""))
     auth = ""
     if user_enc or pass_enc:
         auth = f"{user_enc}:{pass_enc}@"
+    dbname = (parsed.path or "").lstrip("/")
+    if not dbname:
+        raise ValueError("DATABASE_URL is missing a database name")
     return f"postgresql://{auth}localhost:{local_port}/{dbname}"
 
 raw = payload.get("SecretString")
@@ -134,69 +104,37 @@ if not raw and payload.get("SecretBinary"):
     raw = base64.b64decode(payload["SecretBinary"]).decode("utf-8")
 raw = (raw or "").strip()
 
-def use_connection_string(conn: str) -> str:
-    url = urllib.parse.urlparse(conn)
-    user = urllib.parse.unquote(url.username or "")
-    password = urllib.parse.unquote(url.password or "")
-    dbname = (url.path or "").lstrip("/") or os.environ.get("DB_NAME", "club_operations")
-    return build_url(user, password, dbname)
-
-def use_password_only(password: str) -> str:
-    user = os.environ.get("DB_USER", "clubops")
-    dbname = os.environ.get("DB_NAME", "club_operations")
-    return build_url(user, password, dbname)
-
 if not raw:
     sys.stderr.write("ERROR: SecretString/SecretBinary is empty.\n")
     sys.exit(1)
 
-if raw.startswith("postgres://") or raw.startswith("postgresql://"):
-    print(use_connection_string(raw))
-    sys.exit(0)
-
-data = None
-if raw.startswith("{"):
-    try:
-        data = json.loads(raw)
-    except Exception:
-        data = None
-
-if isinstance(data, dict):
-    url_value = (
-        data.get("DATABASE_URL")
-        or data.get("database_url")
-        or data.get("url")
+if not raw.startswith(("postgres://", "postgresql://")):
+    sys.stderr.write(
+        "ERROR: DATABASE_URL secret must be a postgres connection string (postgresql://...).\n"
     )
-    if isinstance(url_value, str) and url_value.startswith(("postgres://", "postgresql://")):
-        print(use_connection_string(url_value))
-        sys.exit(0)
+    sys.exit(1)
 
-    user = data.get("username") or data.get("user") or os.environ.get("DB_USER", "clubops")
-    password = data.get("password", "")
-    dbname = data.get("dbname") or data.get("database") or os.environ.get("DB_NAME", "club_operations")
-
-    if password:
-        print(build_url(user, password, dbname))
-        sys.exit(0)
-
-# Fallback: treat raw as a password-only secret.
-print(use_password_only(raw))
+parsed = urllib.parse.urlparse(raw)
+print(build_local_url(parsed))
 PY
-  )"
-  echo "Using DATABASE_URL from Secrets Manager (host forced to localhost:${LOCAL_PORT})."
-fi
+)"
 
-LOG_PATH="${LOG_PATH:-/tmp/ssm-tunnel.log}"
+echo "Using DATABASE_URL from Secrets Manager (host forced to localhost:${LOCAL_PORT})."
+
+required LOG_PATH
+required TUNNEL_READY_TIMEOUT_SECONDS
+required KILL_PORT_LISTENER
+required SKIP_PNPM_INSTALL
+required SKIP_SHARED_BUILD
+
 TUNNEL_PID=""
-TUNNEL_READY_TIMEOUT_SECONDS="${TUNNEL_READY_TIMEOUT_SECONDS:-60}"
-KILL_PORT_LISTENER="${KILL_PORT_LISTENER:-true}"
 
-if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
+if [[ "$SKIP_PNPM_INSTALL" != "true" ]]; then
   echo "Installing dependencies..."
   (cd "$ROOT_DIR" && pnpm install --frozen-lockfile)
 fi
 
-if [[ "${SKIP_SHARED_BUILD:-}" != "true" ]]; then
+if [[ "$SKIP_SHARED_BUILD" != "true" ]]; then
   echo "Building shared package..."
   (cd "$ROOT_DIR" && pnpm turbo run build --filter=@club-ops/shared)
 fi
@@ -204,7 +142,7 @@ fi
 dump_log() {
   if [[ -f "$LOG_PATH" ]]; then
     echo "---- SSM tunnel log (${LOG_PATH}) ----" >&2
-    tail -n 200 "$LOG_PATH" >&2 || true
+    tail -n 200 "$LOG_PATH" >&2
     echo "--------------------------------------" >&2
   else
     echo "SSM tunnel log not found at ${LOG_PATH}" >&2
@@ -239,7 +177,7 @@ kill_port_listener() {
   fi
 
   local pids=""
-  pids="$(lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null || true)"
+  pids="$(lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t)"
   if [[ -z "$pids" ]]; then
     echo "ERROR: port ${port} is in use but no listener PID was found." >&2
     echo "Set LOCAL_PORT to a free port and retry." >&2
@@ -247,7 +185,7 @@ kill_port_listener() {
   fi
 
   echo "Port ${port} is in use. Terminating listener(s): ${pids}"
-  kill ${pids} >/dev/null 2>&1 || true
+  kill ${pids} >/dev/null 2>&1
   sleep 1
 
   if is_port_listening "$port"; then
@@ -259,10 +197,10 @@ kill_port_listener() {
 
 cleanup() {
   if [[ -n "${TUNNEL_PID:-}" ]]; then
-    kill "$TUNNEL_PID" >/dev/null 2>&1 || true
+    kill "$TUNNEL_PID" >/dev/null 2>&1
   fi
   if [[ "$STOP_INSTANCE_ON_EXIT" == "true" ]]; then
-    aws ec2 stop-instances --instance-ids "$BASTION_INSTANCE_ID" >/dev/null 2>&1 || true
+    aws ec2 stop-instances --instance-ids "$BASTION_INSTANCE_ID" >/dev/null 2>&1
   fi
 }
 
@@ -288,7 +226,7 @@ fi
 
 echo "Waiting for SSM registration..."
 for i in {1..30}; do
-  id="$(aws ssm describe-instance-information --filters Key=InstanceIds,Values="$BASTION_INSTANCE_ID" --query 'InstanceInformationList[0].InstanceId' --output text 2>/dev/null || true)"
+  id="$(aws ssm describe-instance-information --filters Key=InstanceIds,Values="$BASTION_INSTANCE_ID" --query 'InstanceInformationList[0].InstanceId' --output text)"
   if [[ "$id" == "$BASTION_INSTANCE_ID" ]]; then
     break
   fi
@@ -307,7 +245,7 @@ TUNNEL_PID="$!"
 
 ready=false
 for ((i=1; i<=TUNNEL_READY_TIMEOUT_SECONDS; i++)); do
-  if grep -Eq "Waiting for connections|Port [0-9]+ opened" "$LOG_PATH" 2>/dev/null; then
+  if grep -Eq "Waiting for connections|Port [0-9]+ opened" "$LOG_PATH"; then
     ready=true
     break
   fi
@@ -334,11 +272,7 @@ echo "Tunnel ready. Running migrations and demo seed..."
 cd "$ROOT_DIR/services/api"
 
 db_env=(DB_SSL=true DB_SSL_CA_PATH=)
-if [[ -n "$DATABASE_URL_FOR_TUNNEL" ]]; then
-  db_env+=(DATABASE_URL="$DATABASE_URL_FOR_TUNNEL")
-else
-  db_env+=(DB_HOST=localhost DB_PORT="$LOCAL_PORT")
-fi
+db_env+=(DATABASE_URL="$DATABASE_URL_FOR_TUNNEL")
 db_env+=(DB_WAIT_TIMEOUT_SECONDS="$DB_WAIT_TIMEOUT_SECONDS" DB_WAIT_RETRY_DELAY_MS="$DB_WAIT_RETRY_DELAY_MS")
 db_env+=(DB_CONNECTION_TIMEOUT_MS="$DB_CONNECTION_TIMEOUT_MS")
 

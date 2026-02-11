@@ -64,4 +64,9 @@ jobs:
           DEMO_INCREMENTAL: 'true'
           DEMO_RESET_ON_STARTUP: 'true'
           DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
+          LOG_PATH: /tmp/ssm-tunnel.log
+          TUNNEL_READY_TIMEOUT_SECONDS: '60'
+          KILL_PORT_LISTENER: 'true'
+          SKIP_PNPM_INSTALL: 'false'
+          SKIP_SHARED_BUILD: 'false'
         run: scripts/aws/seed-demo-via-ssm.sh

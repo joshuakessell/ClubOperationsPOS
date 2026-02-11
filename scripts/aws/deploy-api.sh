@@ -27,50 +27,13 @@ need_cmd python3
 aws sts get-caller-identity >/dev/null
 
 required APP_RUNNER_SERVICE_ARN
+required DATABASE_URL_SECRET_ARN
+required KIOSK_TOKEN_SECRET_ARN
+required AWS_REGION
+required ECR_REPO_URI
+required DB_SSL
 
-USE_DB_SECRET=false
-if [[ -n "${DATABASE_URL_SECRET_ARN:-}" ]]; then
-  # Normalize accidental whitespace/quotes.
-  DATABASE_URL_SECRET_ARN="$(
-    printf '%s' "$DATABASE_URL_SECRET_ARN" |
-      tr -d '\r\n' |
-      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
-  )"
-  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN#\"}"
-  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%\"}"
-  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN#\'}"
-  DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%\'}"
-
-  # Allow App Runner-style secret references (arn:...:secret:NAME:KEY::).
-  if [[ "$DATABASE_URL_SECRET_ARN" == arn:* ]]; then
-    IFS=':' read -r a b c d e f g rest <<<"$DATABASE_URL_SECRET_ARN"
-    if [[ -n "${rest:-}" ]]; then
-      DATABASE_URL_SECRET_ARN="$a:$b:$c:$d:$e:$f:$g"
-    fi
-  else
-    DATABASE_URL_SECRET_ARN="${DATABASE_URL_SECRET_ARN%%:*}"
-  fi
-  USE_DB_SECRET=true
-else
-  required RDS_SECRET_ARN
-  required DB_HOST
-  required DB_PORT
-  required DB_NAME
-  required DB_USER
-fi
-
-DB_SSL_VALUE="${DB_SSL:-true}"
-
-# Guard: Postgres DB names should not contain hyphens (only when using explicit DB vars).
-if [[ "$USE_DB_SECRET" == "false" ]]; then
-  if [[ "$DB_NAME" == *"-"* ]]; then
-    echo "ERROR: DB_NAME='$DB_NAME' contains '-' which is not valid for Postgres database names. Use something like club_ops_db." >&2
-    exit 1
-  fi
-fi
-
-AWS_REGION="${AWS_REGION:-us-east-1}"
-ECR_REPO_URI="${ECR_REPO_URI:-146469921099.dkr.ecr.us-east-1.amazonaws.com/club-ops-api}"
+DB_SSL_VALUE="$DB_SSL"
 
 IMAGE_TAG_SHA="$(git -C "$ROOT_DIR" rev-parse --short=12 HEAD)"
 IMAGE_SHA_TAG="${ECR_REPO_URI}:${IMAGE_TAG_SHA}"
@@ -82,7 +45,8 @@ aws ecr get-login-password --region "$AWS_REGION" | \
 
 cd "$ROOT_DIR"
 
-if [[ "${SKIP_PNPM_INSTALL:-}" != "true" ]]; then
+required SKIP_PNPM_INSTALL
+if [[ "$SKIP_PNPM_INSTALL" != "true" ]]; then
   pnpm install --frozen-lockfile
 fi
 
@@ -96,35 +60,15 @@ docker tag "$IMAGE_SHA_TAG" "$IMAGE_LATEST_TAG"
 docker push "$IMAGE_SHA_TAG"
 docker push "$IMAGE_LATEST_TAG"
 
-# Fetch DB password from Secrets Manager (never stored in GitHub)
-if [[ "$USE_DB_SECRET" == "false" ]]; then
-  DB_PASSWORD_FROM_SM="$(
-    aws secretsmanager get-secret-value \
-      --secret-id "$RDS_SECRET_ARN" \
-      --query SecretString \
-      --output text | python3 -c 'import json,sys; print(json.load(sys.stdin)["password"])'
-  )"
+MIGRATION_DATABASE_URL="$(
+  aws secretsmanager get-secret-value \
+    --secret-id "$DATABASE_URL_SECRET_ARN" \
+    --query SecretString \
+    --output text
+)"
 
-  # URL-encode password to safely handle special characters.
-  DB_PASSWORD_URLENCODED="$(python3 -c 'import sys,urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$DB_PASSWORD_FROM_SM")"
-
-  DATABASE_URL="postgresql://${DB_USER}:${DB_PASSWORD_URLENCODED}@${DB_HOST}:${DB_PORT}/${DB_NAME}?sslmode=require"
-  echo "DB target: ${DB_USER}@${DB_HOST}:${DB_PORT}/${DB_NAME} (password redacted)"
-fi
-
-MIGRATION_DATABASE_URL=""
-if [[ "$USE_DB_SECRET" == "true" ]]; then
-  MIGRATION_DATABASE_URL="$(
-    aws secretsmanager get-secret-value \
-      --secret-id "$DATABASE_URL_SECRET_ARN" \
-      --query SecretString \
-      --output text
-  )"
-else
-  MIGRATION_DATABASE_URL="$DATABASE_URL"
-fi
-
-if [[ "${SKIP_DB_MIGRATIONS:-}" != "true" ]]; then
+required SKIP_DB_MIGRATIONS
+if [[ "$SKIP_DB_MIGRATIONS" != "true" ]]; then
   echo "Running DB migrations..."
   (
     cd "$ROOT_DIR/services/api"
@@ -135,11 +79,15 @@ if [[ "${SKIP_DB_MIGRATIONS:-}" != "true" ]]; then
   )
 fi
 
-if [[ "${DEMO_MODE:-}" == "true" && "${SKIP_DEMO_SEED:-}" != "true" ]]; then
-  : "${DEMO_INCREMENTAL:=true}"
-  : "${DEMO_RESET_ON_STARTUP:=true}"
-  : "${DEMO_SHIFT_REGENERATE_PDFS:=true}"
-  DEMO_FORCE_RESEED_VALUE="${DEMO_FORCE_RESEED:-false}"
+required DEMO_MODE
+required SKIP_DEMO_SEED
+required DEMO_INCREMENTAL
+required DEMO_RESET_ON_STARTUP
+required DEMO_SHIFT_REGENERATE_PDFS
+required DEMO_FORCE_RESEED
+
+if [[ "$DEMO_MODE" == "true" && "$SKIP_DEMO_SEED" != "true" ]]; then
+  DEMO_FORCE_RESEED_VALUE="$DEMO_FORCE_RESEED"
   echo "Running demo seed (incremental=$DEMO_INCREMENTAL)..."
   (
     cd "$ROOT_DIR/services/api"
@@ -155,7 +103,8 @@ if [[ "${DEMO_MODE:-}" == "true" && "${SKIP_DEMO_SEED:-}" != "true" ]]; then
   )
 fi
 
-if [[ "${SKIP_DB_VERIFY:-}" != "true" ]]; then
+required SKIP_DB_VERIFY
+if [[ "$SKIP_DB_VERIFY" != "true" ]]; then
   echo "Verifying DB schema..."
   (
     cd "$ROOT_DIR/services/api"
@@ -202,99 +151,38 @@ NODE
   )
 fi
 
-# Read existing App Runner runtime secrets (optional)
-EXISTING_SECRET_KEYS="$(
-  aws apprunner describe-service \
-    --service-arn "$APP_RUNNER_SERVICE_ARN" \
-    --query 'Service.SourceConfiguration.ImageRepository.ImageConfiguration.RuntimeEnvironmentSecrets | keys(@)' \
-    --output text 2>/dev/null || true
-)"
-
-has_secret() {
-  local key="$1"
-  if [[ -z "$EXISTING_SECRET_KEYS" || "$EXISTING_SECRET_KEYS" == "None" ]]; then
-    return 1
-  fi
-  grep -qw "$key" <<<"$EXISTING_SECRET_KEYS"
-}
-
-USE_KIOSK_SECRET=false
-if [[ -n "${KIOSK_TOKEN_SECRET_ARN:-}" ]]; then
-  # Normalize accidental whitespace/quotes.
-  KIOSK_TOKEN_SECRET_ARN="$(
-    printf '%s' "$KIOSK_TOKEN_SECRET_ARN" |
-      tr -d '\r\n' |
-      sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//'
-  )"
-  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN#\"}"
-  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%\"}"
-  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN#\'}"
-  KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%\'}"
-
-  # Allow App Runner-style secret references (arn:...:secret:NAME:KEY::).
-  if [[ "$KIOSK_TOKEN_SECRET_ARN" == arn:* ]]; then
-    IFS=':' read -r a b c d e f g rest <<<"$KIOSK_TOKEN_SECRET_ARN"
-    if [[ -n "${rest:-}" ]]; then
-      KIOSK_TOKEN_SECRET_ARN="$a:$b:$c:$d:$e:$f:$g"
-    fi
-  else
-    KIOSK_TOKEN_SECRET_ARN="${KIOSK_TOKEN_SECRET_ARN%%:*}"
-  fi
-  USE_KIOSK_SECRET=true
-fi
-
-# Require KIOSK_TOKEN only if it's not already configured as a runtime secret
-if [[ "$USE_KIOSK_SECRET" == "false" ]]; then
-  if ! has_secret "KIOSK_TOKEN"; then
-    required KIOSK_TOKEN
-  fi
-fi
+required KIOSK_TOKEN_SECRET_ARN
 
 runtime_env_vars=(
   "PORT=3000"
   "HOST=0.0.0.0"
 )
 
-if [[ "$USE_DB_SECRET" == "false" ]]; then
-  runtime_env_vars+=("DATABASE_URL=${DATABASE_URL}")
-fi
-
 runtime_env_vars+=("DB_SSL=${DB_SSL_VALUE}")
 
-if [[ "$USE_KIOSK_SECRET" == "false" ]] && ! has_secret "KIOSK_TOKEN"; then
-  runtime_env_vars+=("KIOSK_TOKEN=${KIOSK_TOKEN}")
-fi
+required LOG_LEVEL
+required SEED_ON_STARTUP
+required APPSYNC_EVENTS_HTTP_ENDPOINT
+required APPSYNC_EVENTS_CHANNEL_NAMESPACE
+required DB_LOG_QUERIES
+required DB_SSL_CA_PATH
 
-if [[ -n "${LOG_LEVEL:-}" ]]; then
-  runtime_env_vars+=("LOG_LEVEL=${LOG_LEVEL}")
-fi
+runtime_env_vars+=("LOG_LEVEL=${LOG_LEVEL}")
+runtime_env_vars+=("DEMO_MODE=${DEMO_MODE}")
+runtime_env_vars+=("SEED_ON_STARTUP=${SEED_ON_STARTUP}")
+runtime_env_vars+=("DEMO_INCREMENTAL=${DEMO_INCREMENTAL}")
+runtime_env_vars+=("DEMO_FORCE_RESEED=${DEMO_FORCE_RESEED}")
+runtime_env_vars+=("DEMO_RESET_ON_STARTUP=${DEMO_RESET_ON_STARTUP}")
+runtime_env_vars+=("DEMO_SHIFT_REGENERATE_PDFS=${DEMO_SHIFT_REGENERATE_PDFS}")
+runtime_env_vars+=("APPSYNC_EVENTS_HTTP_ENDPOINT=${APPSYNC_EVENTS_HTTP_ENDPOINT}")
+runtime_env_vars+=("APPSYNC_EVENTS_CHANNEL_NAMESPACE=${APPSYNC_EVENTS_CHANNEL_NAMESPACE}")
+runtime_env_vars+=("DB_LOG_QUERIES=${DB_LOG_QUERIES}")
+runtime_env_vars+=("DB_SSL_CA_PATH=${DB_SSL_CA_PATH}")
 
-optional_envs=(
-  DEMO_MODE
-  SEED_ON_STARTUP
-  DEMO_INCREMENTAL
-  DEMO_FORCE_RESEED
-  DEMO_RESET_ON_STARTUP
-  DEMO_SHIFT_REGENERATE_PDFS
-  APPSYNC_EVENTS_HTTP_ENDPOINT
-  APPSYNC_EVENTS_CHANNEL_NAMESPACE
-  DB_LOG_QUERIES
-  DB_SSL_CA_PATH
+runtime_env_secrets=(
+  "DATABASE_URL=${DATABASE_URL_SECRET_ARN}"
+  "KIOSK_TOKEN=${KIOSK_TOKEN_SECRET_ARN}"
 )
-
-for key in "${optional_envs[@]}"; do
-  if [[ -n "${!key:-}" ]]; then
-    runtime_env_vars+=("${key}=${!key}")
-  fi
-done
-
-runtime_env_secrets=()
-if [[ "$USE_DB_SECRET" == "true" ]]; then
-  runtime_env_secrets+=("DATABASE_URL=${DATABASE_URL_SECRET_ARN}")
-fi
-if [[ "$USE_KIOSK_SECRET" == "true" ]]; then
-  runtime_env_secrets+=("KIOSK_TOKEN=${KIOSK_TOKEN_SECRET_ARN}")
-fi
 
 TMP_JSON="$(mktemp)"
 trap 'rm -f "$TMP_JSON"' EXIT
