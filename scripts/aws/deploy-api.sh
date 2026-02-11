@@ -11,6 +11,14 @@ required() {
   fi
 }
 
+required_set() {
+  local name="$1"
+  if [[ -z "${!name+x}" ]]; then
+    echo "ERROR: $name must be set" >&2
+    exit 1
+  fi
+}
+
 need_cmd() {
   command -v "$1" >/dev/null 2>&1 || {
     echo "ERROR: missing required tool '$1'" >&2
@@ -165,7 +173,7 @@ required SEED_ON_STARTUP
 required APPSYNC_EVENTS_HTTP_ENDPOINT
 required APPSYNC_EVENTS_CHANNEL_NAMESPACE
 required DB_LOG_QUERIES
-required DB_SSL_CA_PATH
+required_set DB_SSL_CA_PATH
 
 runtime_env_vars+=("LOG_LEVEL=${LOG_LEVEL}")
 runtime_env_vars+=("DEMO_MODE=${DEMO_MODE}")
