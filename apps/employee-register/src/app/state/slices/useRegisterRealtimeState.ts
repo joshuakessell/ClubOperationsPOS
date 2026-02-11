@@ -91,6 +91,7 @@ export function useRegisterRealtimeState({
   setShowCustomerConfirmationPending,
   setCustomerConfirmationType,
 }: Params) {
+  const OFFLINE_GRACE_MS = 3000;
   const selectedCheckoutRequestRef = useRef<string | null>(null);
   useEffect(() => {
     selectedCheckoutRequestRef.current = selectedCheckoutRequest;
@@ -163,9 +164,32 @@ export function useRegisterRealtimeState({
   });
 
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
-    setRealtimeConnected(realtime.connected);
+    if (realtime.connected) {
+      if (offlineTimerRef.current) {
+        clearTimeout(offlineTimerRef.current);
+        offlineTimerRef.current = null;
+      }
+      setRealtimeConnected(true);
+      return;
+    }
+
+    if (offlineTimerRef.current) return;
+    offlineTimerRef.current = setTimeout(() => {
+      offlineTimerRef.current = null;
+      setRealtimeConnected(false);
+    }, OFFLINE_GRACE_MS);
   }, [realtime.connected]);
+
+  useEffect(() => {
+    return () => {
+      if (offlineTimerRef.current) {
+        clearTimeout(offlineTimerRef.current);
+        offlineTimerRef.current = null;
+      }
+    };
+  }, []);
 
   return { realtimeConnected, currentSessionIdRef };
 }

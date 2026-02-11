@@ -140,6 +140,12 @@ export function useLaneSession({
   const disableRealtimeRaw = env?.VITE_DISABLE_REALTIME;
   const realtimeDisabled =
     disableRealtimeRaw === true || disableRealtimeRaw === 'true' || disableRealtimeRaw === '1';
+  const realtimeDebugRaw = env?.VITE_REALTIME_DEBUG;
+  const realtimeDebug =
+    realtimeDebugRaw === true ||
+    realtimeDebugRaw === 'true' ||
+    realtimeDebugRaw === '1' ||
+    realtimeDebugRaw === 'yes';
   const effectiveEnabled = enabled && !realtimeDisabled;
   const channelNamespace = getChannelNamespace(env);
   const authUrl = getApiUrl('/api/v1/realtime/auth');
@@ -149,6 +155,11 @@ export function useLaneSession({
   const [connected, setConnected] = useState(false);
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
   const [lastError, setLastError] = useState<Event | null>(null);
+
+  const logRealtime = (...args: unknown[]) => {
+    if (!realtimeDebug) return;
+    console.warn('[realtime]', ...args);
+  };
 
   const pendingMessagesRef = useRef<MessageEvent[]>([]);
   const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -282,11 +293,26 @@ export function useLaneSession({
           body: JSON.stringify({ channels }),
         });
         if (res.status === 501 || res.status === 404) {
+          logRealtime('auth endpoint not configured', {
+            status: res.status,
+            authUrl,
+            laneId,
+            role,
+          });
           setConnected(false);
           setLastError(new Event('realtime_not_configured'));
           return;
         }
         if (!res.ok) {
+          const responseBody = await res.text().catch(() => '');
+          logRealtime('auth failed', {
+            status: res.status,
+            statusText: res.statusText,
+            body: responseBody.slice(0, 500),
+            authUrl,
+            laneId,
+            role,
+          });
           throw new Error(`Auth failed (${res.status})`);
         }
         const auth = (await res.json()) as AppSyncAuthResponse;
@@ -304,7 +330,16 @@ export function useLaneSession({
         };
 
         const onClose = (event: CloseEvent) => {
-          void event;
+          logRealtime('socket closed', {
+            code: event.code,
+            reason: event.reason,
+            wasClean: event.wasClean,
+            laneId,
+            role,
+            reconnectMode,
+            retryCount: retryCountRef.current,
+            hasEverConnected: hasEverConnectedRef.current,
+          });
           setConnected(false);
           if (!hasEverConnectedRef.current) {
             consecutiveFailureRef.current += 1;
@@ -315,6 +350,12 @@ export function useLaneSession({
         };
 
         const onError = (event: Event) => {
+          logRealtime('socket error event', {
+            type: event.type,
+            laneId,
+            role,
+            reconnectMode,
+          });
           setLastError(event);
         };
 
@@ -362,6 +403,11 @@ export function useLaneSession({
           }
 
           if (message.type === 'connection_error') {
+            logRealtime('connection_error message', {
+              laneId,
+              role,
+              reconnectMode,
+            });
             setLastError(new Event('connection_error'));
             try {
               socket.close();
@@ -372,6 +418,12 @@ export function useLaneSession({
           }
 
           if (message.type === 'subscribe_error') {
+            logRealtime('subscribe_error message', {
+              laneId,
+              role,
+              reconnectMode,
+              details: message.error,
+            });
             setLastError(new Event('subscribe_error'));
             return;
           }
@@ -395,6 +447,12 @@ export function useLaneSession({
           onOpen();
         }
       } catch (error) {
+        logRealtime('auth/connect exception', {
+          laneId,
+          role,
+          reconnectMode,
+          error: error instanceof Error ? error.message : String(error),
+        });
         setLastError(new Event('auth_error'));
         scheduleReconnect();
       }
