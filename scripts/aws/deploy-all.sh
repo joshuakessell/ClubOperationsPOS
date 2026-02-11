@@ -18,7 +18,15 @@ required KIOSK_TOKEN_SECRET_ARN
 required AWS_REGION
 required ECR_REPO_URI
 required DB_SSL
-required DB_SSL_CA_PATH
+required_set() {
+  local name="$1"
+  if [[ -z "${!name+x}" ]]; then
+    echo "ERROR: $name must be set" >&2
+    exit 1
+  fi
+}
+
+required_set DB_SSL_CA_PATH
 required DB_LOG_QUERIES
 required LOG_LEVEL
 required SEED_ON_STARTUP
