@@ -145,9 +145,8 @@ export function CustomerAccountPanel(props: {
   const clearSessionButton = props.checkinStage ? (
     <button
       type="button"
-      className="cs-liquid-button cs-liquid-button--danger"
+      className="cs-liquid-button cs-liquid-button--danger er-header-action-btn"
       onClick={props.onClearSession}
-      style={{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
     >
       Clear Session
     </button>
@@ -163,19 +162,18 @@ export function CustomerAccountPanel(props: {
       {manualStartPending ? 'Starting Check-in…' : 'Start Checkin'}
     </button>
   );
+  const headerAction = hasActiveSession
+    ? clearSessionButton
+    : props.customerLabel
+      ? (
+          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+            {props.customerLabel}
+          </div>
+        )
+      : null;
   return (
     <PanelShell align="top" scroll="hidden">
-      <PanelHeader
-        title="Customer Account"
-        spacing="none"
-        action={
-          props.customerLabel ? (
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              {props.customerLabel}
-            </div>
-          ) : null
-        }
-      />
+      <PanelHeader title="Customer Account" spacing="none" action={headerAction} />
       {state.mode === 'ALREADY_VISITING' ? (
         <div
           className="er-account-already-visiting"
@@ -248,6 +246,16 @@ export function CustomerAccountPanel(props: {
         >
           {hasActiveSession ? (
             <>
+              <div
+                style={{
+                  minHeight: '14rem',
+                  maxHeight: '22rem',
+                  overflowY: 'auto',
+                  paddingRight: '0.2rem',
+                }}
+              >
+                {renderProfileCard(null)}
+              </div>
               <EmployeeAssistPanel
                 sessionId={props.currentSessionId!}
                 customerName={props.customerName}
@@ -277,25 +285,6 @@ export function CustomerAccountPanel(props: {
                 onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
                 onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
                 onApproveRental={props.onApproveRental}
-                profile={{
-                  name: displayName,
-                  preferredLanguage: props.customerPrimaryLanguage || profile?.preferredLanguage || null,
-                  dob: props.customerDob || profile?.dob || null,
-                  dobMonthDay: displayDob,
-                  idNumber: props.customerIdNumber || profile?.idNumber || null,
-                  idExpirationDate: props.customerIdExpirationDate || profile?.idExpirationDate || null,
-                  idType: props.customerIdType || profile?.idType || null,
-                  idTypeOther: props.customerIdTypeOther || profile?.idTypeOther || null,
-                  membershipNumber: displayMembership,
-                  membershipValidUntil:
-                    props.customerMembershipValidUntil || profile?.membershipValidUntil || null,
-                  lastVisitAt: props.customerLastVisitAt || profile?.lastVisitAt || null,
-                  hasEncryptedLookupMarker: Boolean(
-                    props.hasEncryptedLookupMarker || profile?.hasEncryptedLookupMarker
-                  ),
-                  checkinStage: props.checkinStage,
-                }}
-                clearSessionButton={clearSessionButton}
               />
             </>
           ) : showManualStart ? (

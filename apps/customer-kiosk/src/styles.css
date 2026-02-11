@@ -575,7 +575,14 @@ body {
 
 .ck-waitlist-entry-btn {
   width: 100%;
-  margin-top: 0.75rem;
+  margin-top: 0.5rem;
+  min-height: 92px;
+  padding: 1rem 1rem;
+}
+
+.ck-selection-proposed-banner {
+  margin-top: -0.5rem;
+  margin-bottom: -0.5rem;
 }
 
 .membership-buttons,

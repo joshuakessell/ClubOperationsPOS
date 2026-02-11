@@ -234,11 +234,12 @@ export function EmployeeAssistStepContent({
             </button>
           </div>
         ) : null}
-        <div style={{ display: 'grid', gap: '0.6rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '0.6rem' }}>
           {rentalButtons.map((btn) => {
             const isPending = pending?.step === 'RENTAL' && pending.option === btn.id;
             const { label: countLabel, tone } = remainingCountLabel(btn.count);
             const disabled = isSubmitting || !btn.allowed || btn.count === 0;
+            const spanTwo = btn.id === 'LOCKER' || btn.id === 'STANDARD';
             const toneClass =
               tone === 'none'
                 ? 'cs-liquid-button--secondary'
@@ -274,13 +275,15 @@ export function EmployeeAssistStepContent({
                 }}
                 style={{
                   width: '100%',
-                  padding: '0.85rem 1rem',
+                  padding: '0.65rem 0.85rem',
+                  minHeight: '3rem',
                   fontWeight: 950,
                   textAlign: 'left',
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'baseline',
                   gap: '0.75rem',
+                  gridColumn: spanTwo ? '1 / -1' : undefined,
                 }}
               >
                 <span>{btn.label}</span>
@@ -302,7 +305,12 @@ export function EmployeeAssistStepContent({
         {unavailableJoinTarget ? (
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className={[
+              'cs-liquid-button',
+              pending?.step === 'WAITLIST_JOIN' && pending.option === unavailableJoinTarget
+                ? 'cs-liquid-button--staff-proposed'
+                : 'cs-liquid-button--secondary',
+            ].join(' ')}
             disabled={isSubmitting}
             onClick={() => {
               if (isSubmitting) return;
@@ -310,9 +318,21 @@ export function EmployeeAssistStepContent({
                 void onDirectSelectRental(unavailableJoinTarget);
                 return;
               }
-              void onHighlightRental(unavailableJoinTarget);
+              const isPending =
+                pending?.step === 'WAITLIST_JOIN' && pending.option === unavailableJoinTarget;
+              runTwoStep(
+                'WAITLIST_JOIN',
+                unavailableJoinTarget,
+                isPending,
+                () => {
+                  void onHighlightRental(unavailableJoinTarget);
+                },
+                () => {
+                  void onApproveRental();
+                }
+              );
             }}
-            style={{ width: '100%', padding: '0.85rem 1rem', fontWeight: 900 }}
+            style={{ width: '100%', padding: '0.65rem 0.85rem', minHeight: '3rem', fontWeight: 900 }}
           >
             Join the Waiting List
           </button>
