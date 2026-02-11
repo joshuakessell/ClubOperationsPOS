@@ -35,7 +35,6 @@ export function NavigationRoot() {
     startCheckout,
     lane,
     realtimeConnected,
-    currentSessionId,
     inventoryHasLate,
     hasEligibleEntries,
     canOpenAccountTab,
