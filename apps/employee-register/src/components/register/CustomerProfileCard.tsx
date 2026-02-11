@@ -20,6 +20,7 @@ export interface CustomerProfileCardProps {
   waitlistDesiredTier?: string | null;
   waitlistBackupType?: string | null;
   footer?: ReactNode;
+  compact?: boolean;
 }
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
@@ -124,8 +125,10 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
     }
   })();
 
+  const compact = Boolean(props.compact);
+
   return (
-    <div className="cs-liquid-card" style={{ padding: '0.9rem' }}>
+    <div className={compact ? undefined : 'cs-liquid-card'} style={{ padding: compact ? 0 : '0.9rem' }}>
       <div
         style={{
           display: 'flex',
@@ -146,7 +149,9 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
         style={{
           marginTop: '0.6rem',
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+          gridTemplateColumns: compact
+            ? 'repeat(auto-fit, minmax(150px, 1fr))'
+            : 'repeat(auto-fit, minmax(170px, 1fr))',
           gap: '0.65rem 0.9rem',
           alignItems: 'start',
         }}
@@ -183,7 +188,7 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
 
       {props.waitlistDesiredTier && props.waitlistBackupType ? (
         <div
-          className="cs-liquid-card"
+          className={compact ? undefined : 'cs-liquid-card'}
           style={{
             marginTop: '0.75rem',
             padding: '0.75rem',

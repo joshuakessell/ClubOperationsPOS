@@ -106,7 +106,7 @@ export const en = {
   'membership.renewMembership': 'Renew Membership',
   'membership.ctaSeeStaffPurchase': 'Please see the employee to purchase membership.',
   'membership.ctaSeeStaffRenew': 'Please see the employee to renew membership.',
-  'membership.pending': 'Pending Member',
+  'membership.pending': 'Pending Membership',
   'membership.modal.title': 'Membership',
   'membership.modal.body.purchase':
     'Save on daily membership fees with a 6-month membership. Ask the employee about current 6-month membership pricing.',

@@ -84,7 +84,11 @@ export function applyRegisterRealtimeEvent(
   } else if (message.type === 'SESSION_UPDATED') {
     const payload = message.payload;
     params.laneSessionActions.applySessionUpdated(payload);
-    if (payload?.status === 'COMPLETED' && (!payload.customerName || payload.customerName === '')) {
+    if (
+      payload?.status === 'COMPLETED' &&
+      (!payload.customerName || payload.customerName === '') &&
+      Boolean(params.currentSessionIdRef.current)
+    ) {
       params.onLaneSessionCleared();
     }
   } else if (message.type === 'WAITLIST_UPDATED') {

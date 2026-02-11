@@ -248,7 +248,6 @@ export function CustomerAccountPanel(props: {
         >
           {hasActiveSession ? (
             <>
-              {renderProfileCard(clearSessionButton)}
               <EmployeeAssistPanel
                 sessionId={props.currentSessionId!}
                 customerName={props.customerName}
@@ -278,6 +277,25 @@ export function CustomerAccountPanel(props: {
                 onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
                 onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
                 onApproveRental={props.onApproveRental}
+                profile={{
+                  name: displayName,
+                  preferredLanguage: props.customerPrimaryLanguage || profile?.preferredLanguage || null,
+                  dob: props.customerDob || profile?.dob || null,
+                  dobMonthDay: displayDob,
+                  idNumber: props.customerIdNumber || profile?.idNumber || null,
+                  idExpirationDate: props.customerIdExpirationDate || profile?.idExpirationDate || null,
+                  idType: props.customerIdType || profile?.idType || null,
+                  idTypeOther: props.customerIdTypeOther || profile?.idTypeOther || null,
+                  membershipNumber: displayMembership,
+                  membershipValidUntil:
+                    props.customerMembershipValidUntil || profile?.membershipValidUntil || null,
+                  lastVisitAt: props.customerLastVisitAt || profile?.lastVisitAt || null,
+                  hasEncryptedLookupMarker: Boolean(
+                    props.hasEncryptedLookupMarker || profile?.hasEncryptedLookupMarker
+                  ),
+                  checkinStage: props.checkinStage,
+                }}
+                clearSessionButton={clearSessionButton}
               />
             </>
           ) : showManualStart ? (
