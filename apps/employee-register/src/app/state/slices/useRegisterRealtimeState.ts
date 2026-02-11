@@ -91,7 +91,7 @@ export function useRegisterRealtimeState({
   setShowCustomerConfirmationPending,
   setCustomerConfirmationType,
 }: Params) {
-  const OFFLINE_GRACE_MS = 3000;
+  const OFFLINE_GRACE_MS = 12000;
   const selectedCheckoutRequestRef = useRef<string | null>(null);
   useEffect(() => {
     selectedCheckoutRequestRef.current = selectedCheckoutRequest;

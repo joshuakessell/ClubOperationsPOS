@@ -125,6 +125,7 @@ export interface InventoryUpdatedPayload {
  */
 export interface SessionUpdatedPayload {
   sessionId: string;
+  customerId?: string;
   customerName: string;
   membershipNumber?: string;
   /**
@@ -167,7 +168,15 @@ export interface SessionUpdatedPayload {
   selectionConfirmed?: boolean;
   selectionConfirmedBy?: 'CUSTOMER' | 'EMPLOYEE';
   customerPrimaryLanguage?: 'EN' | 'ES';
+  /**
+   * Customer date of birth (YYYY-MM-DD), if known.
+   */
+  customerDob?: string;
   customerDobMonthDay?: string;
+  /**
+   * Customer ID/document number, if known.
+   */
+  customerIdNumber?: string;
   customerLastVisitAt?: string;
   customerNotes?: string;
   /**

@@ -51,6 +51,7 @@ export function buildEmployeeRegisterModalValue(params: EmployeeRegisterModalPar
     scanInputRef: scanState.scanInputRef,
     scanInputHandlers: scanState.scanInputHandlers,
     scanInputEnabled: scanState.scanInputEnabled,
+    scanCaptureSubmitting: scanState.scanCaptureSubmitting,
     submitScanText: scanState.submitScanText,
     pendingScanResolution: scanState.pendingScanResolution,
     scanResolutionError: scanState.scanResolutionError,

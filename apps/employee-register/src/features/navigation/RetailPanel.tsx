@@ -52,7 +52,7 @@ export function RetailPanel() {
   };
 
   return (
-    <PanelShell align="top">
+    <PanelShell align="top" scroll="hidden">
       <RetailSaleCard
         title="Retail"
         items={RETAIL_CATALOG}

@@ -48,7 +48,9 @@ export function CustomerAccountPanel(props: {
   proposedBy: 'CUSTOMER' | 'EMPLOYEE' | null;
   selectionConfirmed: boolean;
   customerPrimaryLanguage: 'EN' | 'ES' | undefined;
+  customerDob: string | null;
   customerDobMonthDay: string | undefined;
+  customerIdNumber: string | null;
   customerLastVisitAt: string | undefined;
   customerIdExpirationDate: string | null;
   customerIdType: 'STATE_ID' | 'DRIVERS_LICENSE' | 'PASSPORT' | 'OTHER' | null;
@@ -104,8 +106,8 @@ export function CustomerAccountPanel(props: {
     onStarted: props.onStartedSession,
   });
   const hasActiveSession =
-    Boolean(props.currentSessionId && props.customerName) &&
-    props.currentSessionCustomerId === props.customerId;
+    Boolean(props.currentSessionId) &&
+    (!props.currentSessionCustomerId || props.currentSessionCustomerId === props.customerId);
   const profile = props.customerProfile;
   const fallbackName = profile?.name || props.customerSummary?.name || props.customerLabel || '—';
   const fallbackDob = profile?.dobMonthDay ?? props.customerSummary?.dobMonthDay ?? null;
@@ -122,9 +124,9 @@ export function CustomerAccountPanel(props: {
     <CustomerProfileCard
       name={displayName}
       preferredLanguage={props.customerPrimaryLanguage || profile?.preferredLanguage || null}
-      dob={profile?.dob || null}
+      dob={props.customerDob || profile?.dob || null}
       dobMonthDay={displayDob}
-      idNumber={profile?.idNumber || null}
+      idNumber={props.customerIdNumber || profile?.idNumber || null}
       idExpirationDate={props.customerIdExpirationDate || profile?.idExpirationDate || null}
       idType={props.customerIdType || profile?.idType || null}
       idTypeOther={props.customerIdTypeOther || profile?.idTypeOther || null}

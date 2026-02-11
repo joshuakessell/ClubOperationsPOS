@@ -23,7 +23,7 @@ export function useRegisterRealtimeEvents(params: RegisterRealtimeParams): {
     kioskToken: kioskToken ?? '',
     staffToken: staffToken ?? undefined,
     enabled: Boolean(lane) && Boolean((kioskToken && kioskToken.trim()) || staffToken),
-    reconnectMode: 'aggressive',
+    reconnectMode: 'default',
   });
 
   const paramsRef = useRef(params);
