@@ -51,6 +51,8 @@ Legend:
 - [ ] Route payment-intent creation/updates through command engine
 - [ ] Route agreement signing/bypass through command engine
 - [ ] Route back/cancel actions from both apps through command engine
+  - [x] customer-kiosk (behind `VITE_FLOW_COMMANDS`)
+  - [ ] employee-register
 
 ## 4) Backend: Realtime Dual-Publish (Cloud + LAN)
 
