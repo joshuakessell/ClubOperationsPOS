@@ -49,6 +49,8 @@ async function main(): Promise<void> {
     for (const row of pending.rows) {
       const url = `${apiBase}/v1/checkin/lane/${encodeURIComponent(row.lane_id)}/flow-command`;
 
+      const logPrefix = `[offline:replay] lane=${row.lane_id} session=${row.session_id} command=${row.command_id} type=${row.type}`;
+
       try {
         const res = await fetch(url, {
           method: 'POST',
@@ -71,6 +73,7 @@ async function main(): Promise<void> {
           throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
         }
 
+        console.log(`${logPrefix} ok`);
         await client.query(
           `UPDATE offline_command_outbox
            SET replayed_at = NOW(),
@@ -80,12 +83,14 @@ async function main(): Promise<void> {
           [row.id]
         );
       } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        console.warn(`${logPrefix} failed: ${message}`);
         await client.query(
           `UPDATE offline_command_outbox
            SET replay_attempts = replay_attempts + 1,
                last_replay_error = $2
            WHERE id = $1`,
-          [row.id, error instanceof Error ? error.message : String(error)]
+          [row.id, message]
         );
       }
     }
@@ -96,4 +101,3 @@ async function main(): Promise<void> {
 }
 
 void main();
-

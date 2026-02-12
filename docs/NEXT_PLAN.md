@@ -92,8 +92,20 @@ Legend:
 - [x] Add `offline_command_outbox` table
 - [x] Write outbox records for LAN-mode accepted commands
 - [x] Replay worker on reconnect (ordered, idempotent)
-- [ ] Conflict handling for diverged versions
-- [ ] Observability: logs/metrics for replay lag + failures
+- [x] Conflict handling for diverged versions
+- [x] Observability: logs/metrics for replay lag + failures
+
+### Conflict policy (LAN -> cloud replay)
+
+- If replayed command fails with a version mismatch or invalid transition:
+  - **Do not retry indefinitely**.
+  - Persist `last_replay_error` and increment `replay_attempts`.
+  - Require manual resolution (inspect lane/session state and clear or re-issue commands).
+
+### Observability (initial)
+
+- Worker logs each replay attempt with: `lane_id`, `session_id`, `command_id`, `type`, `attempts`, `error`.
+- Track replay backlog by querying `offline_command_outbox` pending count + oldest `created_at`.
 
 ## 7) Frontend: Render by `flowStep` (No Heuristics)
 
@@ -138,5 +150,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 57
-- Remaining checklist items: 15
+- Completed checklist items: 59
+- Remaining checklist items: 13
