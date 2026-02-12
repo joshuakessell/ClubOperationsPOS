@@ -4,6 +4,7 @@ import { requireKioskTokenOrStaff } from '../../auth/kioskToken';
 import type { LaneSessionRow } from '../../checkin/types';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import { transaction } from '../../db';
+import { assertCustomerLanguageSelected } from '../../checkin/session';
 
 type FlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
 
@@ -16,7 +17,13 @@ type FlowStep =
   | 'AGREEMENT'
   | 'COMPLETE';
 
-type FlowCommandType = 'SET_STEP' | 'BACK_STEP' | 'CANCEL_STEP';
+type FlowCommandType =
+  | 'SET_STEP'
+  | 'BACK_STEP'
+  | 'CANCEL_STEP'
+  | 'PROPOSE_SELECTION'
+  | 'CONFIRM_SELECTION'
+  | 'WAITLIST_UPDATE';
 
 const FLOW_STEPS: FlowStep[] = [
   'LANGUAGE',
@@ -106,6 +113,19 @@ function computeFlowUpdate(input: {
   };
 } {
   const { currentStep, type, payload } = input;
+
+  if (type === 'PROPOSE_SELECTION' || type === 'CONFIRM_SELECTION' || type === 'WAITLIST_UPDATE') {
+    return {
+      nextStep: currentStep,
+      clear: {
+        rental: false,
+        waitlistPreferences: false,
+        waitlistBackup: false,
+        paymentIntent: false,
+        agreement: false,
+      },
+    };
+  }
 
   if (type === 'SET_STEP') {
     const requested = parseFlowStep(payload?.['step']);
@@ -210,7 +230,14 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
         return reply.status(400).send({ error: 'sessionId, commandId, actor, and type are required' });
       }
 
-      if (type !== 'SET_STEP' && type !== 'BACK_STEP' && type !== 'CANCEL_STEP') {
+      if (
+        type !== 'SET_STEP' &&
+        type !== 'BACK_STEP' &&
+        type !== 'CANCEL_STEP' &&
+        type !== 'PROPOSE_SELECTION' &&
+        type !== 'CONFIRM_SELECTION' &&
+        type !== 'WAITLIST_UPDATE'
+      ) {
         return reply.status(400).send({ applied: false, error: 'InvalidCommandType' });
       }
 
@@ -256,6 +283,68 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
              VALUES ($1, $2, $3, $4, $5)`,
             [sessionId, commandId, actor, type, payload ?? null]
           );
+
+          // Domain-specific command mutations.
+          if (type === 'PROPOSE_SELECTION') {
+            const rentalType = typeof payload?.['rentalType'] === 'string' ? payload['rentalType'] : null;
+            if (!rentalType) {
+              throw { statusCode: 400, error: 'InvalidPayload', message: 'payload.rentalType is required' };
+            }
+
+            await assertCustomerLanguageSelected(client, session);
+
+            if (session.selection_confirmed) {
+              throw { statusCode: 400, error: 'SelectionLocked', message: 'Selection is already locked' };
+            }
+
+            await client.query(
+              `UPDATE lane_sessions
+               SET proposed_rental_type = $1,
+                   proposed_by = $2,
+                   updated_at = NOW()
+               WHERE id = $3`,
+              [rentalType, actor === 'CUSTOMER' ? 'CUSTOMER' : 'EMPLOYEE', sessionId]
+            );
+          }
+
+          if (type === 'CONFIRM_SELECTION') {
+            await assertCustomerLanguageSelected(client, session);
+
+            if (!session.proposed_rental_type) {
+              throw { statusCode: 400, error: 'NoProposal', message: 'No selection proposed yet' };
+            }
+
+            if (!session.selection_confirmed) {
+              await client.query(
+                `UPDATE lane_sessions
+                 SET selection_confirmed = true,
+                     selection_confirmed_by = $1,
+                     selection_locked_at = NOW(),
+                     status = CASE
+                       WHEN status = 'ACTIVE' THEN 'AWAITING_PAYMENT'
+                       ELSE status
+                     END,
+                     updated_at = NOW()
+                 WHERE id = $2`,
+                [actor === 'CUSTOMER' ? 'CUSTOMER' : 'EMPLOYEE', sessionId]
+              );
+            }
+          }
+
+          if (type === 'WAITLIST_UPDATE') {
+            const waitlistDesiredType =
+              typeof payload?.['waitlistDesiredType'] === 'string' ? payload['waitlistDesiredType'] : null;
+            const backupRentalType =
+              typeof payload?.['backupRentalType'] === 'string' ? payload['backupRentalType'] : null;
+            await client.query(
+              `UPDATE lane_sessions
+               SET waitlist_desired_type = COALESCE($1, waitlist_desired_type),
+                   backup_rental_type = COALESCE($2, backup_rental_type),
+                   updated_at = NOW()
+               WHERE id = $3`,
+              [waitlistDesiredType, backupRentalType, sessionId]
+            );
+          }
 
           const currentStep = parseFlowStep(session.flow_step) ?? 'LANGUAGE';
           const { nextStep, clear } = computeFlowUpdate({ currentStep, type, payload });
