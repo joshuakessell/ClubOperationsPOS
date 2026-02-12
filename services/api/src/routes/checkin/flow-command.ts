@@ -45,6 +45,16 @@ const FLOW_STEP_INDEX: Record<FlowStep, number> = {
   COMPLETE: 6,
 };
 
+const ALLOWED_STEP_TRANSITIONS: Readonly<Record<FlowStep, ReadonlySet<FlowStep>>> = {
+  LANGUAGE: new Set(['LANGUAGE', 'RENTAL']),
+  RENTAL: new Set(['LANGUAGE', 'RENTAL', 'WAITLIST_PREFERENCES']),
+  WAITLIST_PREFERENCES: new Set(['RENTAL', 'WAITLIST_PREFERENCES', 'WAITLIST_BACKUP']),
+  WAITLIST_BACKUP: new Set(['WAITLIST_PREFERENCES', 'WAITLIST_BACKUP', 'PAYMENT']),
+  PAYMENT: new Set(['WAITLIST_BACKUP', 'PAYMENT', 'AGREEMENT']),
+  AGREEMENT: new Set(['PAYMENT', 'AGREEMENT', 'COMPLETE']),
+  COMPLETE: new Set(['AGREEMENT', 'COMPLETE']),
+};
+
 function assertAllowedStepTransition(params: {
   currentStep: FlowStep;
   nextStep: FlowStep;
@@ -85,6 +95,18 @@ function assertAllowedStepTransition(params: {
     error: 'InvalidTransition',
     message: `SET_STEP may only advance by one step (or jump backwards). ${currentStep} -> ${nextStep} not allowed`,
   };
+}
+
+function assertStepIsValidForFlow(params: { currentStep: FlowStep; nextStep: FlowStep }): void {
+  const { currentStep, nextStep } = params;
+  const allowed = ALLOWED_STEP_TRANSITIONS[currentStep];
+  if (!allowed.has(nextStep)) {
+    throw {
+      statusCode: 400,
+      error: 'InvalidTransition',
+      message: `Transition ${currentStep} -> ${nextStep} is not allowed`,
+    };
+  }
 }
 
 function parseFlowStep(value: unknown): FlowStep | null {
@@ -148,6 +170,7 @@ function computeFlowUpdate(input: {
     };
 
     assertAllowedStepTransition({ currentStep, nextStep: requested, type });
+    assertStepIsValidForFlow({ currentStep, nextStep: requested });
     return { nextStep: requested, clear };
   }
 
@@ -155,6 +178,7 @@ function computeFlowUpdate(input: {
     const nextStep = getPreviousFlowStep(currentStep);
 
     assertAllowedStepTransition({ currentStep, nextStep, type });
+    assertStepIsValidForFlow({ currentStep, nextStep });
 
     // Back clears the step we are leaving.
     const clear = {
