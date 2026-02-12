@@ -20,7 +20,7 @@ Legend:
 - [x] Add `LOCKSTEP_V2` flag plumbing (API + apps)
 - [x] Add `LAN_FALLBACK` flag plumbing (API + apps)
 - [x] Add `FLOW_COMMANDS` flag (API)
-- [ ] Add per-lane flag overrides (server-side lane config)
+- [x] Add per-lane flag overrides (server-side lane config)
 - [ ] Add a rollback playbook entry in `docs/DEPLOYMENT.md`
 
 ## 2) Backend: Authoritative Flow Command Engine (Hardening)
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 41
-- Remaining checklist items: 31
+- Completed checklist items: 42
+- Remaining checklist items: 30

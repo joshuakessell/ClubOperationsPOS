@@ -22,6 +22,10 @@ This document lists non-secret environment variables used as feature flags.
   - When enabled, the API will dual-publish lane-scoped realtime events to both AppSync and connected
     LAN websocket clients.
 
+- Per-lane overrides (table: `lane_feature_flags`)
+  - `lockstep_v2_enabled`, `flow_commands_enabled`, `lan_fallback_enabled`
+  - When set (non-null), these override the corresponding global env flags for that lane.
+
 ## Frontend
 
 - `VITE_LOCKSTEP_V2` (default: `0`)

@@ -6,6 +6,7 @@ import type { LaneSessionRow } from '../../checkin/types';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import { transaction } from '../../db';
 import { assertCustomerLanguageSelected } from '../../checkin/session';
+import { getLaneFeatureFlags } from '../../checkin/laneFeatureFlags';
 
 type FlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
 
@@ -275,8 +276,12 @@ function computeFlowUpdate(input: {
   return { nextStep: currentStep, clear };
 }
 
-function isFlowCommandsEnabled(): boolean {
-  return process.env.FLOW_COMMANDS === 'true';
+async function isFlowCommandsEnabled(params: {
+  client: Parameters<typeof getLaneFeatureFlags>[0];
+  laneId: string;
+}): Promise<boolean> {
+  const flags = await getLaneFeatureFlags(params.client, params.laneId);
+  return flags.flowCommandsEnabled;
 }
 
 export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void {
@@ -314,10 +319,6 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
       preHandler: [optionalAuth, requireKioskTokenOrStaff],
     },
     async (request, reply) => {
-      if (!isFlowCommandsEnabled()) {
-        return reply.status(404).send({ error: 'Not Found' });
-      }
-
       const { laneId } = request.params;
       const parsed = FlowCommandRequestByTypeSchema.safeParse(request.body);
       if (!parsed.success) {
@@ -332,6 +333,9 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
 
       try {
         const result = await transaction(async (client) => {
+          if (!(await isFlowCommandsEnabled({ client, laneId }))) {
+            throw { statusCode: 404, message: 'Not Found' };
+          }
           const locked = await client.query<LaneSessionRow>(
             `SELECT *
              FROM lane_sessions

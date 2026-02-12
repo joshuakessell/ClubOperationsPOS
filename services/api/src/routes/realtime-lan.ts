@@ -2,9 +2,20 @@ import type { FastifyInstance } from 'fastify';
 import { requireKioskTokenOrStaff } from '../auth/kioskToken';
 import { optionalAuth } from '../auth/middleware';
 import type { LocalLaneSockets } from '../realtime/localSockets';
+import { transaction } from '../db';
+import { getLaneFeatureFlags } from '../checkin/laneFeatureFlags';
 
 function isLanFallbackEnabled(): boolean {
   return process.env.LAN_FALLBACK === 'true';
+}
+
+async function isLanFallbackEnabledForLane(laneId: string): Promise<boolean> {
+  try {
+    const flags = await transaction(async (client) => getLaneFeatureFlags(client, laneId));
+    return flags.lanFallbackEnabled;
+  } catch {
+    return false;
+  }
 }
 
 declare module 'fastify' {
@@ -30,8 +41,14 @@ export async function realtimeLanRoutes(fastify: FastifyInstance): Promise<void>
       preHandler: [optionalAuth, requireKioskTokenOrStaff],
       websocket: true,
     },
-    (connection, request) => {
+    async (connection, request) => {
       const laneId = request.params.laneId;
+
+      if (!(await isLanFallbackEnabledForLane(laneId))) {
+        connection.socket.close();
+        return;
+      }
+
       const sockets = fastify.localLaneSockets;
       if (!sockets) {
         connection.socket.close();
