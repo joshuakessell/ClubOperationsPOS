@@ -28,6 +28,58 @@ const FLOW_STEPS: FlowStep[] = [
   'COMPLETE',
 ];
 
+const FLOW_STEP_INDEX: Record<FlowStep, number> = {
+  LANGUAGE: 0,
+  RENTAL: 1,
+  WAITLIST_PREFERENCES: 2,
+  WAITLIST_BACKUP: 3,
+  PAYMENT: 4,
+  AGREEMENT: 5,
+  COMPLETE: 6,
+};
+
+function assertAllowedStepTransition(params: {
+  currentStep: FlowStep;
+  nextStep: FlowStep;
+  type: FlowCommandType;
+}): void {
+  const { currentStep, nextStep, type } = params;
+  const currentIndex = FLOW_STEP_INDEX[currentStep];
+  const nextIndex = FLOW_STEP_INDEX[nextStep];
+
+  // CANCEL does not change steps.
+  if (type === 'CANCEL_STEP') {
+    if (nextStep !== currentStep) {
+      throw { statusCode: 400, error: 'InvalidTransition', message: 'CANCEL_STEP cannot change step' };
+    }
+    return;
+  }
+
+  // BACK_STEP must move to the previous step (or stay at first).
+  if (type === 'BACK_STEP') {
+    const expected = getPreviousFlowStep(currentStep);
+    if (nextStep !== expected) {
+      throw {
+        statusCode: 400,
+        error: 'InvalidTransition',
+        message: `BACK_STEP must move to ${expected}`,
+      };
+    }
+    return;
+  }
+
+  // SET_STEP: allow no-op, forward one step, or any backward jump.
+  if (nextStep === currentStep) return;
+  if (nextIndex < currentIndex) return;
+  if (nextIndex === currentIndex + 1) return;
+
+  throw {
+    statusCode: 400,
+    error: 'InvalidTransition',
+    message: `SET_STEP may only advance by one step (or jump backwards). ${currentStep} -> ${nextStep} not allowed`,
+  };
+}
+
 function parseFlowStep(value: unknown): FlowStep | null {
   if (typeof value !== 'string') return null;
   return (FLOW_STEPS as string[]).includes(value) ? (value as FlowStep) : null;
@@ -75,11 +127,14 @@ function computeFlowUpdate(input: {
       agreement: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('AGREEMENT'),
     };
 
+    assertAllowedStepTransition({ currentStep, nextStep: requested, type });
     return { nextStep: requested, clear };
   }
 
   if (type === 'BACK_STEP') {
     const nextStep = getPreviousFlowStep(currentStep);
+
+    assertAllowedStepTransition({ currentStep, nextStep, type });
 
     // Back clears the step we are leaving.
     const clear = {

@@ -137,5 +137,32 @@ describe('Check-in Flow Commands', () => {
     expect(json.applied).toBe(false);
     expect(json.error).toBe('VersionMismatch');
   });
-});
 
+  it('rejects SET_STEP forward jumps beyond +1 with 400', async () => {
+    if (!dbAvailable) return;
+
+    await query(
+      `UPDATE lane_sessions SET flow_version = 1, flow_step = 'LANGUAGE' WHERE id = $1`,
+      [sessionId]
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '33333333-3333-3333-3333-333333333333',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 1,
+        type: 'SET_STEP',
+        payload: { step: 'PAYMENT' },
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const json = response.json() as any;
+    expect(json.applied).toBe(false);
+    expect(json.error).toBe('InvalidTransition');
+  });
+});
