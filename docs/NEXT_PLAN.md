@@ -35,11 +35,11 @@ Legend:
   - [x] AGREEMENT
   - [x] COMPLETE
 - [ ] Add command types beyond step navigation (as needed):
-  - [ ] PROPOSE_SELECTION
-  - [ ] FORCE_SELECTION
-  - [ ] ACK_SELECTION
-  - [ ] WAITLIST_PREFERENCES_UPDATE
-  - [ ] WAITLIST_BACKUP_SET
+  - [x] PROPOSE_SELECTION
+  - [x] FORCE_SELECTION
+  - [x] ACK_SELECTION
+  - [x] WAITLIST_PREFERENCES_UPDATE
+  - [x] WAITLIST_BACKUP_SET
 - [ ] Ensure *all* commands are idempotent + version guarded
 - [x] Add audit payload shape + strict schema validation
 
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 43
-- Remaining checklist items: 29
+- Completed checklist items: 48
+- Remaining checklist items: 24
