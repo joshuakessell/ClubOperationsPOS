@@ -66,6 +66,9 @@ fi
 pnpm turbo run build --filter @club-ops/shared --filter @club-ops/api
 
 # Dockerfile expects dist outputs to exist and be included in context (ensure .dockerignore allows them)
+# Use the classic docker builder (not buildx/buildkit) to avoid occasional ECR
+# manifest HEAD/GET 403s observed with buildx in GitHub Actions.
+export DOCKER_BUILDKIT=0
 docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
 
 docker push "$IMAGE_SHA_TAG"
