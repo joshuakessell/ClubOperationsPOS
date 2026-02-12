@@ -19,6 +19,10 @@ This document lists non-secret environment variables used as feature flags.
 
 ## Frontend
 
+- `VITE_FLOW_COMMANDS` (default: `0`)
+  - When `1`, enables sending step-navigation flow commands (`BACK_STEP` / `CANCEL_STEP`) from the apps.
+  - Requires API `FLOW_COMMANDS=true`.
+
 - `VITE_REALTIME_TRANSPORTS` (default: `0`)
   - Enables the experimental realtime transport abstraction in `@club-ops/shared/realtime/useLaneSession`.
   - When `0`, the apps use the legacy in-hook AppSync websocket implementation.

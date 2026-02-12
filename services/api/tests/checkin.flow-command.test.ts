@@ -321,4 +321,133 @@ describe('Check-in Flow Commands', () => {
     expect(session.rows[0]!.waitlist_requested_resource_number).toBe('101');
     expect(session.rows[0]!.waitlist_requested_resource_type).toBe('room');
   });
+
+  it('BACK_STEP from PAYMENT clears payment + agreement state', async () => {
+    if (!dbAvailable) return;
+
+    await query(
+      `UPDATE lane_sessions
+       SET flow_step = 'PAYMENT',
+           flow_version = 4,
+           payment_intent_id = 'pi_test',
+           price_quote_json = '{"total":123}',
+           disclaimers_ack_json = '{"ack":true}',
+           agreement_bypass_pending = true
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '99999999-9999-9999-9999-999999999999',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 4,
+        type: 'BACK_STEP',
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const updated = await query<{
+      flow_step: string | null;
+      payment_intent_id: string | null;
+      price_quote_json: any;
+      disclaimers_ack_json: any;
+      agreement_bypass_pending: boolean;
+    }>(
+      `SELECT flow_step,
+              payment_intent_id,
+              price_quote_json,
+              disclaimers_ack_json,
+              agreement_bypass_pending
+       FROM lane_sessions
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    expect(updated.rows[0]!.flow_step).toBe('WAITLIST_BACKUP');
+    expect(updated.rows[0]!.payment_intent_id).toBeNull();
+    expect(updated.rows[0]!.price_quote_json).toBeNull();
+    expect(updated.rows[0]!.disclaimers_ack_json).toBeNull();
+    expect(updated.rows[0]!.agreement_bypass_pending).toBe(false);
+  });
+
+  it('SET_STEP jump back to RENTAL clears selection + waitlist + payment + agreement', async () => {
+    if (!dbAvailable) return;
+
+    await query(
+      `UPDATE lane_sessions
+       SET flow_step = 'AGREEMENT',
+           flow_version = 10,
+           desired_rental_type = 'STANDARD',
+           proposed_rental_type = 'STANDARD',
+           proposed_by = 'CUSTOMER',
+           selection_confirmed = true,
+           selection_confirmed_by = 'CUSTOMER',
+           selection_locked_at = NOW(),
+           waitlist_desired_type = 'DOUBLE',
+           waitlist_desired_types_json = '["DOUBLE"]',
+           backup_rental_type = 'STANDARD',
+           waitlist_requested_resource_number = '101',
+           waitlist_requested_resource_type = 'room',
+           payment_intent_id = 'pi_test',
+           price_quote_json = '{"total":123}',
+           disclaimers_ack_json = '{"ack":true}',
+           agreement_bypass_pending = true
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        actor: 'EMPLOYEE',
+        expectedFlowVersion: 10,
+        type: 'SET_STEP',
+        payload: { step: 'RENTAL' },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const updated = await query<{
+      flow_step: string | null;
+      desired_rental_type: string | null;
+      proposed_rental_type: string | null;
+      selection_confirmed: boolean;
+      waitlist_desired_type: string | null;
+      backup_rental_type: string | null;
+      payment_intent_id: string | null;
+      agreement_bypass_pending: boolean;
+    }>(
+      `SELECT flow_step,
+              desired_rental_type,
+              proposed_rental_type,
+              selection_confirmed,
+              waitlist_desired_type,
+              backup_rental_type,
+              payment_intent_id,
+              agreement_bypass_pending
+       FROM lane_sessions
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    expect(updated.rows[0]!.flow_step).toBe('RENTAL');
+    expect(updated.rows[0]!.desired_rental_type).toBeNull();
+    expect(updated.rows[0]!.proposed_rental_type).toBeNull();
+    expect(updated.rows[0]!.selection_confirmed).toBe(false);
+    expect(updated.rows[0]!.waitlist_desired_type).toBeNull();
+    expect(updated.rows[0]!.backup_rental_type).toBeNull();
+    expect(updated.rows[0]!.payment_intent_id).toBeNull();
+    expect(updated.rows[0]!.agreement_bypass_pending).toBe(false);
+  });
 });

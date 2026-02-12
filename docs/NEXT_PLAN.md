@@ -27,13 +27,13 @@ Legend:
 
 - [x] Define canonical transition table for steps (allowed transitions)
 - [ ] Implement transition-specific clearing rules for each step:
-  - [ ] LANGUAGE
-  - [ ] RENTAL
-  - [ ] WAITLIST_PREFERENCES
-  - [ ] WAITLIST_BACKUP
-  - [ ] PAYMENT
-  - [ ] AGREEMENT
-  - [ ] COMPLETE
+  - [x] LANGUAGE
+  - [x] RENTAL
+  - [x] WAITLIST_PREFERENCES
+  - [x] WAITLIST_BACKUP
+  - [x] PAYMENT
+  - [x] AGREEMENT
+  - [x] COMPLETE
 - [ ] Add command types beyond step navigation (as needed):
   - [ ] PROPOSE_SELECTION
   - [ ] FORCE_SELECTION
