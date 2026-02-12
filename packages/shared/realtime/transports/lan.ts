@@ -46,7 +46,8 @@ export class LanWebSocketTransport implements RealtimeTransport {
       this.options.onEvent({ type: 'message', data: parsed });
     };
 
-    socket.onerror = () => {
+    socket.onerror = (event) => {
+      this.options.onError?.({ type: 'error', error: event });
       this.setStatus('disconnected');
     };
 
@@ -62,4 +63,3 @@ export class LanWebSocketTransport implements RealtimeTransport {
     this.options.onStatus?.(next);
   }
 }
-

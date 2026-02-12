@@ -92,8 +92,8 @@ Legend:
 ## 8) Frontend: Hybrid Transport + Mode Switch
 
 - [ ] Finish porting legacy `useLaneSession` to use transports by default (remove legacy socket path)
-- [ ] Implement `LanWebSocketTransport` protocol (match server LAN WS)
-- [ ] Implement `HybridTransport` selection logic (cloud preferred, LAN fallback)
+- [x] Implement `LanWebSocketTransport` protocol (match server LAN WS)
+- [x] Implement `HybridTransport` selection logic (cloud preferred, LAN fallback)
 - [ ] Add health-based mode switch plumbing in apps
 
 ## 9) Tests + Acceptance
