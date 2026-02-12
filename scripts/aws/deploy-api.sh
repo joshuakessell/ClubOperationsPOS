@@ -70,19 +70,10 @@ docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
 
 docker push "$IMAGE_SHA_TAG"
 
-# Some registries/credential helpers intermittently return 403/401 on the
-# immediate post-push manifest HEAD/GET used by tooling (e.g. buildkit).
-# A short retry window makes the deploy resilient without changing the image.
-for i in {1..6}; do
-  if docker manifest inspect "$IMAGE_SHA_TAG" >/dev/null 2>&1; then
-    break
-  fi
-  if [[ "$i" -eq 6 ]]; then
-    echo "ERROR: unable to verify pushed image manifest for $IMAGE_SHA_TAG" >&2
-    exit 1
-  fi
-  sleep $((i * 2))
-done
+# NOTE: We intentionally do not attempt an immediate post-push `docker manifest inspect`.
+# GitHub Actions runners + ECR auth can intermittently return 403/401 for manifest
+# HEAD/GET calls right after a push (even though the push succeeded), which makes
+# deployments flaky. App Runner will pull by tag during `update-service`.
 
 if [[ "$PUSH_DEV_LATEST_TAG" == "true" ]]; then
   docker tag "$IMAGE_SHA_TAG" "$IMAGE_LATEST_TAG"
