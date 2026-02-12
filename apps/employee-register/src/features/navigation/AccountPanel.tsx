@@ -241,26 +241,28 @@ export function AccountPanel() {
       void highlightKioskOption({ step: 'MEMBERSHIP', option: choice }),
     onConfirmMembershipOneTime: () => void handleConfirmMembershipOneTime(),
     onConfirmMembershipSixMonth: () => void handleConfirmMembershipSixMonth(),
-    onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => {
+    onHighlightRental: (rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => {
       if (!rental) return;
       void handleProposeSelection(rental);
     },
-    onSelectRentalAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+    onSelectRentalAsCustomer: (rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
       void handleCustomerSelectRental(rental),
-    onDirectSelectRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+    onDirectSelectRental: (rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
       void handleDirectSelectRental(rental),
     onHighlightWaitlistBackup: (
-      rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
+      rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
     ) => void highlightKioskOption({ step: 'WAITLIST_BACKUP', option: rental }),
     onSelectWaitlistBackupAsCustomer: (
-      rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+      rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
       options?: {
         waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
         waitlistRequestedResourceNumber?: string | null;
         waitlistRequestedResourceType?: 'room' | 'locker' | null;
       }
     ) => void handleSelectWaitlistBackupAsCustomer(rental, options),
-    onDirectSelectWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
+    onDirectSelectWaitlistBackup: (
+      rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    ) =>
       void handleDirectSelectWaitlistBackup(rental),
     onApproveRental: () => void handleConfirmSelection(),
     onBack: () => void handleBackStep(),

@@ -2,7 +2,7 @@ export type EmployeeAssistStep = 'LANGUAGE' | 'UPGRADE' | 'RENTAL' | 'DONE';
 
 export type LanguageOption = 'EN' | 'ES';
 export type MembershipOption = 'ONE_TIME' | 'SIX_MONTH';
-export type RentalOption = 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL';
+export type RentalOption = 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL';
 
 export type Pending =
   | { step: 'LANGUAGE'; option: LanguageOption }

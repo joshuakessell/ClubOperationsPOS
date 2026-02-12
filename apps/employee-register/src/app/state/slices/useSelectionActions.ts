@@ -50,14 +50,16 @@ export function useSelectionActions({
       : null;
 
   const handleProposeSelection = async (
-    rentalType: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rentalType: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => {
     if (!currentSessionId || !session?.sessionToken) return;
     setIsSubmitting(true);
     try {
       const availableCount =
         inventoryAvailable?.rooms?.[rentalType] ??
-        (rentalType === 'LOCKER' ? inventoryAvailable?.lockers : undefined);
+        (rentalType === 'LOCKER' || rentalType === 'GYM_LOCKER'
+          ? inventoryAvailable?.lockers
+          : undefined);
       const waitlistDesiredType = availableCount === 0 ? rentalType : undefined;
 
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
@@ -81,14 +83,16 @@ export function useSelectionActions({
   };
 
   const handleCustomerSelectRental = async (
-    rentalType: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rentalType: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => {
     if (!currentSessionId) return;
     setIsSubmitting(true);
     try {
       const availableCount =
         inventoryAvailable?.rooms?.[rentalType] ??
-        (rentalType === 'LOCKER' ? inventoryAvailable?.lockers : undefined);
+        (rentalType === 'LOCKER' || rentalType === 'GYM_LOCKER'
+          ? inventoryAvailable?.lockers
+          : undefined);
       if (availableCount === 0) {
         await fetch(`${API_BASE}/v1/checkin/lane/${lane}/waitlist-desired`, {
           method: 'POST',
@@ -137,7 +141,7 @@ export function useSelectionActions({
   };
 
   const handleSelectWaitlistBackupAsCustomer = async (
-    rentalType: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+    rentalType: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
     options?: {
       waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
       waitlistRequestedResourceNumber?: string | null;
@@ -195,14 +199,16 @@ export function useSelectionActions({
   };
 
   const handleDirectSelectRental = async (
-    rentalType: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rentalType: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => {
     if (!currentSessionId || !session?.sessionToken) return;
     setIsSubmitting(true);
     try {
       const availableCount =
         inventoryAvailable?.rooms?.[rentalType] ??
-        (rentalType === 'LOCKER' ? inventoryAvailable?.lockers : undefined);
+        (rentalType === 'LOCKER' || rentalType === 'GYM_LOCKER'
+          ? inventoryAvailable?.lockers
+          : undefined);
       const waitlistDesiredType = availableCount === 0 ? rentalType : undefined;
 
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
@@ -240,7 +246,7 @@ export function useSelectionActions({
   };
 
   const handleDirectSelectWaitlistBackup = async (
-    rentalType: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rentalType: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => {
     if (!currentSessionId || !session?.sessionToken || !waitlistDesiredTier) return;
     setIsSubmitting(true);

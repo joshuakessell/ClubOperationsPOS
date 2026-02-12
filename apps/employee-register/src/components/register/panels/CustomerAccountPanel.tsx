@@ -69,8 +69,10 @@ export function CustomerAccountPanel(props: {
   sessionMode?: 'CHECKIN' | 'RENEWAL';
   renewalHours?: 2 | 6 | null;
   directSelect?: boolean;
-  onDirectSelectRental?: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
-  onDirectSelectWaitlistBackup?: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
+  onDirectSelectRental?: (rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
+  onDirectSelectWaitlistBackup?: (
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+  ) => void;
   onStartRenewal?: (activeCheckin: ActiveCheckinDetails) => void;
   onGoBack?: () => void;
   onRefetchAccountState?: () => void;
@@ -94,11 +96,15 @@ export function CustomerAccountPanel(props: {
   onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) => void;
   onConfirmMembershipOneTime: () => void;
   onConfirmMembershipSixMonth: () => void;
-  onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => void;
-  onSelectRentalAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
-  onHighlightWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => void;
+  onHighlightRental: (
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
+  ) => void;
+  onSelectRentalAsCustomer: (rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
+  onHighlightWaitlistBackup: (
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
+  ) => void;
   onSelectWaitlistBackupAsCustomer: (
-    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
     options?: {
       waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
       waitlistRequestedResourceNumber?: string | null;

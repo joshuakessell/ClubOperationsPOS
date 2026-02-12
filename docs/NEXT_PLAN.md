@@ -89,7 +89,7 @@ Legend:
 
 - [x] Drive Employee Assist step off `flowStep`
 - [x] Implement first-click highlight / second-click confirm backed by commands
-- [ ] Mirror kiosk ordering + hide unavailable options
+- [ ] Mirror kiosk ordering + hide unavailable options (includes GYM_LOCKER)
 
 ## 8) Frontend: Hybrid Transport + Mode Switch
 
