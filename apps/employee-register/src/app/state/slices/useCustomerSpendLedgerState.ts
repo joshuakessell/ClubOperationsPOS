@@ -43,11 +43,13 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
   const [groupsByCustomerId, setGroupsByCustomerId] = useState<Record<string, SpendLedgerGroup[]>>({});
   const [entriesByVisitKey, setEntriesByVisitKey] = useState<Record<string, SpendLedgerEntry[]>>({});
   const [loadingByCustomerId, setLoadingByCustomerId] = useState<Record<string, boolean>>({});
+  const [errorByCustomerId, setErrorByCustomerId] = useState<Record<string, string | null>>({});
 
   const loadSpendLedger = useCallback(
     async (customerId: string) => {
       if (!session?.sessionToken) return;
       setLoadingByCustomerId((p) => ({ ...p, [customerId]: true }));
+      setErrorByCustomerId((p) => ({ ...p, [customerId]: null }));
       try {
         const res = await fetch(`${API_BASE}/v1/customers/${customerId}/spend-ledger?limit=50`, {
           headers: { Authorization: `Bearer ${session.sessionToken}` },
@@ -60,7 +62,9 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
         const groups = Array.isArray(data.groups) ? data.groups : [];
         setGroupsByCustomerId((p) => ({ ...p, [customerId]: groups }));
       } catch (e) {
-        notifications.warn(e instanceof Error ? e.message : 'Failed to load spend ledger');
+        const msg = e instanceof Error ? e.message : 'Failed to load spend ledger';
+        setErrorByCustomerId((p) => ({ ...p, [customerId]: msg }));
+        notifications.warn(msg);
       } finally {
         setLoadingByCustomerId((p) => ({ ...p, [customerId]: false }));
       }
@@ -107,6 +111,11 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
     [loadingByCustomerId]
   );
 
+  const getError = useCallback(
+    (customerId: string) => errorByCustomerId[customerId] ?? null,
+    [errorByCustomerId]
+  );
+
   return useMemo(
     () => ({
       loadSpendLedger,
@@ -114,7 +123,8 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
       getGroups,
       getVisitEntries,
       isLoading,
+      getError,
     }),
-    [getGroups, getVisitEntries, isLoading, loadSpendLedger, loadVisitLedger]
+    [getError, getGroups, getVisitEntries, isLoading, loadSpendLedger, loadVisitLedger]
   );
 }

@@ -124,11 +124,23 @@ export function CustomerAccountPanel(props: {
   const [customerNoteImportant, setCustomerNoteImportant] = useState(false);
 
   // Load notes + spend ledger when customer changes.
+  // Guarded to avoid repeated retries/spam when requests fail.
   useEffect(() => {
     if (!props.customerId) return;
+    if (!props.sessionToken) return;
+    if (customerNotesState.isLoading(props.customerId)) return;
+    if (customerSpendLedgerState.isLoading(props.customerId)) return;
+    if (customerNotesState.getNotes(props.customerId).length > 0) return;
+    if (customerNotesState.getError(props.customerId)) return;
+
     void customerNotesState.loadNotes(props.customerId);
     void customerSpendLedgerState.loadSpendLedger(props.customerId);
-  }, [props.customerId, customerNotesState, customerSpendLedgerState]);
+  }, [
+    props.customerId,
+    props.sessionToken,
+    customerNotesState,
+    customerSpendLedgerState,
+  ]);
 
   const { state, retry, start, hasAttemptedStart } = useStartLaneCheckinForCustomerIfNotVisiting({
     lane: props.lane,
@@ -415,6 +427,11 @@ export function CustomerAccountPanel(props: {
 
               <div className="cs-liquid-card" style={{ padding: '0.85rem', overflow: 'auto' }}>
                 <div style={{ fontWeight: 900, marginBottom: '0.5rem' }}>Spending</div>
+                {customerSpendLedgerState.getError(props.customerId) ? (
+                  <div style={{ marginBottom: '0.5rem', color: '#fecaca', fontWeight: 800 }}>
+                    {customerSpendLedgerState.getError(props.customerId)}
+                  </div>
+                ) : null}
                 {customerSpendLedgerState.isLoading(props.customerId) ? (
                   <div style={{ color: '#94a3b8', fontWeight: 800 }}>Loading spend ledger…</div>
                 ) : customerSpendLedgerState.getGroups(props.customerId).length === 0 ? (
