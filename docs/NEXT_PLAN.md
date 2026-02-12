@@ -25,7 +25,7 @@ Legend:
 
 ## 2) Backend: Authoritative Flow Command Engine (Hardening)
 
-- [ ] Define canonical transition table for steps (allowed transitions)
+- [x] Define canonical transition table for steps (allowed transitions)
 - [ ] Implement transition-specific clearing rules for each step:
   - [ ] LANGUAGE
   - [ ] RENTAL
