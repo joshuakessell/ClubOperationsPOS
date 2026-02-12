@@ -148,6 +148,17 @@ export function useKioskSessionState() {
     (payload: SessionUpdatedPayload) => {
       const prevSession = sessionRef.current;
       const hasKey = (key: string) => Object.prototype.hasOwnProperty.call(payload, key);
+
+      // Monotonic flow-version guard: ignore stale SESSION_UPDATED events.
+      const incomingFlowVersion = payload.flowVersion;
+      const currentFlowVersion = prevSession?.flowVersion;
+      if (
+        typeof incomingFlowVersion === 'number' &&
+        typeof currentFlowVersion === 'number' &&
+        incomingFlowVersion < currentFlowVersion
+      ) {
+        return;
+      }
       const assignedResourceType = hasKey('assignedResourceType')
         ? payload.assignedResourceType
         : prevSession?.assignedResourceType;
@@ -183,6 +194,11 @@ export function useKioskSessionState() {
         assignedResourceNumber,
         checkoutAt,
         idScanIssue: payload.idScanIssue ?? undefined,
+        flowVersion:
+          typeof incomingFlowVersion === 'number'
+            ? incomingFlowVersion
+            : (prev.flowVersion ?? undefined),
+        flowStep: payload.flowStep ?? prev.flowStep,
       }));
 
       if (payload.mode) {
