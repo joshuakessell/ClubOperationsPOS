@@ -80,14 +80,14 @@ Legend:
 
 ### customer-kiosk
 
-- [ ] Drive view routing off `SessionUpdatedPayload.flowStep`
+- [x] Drive view routing off `SessionUpdatedPayload.flowStep`
 - [ ] Send `BACK_STEP` / `CANCEL_STEP` flow commands on back/cancel UI
 - [ ] Ensure monotonic flowVersion updates everywhere (already in reducer, verify all paths)
 - [ ] Remove heuristic fallbacks once stable
 
 ### employee-register
 
-- [ ] Drive Employee Assist step off `flowStep`
+- [x] Drive Employee Assist step off `flowStep`
 - [ ] Implement first-click highlight / second-click confirm backed by commands
 - [ ] Mirror kiosk ordering + hide unavailable options
 
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 32
-- Remaining checklist items: 40
+- Completed checklist items: 34
+- Remaining checklist items: 38

@@ -13,6 +13,15 @@ type CheckinStageInput = {
   customerMembershipValidUntil: string | null;
   membershipPurchaseIntent: 'PURCHASE' | 'RENEW' | null;
   membershipChoice: 'ONE_TIME' | 'SIX_MONTH' | null;
+  flowStep:
+    | 'LANGUAGE'
+    | 'RENTAL'
+    | 'WAITLIST_PREFERENCES'
+    | 'WAITLIST_BACKUP'
+    | 'PAYMENT'
+    | 'AGREEMENT'
+    | 'COMPLETE'
+    | null;
 };
 
 export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | null {
@@ -28,6 +37,7 @@ export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | nul
     customerMembershipValidUntil,
     membershipPurchaseIntent,
     membershipChoice,
+    flowStep,
   } = input;
 
   if (!currentSessionId || !customerName) return null;
@@ -35,6 +45,24 @@ export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | nul
   // 5 - Assigned
   if (assignedResourceType && assignedResourceNumber) {
     return { number: 5, label: 'Locker/Room Assigned' };
+  }
+
+  // When flowStep is available, prefer it as the authoritative UI stage.
+  switch (flowStep) {
+    case 'LANGUAGE':
+      return { number: 1, label: 'Language Selection' };
+    case 'RENTAL':
+    case 'WAITLIST_PREFERENCES':
+    case 'WAITLIST_BACKUP':
+      return { number: 3, label: 'Rental Options' };
+    case 'PAYMENT':
+      return { number: 4, label: 'Payment' };
+    case 'AGREEMENT':
+      return { number: 4, label: 'Signing Member Agreement' };
+    case 'COMPLETE':
+      return { number: 5, label: 'Locker/Room Assigned' };
+    default:
+      break;
   }
 
   // 4 - Signing agreement (after rental confirmation, before assignment)
