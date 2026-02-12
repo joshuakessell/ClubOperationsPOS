@@ -147,6 +147,29 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
         z.string().optional()
       ),
       checkoutAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+      flowStep: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z
+          .enum([
+            'LANGUAGE',
+            'RENTAL',
+            'WAITLIST_PREFERENCES',
+            'WAITLIST_BACKUP',
+            'PAYMENT',
+            'AGREEMENT',
+            'COMPLETE',
+          ])
+          .optional()
+      ),
+      flowVersion: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.number().int().nonnegative().optional()
+      ),
+      flowLastActor: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.enum(['CUSTOMER', 'EMPLOYEE', 'SYSTEM']).optional()
+      ),
+      flowLastCommandId: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
     })
     .passthrough();
 

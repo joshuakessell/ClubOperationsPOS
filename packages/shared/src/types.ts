@@ -226,6 +226,17 @@ export interface SessionUpdatedPayload {
   assignedResourceType?: 'room' | 'locker';
   assignedResourceNumber?: string;
   checkoutAt?: string;
+  flowStep?:
+    | 'LANGUAGE'
+    | 'RENTAL'
+    | 'WAITLIST_PREFERENCES'
+    | 'WAITLIST_BACKUP'
+    | 'PAYMENT'
+    | 'AGREEMENT'
+    | 'COMPLETE';
+  flowVersion?: number;
+  flowLastActor?: 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
+  flowLastCommandId?: string;
 }
 
 /**

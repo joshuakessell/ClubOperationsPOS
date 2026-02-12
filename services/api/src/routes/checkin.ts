@@ -3,6 +3,7 @@ import type { Broadcaster } from '../realtime/broadcaster';
 import { registerCheckinAddOnRoutes } from './checkin/add-ons';
 import { registerCheckinAgreementRoutes } from './checkin/agreements';
 import { registerCheckinDemoPaymentRoutes } from './checkin/demo-payment';
+import { registerCheckinFlowCommandRoutes } from './checkin/flow-command';
 import { registerCheckinHighlightRoutes } from './checkin/highlight-option';
 import { registerCheckinLaneSessionRoutes } from './checkin/lane-session';
 import { registerCheckinLaneSessionsRoutes } from './checkin/lane-sessions';
@@ -56,6 +57,8 @@ export async function checkinRoutes(fastify: FastifyInstance): Promise<void> {
   registerCheckinNoteRoutes(fastify);
 
   registerCheckinDemoPaymentRoutes(fastify);
+
+  registerCheckinFlowCommandRoutes(fastify);
 
   registerCheckinResetRoutes(fastify);
 }
