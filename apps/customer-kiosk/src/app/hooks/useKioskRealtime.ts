@@ -120,7 +120,6 @@ export function useKioskRealtime({
             sessionActions.setSelectionConfirmedBy(payload.confirmedBy);
             sessionActions.setSelectedRental(payload.rentalType);
             sessionActions.setSelectionAcknowledged(true);
-            sessionActions.setView('payment');
           }
         } else if (message.type === 'SELECTION_FORCED') {
           const payload = message.payload;
@@ -129,7 +128,6 @@ export function useKioskRealtime({
             sessionActions.setSelectionConfirmedBy('EMPLOYEE');
             sessionActions.setSelectedRental(payload.rentalType);
             sessionActions.setSelectionAcknowledged(true);
-            sessionActions.setView('payment');
           }
         } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
           sessionActions.setSelectionAcknowledged(true);
