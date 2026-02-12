@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { optionalAuth } from '../../auth/middleware';
 import { requireKioskTokenOrStaff } from '../../auth/kioskToken';
 import type { LaneSessionRow } from '../../checkin/types';
@@ -24,6 +25,26 @@ type FlowCommandType =
   | 'PROPOSE_SELECTION'
   | 'CONFIRM_SELECTION'
   | 'WAITLIST_UPDATE';
+
+const FlowActorSchema = z.union([z.literal('CUSTOMER'), z.literal('EMPLOYEE'), z.literal('SYSTEM')]);
+
+const FlowCommandTypeSchema = z.union([
+  z.literal('SET_STEP'),
+  z.literal('BACK_STEP'),
+  z.literal('CANCEL_STEP'),
+  z.literal('PROPOSE_SELECTION'),
+  z.literal('CONFIRM_SELECTION'),
+  z.literal('WAITLIST_UPDATE'),
+]);
+
+const FlowCommandRequestSchema = z.object({
+  sessionId: z.string().min(1),
+  commandId: z.string().uuid(),
+  actor: FlowActorSchema,
+  expectedFlowVersion: z.number().int().nonnegative().optional(),
+  type: FlowCommandTypeSchema,
+  payload: z.record(z.unknown()).optional(),
+});
 
 const FLOW_STEPS: FlowStep[] = [
   'LANGUAGE',
@@ -248,22 +269,16 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
       }
 
       const { laneId } = request.params;
-      const { sessionId, commandId, actor, expectedFlowVersion, type, payload } = request.body;
-
-      if (!sessionId || !commandId || !actor || !type) {
-        return reply.status(400).send({ error: 'sessionId, commandId, actor, and type are required' });
+      const parsed = FlowCommandRequestSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          applied: false,
+          error: 'ValidationFailed',
+          message: parsed.error.errors.map((e) => e.message).join(', '),
+        });
       }
 
-      if (
-        type !== 'SET_STEP' &&
-        type !== 'BACK_STEP' &&
-        type !== 'CANCEL_STEP' &&
-        type !== 'PROPOSE_SELECTION' &&
-        type !== 'CONFIRM_SELECTION' &&
-        type !== 'WAITLIST_UPDATE'
-      ) {
-        return reply.status(400).send({ applied: false, error: 'InvalidCommandType' });
-      }
+      const { sessionId, commandId, actor, expectedFlowVersion, type, payload } = parsed.data;
 
       try {
         const result = await transaction(async (client) => {
