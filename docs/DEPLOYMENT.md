@@ -248,6 +248,34 @@ pnpm spec:check
 3. Push tag to trigger deployment
 4. If database migration issue, manually revert via SQL
 
+#### Lock-Step v2 Rollback Playbook
+
+If Lock-Step v2 (flow commands / dual transport / LAN fallback) causes issues in **demo** or **production**, prefer
+feature-flag rollback before code rollback.
+
+**Immediate actions (API)**
+- Disable global flags in the App Runner service env (or via your deployment config):
+  - `LOCKSTEP_V2=false`
+  - `FLOW_COMMANDS=false`
+  - `LAN_FALLBACK=false`
+
+**Immediate actions (Frontends)**
+- Disable v2 flags in the Vite build env for the affected app(s) and redeploy:
+  - `VITE_LOCKSTEP_V2=0`
+  - `VITE_FLOW_COMMANDS=0`
+  - `VITE_LAN_FALLBACK=0`
+  - `VITE_REALTIME_TRANSPORTS=0` (forces legacy AppSync websocket path)
+  - Unset `VITE_LAN_REALTIME_WS_URL` (if set)
+
+**Targeted rollback (per-lane overrides)**
+- If only some lanes are impacted, use `lane_feature_flags` overrides to disable features per lane while keeping the
+  global rollout enabled.
+
+**Code rollback (last resort)**
+- Re-tag the last known-good commit and deploy it (standard rollback procedure above).
+- If the rollback crosses DB migrations, validate that migrations are compatible. Avoid down-migrations in production
+  unless you have confirmed they are safe for the current data.
+
 ## Monitoring and Logs
 
 ### App Runner Logs
