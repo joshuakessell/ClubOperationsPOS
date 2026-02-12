@@ -12,6 +12,10 @@ import type {
   SelectionProposedPayload,
 } from '@club-ops/shared';
 
+function isFlowCommandsEnabled(): boolean {
+  return process.env.FLOW_COMMANDS === 'true';
+}
+
 async function checkPastDueBlocked(
   client: PoolClient,
   customerId: string | null,
@@ -97,6 +101,43 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
           }
 
           const session = sessionResult.rows[0]!;
+
+          if (isFlowCommandsEnabled()) {
+            const commandId =
+              typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                ? crypto.randomUUID()
+                : `sel-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            await client.query(
+              `INSERT INTO lane_session_commands (session_id, command_id, actor, type, payload_json)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (session_id, command_id) DO NOTHING`,
+              [
+                session.id,
+                commandId,
+                'EMPLOYEE',
+                'SET_STEP',
+                {
+                  step: 'RENTAL',
+                  rentalType,
+                  waitlistDesiredType: waitlistDesiredType || null,
+                  waitlistDesiredTypes: normalizeDesiredTypes(waitlistDesiredTypes),
+                  backupRentalType: backupRentalType || null,
+                  waitlistRequestedResourceNumber: waitlistRequestedResourceNumber || null,
+                  waitlistRequestedResourceType: waitlistRequestedResourceType || null,
+                },
+              ]
+            );
+            await client.query(
+              `UPDATE lane_sessions
+               SET flow_step = 'RENTAL',
+                   flow_version = COALESCE(flow_version, 0) + 1,
+                   flow_last_command_id = $1,
+                   flow_last_actor = 'EMPLOYEE',
+                   updated_at = NOW()
+               WHERE id = $2`,
+              [commandId, session.id]
+            );
+          }
 
           const normalizedDesiredTypes = normalizeDesiredTypes(waitlistDesiredTypes);
 
