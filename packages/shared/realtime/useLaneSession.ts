@@ -1,6 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { getApiUrl } from '../src/apiBase.js';
 
+// Transport abstraction (incremental adoption)
+import {
+  AppSyncTransport,
+  HybridTransport,
+  LanWebSocketTransport,
+  type RealtimeTransport,
+} from './transports/index.js';
+
 export type LaneRole = 'customer' | 'employee';
 
 type AppSyncAuthResponse = {
@@ -187,6 +195,7 @@ export function useLaneSession({
   const cooldownTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const closedIntentionallyRef = useRef(false);
   const appSyncSocketRef = useRef<WebSocket | null>(null);
+  const transportRef = useRef<RealtimeTransport | null>(null);
 
   useEffect(() => {
     consecutiveFailureRef.current = 0;
@@ -209,6 +218,8 @@ export function useLaneSession({
       if (laneId === undefined) return;
       appSyncSocketRef.current?.close();
       appSyncSocketRef.current = null;
+      transportRef.current?.disconnect();
+      transportRef.current = null;
       pendingMessagesRef.current = [];
       if (flushTimerRef.current) {
         clearTimeout(flushTimerRef.current);
@@ -217,7 +228,69 @@ export function useLaneSession({
     };
   }, [laneId, role]);
 
+  // NEW (behind env flag): optional transport abstraction.
+  // Keeping useLaneSession behavior stable by default.
+  const transportAbstractionEnabled = env?.VITE_REALTIME_TRANSPORTS === '1';
+
   useEffect(() => {
+    if (transportAbstractionEnabled) {
+      if (!effectiveEnabled || laneId === undefined) {
+        transportRef.current?.disconnect();
+        transportRef.current = null;
+        closedIntentionallyRef.current = true;
+        setConnected(false);
+        return;
+      }
+
+      const onEvent = (event: { type: 'message'; data: unknown }) => {
+        pendingMessagesRef.current.push({ data: JSON.stringify(event.data) } as MessageEvent);
+        scheduleFlush();
+      };
+
+      const transport = new HybridTransport(
+        [
+          new AppSyncTransport({
+            laneId,
+            role,
+            kioskToken,
+            staffToken,
+            options: {
+              debug: realtimeDebug,
+              onEvent,
+              onStatus: (status) => setConnected(status === 'connected'),
+            },
+          }),
+          // LAN transport is scaffold-only for now; disabled unless explicitly configured.
+          ...(typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' && env.VITE_LAN_REALTIME_WS_URL
+            ? [
+                new LanWebSocketTransport({
+                  url: env.VITE_LAN_REALTIME_WS_URL as string,
+                  options: {
+                    debug: realtimeDebug,
+                    onEvent,
+                    onStatus: (status) => setConnected(status === 'connected'),
+                  },
+                }),
+              ]
+            : []),
+        ],
+        {
+          onEvent,
+          onStatus: (status) => setConnected(status === 'connected'),
+          debug: realtimeDebug,
+        }
+      );
+
+      transportRef.current?.disconnect();
+      transportRef.current = transport;
+      void transport.connect();
+
+      return () => {
+        transportRef.current?.disconnect();
+        transportRef.current = null;
+      };
+    }
+
     if (!effectiveEnabled || laneId === undefined) {
       closedIntentionallyRef.current = true;
       setConnected(false);
@@ -484,6 +557,7 @@ export function useLaneSession({
     kioskToken,
     role,
     staffToken,
+    transportAbstractionEnabled,
   ]);
 
   return { connected, lastMessage, lastError };
