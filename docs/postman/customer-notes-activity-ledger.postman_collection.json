@@ -10,6 +10,43 @@
       "name": "Auth",
       "item": [
         {
+          "name": "Login PIN (POST /v1/auth/login-pin) → sets {{staffToken}}",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const json = pm.response.json();",
+                  "  if (json && json.sessionToken) {",
+                  "    pm.environment.set('staffToken', json.sessionToken);",
+                  "  }",
+                  "  if (json && json.staffId) {",
+                  "    pm.environment.set('staffId', json.staffId);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"staffLookup\": \"{{staffLookup}}\",\n  \"pin\": \"{{pin}}\",\n  \"deviceId\": \"{{deviceId}}\",\n  \"deviceType\": \"tablet\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/login-pin",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "login-pin"]
+            }
+          }
+        },
+        {
           "name": "Me (GET /v1/auth/me)",
           "request": {
             "method": "GET",
@@ -20,6 +57,62 @@
               "raw": "{{baseUrl}}/v1/auth/me",
               "host": ["{{baseUrl}}"],
               "path": ["v1", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Register Session (optional)",
+      "item": [
+        {
+          "name": "Register Availability (GET /v1/registers/availability)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/registers/availability?deviceId={{deviceId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "registers", "availability"],
+              "query": [
+                { "key": "deviceId", "value": "{{deviceId}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Assign Register (POST /v1/registers/assign)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{staffId}}\",\n  \"deviceId\": \"{{deviceId}}\",\n  \"registerNumber\": {{registerNumber}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/registers/assign",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "registers", "assign"]
+            }
+          }
+        },
+        {
+          "name": "Confirm Register (POST /v1/registers/confirm)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"employeeId\": \"{{staffId}}\",\n  \"deviceId\": \"{{deviceId}}\",\n  \"registerNumber\": {{registerNumber}}\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/registers/confirm",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "registers", "confirm"]
             }
           }
         }
@@ -272,4 +365,3 @@
     }
   ]
 }
-
