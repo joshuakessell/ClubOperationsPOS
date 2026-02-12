@@ -257,6 +257,16 @@ export function useLaneSession({
             options: {
               debug: realtimeDebug,
               onEvent,
+              onError: (event) => {
+                setLastError(new Event('transport_error'));
+                logRealtime('transport error', {
+                  laneId,
+                  role,
+                  reconnectMode,
+                  error:
+                    event.error instanceof Error ? event.error.message : String(event.error ?? ''),
+                });
+              },
               onStatus: (status) => setConnected(status === 'connected'),
             },
           }),
@@ -268,6 +278,9 @@ export function useLaneSession({
                   options: {
                     debug: realtimeDebug,
                     onEvent,
+                    onError: () => {
+                      setLastError(new Event('transport_error'));
+                    },
                     onStatus: (status) => setConnected(status === 'connected'),
                   },
                 }),
@@ -276,6 +289,9 @@ export function useLaneSession({
         ],
         {
           onEvent,
+          onError: () => {
+            setLastError(new Event('transport_error'));
+          },
           onStatus: (status) => setConnected(status === 'connected'),
           debug: realtimeDebug,
         }
