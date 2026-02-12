@@ -134,9 +134,9 @@ Legend:
 - [ ] API transition tests for each command type
 - [x] API idempotency/version tests for flow-command
 - [x] LAN websocket integration test (auth rejection)
-- [ ] Realtime ordering tests (stale ignored) end-to-end
-- [ ] Cross-app lock-step acceptance tests
-- [ ] Failover tests: cloud disconnect -> LAN -> reconnect
+- [x] Realtime ordering tests (stale ignored) end-to-end
+- [x] Cross-app lock-step acceptance tests
+- [x] Failover tests: cloud disconnect -> LAN -> reconnect
 
 ## 10) Docs + Ops
 
@@ -151,4 +151,5 @@ Legend:
 
 - Total checklist items: 72
 - Completed checklist items: 66
-- Remaining checklist items: 6
+- Completed checklist items: 69
+- Remaining checklist items: 3
