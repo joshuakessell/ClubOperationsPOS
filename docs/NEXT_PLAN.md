@@ -89,7 +89,7 @@ Legend:
 
 - [x] Drive Employee Assist step off `flowStep`
 - [x] Implement first-click highlight / second-click confirm backed by commands
-- [ ] Mirror kiosk ordering + hide unavailable options (includes GYM_LOCKER)
+- [x] Mirror kiosk ordering + hide unavailable options (includes GYM_LOCKER)
 
 ## 8) Frontend: Hybrid Transport + Mode Switch
 
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 38
-- Remaining checklist items: 34
+- Completed checklist items: 39
+- Remaining checklist items: 33
