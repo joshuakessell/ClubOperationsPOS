@@ -88,7 +88,7 @@ Legend:
 ### employee-register
 
 - [x] Drive Employee Assist step off `flowStep`
-- [ ] Implement first-click highlight / second-click confirm backed by commands
+- [x] Implement first-click highlight / second-click confirm backed by commands
 - [ ] Mirror kiosk ordering + hide unavailable options
 
 ## 8) Frontend: Hybrid Transport + Mode Switch
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 37
-- Remaining checklist items: 35
+- Completed checklist items: 38
+- Remaining checklist items: 34

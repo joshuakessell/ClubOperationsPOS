@@ -29,7 +29,7 @@ type Props = {
   onConfirmLanguage: (lang: LanguageOption) => Promise<void> | void;
   onHighlightMembership: (choice: MembershipOption | null) => void;
   onConfirmMembershipSixMonth: () => Promise<void> | void;
-  onHighlightRental: (rental: RentalOption) => Promise<void> | void;
+  onHighlightRental: (rental: RentalOption | null) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
   onDirectSelectRental?: (rental: RentalOption) => Promise<void> | void;
   onHighlightWaitlistBackup: (rental: RentalOption | null) => void;
@@ -444,6 +444,9 @@ export function EmployeeAssistStepContent({
                     },
                     () => {
                       void onApproveRental();
+                    },
+                    () => {
+                      void onHighlightRental(null);
                     }
                   );
                 }}

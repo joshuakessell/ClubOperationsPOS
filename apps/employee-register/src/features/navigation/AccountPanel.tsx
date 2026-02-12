@@ -241,8 +241,10 @@ export function AccountPanel() {
       void highlightKioskOption({ step: 'MEMBERSHIP', option: choice }),
     onConfirmMembershipOneTime: () => void handleConfirmMembershipOneTime(),
     onConfirmMembershipSixMonth: () => void handleConfirmMembershipSixMonth(),
-    onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
-      void handleProposeSelection(rental),
+    onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => {
+      if (!rental) return;
+      void handleProposeSelection(rental);
+    },
     onSelectRentalAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
       void handleCustomerSelectRental(rental),
     onDirectSelectRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>

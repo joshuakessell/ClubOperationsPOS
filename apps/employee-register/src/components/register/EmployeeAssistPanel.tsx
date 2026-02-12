@@ -45,7 +45,9 @@ export interface EmployeeAssistPanelProps {
   onConfirmMembershipOneTime?: () => Promise<void> | void;
   onConfirmMembershipSixMonth: () => Promise<void> | void;
 
-  onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => Promise<void> | void;
+  onHighlightRental: (
+    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
+  ) => Promise<void> | void;
   onSelectRentalAsCustomer: (
     rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => Promise<void> | void;
