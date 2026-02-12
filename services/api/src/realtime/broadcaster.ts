@@ -107,6 +107,7 @@ export function createBroadcaster(params?: { localLaneSockets?: LocalLaneSockets
   const globalChannel = buildChannelPath(channelNamespace, 'global');
   const laneChannel = (lane: string) => buildChannelPath(channelNamespace, 'lane', lane);
   const localLaneSockets = params?.localLaneSockets;
+  const lastLaneVersions = new Map<string, number>();
 
   const publishGlobal = (event: RealtimeEvent<unknown>) => {
     if (!appSyncEnabled) return;
@@ -127,11 +128,30 @@ export function createBroadcaster(params?: { localLaneSockets?: LocalLaneSockets
     localLaneSockets?.publishToLane(lane, event);
   };
 
+  const isMonotonicForLane = (lane: string, event: RealtimeEvent<unknown>): boolean => {
+    if (event.type !== 'SESSION_UPDATED') return true;
+
+    const payload = event.payload as { flowVersion?: unknown };
+    const flowVersion = typeof payload.flowVersion === 'number' ? payload.flowVersion : null;
+    if (flowVersion === null) return true;
+
+    const last = lastLaneVersions.get(lane);
+    if (typeof last === 'number' && flowVersion < last) {
+      return false;
+    }
+
+    lastLaneVersions.set(lane, flowVersion);
+    return true;
+  };
+
   function broadcast<T>(event: RealtimeEvent<T>): void {
     publishGlobal(event as RealtimeEvent<unknown>);
   }
 
   function broadcastToLane<T>(event: RealtimeEvent<T>, lane: string): void {
+    if (!isMonotonicForLane(lane, event as RealtimeEvent<unknown>)) {
+      return;
+    }
     publishToLane(event as RealtimeEvent<unknown>, lane);
     publishToLaneLocal(event as RealtimeEvent<unknown>, lane);
   }
