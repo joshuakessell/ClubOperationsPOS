@@ -23,6 +23,7 @@ export function usePollingFallback({
   currentSessionId,
   laneSessionActions,
 }: Params) {
+  const lastServerErrorLogAtRef = useRef<number>(0);
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
@@ -42,7 +43,18 @@ export function usePollingFallback({
         `${API_BASE}/v1/checkin/lane/${encodeURIComponent(lane)}/session-snapshot`,
         { headers }
       );
-      if (!res.ok) return;
+      if (!res.ok) {
+        if (res.status >= 500) {
+          const now = Date.now();
+          if (now - lastServerErrorLogAtRef.current > 10_000) {
+            lastServerErrorLogAtRef.current = now;
+            console.error(
+              `Polling fallback received HTTP ${res.status} from session-snapshot; throttling log output.`
+            );
+          }
+        }
+        return;
+      }
       const data = await readJson<unknown>(res);
       if (!isRecord(data)) return;
 
@@ -62,8 +74,12 @@ export function usePollingFallback({
           laneSessionActions.applySessionUpdated(parsed.data);
         }
       }
-    } catch {
-      // Best-effort; polling is a fallback.
+    } catch (error) {
+      const now = Date.now();
+      if (now - lastServerErrorLogAtRef.current > 10_000) {
+        lastServerErrorLogAtRef.current = now;
+        console.error('Polling fallback failed; throttling log output.', error);
+      }
     }
   }, [kioskToken, lane, laneSessionActions, staffToken]);
 
