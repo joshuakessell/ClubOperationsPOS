@@ -28,6 +28,83 @@ const FLOW_STEPS: FlowStep[] = [
   'COMPLETE',
 ];
 
+function parseFlowStep(value: unknown): FlowStep | null {
+  if (typeof value !== 'string') return null;
+  return (FLOW_STEPS as string[]).includes(value) ? (value as FlowStep) : null;
+}
+
+function getPreviousFlowStep(step: FlowStep): FlowStep {
+  const currentIndex = FLOW_STEPS.indexOf(step);
+  if (currentIndex <= 0) return FLOW_STEPS[0]!;
+  return FLOW_STEPS[currentIndex - 1]!;
+}
+
+function computeFlowUpdate(input: {
+  currentStep: FlowStep;
+  type: FlowCommandType;
+  payload?: Record<string, unknown>;
+}): {
+  nextStep: FlowStep;
+  clear: {
+    rental: boolean;
+    waitlistPreferences: boolean;
+    waitlistBackup: boolean;
+    paymentIntent: boolean;
+    agreement: boolean;
+  };
+} {
+  const { currentStep, type, payload } = input;
+
+  if (type === 'SET_STEP') {
+    const requested = parseFlowStep(payload?.['step']);
+    if (!requested) {
+      throw { statusCode: 400, error: 'InvalidPayload', message: 'payload.step is required' };
+    }
+
+    // When jumping backwards, clear everything after the requested step.
+    const currentIndex = FLOW_STEPS.indexOf(currentStep);
+    const requestedIndex = FLOW_STEPS.indexOf(requested);
+
+    const movingBackwards = requestedIndex < currentIndex;
+    const clear = {
+      rental: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('RENTAL'),
+      waitlistPreferences:
+        movingBackwards && requestedIndex < FLOW_STEPS.indexOf('WAITLIST_PREFERENCES'),
+      waitlistBackup: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('WAITLIST_BACKUP'),
+      paymentIntent: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('PAYMENT'),
+      agreement: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('AGREEMENT'),
+    };
+
+    return { nextStep: requested, clear };
+  }
+
+  if (type === 'BACK_STEP') {
+    const nextStep = getPreviousFlowStep(currentStep);
+
+    // Back clears the step we are leaving.
+    const clear = {
+      rental: currentStep === 'RENTAL',
+      waitlistPreferences: currentStep === 'WAITLIST_PREFERENCES',
+      waitlistBackup: currentStep === 'WAITLIST_BACKUP',
+      paymentIntent: currentStep === 'PAYMENT',
+      agreement: currentStep === 'AGREEMENT',
+    };
+
+    return { nextStep, clear };
+  }
+
+  // CANCEL_STEP clears the step we are currently on, without changing step.
+  const clear = {
+    rental: currentStep === 'RENTAL',
+    waitlistPreferences: currentStep === 'WAITLIST_PREFERENCES',
+    waitlistBackup: currentStep === 'WAITLIST_BACKUP',
+    paymentIntent: currentStep === 'PAYMENT',
+    agreement: currentStep === 'AGREEMENT',
+  };
+
+  return { nextStep: currentStep, clear };
+}
+
 function isFlowCommandsEnabled(): boolean {
   return process.env.FLOW_COMMANDS === 'true';
 }
@@ -82,13 +159,6 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
         return reply.status(400).send({ applied: false, error: 'InvalidCommandType' });
       }
 
-      const parseStep = (value: unknown): FlowStep | null => {
-        if (typeof value !== 'string') return null;
-        return (FLOW_STEPS as string[]).includes(value) ? (value as FlowStep) : null;
-      };
-
-      const stepFromPayload = (): FlowStep | null => parseStep(payload?.['step']);
-
       try {
         const result = await transaction(async (client) => {
           const locked = await client.query<LaneSessionRow>(
@@ -132,42 +202,14 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
             [sessionId, commandId, actor, type, payload ?? null]
           );
 
-          const currentStep = parseStep(session.flow_step) ?? 'LANGUAGE';
-
-          const computeNextStep = (): FlowStep => {
-            if (type === 'SET_STEP') {
-              const next = stepFromPayload();
-              if (!next) {
-                throw { statusCode: 400, error: 'InvalidPayload', message: 'payload.step is required' };
-              }
-              return next;
-            }
-
-            const currentIndex = FLOW_STEPS.indexOf(currentStep);
-            if (currentIndex < 0) {
-              return 'LANGUAGE';
-            }
-
-            if (type === 'BACK_STEP') {
-              return currentIndex <= 0 ? FLOW_STEPS[0]! : FLOW_STEPS[currentIndex - 1]!;
-            }
-
-            return currentStep;
-          };
-
-          const nextStep = computeNextStep();
+          const currentStep = parseFlowStep(session.flow_step) ?? 'LANGUAGE';
+          const { nextStep, clear } = computeFlowUpdate({ currentStep, type, payload });
           const nextVersion = currentVersion + 1;
 
-          // Minimal clearing rules for v1 of the engine.
-          // More granular clearing will be added as we harden lock-step invariants.
-          const shouldClearRentalSelection =
-            (type === 'CANCEL_STEP' && currentStep === 'RENTAL') ||
-            (type === 'BACK_STEP' && currentStep === 'WAITLIST_PREFERENCES');
-
-          const shouldClearWaitlist =
-            type === 'CANCEL_STEP' ||
-            (type === 'BACK_STEP' &&
-              (currentStep === 'WAITLIST_PREFERENCES' || currentStep === 'WAITLIST_BACKUP'));
+          const shouldClearRentalSelection = clear.rental;
+          const shouldClearWaitlist = clear.waitlistPreferences || clear.waitlistBackup;
+          const shouldClearPaymentIntent = clear.paymentIntent;
+          const shouldClearAgreement = clear.agreement;
 
           await client.query(
             `UPDATE lane_sessions
@@ -186,8 +228,12 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
                  backup_rental_type = CASE WHEN $6 THEN NULL ELSE backup_rental_type END,
                  waitlist_requested_resource_number = CASE WHEN $6 THEN NULL ELSE waitlist_requested_resource_number END,
                  waitlist_requested_resource_type = CASE WHEN $6 THEN NULL ELSE waitlist_requested_resource_type END,
+                 payment_intent_id = CASE WHEN $7 THEN NULL ELSE payment_intent_id END,
+                 price_quote_json = CASE WHEN $7 THEN NULL ELSE price_quote_json END,
+                 disclaimers_ack_json = CASE WHEN $7 THEN NULL ELSE disclaimers_ack_json END,
+                 agreement_bypass_pending = CASE WHEN $8 THEN false ELSE agreement_bypass_pending END,
                  updated_at = NOW()
-             WHERE id = $7`,
+             WHERE id = $9`,
             [
               nextStep,
               nextVersion,
@@ -195,6 +241,8 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
               actor,
               shouldClearRentalSelection,
               shouldClearWaitlist,
+              shouldClearPaymentIntent,
+              shouldClearAgreement,
               sessionId,
             ]
           );

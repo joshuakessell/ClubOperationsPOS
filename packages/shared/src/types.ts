@@ -239,6 +239,28 @@ export interface SessionUpdatedPayload {
   flowLastCommandId?: string;
 }
 
+export type CheckinFlowStep =
+  | 'LANGUAGE'
+  | 'RENTAL'
+  | 'WAITLIST_PREFERENCES'
+  | 'WAITLIST_BACKUP'
+  | 'PAYMENT'
+  | 'AGREEMENT'
+  | 'COMPLETE';
+
+export type CheckinFlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
+
+export type CheckinFlowCommandType = 'SET_STEP' | 'BACK_STEP' | 'CANCEL_STEP';
+
+export interface CheckinFlowCommandRequest {
+  sessionId: string;
+  commandId: string;
+  actor: CheckinFlowActor;
+  expectedFlowVersion?: number;
+  type: CheckinFlowCommandType;
+  payload?: Record<string, unknown>;
+}
+
 /**
  * Ephemeral UI-only event to coordinate employee "pending/highlight" state with the customer kiosk
  * without mutating server-authoritative selection state.

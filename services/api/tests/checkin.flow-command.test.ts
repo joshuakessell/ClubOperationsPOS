@@ -1,0 +1,141 @@
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest';
+import Fastify, { FastifyInstance } from 'fastify';
+import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
+import { initializeDatabase, closeDatabase, query } from '../src/db/index.js';
+import { checkinRoutes } from '../src/routes/checkin.js';
+import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
+import { truncateAllTables } from './testDb.js';
+
+declare module 'fastify' {
+  interface FastifyInstance {
+    broadcaster: Broadcaster;
+  }
+}
+
+describe('Check-in Flow Commands', () => {
+  const TEST_KIOSK_TOKEN = 'test-kiosk-token';
+  let app: FastifyInstance;
+  let dbAvailable = false;
+  let laneId: string;
+  let sessionId: string;
+  const commandId = '11111111-1111-1111-1111-111111111111';
+
+  beforeAll(async () => {
+    process.env.KIOSK_TOKEN = TEST_KIOSK_TOKEN;
+    process.env.FLOW_COMMANDS = 'true';
+
+    try {
+      await initializeDatabase();
+      dbAvailable = true;
+    } catch {
+      try {
+        await closeDatabase();
+      } catch {
+        // ignore
+      }
+      return;
+    }
+
+    app = Fastify({ logger: false });
+    await app.register(cors);
+    await app.register(websocket);
+
+    const broadcaster = createBroadcaster();
+    app.decorate('broadcaster', broadcaster);
+    await app.register(checkinRoutes);
+
+    await app.ready();
+  });
+
+  afterAll(async () => {
+    if (!dbAvailable) return;
+    await app.close();
+  });
+
+  beforeEach(async () => {
+    if (!dbAvailable) return;
+    await truncateAllTables((text, params) => query(text, params));
+
+    laneId = 'lane-flow-test';
+
+    const sessionResult = await query<{ id: string }>(
+      `INSERT INTO lane_sessions (lane_id, status, customer_display_name)
+       VALUES ($1, 'ACTIVE', 'Flow Test')
+       RETURNING id`,
+      [laneId]
+    );
+    sessionId = sessionResult.rows[0]!.id;
+  });
+
+  it('dedupes repeated commandId for same session', async () => {
+    if (!dbAvailable) return;
+
+    const body = {
+      sessionId,
+      commandId,
+      actor: 'CUSTOMER',
+      expectedFlowVersion: 0,
+      type: 'SET_STEP',
+      payload: { step: 'LANGUAGE' },
+    };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: body,
+    });
+    expect(first.statusCode).toBe(200);
+    const firstJson = first.json() as any;
+    expect(firstJson.applied).toBe(true);
+    expect(firstJson.deduped).toBe(false);
+    expect(firstJson.flowVersion).toBe(1);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: body,
+    });
+    expect(second.statusCode).toBe(200);
+    const secondJson = second.json() as any;
+    expect(secondJson.applied).toBe(true);
+    expect(secondJson.deduped).toBe(true);
+    expect(secondJson.flowVersion).toBe(0);
+
+    const db = await query<{ flow_version: number }>(
+      `SELECT flow_version FROM lane_sessions WHERE id = $1`,
+      [sessionId]
+    );
+    expect(db.rows[0]!.flow_version).toBe(1);
+  });
+
+  it('rejects stale expectedFlowVersion with 409', async () => {
+    if (!dbAvailable) return;
+
+    await query(
+      `UPDATE lane_sessions SET flow_version = 3, flow_step = 'PAYMENT' WHERE id = $1`,
+      [sessionId]
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '22222222-2222-2222-2222-222222222222',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 2,
+        type: 'BACK_STEP',
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    const json = response.json() as any;
+    expect(json.applied).toBe(false);
+    expect(json.error).toBe('VersionMismatch');
+  });
+});
+
