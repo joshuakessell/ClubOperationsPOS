@@ -54,9 +54,9 @@ Legend:
 
 ## 4) Backend: Realtime Dual-Publish (Cloud + LAN)
 
-- [ ] Add local websocket server endpoint to API for LAN mode
-- [ ] Add local lane channel routing semantics (match AppSync channels)
-- [ ] Update broadcaster to publish to AppSync + local sockets
+- [x] Add local websocket server endpoint to API for LAN mode
+- [x] Add local lane channel routing semantics (match AppSync channels)
+- [x] Update broadcaster to publish to AppSync + local sockets
 - [ ] Add ordering guarantees / monotonic version enforcement in broadcaster
 
 ## 5) LAN Fallback: Edge Stack + Local DB

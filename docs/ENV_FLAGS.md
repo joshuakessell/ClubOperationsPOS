@@ -12,6 +12,11 @@ This document lists non-secret environment variables used as feature flags.
   - When enabled, some legacy endpoints may also increment `lane_sessions.flow_version` to keep
     the lock-step flow state machine consistent.
 
+- `LAN_FALLBACK` (default: `false`)
+  - Enables the LAN websocket endpoint: `GET /v1/realtime/lan/lane/:laneId`.
+  - When enabled, the API will dual-publish lane-scoped realtime events to both AppSync and connected
+    LAN websocket clients.
+
 ## Frontend
 
 - `VITE_REALTIME_TRANSPORTS` (default: `0`)
