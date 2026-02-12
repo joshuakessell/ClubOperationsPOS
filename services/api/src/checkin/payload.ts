@@ -395,7 +395,16 @@ export async function buildFullSessionUpdatedPayload(
         : undefined,
     ledgerLineItems,
     ledgerTotal,
-    flowStep: session.flow_step ?? undefined,
+    flowStep:
+      session.flow_step === 'LANGUAGE' ||
+      session.flow_step === 'RENTAL' ||
+      session.flow_step === 'WAITLIST_PREFERENCES' ||
+      session.flow_step === 'WAITLIST_BACKUP' ||
+      session.flow_step === 'PAYMENT' ||
+      session.flow_step === 'AGREEMENT' ||
+      session.flow_step === 'COMPLETE'
+        ? session.flow_step
+        : undefined,
     flowVersion: typeof session.flow_version === 'number' ? session.flow_version : undefined,
     flowLastActor: session.flow_last_actor
       ? (session.flow_last_actor as 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM')

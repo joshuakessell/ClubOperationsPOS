@@ -62,7 +62,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     broadcaster: Broadcaster;
     dbHealthy: boolean;
-    localLaneSockets: LocalLaneSockets;
+    localLaneSockets?: LocalLaneSockets;
   }
 }
 
