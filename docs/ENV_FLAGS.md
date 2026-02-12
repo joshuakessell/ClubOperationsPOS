@@ -47,3 +47,7 @@ This document lists non-secret environment variables used as feature flags.
 - `VITE_LAN_FALLBACK` (default: `0`)
   - When `1`, enables LAN fallback behavior in the apps (when supported).
   - Intended to be used alongside `VITE_REALTIME_TRANSPORTS=1` and `VITE_LAN_REALTIME_WS_URL`.
+
+- `VITE_LAN_API_BASE_URL` (default: unset)
+  - Base URL for the on-prem edge API used for LAN fallback health checks.
+  - Example: `http://localhost:3000`

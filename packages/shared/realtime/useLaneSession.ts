@@ -232,6 +232,27 @@ export function useLaneSession({
   // Keeping useLaneSession behavior stable by default.
   const transportAbstractionEnabled = env?.VITE_REALTIME_TRANSPORTS === '1';
 
+  const resolveApiBase = (base: unknown): string | null => {
+    if (typeof base !== 'string') return null;
+    if (!base) return null;
+    const trimmed = base.trim();
+    if (!trimmed) return null;
+    return trimmed.replace(/\/$/, '');
+  };
+
+  const cloudApiBase = resolveApiBase(env?.VITE_API_BASE_URL);
+  const lanApiBase = resolveApiBase(env?.VITE_LAN_API_BASE_URL);
+
+  const fetchHealth = async (base: string | null, signal: AbortSignal): Promise<boolean> => {
+    if (!base) return false;
+    try {
+      const res = await fetch(`${base}/health`, { signal });
+      return res.ok;
+    } catch {
+      return false;
+    }
+  };
+
   useEffect(() => {
     if (transportAbstractionEnabled) {
       if (!effectiveEnabled || laneId === undefined) {
@@ -247,62 +268,127 @@ export function useLaneSession({
         scheduleFlush();
       };
 
-      const transport = new HybridTransport(
-        [
-          new AppSyncTransport({
-            laneId,
-            role,
-            kioskToken,
-            staffToken,
-            options: {
-              debug: realtimeDebug,
-              onEvent,
-              onError: (event) => {
-                setLastError(new Event('transport_error'));
-                logRealtime('transport error', {
-                  laneId,
-                  role,
-                  reconnectMode,
-                  error:
-                    event.error instanceof Error ? event.error.message : String(event.error ?? ''),
-                });
+      const appSyncTransport = new AppSyncTransport({
+        laneId,
+        role,
+        kioskToken,
+        staffToken,
+        options: {
+          debug: realtimeDebug,
+          onEvent,
+          onError: (event) => {
+            setLastError(new Event('transport_error'));
+            logRealtime('transport error', {
+              laneId,
+              role,
+              reconnectMode,
+              error: event.error instanceof Error ? event.error.message : String(event.error ?? ''),
+            });
+          },
+          onStatus: (status) => setConnected(status === 'connected'),
+        },
+      });
+
+      const lanTransport =
+        env?.VITE_LAN_FALLBACK === '1' &&
+        typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' &&
+        env.VITE_LAN_REALTIME_WS_URL
+          ? new LanWebSocketTransport({
+              url: env.VITE_LAN_REALTIME_WS_URL as string,
+              options: {
+                debug: realtimeDebug,
+                onEvent,
+                onError: () => {
+                  setLastError(new Event('transport_error'));
+                },
+                onStatus: (status) => setConnected(status === 'connected'),
               },
-              onStatus: (status) => setConnected(status === 'connected'),
-            },
-          }),
-          ...(env?.VITE_LAN_FALLBACK === '1' &&
-          typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' &&
-          env.VITE_LAN_REALTIME_WS_URL
-            ? [
-                new LanWebSocketTransport({
-                  url: env.VITE_LAN_REALTIME_WS_URL as string,
-                  options: {
-                    debug: realtimeDebug,
-                    onEvent,
-                    onError: () => {
-                      setLastError(new Event('transport_error'));
-                    },
-                    onStatus: (status) => setConnected(status === 'connected'),
-                  },
-                }),
-              ]
-            : []),
-        ],
-        {
+            })
+          : null;
+
+      const buildHybrid = (transports: Array<AppSyncTransport | LanWebSocketTransport>) =>
+        new HybridTransport(transports, {
           onEvent,
           onError: () => {
             setLastError(new Event('transport_error'));
           },
           onStatus: (status) => setConnected(status === 'connected'),
           debug: realtimeDebug,
-        }
-      );
+        });
+
+      const cloudTransport = buildHybrid([appSyncTransport]);
+      const lanOnlyTransport = lanTransport ? buildHybrid([lanTransport]) : null;
+
+      // Mode controller with hysteresis.
+      const pollIntervalMs = 5000;
+      const cloudFailToLanThreshold = 3;
+      const cloudSuccessToFailbackThreshold = 6;
+      const lanSuccessThreshold = 2;
+
+      let currentMode: 'cloud' | 'lan' = 'cloud';
+      let consecutiveCloudFailures = 0;
+      let consecutiveCloudSuccesses = 0;
+      let consecutiveLanSuccesses = 0;
+
+      const controller = new AbortController();
+
+      const swapTransport = (next: 'cloud' | 'lan') => {
+        if (next === currentMode) return;
+        currentMode = next;
+        transportRef.current?.disconnect();
+        transportRef.current = next === 'cloud' ? cloudTransport : lanOnlyTransport;
+        void transportRef.current?.connect();
+      };
 
       transportRef.current?.disconnect();
-      transportRef.current = transport;
-      void transport.connect();
+      transportRef.current = cloudTransport;
+      void transportRef.current.connect();
+
+      const tick = async () => {
+        const cloudHealth = await fetchHealth(cloudApiBase, controller.signal);
+        const lanHealth = await fetchHealth(lanApiBase, controller.signal);
+
+        // Cloud counters.
+        if (cloudHealth && appSyncTransport.getStatus() === 'connected') {
+          consecutiveCloudSuccesses++;
+          consecutiveCloudFailures = 0;
+        } else {
+          consecutiveCloudFailures++;
+          consecutiveCloudSuccesses = 0;
+        }
+
+        // LAN counters.
+        if (lanHealth) {
+          consecutiveLanSuccesses++;
+        } else {
+          consecutiveLanSuccesses = 0;
+        }
+
+        if (
+          currentMode === 'cloud' &&
+          lanOnlyTransport &&
+          consecutiveCloudFailures >= cloudFailToLanThreshold &&
+          consecutiveLanSuccesses >= lanSuccessThreshold
+        ) {
+          swapTransport('lan');
+          return;
+        }
+
+        if (
+          currentMode === 'lan' &&
+          consecutiveCloudSuccesses >= cloudSuccessToFailbackThreshold
+        ) {
+          swapTransport('cloud');
+        }
+      };
+
+      const timer = window.setInterval(() => {
+        void tick();
+      }, pollIntervalMs);
 
       return () => {
+        controller.abort();
+        window.clearInterval(timer);
         transportRef.current?.disconnect();
         transportRef.current = null;
       };

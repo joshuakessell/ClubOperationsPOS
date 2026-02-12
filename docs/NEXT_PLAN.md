@@ -65,15 +65,15 @@ Legend:
 ## 5) LAN Fallback: Edge Stack + Local DB
 
 - [x] Add edge docker-compose stack (API + Postgres + LAN websocket)
-- [ ] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud) (requires infra + app UX decisions)
+- [x] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud)
 - [ ] Define offline auth behavior (kiosk token, staff tokens)
 - [ ] Add local “lane ownership” / authority rules
 
 ### Decisions needed before implementing §5.2-
 
-- Choose health signal(s): AppSync status vs. explicit HTTP health check
-- Choose hysteresis timings (switch-to-LAN / switch-to-cloud)
-- Choose UX: banner/toast when switching modes
+- (Done) Health signals: AppSync status + HTTP `/health`
+- (Done) Hysteresis: 5s poll; 3 fails -> LAN; 6 successes -> cloud
+- (Done) UX: banner on employee-register (pending)
 
 ## 6) Offline Outbox + Reconciliation
 
@@ -126,5 +126,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 52
-- Remaining checklist items: 20
+- Completed checklist items: 53
+- Remaining checklist items: 19

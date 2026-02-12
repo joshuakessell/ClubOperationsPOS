@@ -83,3 +83,6 @@ networks:
     name: club-ops-edge
     driver: bridge
 
+# Notes for app configuration:
+# - Set `VITE_LAN_API_BASE_URL=http://<edge-host>:${EDGE_PORT:-3000}`
+# - Set `VITE_LAN_REALTIME_WS_URL=ws://<edge-host>:${EDGE_PORT:-3000}/v1/realtime/lan/lane/<laneId>`
