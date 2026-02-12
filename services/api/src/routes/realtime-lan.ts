@@ -1,4 +1,5 @@
 import type { FastifyInstance } from 'fastify';
+import type { WebSocket } from 'ws';
 import { requireKioskTokenOrStaff } from '../auth/kioskToken';
 import { optionalAuth } from '../auth/middleware';
 import type { LocalLaneSockets } from '../realtime/localSockets';
@@ -44,23 +45,25 @@ export async function realtimeLanRoutes(fastify: FastifyInstance): Promise<void>
     async (connection, request) => {
       const laneId = request.params.laneId;
 
+      const socket = (connection as unknown as { socket: WebSocket }).socket;
+
       if (!(await isLanFallbackEnabledForLane(laneId))) {
-        connection.socket.close();
+        socket.close();
         return;
       }
 
       const sockets = fastify.localLaneSockets;
       if (!sockets) {
-        connection.socket.close();
+        socket.close();
         return;
       }
 
-      sockets.add(laneId, connection.socket);
-      connection.socket.on('error', (error) => {
+      sockets.add(laneId, socket);
+      socket.on('error', (error: unknown) => {
         request.log.error({ error }, 'LAN realtime socket error');
       });
 
-      connection.socket.send(
+      socket.send(
         JSON.stringify({
           type: 'LAN_SOCKET_READY',
           payload: { laneId },
