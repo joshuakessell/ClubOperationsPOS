@@ -83,7 +83,7 @@ Legend:
 - [x] Drive view routing off `SessionUpdatedPayload.flowStep`
 - [x] Send `BACK_STEP` / `CANCEL_STEP` flow commands on back/cancel UI
 - [x] Ensure monotonic flowVersion updates everywhere (already in reducer, verify all paths)
-- [ ] Remove heuristic fallbacks once stable
+- [x] Remove heuristic fallbacks once stable
 
 ### employee-register
 
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 36
-- Remaining checklist items: 36
+- Completed checklist items: 37
+- Remaining checklist items: 35

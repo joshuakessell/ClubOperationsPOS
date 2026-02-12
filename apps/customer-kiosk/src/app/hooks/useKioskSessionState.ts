@@ -255,10 +255,6 @@ export function useKioskSessionState() {
         return;
       }
 
-      if (payload.sessionId && payload.status !== 'COMPLETED') {
-        setView('selection');
-      }
-
       if (hasKey('proposedRentalType')) {
         setProposedRentalType(payload.proposedRentalType ?? null);
       }
