@@ -9,6 +9,7 @@ export function SessionRoot({ children }: { children: ReactNode }) {
     lane,
     health,
     realtimeConnected,
+    realtimeMode,
     handleLogout,
     handleCloseOut,
     registerSession,
@@ -23,6 +24,7 @@ export function SessionRoot({ children }: { children: ReactNode }) {
       lane={lane}
       apiStatus={health?.status ?? null}
       realtimeConnected={realtimeConnected}
+      realtimeMode={realtimeMode}
       onSignOut={() => void handleLogout()}
       onCloseOut={() => void handleCloseOut()}
     >

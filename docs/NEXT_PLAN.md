@@ -85,7 +85,7 @@ Legend:
 
 - (Done) Health signals: AppSync status + HTTP `/health`
 - (Done) Hysteresis: 5s poll; 3 fails -> LAN; 6 successes -> cloud
-- (Done) UX: banner on employee-register (pending)
+- (Done) UX: banner on employee-register
 
 ## 6) Offline Outbox + Reconciliation
 
@@ -124,10 +124,10 @@ Legend:
 
 ## 8) Frontend: Hybrid Transport + Mode Switch
 
-- [ ] Finish porting legacy `useLaneSession` to use transports by default (remove legacy socket path)
+- [x] Finish porting legacy `useLaneSession` to use transports by default (remove legacy socket path)
 - [x] Implement `LanWebSocketTransport` protocol (match server LAN WS)
 - [x] Implement `HybridTransport` selection logic (cloud preferred, LAN fallback)
-- [ ] Add health-based mode switch plumbing in apps
+- [x] Add health-based mode switch plumbing in apps
 
 ## 9) Tests + Acceptance
 
@@ -150,5 +150,6 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 59
-- Remaining checklist items: 13
+- Completed checklist items: 60
+- Completed checklist items: 62
+- Remaining checklist items: 10

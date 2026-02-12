@@ -138,6 +138,7 @@ export function useLaneSession({
   reconnectMode?: 'default' | 'aggressive';
 }): {
   connected: boolean;
+  mode: 'cloud' | 'lan';
   lastMessage: MessageEvent | null;
   lastError: Event | null;
 } {
@@ -161,6 +162,7 @@ export function useLaneSession({
     reconnectMode === 'aggressive' ? Number.MAX_SAFE_INTEGER : 3;
   const COOLDOWN_MS = reconnectMode === 'aggressive' ? 0 : 5_000;
   const [connected, setConnected] = useState(false);
+  const [mode, setMode] = useState<'cloud' | 'lan'>('cloud');
   const [lastMessage, setLastMessage] = useState<MessageEvent | null>(null);
   const [lastError, setLastError] = useState<Event | null>(null);
 
@@ -228,9 +230,12 @@ export function useLaneSession({
     };
   }, [laneId, role]);
 
-  // NEW (behind env flag): optional transport abstraction.
-  // Keeping useLaneSession behavior stable by default.
-  const transportAbstractionEnabled = env?.VITE_REALTIME_TRANSPORTS === '1';
+  // Transport abstraction is now the default.
+  // If needed for emergency rollback, set VITE_REALTIME_TRANSPORTS=0.
+  const transportAbstractionEnabled =
+    env?.VITE_REALTIME_TRANSPORTS === '0' || env?.VITE_REALTIME_TRANSPORTS === 0
+      ? false
+      : true;
 
   const resolveApiBase = (base: unknown): string | null => {
     if (typeof base !== 'string') return null;
@@ -255,11 +260,13 @@ export function useLaneSession({
 
   useEffect(() => {
     if (transportAbstractionEnabled) {
+      setMode('cloud');
       if (!effectiveEnabled || laneId === undefined) {
         transportRef.current?.disconnect();
         transportRef.current = null;
         closedIntentionallyRef.current = true;
         setConnected(false);
+        setMode('cloud');
         return;
       }
 
@@ -335,6 +342,7 @@ export function useLaneSession({
       const swapTransport = (next: 'cloud' | 'lan') => {
         if (next === currentMode) return;
         currentMode = next;
+        setMode(next);
         transportRef.current?.disconnect();
         transportRef.current = next === 'cloud' ? cloudTransport : lanOnlyTransport;
         void transportRef.current?.connect();
@@ -391,6 +399,7 @@ export function useLaneSession({
         window.clearInterval(timer);
         transportRef.current?.disconnect();
         transportRef.current = null;
+        setMode('cloud');
       };
     }
 
@@ -663,5 +672,5 @@ export function useLaneSession({
     transportAbstractionEnabled,
   ]);
 
-  return { connected, lastMessage, lastError };
+  return { connected, mode, lastMessage, lastError };
 }

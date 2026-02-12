@@ -9,6 +9,7 @@ import {
 
 export function useRegisterRealtimeEvents(params: RegisterRealtimeParams): {
   connected: boolean;
+  mode: 'cloud' | 'lan';
 } {
   const { lane, staffToken } = params;
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
@@ -17,7 +18,7 @@ export function useRegisterRealtimeEvents(params: RegisterRealtimeParams): {
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : null;
 
-  const { connected, lastMessage } = useLaneSession({
+  const { connected, mode, lastMessage } = useLaneSession({
     laneId: lane,
     role: 'employee',
     kioskToken: kioskToken ?? '',
@@ -43,5 +44,5 @@ export function useRegisterRealtimeEvents(params: RegisterRealtimeParams): {
     }
   }, [lastMessage]);
 
-  return { connected };
+  return { connected, mode };
 }
