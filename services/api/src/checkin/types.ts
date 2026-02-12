@@ -36,6 +36,10 @@ export interface LaneSessionRow {
   selection_confirmed: boolean;
   selection_confirmed_by: string | null;
   selection_locked_at: Date | null;
+  flow_step?: string | null;
+  flow_version?: number;
+  flow_last_command_id?: string | null;
+  flow_last_actor?: string | null;
   past_due_bypassed?: boolean;
   past_due_bypassed_by_staff_id?: string | null;
   past_due_bypassed_at?: Date | null;
