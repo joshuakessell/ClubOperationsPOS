@@ -18,6 +18,10 @@ import {
   toCents,
 } from '../../money/orderAudit';
 
+function isFlowCommandsEnabled(): boolean {
+  return process.env.FLOW_COMMANDS === 'true';
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
@@ -188,6 +192,29 @@ export function registerCheckinPaymentIntentRoutes(fastify: FastifyInstance): vo
            WHERE id = $3`,
             [intent.id, JSON.stringify(quote), session.id]
           );
+
+          if (isFlowCommandsEnabled()) {
+            const commandId =
+              typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                ? crypto.randomUUID()
+                : `pay-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            await client.query(
+              `INSERT INTO lane_session_commands (session_id, command_id, actor, type, payload_json)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (session_id, command_id) DO NOTHING`,
+              [session.id, commandId, 'EMPLOYEE', 'SET_STEP', { step: 'PAYMENT' }]
+            );
+            await client.query(
+              `UPDATE lane_sessions
+               SET flow_step = 'PAYMENT',
+                   flow_version = COALESCE(flow_version, 0) + 1,
+                   flow_last_command_id = $1,
+                   flow_last_actor = 'EMPLOYEE',
+                   updated_at = NOW()
+               WHERE id = $2`,
+              [commandId, session.id]
+            );
+          }
 
           return {
             sessionId: session.id,
