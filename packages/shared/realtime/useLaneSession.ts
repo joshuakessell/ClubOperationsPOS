@@ -270,8 +270,9 @@ export function useLaneSession({
               onStatus: (status) => setConnected(status === 'connected'),
             },
           }),
-          // LAN transport is scaffold-only for now; disabled unless explicitly configured.
-          ...(typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' && env.VITE_LAN_REALTIME_WS_URL
+          ...(env?.VITE_LAN_FALLBACK === '1' &&
+          typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' &&
+          env.VITE_LAN_REALTIME_WS_URL
             ? [
                 new LanWebSocketTransport({
                   url: env.VITE_LAN_REALTIME_WS_URL as string,

@@ -39,3 +39,7 @@ This document lists non-secret environment variables used as feature flags.
 - `VITE_LAN_REALTIME_WS_URL` (default: unset)
   - When set and `VITE_REALTIME_TRANSPORTS=1`, adds an additional LAN websocket transport to the hybrid transport.
   - Currently scaffold-only; intended for the LAN fallback phase of Lock-Step v2.
+
+- `VITE_LAN_FALLBACK` (default: `0`)
+  - When `1`, enables LAN fallback behavior in the apps (when supported).
+  - Intended to be used alongside `VITE_REALTIME_TRANSPORTS=1` and `VITE_LAN_REALTIME_WS_URL`.
