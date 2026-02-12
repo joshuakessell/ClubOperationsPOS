@@ -41,7 +41,7 @@ Legend:
   - [ ] WAITLIST_PREFERENCES_UPDATE
   - [ ] WAITLIST_BACKUP_SET
 - [ ] Ensure *all* commands are idempotent + version guarded
-- [ ] Add audit payload shape + strict schema validation
+- [x] Add audit payload shape + strict schema validation
 
 ## 3) Backend: Route Legacy Endpoints Through Command Engine
 
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 27
-- Remaining checklist items: 45
+- Completed checklist items: 28
+- Remaining checklist items: 44

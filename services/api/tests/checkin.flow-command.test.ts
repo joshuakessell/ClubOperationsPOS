@@ -174,6 +174,75 @@ describe('Check-in Flow Commands', () => {
     expect(json.error).toBe('InvalidTransition');
   });
 
+  it('rejects SET_STEP when payload.step is missing', async () => {
+    if (!dbAvailable) return;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'SET_STEP',
+        payload: {},
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const json = response.json() as any;
+    expect(json.applied).toBe(false);
+    expect(json.error).toBe('ValidationFailed');
+  });
+
+  it('rejects PROPOSE_SELECTION when payload.rentalType is missing', async () => {
+    if (!dbAvailable) return;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: 'cccccccc-cccc-cccc-cccc-cccccccccccc',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'PROPOSE_SELECTION',
+        payload: {},
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const json = response.json() as any;
+    expect(json.applied).toBe(false);
+    expect(json.error).toBe('ValidationFailed');
+  });
+
+  it('rejects WAITLIST_UPDATE with empty payload', async () => {
+    if (!dbAvailable) return;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: 'dddddddd-dddd-dddd-dddd-dddddddddddd',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'WAITLIST_UPDATE',
+        payload: {},
+      },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const json = response.json() as any;
+    expect(json.applied).toBe(false);
+    expect(json.error).toBe('ValidationFailed');
+  });
+
   it('PROPOSE_SELECTION dedupes repeated commandId and does not double-apply', async () => {
     if (!dbAvailable) return;
 

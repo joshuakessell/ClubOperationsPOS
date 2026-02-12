@@ -46,6 +46,56 @@ const FlowCommandRequestSchema = z.object({
   payload: z.record(z.unknown()).optional(),
 });
 
+const SetStepCommandSchema = FlowCommandRequestSchema.extend({
+  type: z.literal('SET_STEP'),
+  payload: z.object({ step: z.string().min(1) }),
+});
+
+const BackStepCommandSchema = FlowCommandRequestSchema.extend({
+  type: z.literal('BACK_STEP'),
+  payload: z.undefined().optional(),
+});
+
+const CancelStepCommandSchema = FlowCommandRequestSchema.extend({
+  type: z.literal('CANCEL_STEP'),
+  payload: z.undefined().optional(),
+});
+
+const ProposeSelectionCommandSchema = FlowCommandRequestSchema.extend({
+  type: z.literal('PROPOSE_SELECTION'),
+  payload: z.object({ rentalType: z.string().min(1) }),
+});
+
+const ConfirmSelectionCommandSchema = FlowCommandRequestSchema.extend({
+  type: z.literal('CONFIRM_SELECTION'),
+  payload: z.undefined().optional(),
+});
+
+const WaitlistUpdateCommandSchema = FlowCommandRequestSchema.extend({
+  type: z.literal('WAITLIST_UPDATE'),
+  payload: z
+    .object({
+      waitlistDesiredType: z.string().min(1).optional(),
+      waitlistDesiredTypes: z.array(z.string().min(1)).optional(),
+      backupRentalType: z.string().min(1).optional(),
+      waitlistRequestedResourceNumber: z.string().min(1).optional(),
+      waitlistRequestedResourceType: z.union([z.literal('room'), z.literal('locker')]).optional(),
+    })
+    .refine(
+      (p) => Object.keys(p).length > 0,
+      'WAITLIST_UPDATE payload must include at least one field'
+    ),
+});
+
+const FlowCommandRequestByTypeSchema = z.discriminatedUnion('type', [
+  SetStepCommandSchema,
+  BackStepCommandSchema,
+  CancelStepCommandSchema,
+  ProposeSelectionCommandSchema,
+  ConfirmSelectionCommandSchema,
+  WaitlistUpdateCommandSchema,
+]);
+
 const FLOW_STEPS: FlowStep[] = [
   'LANGUAGE',
   'RENTAL',
@@ -269,7 +319,7 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
       }
 
       const { laneId } = request.params;
-      const parsed = FlowCommandRequestSchema.safeParse(request.body);
+      const parsed = FlowCommandRequestByTypeSchema.safeParse(request.body);
       if (!parsed.success) {
         return reply.status(400).send({
           applied: false,
