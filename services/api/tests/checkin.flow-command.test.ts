@@ -273,4 +273,52 @@ describe('Check-in Flow Commands', () => {
     expect(locked.rows[0]!.selection_confirmed).toBe(true);
     expect(locked.rows[0]!.selection_confirmed_by).toBe('CUSTOMER');
   });
+
+  it('WAITLIST_UPDATE updates waitlist draft fields', async () => {
+    if (!dbAvailable) return;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '88888888-8888-8888-8888-888888888888',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'WAITLIST_UPDATE',
+        payload: {
+          waitlistDesiredType: 'DOUBLE',
+          waitlistDesiredTypes: ['DOUBLE', 'SPECIAL'],
+          backupRentalType: 'STANDARD',
+          waitlistRequestedResourceNumber: '101',
+          waitlistRequestedResourceType: 'room',
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const session = await query<{
+      waitlist_desired_type: string | null;
+      waitlist_desired_types_json: any;
+      backup_rental_type: string | null;
+      waitlist_requested_resource_number: string | null;
+      waitlist_requested_resource_type: string | null;
+    }>(
+      `SELECT waitlist_desired_type,
+              waitlist_desired_types_json,
+              backup_rental_type,
+              waitlist_requested_resource_number,
+              waitlist_requested_resource_type
+       FROM lane_sessions
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    expect(session.rows[0]!.waitlist_desired_type).toBe('DOUBLE');
+    expect(session.rows[0]!.backup_rental_type).toBe('STANDARD');
+    expect(session.rows[0]!.waitlist_requested_resource_number).toBe('101');
+    expect(session.rows[0]!.waitlist_requested_resource_type).toBe('room');
+  });
 });

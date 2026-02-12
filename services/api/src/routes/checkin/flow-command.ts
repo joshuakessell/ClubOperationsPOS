@@ -332,17 +332,39 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           }
 
           if (type === 'WAITLIST_UPDATE') {
-            const waitlistDesiredType =
-              typeof payload?.['waitlistDesiredType'] === 'string' ? payload['waitlistDesiredType'] : null;
-            const backupRentalType =
-              typeof payload?.['backupRentalType'] === 'string' ? payload['backupRentalType'] : null;
+            const normalizeString = (value: unknown): string | null => {
+              if (value === null || value === undefined) return null;
+              if (typeof value !== 'string') return null;
+              const trimmed = value.trim();
+              return trimmed.length > 0 ? trimmed : null;
+            };
+
+            const desired = normalizeString(payload?.['waitlistDesiredType']);
+            const backup = normalizeString(payload?.['backupRentalType']);
+            const requestedNumber = normalizeString(payload?.['waitlistRequestedResourceNumber']);
+            const requestedTypeRaw = payload?.['waitlistRequestedResourceType'];
+            const requestedType =
+              requestedTypeRaw === 'room' || requestedTypeRaw === 'locker' ? requestedTypeRaw : null;
+
+            const desiredTypesRaw = payload?.['waitlistDesiredTypes'];
+            const desiredTypes = Array.isArray(desiredTypesRaw)
+              ? desiredTypesRaw
+                  .filter((entry): entry is string => typeof entry === 'string')
+                  .map((entry) => entry.trim())
+                  .filter((entry) => entry.length > 0)
+              : [];
+            const desiredTypesJson = desiredTypes.length > 0 ? JSON.stringify(desiredTypes) : null;
+
             await client.query(
               `UPDATE lane_sessions
-               SET waitlist_desired_type = COALESCE($1, waitlist_desired_type),
-                   backup_rental_type = COALESCE($2, backup_rental_type),
+               SET waitlist_desired_type = $1,
+                   waitlist_desired_types_json = $2,
+                   backup_rental_type = $3,
+                   waitlist_requested_resource_number = $4,
+                   waitlist_requested_resource_type = $5,
                    updated_at = NOW()
-               WHERE id = $3`,
-              [waitlistDesiredType, backupRentalType, sessionId]
+               WHERE id = $6`,
+              [desired, desiredTypesJson, backup, requestedNumber, requestedType, sessionId]
             );
           }
 

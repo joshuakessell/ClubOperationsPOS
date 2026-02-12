@@ -453,6 +453,81 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
         return reply.status(400).send({ error: 'waitlistDesiredType is required' });
       }
 
+      if (isFlowCommandsEnabled()) {
+        try {
+          const session = await transaction(async (client) => {
+            const sessionResult = sessionId
+              ? await client.query<LaneSessionRow>(
+                  `SELECT * FROM lane_sessions WHERE id = $1 AND lane_id = $2 LIMIT 1`,
+                  [sessionId, laneId]
+                )
+              : await client.query<LaneSessionRow>(
+                  `SELECT * FROM lane_sessions
+                   WHERE lane_id = $1
+                     AND status IN ('ACTIVE', 'AWAITING_CUSTOMER', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
+                   ORDER BY created_at DESC
+                   LIMIT 1`,
+                  [laneId]
+                );
+            if (sessionResult.rows.length === 0) {
+              throw { statusCode: 404, message: 'No active session found' };
+            }
+            return sessionResult.rows[0]!;
+          });
+
+          const commandId =
+            typeof crypto !== 'undefined' && 'randomUUID' in crypto
+              ? crypto.randomUUID()
+              : `wl-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+          const response = await fastify.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/flow-command`,
+            headers: {
+              ...(request.headers.authorization
+                ? { authorization: String(request.headers.authorization) }
+                : {}),
+              ...(request.headers['x-kiosk-token']
+                ? { 'x-kiosk-token': String(request.headers['x-kiosk-token']) }
+                : {}),
+            },
+            payload: {
+              sessionId: session.id,
+              commandId,
+              actor: request.staff ? 'EMPLOYEE' : 'CUSTOMER',
+              expectedFlowVersion: session.flow_version ?? 0,
+              type: 'WAITLIST_UPDATE',
+              payload: {
+                waitlistDesiredType,
+                waitlistDesiredTypes: waitlistDesiredTypes ?? [],
+                waitlistRequestedResourceNumber,
+                waitlistRequestedResourceType,
+                backupRentalType,
+              },
+            },
+          });
+
+          if (response.statusCode !== 200) {
+            return reply.status(response.statusCode).send(response.json());
+          }
+
+          return reply.send({ success: true });
+        } catch (error: unknown) {
+          request.log.error(error, 'Failed to set waitlist desired type (flow commands)');
+          const httpErr = getHttpError(error);
+          if (httpErr) {
+            return reply.status(httpErr.statusCode).send({
+              error: httpErr.message ?? 'Failed to set waitlist desired type',
+              code: httpErr.code,
+            });
+          }
+          return reply.status(500).send({
+            error: 'Internal Server Error',
+            message: 'Failed to set waitlist desired type',
+          });
+        }
+      }
+
       try {
         const result = await transaction(async (client) => {
           const sessionResult = sessionId
