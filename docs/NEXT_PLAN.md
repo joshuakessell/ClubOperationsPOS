@@ -64,7 +64,7 @@ Legend:
 
 ## 5) LAN Fallback: Edge Stack + Local DB
 
-- [ ] Add edge docker-compose stack (API + Postgres + LAN websocket)
+- [x] Add edge docker-compose stack (API + Postgres + LAN websocket)
 - [ ] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud)
 - [ ] Define offline auth behavior (kiosk token, staff tokens)
 - [ ] Add local “lane ownership” / authority rules
@@ -120,5 +120,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 51
-- Remaining checklist items: 21
+- Completed checklist items: 52
+- Remaining checklist items: 20
