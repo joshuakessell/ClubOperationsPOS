@@ -66,8 +66,14 @@ Legend:
 
 - [x] Add edge docker-compose stack (API + Postgres + LAN websocket)
 - [x] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud)
-- [ ] Define offline auth behavior (kiosk token, staff tokens)
+- [x] Define offline auth behavior (kiosk token, staff tokens)
 - [ ] Add local “lane ownership” / authority rules
+
+### Offline auth behavior (decision)
+
+- **Customer-kiosk**: continue using `x-kiosk-token` auth against the LAN edge API.
+- **Employee-register**: require staff auth even in LAN mode (same bearer token mechanisms as cloud).
+  - If staff token cannot be validated offline, the edge host should be treated as "kiosk-only".
 
 ### Decisions needed before implementing §5.2-
 
@@ -126,5 +132,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 53
-- Remaining checklist items: 19
+- Completed checklist items: 54
+- Remaining checklist items: 18
