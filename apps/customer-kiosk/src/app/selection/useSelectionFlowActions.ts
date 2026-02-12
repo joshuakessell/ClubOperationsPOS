@@ -67,6 +67,31 @@ export function useSelectionFlowActions({
   const buildUnavailableRentalTypes = () =>
     session.allowedRentals.filter((rental) => getAvailableCount(inventory, rental) === 0);
 
+  const syncWaitlistDraft = async (payload: {
+    waitlistDesiredType: string | null;
+    waitlistDesiredTypes?: string[];
+    waitlistRequestedResourceNumber?: string | null;
+    waitlistRequestedResourceType?: 'room' | 'locker' | null;
+    backupRentalType?: string | null;
+  }) => {
+    if (!lane || !session.sessionId) return;
+    try {
+      await fetch(`${apiBase}/v1/checkin/lane/${lane}/waitlist-desired`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...kioskAuthHeaders(),
+        },
+        body: JSON.stringify({
+          sessionId: session.sessionId,
+          ...payload,
+        }),
+      });
+    } catch {
+      // Best-effort sync; local UI remains usable even if draft sync fails.
+    }
+  };
+
   const confirmSelectionAsCustomer = async ({
     rentalType,
     waitlistDesiredType,
@@ -151,12 +176,24 @@ export function useSelectionFlowActions({
       return;
     }
 
-    setters.setWaitlistDesiredType(unavailableTypes[0] ?? null);
+    const nextDesiredType = unavailableTypes[0] ?? null;
+
+    setters.setWaitlistDesiredType(nextDesiredType);
     setters.setWaitlistDesiredTypes(unavailableTypes);
+    setters.setWaitlistBackupType(null);
+    setters.setHighlightedWaitlistBackup(null);
     setters.setWaitlistRequestedResourceNumber(null);
     setters.setWaitlistRequestedResourceType(null);
     setters.setWaitlistUnavailableOptions(null);
     setters.setShowWaitlistModal(true);
+
+    void syncWaitlistDraft({
+      waitlistDesiredType: nextDesiredType,
+      waitlistDesiredTypes: unavailableTypes,
+      waitlistRequestedResourceNumber: null,
+      waitlistRequestedResourceType: null,
+      backupRentalType: null,
+    });
   };
 
   const handleRentalSelection = async (rental: string) => {
@@ -170,18 +207,18 @@ export function useSelectionFlowActions({
 
     if (availableCount === 0) {
       setters.setWaitlistDesiredType(rental);
-      try {
-        await fetch(`${apiBase}/v1/checkin/lane/${lane}/waitlist-desired`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            ...kioskAuthHeaders(),
-          },
-          body: JSON.stringify({ waitlistDesiredType: rental }),
-        });
-      } catch {
-        // Best-effort; UI can still proceed with local waitlist flow.
-      }
+      setters.setWaitlistDesiredTypes([rental]);
+      setters.setWaitlistBackupType(null);
+      setters.setHighlightedWaitlistBackup(null);
+      setters.setWaitlistRequestedResourceNumber(null);
+      setters.setWaitlistRequestedResourceType(null);
+      void syncWaitlistDraft({
+        waitlistDesiredType: rental,
+        waitlistDesiredTypes: [rental],
+        waitlistRequestedResourceNumber: null,
+        waitlistRequestedResourceType: null,
+        backupRentalType: null,
+      });
       try {
         const response = await fetch(
           `${apiBase}/v1/checkin/lane/${lane}/waitlist-info?desiredTier=${rental}&currentTier=${selectedRental || 'LOCKER'}`
@@ -257,6 +294,14 @@ export function useSelectionFlowActions({
     setters.setShowWaitlistModal(false);
     setters.setUpgradeAction('waitlist');
     setters.setShowUpgradeDisclaimer(true);
+
+    void syncWaitlistDraft({
+      waitlistDesiredType: waitlistDesiredType || waitlistDesiredTypes[0] || null,
+      waitlistDesiredTypes,
+      waitlistRequestedResourceNumber,
+      waitlistRequestedResourceType,
+      backupRentalType: rental,
+    });
   };
 
   const handleWaitlistCancel = async () => {
@@ -265,26 +310,36 @@ export function useSelectionFlowActions({
       resetWaitlistDraft(setters);
       return;
     }
-    if (!lane) return;
-    try {
-      await fetch(`${apiBase}/v1/checkin/lane/${lane}/waitlist-desired`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...kioskAuthHeaders(),
-        },
-        body: JSON.stringify({ waitlistDesiredType: null, sessionId: session.sessionId }),
-      });
-    } catch (error) {
-      console.error('Failed to clear waitlist selection:', error);
-    } finally {
-      resetWaitlistDraft(setters, { clearHighlightedBackup: true });
-    }
+    await syncWaitlistDraft({
+      waitlistDesiredType: null,
+      waitlistDesiredTypes: [],
+      waitlistRequestedResourceNumber: null,
+      waitlistRequestedResourceType: null,
+      backupRentalType: null,
+    });
+    resetWaitlistDraft(setters, { clearHighlightedBackup: true });
   };
 
   const handleWaitlistDesiredTypesChange = (next: string[]) => {
+    const nextDesiredType = next[0] ?? null;
+    const shouldClearSpecific = next.length > 0;
+
     setters.setWaitlistDesiredTypes(next);
-    setters.setWaitlistDesiredType(next[0] ?? null);
+    setters.setWaitlistDesiredType(nextDesiredType);
+    if (shouldClearSpecific) {
+      setters.setWaitlistRequestedResourceNumber(null);
+      setters.setWaitlistRequestedResourceType(null);
+    }
+
+    void syncWaitlistDraft({
+      waitlistDesiredType: nextDesiredType,
+      waitlistDesiredTypes: next,
+      waitlistRequestedResourceNumber: shouldClearSpecific
+        ? null
+        : waitlistRequestedResourceNumber,
+      waitlistRequestedResourceType: shouldClearSpecific ? null : waitlistRequestedResourceType,
+      backupRentalType: waitlistBackupType,
+    });
   };
 
   const handleWaitlistSpecificSelection = (params: {
@@ -293,6 +348,29 @@ export function useSelectionFlowActions({
   }) => {
     setters.setWaitlistRequestedResourceType(params.resourceType);
     setters.setWaitlistRequestedResourceNumber(params.resourceNumber);
+
+    void syncWaitlistDraft({
+      waitlistDesiredType: waitlistDesiredType || waitlistDesiredTypes[0] || null,
+      waitlistDesiredTypes,
+      waitlistRequestedResourceNumber: params.resourceNumber,
+      waitlistRequestedResourceType: params.resourceType,
+      backupRentalType: waitlistBackupType,
+    });
+  };
+
+  const handleWaitlistBackToPreferences = () => {
+    setters.setWaitlistBackupType(null);
+    setters.setHighlightedWaitlistBackup(null);
+    setters.setUpgradeAction(null);
+    setters.setShowUpgradeDisclaimer(false);
+
+    void syncWaitlistDraft({
+      waitlistDesiredType: waitlistDesiredType || waitlistDesiredTypes[0] || null,
+      waitlistDesiredTypes,
+      waitlistRequestedResourceNumber,
+      waitlistRequestedResourceType,
+      backupRentalType: null,
+    });
   };
 
   const handleWaitlistSpecificFocus = async () => {
@@ -379,6 +457,7 @@ export function useSelectionFlowActions({
     handleWaitlistSpecificFocus,
     handleWaitlistSubmit,
     handleWaitlistBackupSelection,
+    handleWaitlistBackToPreferences,
     handleWaitlistCancel,
     handleCustomerConfirmSelection,
   };

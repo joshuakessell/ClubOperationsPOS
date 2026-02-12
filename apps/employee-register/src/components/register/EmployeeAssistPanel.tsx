@@ -1,7 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getCustomerMembershipStatus } from '@club-ops/shared';
 import { EmployeeAssistStepContent } from './employee-assist/EmployeeAssistStepContent';
-import type { EmployeeAssistStep, PendingState, RentalButton } from './employee-assist/types';
+import type {
+  EmployeeAssistStep,
+  PendingState,
+  RentalButton,
+  WaitlistUnavailableOptions,
+} from './employee-assist/types';
 
 export interface EmployeeAssistPanelProps {
   sessionId: string;
@@ -19,12 +24,16 @@ export interface EmployeeAssistPanelProps {
   selectionConfirmed?: boolean;
 
   waitlistDesiredTier?: string | null;
+  waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
   waitlistBackupType?: string | null;
+  waitlistRequestedResourceNumber?: string | null;
+  waitlistRequestedResourceType?: 'room' | 'locker' | null;
 
   inventoryAvailable?: {
     rooms: Record<string, number>;
     lockers: number;
   } | null;
+  waitlistUnavailableOptions?: WaitlistUnavailableOptions;
 
   isSubmitting?: boolean;
   directSelect?: boolean;
@@ -45,12 +54,18 @@ export interface EmployeeAssistPanelProps {
   ) => Promise<void> | void;
   onHighlightWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => void;
   onSelectWaitlistBackupAsCustomer: (
-    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+    options?: {
+      waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
+      waitlistRequestedResourceNumber?: string | null;
+      waitlistRequestedResourceType?: 'room' | 'locker' | null;
+    }
   ) => Promise<void> | void;
   onDirectSelectWaitlistBackup?: (
     rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
+  onClearSession?: () => void;
 
 }
 
@@ -64,8 +79,12 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     proposedBy,
     selectionConfirmed,
     waitlistDesiredTier,
+    waitlistDesiredTypes,
     waitlistBackupType,
+    waitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
     inventoryAvailable,
+    waitlistUnavailableOptions,
     isSubmitting = false,
     directSelect = false,
     onHighlightLanguage,
@@ -77,6 +96,7 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     onSelectWaitlistBackupAsCustomer,
     onDirectSelectWaitlistBackup,
     onApproveRental,
+    onClearSession,
     onDirectSelectRental,
   } = props;
 
@@ -140,19 +160,19 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
       },
       {
         id: 'STANDARD' as const,
-        label: directSelect ? 'Select Standard' : 'Propose Standard',
+        label: directSelect ? 'Select Private Dressing Room' : 'Propose Private Dressing Room',
         count: standard,
         allowed: allowed.has('STANDARD'),
       },
       {
         id: 'DOUBLE' as const,
-        label: directSelect ? 'Select Double' : 'Propose Double',
+        label: directSelect ? 'Select Double Dressing Room' : 'Propose Double Dressing Room',
         count: deluxe,
         allowed: allowed.has('DOUBLE'),
       },
       {
         id: 'SPECIAL' as const,
-        label: directSelect ? 'Select Special' : 'Propose Special',
+        label: directSelect ? 'Select Special Dressing Room' : 'Propose Special Dressing Room',
         count: special,
         allowed: allowed.has('SPECIAL'),
       },
@@ -178,25 +198,25 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
       },
       {
         id: 'STANDARD' as const,
-        label: 'Backup Standard',
+        label: 'Backup Private Dressing Room',
         count: standard,
         allowed: allowed.has('STANDARD'),
       },
       {
         id: 'DOUBLE' as const,
-        label: 'Backup Double',
+        label: 'Backup Double Dressing Room',
         count: deluxe,
         allowed: allowed.has('DOUBLE'),
       },
       {
         id: 'SPECIAL' as const,
-        label: 'Backup Special',
+        label: 'Backup Special Dressing Room',
         count: special,
         allowed: allowed.has('SPECIAL'),
       },
     ];
 
-    return candidates.filter((c) => c.id !== waitlistDesiredTier);
+    return candidates.filter((c) => c.id !== waitlistDesiredTier && c.allowed && c.count > 0);
   }, [allowedRentals, inventoryAvailable, waitlistDesiredTier]);
 
   return (
@@ -220,9 +240,20 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
         }}
       >
         <div style={{ fontWeight: 950, fontSize: '1rem' }}>Employee Assist</div>
-        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-          Step: {step}
-        </div>
+        {onClearSession ? (
+          <button
+            type="button"
+            className="cs-liquid-button cs-liquid-button--danger"
+            onClick={onClearSession}
+            style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }}
+          >
+            Clear Session
+          </button>
+        ) : (
+          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+            Step: {step}
+          </div>
+        )}
       </div>
 
       <div
@@ -245,6 +276,10 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
           setPending={setPending}
           showSixMonthMembershipAdd={showSixMonthMembershipAdd}
           waitlistDesiredTier={waitlistDesiredTier}
+          waitlistDesiredTypes={waitlistDesiredTypes}
+          waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
+          waitlistRequestedResourceType={waitlistRequestedResourceType}
+          waitlistUnavailableOptions={waitlistUnavailableOptions}
           rentalButtons={rentalButtons}
           waitlistBackupButtons={waitlistBackupButtons}
           onHighlightLanguage={onHighlightLanguage}
@@ -256,6 +291,7 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
           onDirectSelectRental={onDirectSelectRental}
           onHighlightWaitlistBackup={onHighlightWaitlistBackup}
           onSelectWaitlistBackupAsCustomer={onSelectWaitlistBackupAsCustomer}
+          onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
           onDirectSelectWaitlistBackup={onDirectSelectWaitlistBackup}
         />
       </div>

@@ -9,6 +9,7 @@ import { getApiUrl } from '@club-ops/shared';
 import { isRecord, readJson } from '@club-ops/ui';
 import type { CustomerProfile, LaneSessionPatch } from './accountTypes';
 import type { RegisterLaneSessionState } from '../../app/useRegisterLaneSessionState';
+import type { WaitlistUnavailableOptions } from '../../components/register/employee-assist/types';
 const isCustomerIdType = (
   value: unknown
 ): value is CustomerProfile['idType'] =>
@@ -57,7 +58,10 @@ export function AccountPanel() {
     customerIdType,
     customerIdTypeOther,
     waitlistDesiredTier,
+    waitlistDesiredTypes,
     waitlistBackupType,
+    waitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
     inventoryAvailable,
     isSubmitting,
     checkinStage,
@@ -84,6 +88,8 @@ export function AccountPanel() {
   );
   const profileAbortRef = useRef<AbortController | null>(null);
   const [customerProfile, setCustomerProfile] = useState<CustomerProfile | null>(null);
+  const [waitlistUnavailableOptions, setWaitlistUnavailableOptions] =
+    useState<WaitlistUnavailableOptions>(null);
   useEffect(() => {
     if (!accountCustomerId || !session?.sessionToken || currentSessionId) return;
 
@@ -242,12 +248,68 @@ export function AccountPanel() {
     onHighlightWaitlistBackup: (
       rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
     ) => void highlightKioskOption({ step: 'WAITLIST_BACKUP', option: rental }),
-    onSelectWaitlistBackupAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
-      void handleSelectWaitlistBackupAsCustomer(rental),
+    onSelectWaitlistBackupAsCustomer: (
+      rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+      options?: {
+        waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
+        waitlistRequestedResourceNumber?: string | null;
+        waitlistRequestedResourceType?: 'room' | 'locker' | null;
+      }
+    ) => void handleSelectWaitlistBackupAsCustomer(rental, options),
     onDirectSelectWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
       void handleDirectSelectWaitlistBackup(rental),
     onApproveRental: () => void handleConfirmSelection(),
   };
+
+  useEffect(() => {
+    if (!currentSessionId) {
+      setWaitlistUnavailableOptions(null);
+      return;
+    }
+    const controller = new AbortController();
+    void (async () => {
+      try {
+        const rawEnv = import.meta.env as unknown as Record<string, unknown>;
+        const kioskToken =
+          typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
+            ? rawEnv.VITE_KIOSK_TOKEN.trim()
+            : null;
+        const response = await fetch(getApiUrl('/api/v1/inventory/unavailable-options'), {
+          signal: controller.signal,
+          headers: kioskToken ? { 'x-kiosk-token': kioskToken } : undefined,
+        });
+        if (!response.ok) {
+          setWaitlistUnavailableOptions(null);
+          return;
+        }
+        const payload = await readJson<unknown>(response);
+        if (!isRecord(payload) || !isRecord(payload.rooms) || !Array.isArray(payload.lockers)) {
+          setWaitlistUnavailableOptions(null);
+          return;
+        }
+        const toEntries = (value: unknown): Array<{ number: string; status: string }> =>
+          Array.isArray(value)
+            ? value.filter(
+                (entry): entry is { number: string; status: string } =>
+                  isRecord(entry) &&
+                  typeof entry.number === 'string' &&
+                  typeof entry.status === 'string'
+              )
+            : [];
+        setWaitlistUnavailableOptions({
+          rooms: {
+            SPECIAL: toEntries(payload.rooms.SPECIAL),
+            DOUBLE: toEntries(payload.rooms.DOUBLE),
+            STANDARD: toEntries(payload.rooms.STANDARD),
+          },
+          lockers: toEntries(payload.lockers),
+        });
+      } catch {
+        if (!controller.signal.aborted) setWaitlistUnavailableOptions(null);
+      }
+    })();
+    return () => controller.abort();
+  }, [currentSessionId]);
 
   if (accountCustomerId) {
     return (
@@ -284,8 +346,12 @@ export function AccountPanel() {
         customerIdTypeOther={customerIdTypeOther}
         hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
         waitlistDesiredTier={waitlistDesiredTier}
+        waitlistDesiredTypes={waitlistDesiredTypes}
         waitlistBackupType={waitlistBackupType}
+        waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
+        waitlistRequestedResourceType={waitlistRequestedResourceType}
         inventoryAvailable={inventorySnapshot}
+        waitlistUnavailableOptions={waitlistUnavailableOptions}
         isSubmitting={isSubmitting}
         checkinStage={checkinStage}
         sessionMode={laneSessionMode ?? undefined}
@@ -328,21 +394,7 @@ export function AccountPanel() {
             minHeight: 0,
           }}
         >
-          <PanelHeader
-            title="Customer Account"
-            spacing="none"
-            action={
-              checkinStage ? (
-                <button
-                  type="button"
-                  className="cs-liquid-button cs-liquid-button--danger er-header-action-btn"
-                  onClick={() => void handleClearSession().then(() => selectNavTab('scan'))}
-                >
-                  Clear Session
-                </button>
-              ) : null
-            }
-          />
+          <PanelHeader title="Customer Account" spacing="none" />
           <div
             style={{
               minHeight: '14rem',
@@ -382,10 +434,15 @@ export function AccountPanel() {
             proposedBy={proposedBy}
             selectionConfirmed={selectionConfirmed}
             waitlistDesiredTier={waitlistDesiredTier}
+            waitlistDesiredTypes={waitlistDesiredTypes}
             waitlistBackupType={waitlistBackupType}
+            waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
+            waitlistRequestedResourceType={waitlistRequestedResourceType}
             inventoryAvailable={inventorySnapshot}
+            waitlistUnavailableOptions={waitlistUnavailableOptions}
             isSubmitting={isSubmitting}
             directSelect={directSelect}
+            onClearSession={() => void handleClearSession().then(() => selectNavTab('scan'))}
             {...employeeAssistInteractionProps}
           />
         </div>

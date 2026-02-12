@@ -119,6 +119,7 @@ export function SelectionFlow({
         onWaitlistSpecificSelection={actions.handleWaitlistSpecificSelection}
         onWaitlistSpecificFocus={() => void actions.handleWaitlistSpecificFocus()}
         onWaitlistBackupSelection={actions.handleWaitlistBackupSelection}
+        onWaitlistBackToPreferences={actions.handleWaitlistBackToPreferences}
         onWaitlistSubmit={() => void actions.handleWaitlistSubmit()}
         onWaitlistCancel={() => void actions.handleWaitlistCancel()}
         onCloseRenewal={() => setShowRenewalDisclaimer(false)}
