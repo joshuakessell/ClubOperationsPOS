@@ -5,6 +5,8 @@ import { insertAuditLog } from '../../audit/auditLog';
 import { serializableTransaction } from '../../db';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { getUpgradeFee, type RentalType } from '../../pricing/engine';
+import { transaction } from '../../db';
+import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
 
 type RentalTier = 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL';
 type SwitchPaymentOutcome = 'CASH_SUCCESS' | 'CREDIT_SUCCESS' | 'CREDIT_DECLINE';
@@ -427,6 +429,60 @@ export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): v
         if (fastify.broadcaster) {
           await broadcastInventoryUpdate(fastify.broadcaster);
         }
+
+        // Customer activity log
+        await transaction(async (client) => {
+          // Derive customerId from visit
+          const visitRow = await client.query<{ customer_id: string }>(
+            `SELECT customer_id FROM visits WHERE id = $1 LIMIT 1`,
+            [result.visitId]
+          );
+          const customerId = visitRow.rows[0]?.customer_id;
+          if (!customerId) return;
+
+          const actionType = result.newResourceType === 'room' ? 'ROOM_CHANGED' : 'LOCKER_CHANGED';
+
+          const event = await insertCustomerActivityEvent(client, {
+            customerId,
+            actionType,
+            actionCategory: 'RESOURCE_CHANGE',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: staffId,
+            actorStaffName: request.staff!.name,
+            summary:
+              result.newResourceType === 'room'
+                ? `Room changed: ${result.previousResourceNumber ?? '—'} → ${result.newResourceNumber}`
+                : `Locker changed: ${result.previousResourceNumber ?? '—'} → ${result.newResourceNumber}`,
+            metadata: {
+              visitId: result.visitId,
+              checkinBlockId: result.checkinBlockId,
+              fromResourceType: result.previousResourceType,
+              fromResourceId: result.previousResourceId,
+              fromResourceNumber: result.previousResourceNumber,
+              toResourceType: result.newResourceType,
+              toResourceId: result.newResourceId,
+              toResourceNumber: result.newResourceNumber,
+              additionalFee: result.additionalFee,
+              paymentIntentId: result.paymentIntentId,
+            },
+            dedupeKey: `ACT:${actionType}:${result.checkinBlockId}:${result.newResourceId}`,
+            searchParts: [result.newResourceNumber, result.previousResourceNumber ?? ''],
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId,
+              actionType,
+              actionCategory: 'RESOURCE_CHANGE',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staffId,
+            },
+            'customer_activity_event'
+          );
+        });
 
         return reply.send({ success: true, ...result });
       } catch (error: unknown) {

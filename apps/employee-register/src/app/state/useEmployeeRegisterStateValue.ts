@@ -15,6 +15,8 @@ import { useManualEntryState } from './slices/useManualEntryState';
 import { useMembershipActions } from './slices/useMembershipActions';
 import { useMembershipPromptState } from './slices/useMembershipPromptState';
 import { useNotesState } from './slices/useNotesState';
+import { useCustomerNotesState } from './slices/useCustomerNotesState';
+import { useCustomerSpendLedgerState } from './slices/useCustomerSpendLedgerState';
 import { usePastDueState } from './slices/usePastDueState';
 import { usePaymentActions } from './slices/usePaymentActions';
 import { usePollingFallback } from './slices/usePollingFallback';
@@ -166,6 +168,9 @@ export function useEmployeeRegisterStateValue() {
     setIsSubmitting,
     notifications: notifier,
   });
+
+  const customerNotesState = useCustomerNotesState({ session, notifications: notifier });
+  const customerSpendLedgerState = useCustomerSpendLedgerState({ session, notifications: notifier });
 
   const realtimeState = useRegisterRealtimeState({
     lane,
@@ -393,7 +398,7 @@ export function useEmployeeRegisterStateValue() {
     selectionActions,
   });
 
-  return { ...coreValue, ...modalValue };
+  return { ...coreValue, ...modalValue, customerNotesState, customerSpendLedgerState };
 }
 
 export type EmployeeRegisterStateValue = ReturnType<typeof useEmployeeRegisterStateValue>;

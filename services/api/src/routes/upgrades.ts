@@ -5,6 +5,7 @@ import type { Broadcaster } from '../realtime/broadcaster';
 import { getRoomTierFromNumber } from '@club-ops/shared';
 import { broadcastInventoryUpdate } from '../inventory/broadcast';
 import { insertAuditLog } from '../audit/auditLog';
+import { insertCustomerActivityEvent } from '../activity/customerActivityLog';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -341,7 +342,51 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
             fromTier: block.rental_type,
             originalCharges: originalLineItems || [],
             originalTotal: originalTotal ?? null,
+            visitId: waitlist.visit_id,
+            customerId: (
+              await client.query<{ customer_id: string }>(
+                `SELECT customer_id FROM visits WHERE id = $1 LIMIT 1`,
+                [waitlist.visit_id]
+              )
+            ).rows[0]!.customer_id,
           };
+        });
+
+        await serializableTransaction(async (client) => {
+          const event = await insertCustomerActivityEvent(client, {
+            customerId: result.customerId,
+            actionType: 'UPGRADE_STARTED',
+            actionCategory: 'UPGRADE',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: staff.staffId,
+            actorStaffName: staff.name,
+            summary: `Upgrade started: ${result.fromTier} → ${result.newRoomTier} (Room ${result.newRoomNumber})`,
+            metadata: {
+              visitId: result.visitId,
+              waitlistId: result.waitlistId,
+              paymentIntentId: result.paymentIntentId,
+              fromTier: result.fromTier,
+              toTier: result.newRoomTier,
+              newRoomNumber: result.newRoomNumber,
+              upgradeFee: result.upgradeFee,
+            },
+            dedupeKey: `ACT:UPGRADE_STARTED:${result.waitlistId}`,
+            searchParts: [result.waitlistId, result.paymentIntentId, result.newRoomNumber],
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId: result.customerId,
+              actionType: 'UPGRADE_STARTED',
+              actionCategory: 'UPGRADE',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staff.staffId,
+            },
+            'customer_activity_event'
+          );
         });
 
         return reply.send(result);
@@ -557,6 +602,46 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
             },
           });
 
+          const customerIdRow = await client.query<{ customer_id: string }>(
+            `SELECT customer_id FROM visits WHERE id = $1 LIMIT 1`,
+            [waitlist.visit_id]
+          );
+
+          const customerId = customerIdRow.rows[0]!.customer_id;
+
+          const event = await insertCustomerActivityEvent(client, {
+            customerId,
+            actionType: 'UPGRADE_COMPLETED',
+            actionCategory: 'UPGRADE',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: staff.staffId,
+            actorStaffName: staff.name,
+            summary: `Upgrade completed: Room ${newRoom.number}`,
+            metadata: {
+              visitId: waitlist.visit_id,
+              waitlistId,
+              paymentIntentId,
+              newRoomId,
+              newRoomNumber: newRoom.number,
+            },
+            dedupeKey: `ACT:UPGRADE_COMPLETED:${waitlistId}`,
+            searchParts: [waitlistId, paymentIntentId, newRoom.number],
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId,
+              actionType: 'UPGRADE_COMPLETED',
+              actionCategory: 'UPGRADE',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staff.staffId,
+            },
+            'customer_activity_event'
+          );
+
           return {
             waitlistId,
             success: true,
@@ -566,6 +651,8 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
             newRoomNumber: newRoom.number,
             newRentalType: waitlist.desired_tier,
             blockEndsAt: block.ends_at, // Checkout time unchanged
+            customerId,
+            visitId: waitlist.visit_id,
           };
         });
 

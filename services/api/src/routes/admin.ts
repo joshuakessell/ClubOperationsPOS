@@ -1,5 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { registerAdminCustomerRoutes } from './admin/customers';
+import { registerAdminActivityLogRoutes } from './admin/activity-log';
 import { registerAdminDeviceRoutes } from './admin/devices';
 import { registerAdminKpiRoutes } from './admin/kpi';
 import { registerAdminMetricsRoutes } from './admin/metrics';
@@ -13,6 +14,8 @@ import { registerAdminStaffRoutes } from './admin/staff';
  */
 export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   registerAdminMetricsRoutes(fastify);
+
+  registerAdminActivityLogRoutes(fastify);
 
   registerAdminRoomRoutes(fastify);
 

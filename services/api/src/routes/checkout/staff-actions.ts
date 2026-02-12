@@ -17,6 +17,8 @@ import type {
 import { RoomStatus } from '@club-ops/shared';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { insertAuditLog } from '../../audit/auditLog';
+import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
+import { insertCustomerSpendLedgerEntry } from '../../ledger/customerSpendLedger';
 import { looksLikeUuid } from '../../checkout/utils';
 import { buildSystemLateFeeNote } from '../../utils/lateFeeNotes';
 import { computeOrderTotals, ensureOrderWithReceipt, toCents } from '../../money/orderAudit';
@@ -260,7 +262,7 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
               ];
               const totals = computeOrderTotals(lineItems, feeCents, intent.tip_cents ?? 0);
 
-              await ensureOrderWithReceipt(client, {
+              const ensured = await ensureOrderWithReceipt(client, {
                 dedupeKey: { field: 'checkoutRequestId', value: request.params.requestId },
                 customerId: checkoutRequest.customer_id ?? null,
                 registerSessionId: activeRegister?.id ?? null,
@@ -281,6 +283,67 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
                   registerNumber: intent.register_number ?? null,
                 },
               });
+
+              if (checkoutRequest.customer_id) {
+                const blockRow = await client.query<{ visit_id: string }>(
+                  `SELECT visit_id FROM checkin_blocks WHERE id = $1 LIMIT 1`,
+                  [checkoutRequest.occupancy_id]
+                );
+                const visitId = blockRow.rows[0]?.visit_id ?? null;
+
+                const ledger = await insertCustomerSpendLedgerEntry(client, {
+                  customerId: checkoutRequest.customer_id,
+                  visitId,
+                  entryType: 'CHECKOUT_FEE_PAID',
+                  amountCents: ensured.order.total_cents,
+                  sourceApp: 'EMPLOYEE_REGISTER',
+                  actorType: 'STAFF',
+                  actorStaffId: staffId,
+                  actorStaffName: request.staff!.name,
+                  summary: 'Checkout fee paid',
+                  metadata: {
+                    checkoutRequestId: request.params.requestId,
+                    orderId: ensured.order.id,
+                    paymentIntentId: intent.id,
+                    totalCents: ensured.order.total_cents,
+                    visitId,
+                  },
+                  dedupeKey: `LEDGER:CHECKOUT_FEE_PAID:${request.params.requestId}`,
+                });
+
+                const event = await insertCustomerActivityEvent(client, {
+                  customerId: checkoutRequest.customer_id,
+                  actionType: 'CHECKOUT_FEE_PAID',
+                  actionCategory: 'CHECKOUT',
+                  sourceApp: 'EMPLOYEE_REGISTER',
+                  actorType: 'STAFF',
+                  actorStaffId: staffId,
+                  actorStaffName: request.staff!.name,
+                  summary: `Checkout fee paid ($${(ensured.order.total_cents / 100).toFixed(2)})`,
+                  metadata: {
+                    checkoutRequestId: request.params.requestId,
+                    orderId: ensured.order.id,
+                    paymentIntentId: intent.id,
+                    spendLedgerEntryId: ledger.id,
+                    visitId,
+                  },
+                  dedupeKey: `ACT:CHECKOUT_FEE_PAID:${request.params.requestId}`,
+                  searchParts: [request.params.requestId, ensured.order.id, intent.id],
+                });
+
+                request.log.info(
+                  {
+                    customerActivityEventId: event.id,
+                    customerId: checkoutRequest.customer_id,
+                    actionType: 'CHECKOUT_FEE_PAID',
+                    actionCategory: 'CHECKOUT',
+                    sourceApp: 'EMPLOYEE_REGISTER',
+                    actorType: 'STAFF',
+                    actorStaffId: staffId,
+                  },
+                  'customer_activity_event'
+                );
+              }
             }
           }
 
@@ -617,6 +680,37 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
            SET status = 'VERIFIED', completed_at = $1, updated_at = NOW()
            WHERE id = $2`,
             [now, checkoutRequest.id]
+          );
+
+          const event = await insertCustomerActivityEvent(client, {
+            customerId: checkoutRequest.customer_id,
+            actionType: 'CHECKOUT_COMPLETED',
+            actionCategory: 'CHECKOUT',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: staffId,
+            actorStaffName: request.staff!.name,
+            summary: 'Checkout completed',
+            metadata: {
+              checkoutRequestId: checkoutRequest.id,
+              visitId: block.visit_id,
+              checkinBlockId: block.id,
+            },
+            dedupeKey: `ACT:CHECKOUT_COMPLETED:${checkoutRequest.id}`,
+            searchParts: [checkoutRequest.id, block.visit_id, block.id],
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId: checkoutRequest.customer_id,
+              actionType: 'CHECKOUT_COMPLETED',
+              actionCategory: 'CHECKOUT',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staffId,
+            },
+            'customer_activity_event'
           );
 
           return {

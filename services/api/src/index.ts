@@ -33,6 +33,7 @@ import {
   cashDrawerRoutes,
   breakRoutes,
   orderRoutes,
+  customerSpendLedgerRoutes,
 } from './routes';
 import { createBroadcaster, type Broadcaster } from './realtime/broadcaster';
 import { LocalLaneSockets } from './realtime/localSockets';
@@ -183,6 +184,7 @@ async function main() {
   await fastify.register(cashDrawerRoutes);
   await fastify.register(breakRoutes);
   await fastify.register(orderRoutes);
+  await fastify.register(customerSpendLedgerRoutes);
 
   // Graceful shutdown
   const shutdown = async () => {
