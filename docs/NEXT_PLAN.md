@@ -69,6 +69,12 @@ Legend:
 - [x] Define offline auth behavior (kiosk token, staff tokens)
 - [ ] Add local “lane ownership” / authority rules
 
+### Local lane ownership / authority (proposal)
+
+- When `LAN_FALLBACK=true` and the edge stack is active, **the edge API is authoritative** for the lanes it serves.
+- In LAN mode, clients should prefer the edge API + LAN websocket for reads/writes.
+- On failback to cloud, clients return to cloud transports and reconcile via outbox replay (§6).
+
 ### Offline auth behavior (decision)
 
 - **Customer-kiosk**: continue using `x-kiosk-token` auth against the LAN edge API.
