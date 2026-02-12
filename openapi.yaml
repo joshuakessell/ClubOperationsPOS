@@ -1321,6 +1321,58 @@ paths:
         '404':
           description: No active session found
 
+  /v1/checkin/lane/{laneId}/flow-command:
+    post:
+      tags: [Check-in]
+      summary: Apply an idempotent check-in flow command (lock-step v2)
+      security:
+        - kioskToken: []
+        - bearerAuth: []
+      parameters:
+        - name: laneId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId, commandId, actor, type]
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                commandId:
+                  type: string
+                  format: uuid
+                  description: Unique idempotency key for the command.
+                actor:
+                  type: string
+                  enum: [CUSTOMER, EMPLOYEE, SYSTEM]
+                expectedFlowVersion:
+                  type: integer
+                  minimum: 0
+                  description: Concurrency guard; must match current session flowVersion when provided.
+                type:
+                  type: string
+                  enum: [SET_STEP, BACK_STEP, CANCEL_STEP]
+                payload:
+                  type: object
+                  additionalProperties: true
+                  description: Command-specific payload (e.g. { step: 'PAYMENT' }).
+      responses:
+        '200':
+          description: Command applied (or deduped)
+        '400':
+          description: Invalid command
+        '404':
+          description: Not found / feature disabled
+        '409':
+          description: Version mismatch
+
   /v1/checkin/lane/{laneId}/kiosk-ack:
     post:
       tags: [Check-in]

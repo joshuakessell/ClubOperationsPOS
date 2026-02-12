@@ -13,6 +13,7 @@ import type { useSelectionActions } from '../slices/useSelectionActions';
 import type { useSessionResetActions } from '../slices/useSessionResetActions';
 import type { useStaffSessionState } from '../slices/useStaffSessionState';
 import type { useWaitlistUpgradeState } from '../slices/useWaitlistUpgradeState';
+import { sendFlowCommand } from '../shared/flowCommands';
 
 type EmployeeRegisterCoreParams = {
   deviceId: ReturnType<typeof useStaffSessionState>['deviceId'];
@@ -20,6 +21,7 @@ type EmployeeRegisterCoreParams = {
   lane: ReturnType<typeof useStaffSessionState>['lane'];
   health: ReturnType<typeof useHealthStatus>['health'];
   realtimeConnected: boolean;
+  realtimeMode: 'cloud' | 'lan';
   handleLogout: ReturnType<typeof useStaffSessionState>['handleLogout'];
   handleCloseOut: ReturnType<typeof useStaffSessionState>['handleCloseOut'];
   registerSession: ReturnType<typeof useStaffSessionState>['registerSession'];
@@ -53,6 +55,7 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     lane,
     health,
     realtimeConnected,
+    realtimeMode,
     handleLogout,
     handleCloseOut,
     registerSession,
@@ -118,7 +121,38 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     paymentDeclineError,
     pastDueBlocked,
     pastDueBalance,
+    flowVersion,
   } = laneBindings;
+
+  const handleBackStep = async () => {
+    if (!lane) return;
+    if (!session?.sessionToken) return;
+    if (!currentSessionId) return;
+    if (typeof flowVersion !== 'number') return;
+    await sendFlowCommand({
+      lane,
+      sessionToken: session.sessionToken,
+      sessionId: currentSessionId,
+      flowVersion,
+      actor: 'EMPLOYEE',
+      type: 'BACK_STEP',
+    });
+  };
+
+  const handleCancelStep = async () => {
+    if (!lane) return;
+    if (!session?.sessionToken) return;
+    if (!currentSessionId) return;
+    if (typeof flowVersion !== 'number') return;
+    await sendFlowCommand({
+      lane,
+      sessionToken: session.sessionToken,
+      sessionId: currentSessionId,
+      flowVersion,
+      actor: 'EMPLOYEE',
+      type: 'CANCEL_STEP',
+    });
+  };
 
   return {
     deviceId,
@@ -126,6 +160,7 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     lane,
     health,
     realtimeConnected,
+    realtimeMode,
     handleLogout,
     handleCloseOut,
     registerSession,
@@ -146,6 +181,8 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     navTab: navState.navTab,
     selectNavTab: navState.selectNavTab,
     returnToPreviousTab: navState.returnToPreviousTab,
+    handleBackStep,
+    handleCancelStep,
     canOpenAccountTab: navState.canOpenAccountTab,
     inventoryHasLate: checkoutState.inventoryHasLate,
     setInventoryHasLate: checkoutState.setInventoryHasLate,

@@ -4,6 +4,10 @@ import type {
   AssignmentCreatedPayload,
   AssignmentFailedPayload,
   CheckinOptionHighlightedPayload,
+  CheckinFlowCommandRequest,
+  CheckinFlowActor,
+  CheckinFlowCommandType,
+  CheckinFlowStep,
   CheckoutClaimedPayload,
   CheckoutCompletedPayload,
   CheckoutRequestedPayload,
@@ -33,6 +37,42 @@ const RealtimeEventBaseSchema = z.object({
 });
 
 const CustomerIdTypeSchema = z.enum(['STATE_ID', 'DRIVERS_LICENSE', 'PASSPORT', 'OTHER']);
+const CheckinFlowStepSchema: z.ZodType<CheckinFlowStep> = z.enum([
+  'LANGUAGE',
+  'RENTAL',
+  'WAITLIST_PREFERENCES',
+  'WAITLIST_BACKUP',
+  'PAYMENT',
+  'AGREEMENT',
+  'COMPLETE',
+]);
+const CheckinFlowActorSchema: z.ZodType<CheckinFlowActor> = z.enum(['CUSTOMER', 'EMPLOYEE', 'SYSTEM']);
+const CheckinFlowCommandTypeSchema: z.ZodType<CheckinFlowCommandType> = z.enum([
+  'SET_STEP',
+  'BACK_STEP',
+  'CANCEL_STEP',
+]);
+
+export const CheckinFlowCommandRequestSchema: z.ZodType<CheckinFlowCommandRequest> = z
+  .object({
+    sessionId: z.string(),
+    commandId: z.string(),
+    actor: CheckinFlowActorSchema,
+    expectedFlowVersion: z.number().int().nonnegative().optional(),
+    type: CheckinFlowCommandTypeSchema,
+    payload: z
+      .record(z.unknown())
+      .refine(
+        (value) => {
+          const step = value['step'];
+          if (step === undefined || step === null) return true;
+          return CheckinFlowStepSchema.safeParse(step).success;
+        },
+        { message: 'payload.step must be a valid CheckinFlowStep when present' }
+      )
+      .optional(),
+  })
+  .passthrough();
 
 // ---------------------------------------------------------------------------
 // Payload schemas (runtime validation)
@@ -147,6 +187,29 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
         z.string().optional()
       ),
       checkoutAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
+      flowStep: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z
+          .enum([
+            'LANGUAGE',
+            'RENTAL',
+            'WAITLIST_PREFERENCES',
+            'WAITLIST_BACKUP',
+            'PAYMENT',
+            'AGREEMENT',
+            'COMPLETE',
+          ])
+          .optional()
+      ),
+      flowVersion: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.number().int().nonnegative().optional()
+      ),
+      flowLastActor: z.preprocess(
+        (v) => (v === null ? undefined : v),
+        z.enum(['CUSTOMER', 'EMPLOYEE', 'SYSTEM']).optional()
+      ),
+      flowLastCommandId: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
     })
     .passthrough();
 

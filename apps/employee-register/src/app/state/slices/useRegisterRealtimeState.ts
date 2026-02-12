@@ -164,6 +164,7 @@ export function useRegisterRealtimeState({
   });
 
   const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [realtimeMode, setRealtimeMode] = useState<'cloud' | 'lan'>('cloud');
   const offlineTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     if (realtime.connected) {
@@ -183,6 +184,11 @@ export function useRegisterRealtimeState({
   }, [realtime.connected]);
 
   useEffect(() => {
+    if (!realtime.connected) return;
+    setRealtimeMode(realtime.mode);
+  }, [realtime.connected, realtime.mode]);
+
+  useEffect(() => {
     return () => {
       if (offlineTimerRef.current) {
         clearTimeout(offlineTimerRef.current);
@@ -191,5 +197,5 @@ export function useRegisterRealtimeState({
     };
   }, []);
 
-  return { realtimeConnected, currentSessionIdRef };
+  return { realtimeConnected, realtimeMode, currentSessionIdRef };
 }

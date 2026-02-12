@@ -862,6 +862,7 @@ describe('Check-in Flow', () => {
     it(
       'should broadcast a full, stable SessionUpdated payload including customer + payment fields',
       runIfDbAvailable(async () => {
+        process.env.FLOW_COMMANDS = 'true';
         // Seed DOB so the payload can include customerDobMonthDay
         await query(`UPDATE customers SET dob = '1980-01-15'::date WHERE id = $1`, [customerId]);
 
@@ -907,6 +908,9 @@ describe('Check-in Flow', () => {
         expect(last!.paymentIntentId).toBeTruthy();
         expect(last!.paymentStatus).toBe('DUE');
         expect(typeof last!.paymentTotal).toBe('number');
+
+        expect(typeof last!.flowVersion).toBe('number');
+        expect(last!.flowStep).toBe('PAYMENT');
       })
     );
   });

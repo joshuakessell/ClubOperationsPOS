@@ -4,8 +4,13 @@ import { t } from '../../i18n';
 import { getErrorMessage, readJson } from '@club-ops/ui';
 import type { SessionState } from '../../utils/membership';
 import type { KioskNotice } from '../notice';
+import { generateUUID } from '../../utils/uuid';
 
 type KioskAuthHeaders = (extra?: Record<string, string>) => Record<string, string>;
+
+function isFlowCommandsEnabled(): boolean {
+  return import.meta.env.VITE_FLOW_COMMANDS === '1';
+}
 
 export function useKioskActions({
   apiBase,
@@ -127,5 +132,75 @@ export function useKioskActions({
     }
   }, [apiBase, isSubmitting, kioskAuthHeaders, lane, resetToIdle, setIsSubmitting]);
 
-  return { handleLanguageSelection, handleKioskAcknowledge, handleIdScanIssueDismiss };
+  const handleBack = useCallback(async () => {
+    if (!lane) return;
+    if (!session.sessionId) return;
+    if (typeof session.flowVersion !== 'number') return;
+    if (!isFlowCommandsEnabled()) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/flow-command`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...kioskAuthHeaders(),
+        },
+        body: JSON.stringify({
+          sessionId: session.sessionId,
+          commandId: generateUUID(),
+          actor: 'CUSTOMER',
+          expectedFlowVersion: session.flowVersion,
+          type: 'BACK_STEP',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload = await readJson(response);
+        throw new Error(getErrorMessage(errorPayload) || 'Failed to navigate back');
+      }
+    } catch (error) {
+      console.error('Failed to navigate back:', error);
+      showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.generic') });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [apiBase, kioskAuthHeaders, lane, session.customerPrimaryLanguage, session.flowVersion, session.sessionId, setIsSubmitting, showNotice]);
+
+  const handleCancel = useCallback(async () => {
+    if (!lane) return;
+    if (!session.sessionId) return;
+    if (typeof session.flowVersion !== 'number') return;
+    if (!isFlowCommandsEnabled()) return;
+
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/flow-command`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...kioskAuthHeaders(),
+        },
+        body: JSON.stringify({
+          sessionId: session.sessionId,
+          commandId: generateUUID(),
+          actor: 'CUSTOMER',
+          expectedFlowVersion: session.flowVersion,
+          type: 'CANCEL_STEP',
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload = await readJson(response);
+        throw new Error(getErrorMessage(errorPayload) || 'Failed to cancel step');
+      }
+    } catch (error) {
+      console.error('Failed to cancel step:', error);
+      showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.generic') });
+    } finally {
+      setIsSubmitting(false);
+    }
+  }, [apiBase, kioskAuthHeaders, lane, session.customerPrimaryLanguage, session.flowVersion, session.sessionId, setIsSubmitting, showNotice]);
+
+  return { handleLanguageSelection, handleKioskAcknowledge, handleIdScanIssueDismiss, handleBack, handleCancel };
 }

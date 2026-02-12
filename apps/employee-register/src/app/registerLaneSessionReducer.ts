@@ -65,6 +65,17 @@ export type RegisterLaneSessionState = {
 
   pastDueBlocked: boolean;
   pastDueBalance: number;
+
+  flowVersion: number | null;
+  flowStep:
+    | 'LANGUAGE'
+    | 'RENTAL'
+    | 'WAITLIST_PREFERENCES'
+    | 'WAITLIST_BACKUP'
+    | 'PAYMENT'
+    | 'AGREEMENT'
+    | 'COMPLETE'
+    | null;
 };
 
 export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
@@ -121,6 +132,9 @@ export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
 
   pastDueBlocked: false,
   pastDueBalance: 0,
+
+  flowVersion: null,
+  flowStep: null,
 };
 
 type RegisterLaneSessionAction =
@@ -180,6 +194,15 @@ export function registerLaneSessionReducer(
       const hasKey = (key: keyof SessionUpdatedPayloadExtras) =>
         Object.prototype.hasOwnProperty.call(p, key);
 
+      // Monotonic flow-version guard: ignore stale SESSION_UPDATED events.
+      if (
+        typeof p.flowVersion === 'number' &&
+        typeof state.flowVersion === 'number' &&
+        p.flowVersion < state.flowVersion
+      ) {
+        return state;
+      }
+
       if (p.status === 'COMPLETED' && (!p.customerName || p.customerName === '')) {
         return { ...initialRegisterLaneSessionState };
       }
@@ -203,6 +226,22 @@ export function registerLaneSessionReducer(
         next.customerMembershipValidUntil = p.customerMembershipValidUntil || null;
       }
       if (Array.isArray(p.allowedRentals)) next.allowedRentals = p.allowedRentals;
+
+      if (p.flowVersion !== undefined) {
+        next.flowVersion = typeof p.flowVersion === 'number' ? p.flowVersion : null;
+      }
+      if (p.flowStep !== undefined) {
+        next.flowStep =
+          p.flowStep === 'LANGUAGE' ||
+          p.flowStep === 'RENTAL' ||
+          p.flowStep === 'WAITLIST_PREFERENCES' ||
+          p.flowStep === 'WAITLIST_BACKUP' ||
+          p.flowStep === 'PAYMENT' ||
+          p.flowStep === 'AGREEMENT' ||
+          p.flowStep === 'COMPLETE'
+            ? p.flowStep
+            : null;
+      }
 
       if (p.agreementSigned !== undefined) next.agreementSigned = Boolean(p.agreementSigned);
       if (p.agreementBypassPending !== undefined) {

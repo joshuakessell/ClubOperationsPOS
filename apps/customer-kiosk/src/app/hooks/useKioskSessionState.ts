@@ -148,6 +148,17 @@ export function useKioskSessionState() {
     (payload: SessionUpdatedPayload) => {
       const prevSession = sessionRef.current;
       const hasKey = (key: string) => Object.prototype.hasOwnProperty.call(payload, key);
+
+      // Monotonic flow-version guard: ignore stale SESSION_UPDATED events.
+      const incomingFlowVersion = payload.flowVersion;
+      const currentFlowVersion = prevSession?.flowVersion;
+      if (
+        typeof incomingFlowVersion === 'number' &&
+        typeof currentFlowVersion === 'number' &&
+        incomingFlowVersion < currentFlowVersion
+      ) {
+        return;
+      }
       const assignedResourceType = hasKey('assignedResourceType')
         ? payload.assignedResourceType
         : prevSession?.assignedResourceType;
@@ -183,6 +194,11 @@ export function useKioskSessionState() {
         assignedResourceNumber,
         checkoutAt,
         idScanIssue: payload.idScanIssue ?? undefined,
+        flowVersion:
+          typeof incomingFlowVersion === 'number'
+            ? incomingFlowVersion
+            : (prev.flowVersion ?? undefined),
+        flowStep: payload.flowStep ?? prev.flowStep,
       }));
 
       if (payload.mode) {
@@ -209,41 +225,34 @@ export function useKioskSessionState() {
         return;
       }
 
-      if (payload.sessionId && payload.status !== 'COMPLETED' && !payload.customerPrimaryLanguage) {
+      if (payload.flowStep === 'LANGUAGE') {
         setView('language');
         return;
       }
 
-      if (payload.pastDueBlocked) {
+      if (payload.flowStep === 'RENTAL' || payload.flowStep === 'WAITLIST_PREFERENCES' || payload.flowStep === 'WAITLIST_BACKUP') {
         setView('selection');
         return;
       }
 
-      if (
-        payload.paymentStatus === 'PAID' &&
-        payload.agreementBypassPending &&
-        !payload.agreementSigned
-      ) {
+      if (payload.flowStep === 'AGREEMENT' && payload.agreementBypassPending && !payload.agreementSigned) {
         setView('agreement-bypass');
         return;
       }
 
-      if (
-        payload.paymentStatus === 'PAID' &&
-        !payload.agreementSigned &&
-        (payload.mode === 'CHECKIN' || payload.mode === 'RENEWAL')
-      ) {
+      if (payload.flowStep === 'AGREEMENT' && !payload.agreementSigned) {
         setView('agreement');
         return;
       }
 
-      if (payload.selectionConfirmed && payload.paymentStatus === 'DUE') {
+      if (payload.flowStep === 'PAYMENT') {
         setView('payment');
         return;
       }
 
-      if (payload.sessionId && payload.status !== 'COMPLETED') {
-        setView('selection');
+      if (payload.flowStep === 'COMPLETE') {
+        setView('complete');
+        return;
       }
 
       if (hasKey('proposedRentalType')) {

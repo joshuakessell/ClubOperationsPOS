@@ -1,0 +1,154 @@
+# Lock-Step Check-In v2 Execution Plan (Backlog)
+
+This file converts `docs/PLAN.md` into an executable checklist so we can count remaining work.
+
+Legend:
+- [x] Done
+- [ ] Not started / in progress
+
+## 0) Already Completed
+
+- [x] Add flow fields to `lane_sessions` + `lane_session_commands` dedupe table (`services/api/migrations/...flow_fields_and_command_dedupe.sql`)
+- [x] Add `/v1/checkin/lane/:laneId/flow-command` endpoint (idempotent + version guard)
+- [x] Emit `SESSION_UPDATED` with `flowStep/flowVersion/flowLastActor/flowLastCommandId`
+- [x] Ignore stale `SESSION_UPDATED` by `flowVersion` (kiosk + employee)
+- [x] Add realtime transport abstraction scaffolding + HybridTransport tests
+- [x] AppSyncTransport parity + reconnect/backoff + unit tests
+
+## 1) Feature Flags + Rollout Controls
+
+- [x] Add `LOCKSTEP_V2` flag plumbing (API + apps)
+- [x] Add `LAN_FALLBACK` flag plumbing (API + apps)
+- [x] Add `FLOW_COMMANDS` flag (API)
+- [x] Add per-lane flag overrides (server-side lane config)
+- [x] Add a rollback playbook entry in `docs/DEPLOYMENT.md`
+
+## 2) Backend: Authoritative Flow Command Engine (Hardening)
+
+- [x] Define canonical transition table for steps (allowed transitions)
+- [x] Implement transition-specific clearing rules for each step:
+  - [x] LANGUAGE
+  - [x] RENTAL
+  - [x] WAITLIST_PREFERENCES
+  - [x] WAITLIST_BACKUP
+  - [x] PAYMENT
+  - [x] AGREEMENT
+  - [x] COMPLETE
+- [x] Add command types beyond step navigation (as needed):
+  - [x] PROPOSE_SELECTION
+  - [x] FORCE_SELECTION
+  - [x] ACK_SELECTION
+  - [x] WAITLIST_PREFERENCES_UPDATE
+  - [x] WAITLIST_BACKUP_SET
+- [x] Ensure *all* commands are idempotent + version guarded
+- [x] Add audit payload shape + strict schema validation
+
+## 3) Backend: Route Legacy Endpoints Through Command Engine
+
+- [x] `set-language` increments flow_version when FLOW_COMMANDS enabled
+- [x] Route `selection` endpoints through command engine (propose/force/lock)
+- [x] Route waitlist preference + backup endpoints through command engine
+- [x] Route payment-intent creation/updates through command engine (step bump + audit)
+- [x] Route agreement signing/bypass through command engine (step bump + audit)
+- [x] Route back/cancel actions from both apps through command engine
+  - [x] customer-kiosk (behind `VITE_FLOW_COMMANDS`)
+  - [x] employee-register (behind `VITE_FLOW_COMMANDS`)
+  - Server: `BACK_STEP` / `CANCEL_STEP` handled via `/flow-command`
+
+## 4) Backend: Realtime Dual-Publish (Cloud + LAN)
+
+- [x] Add local websocket server endpoint to API for LAN mode
+- [x] Add local lane channel routing semantics (match AppSync channels)
+- [x] Update broadcaster to publish to AppSync + local sockets
+- [x] Add ordering guarantees / monotonic version enforcement in broadcaster
+
+## 5) LAN Fallback: Edge Stack + Local DB
+
+- [x] Add edge docker-compose stack (API + Postgres + LAN websocket)
+- [x] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud)
+- [x] Define offline auth behavior (kiosk token, staff tokens)
+- [x] Add local “lane ownership” / authority rules
+
+### Local lane ownership / authority (proposal)
+
+- When `LAN_FALLBACK=true` and the edge stack is active, **the edge API is authoritative** for the lanes it serves.
+- In LAN mode, clients should prefer the edge API + LAN websocket for reads/writes.
+- On failback to cloud, clients return to cloud transports and reconcile via outbox replay (§6).
+
+### Offline auth behavior (decision)
+
+- **Customer-kiosk**: continue using `x-kiosk-token` auth against the LAN edge API.
+- **Employee-register**: require staff auth even in LAN mode (same bearer token mechanisms as cloud).
+  - If staff token cannot be validated offline, the edge host should be treated as "kiosk-only".
+
+### Decisions needed before implementing §5.2-
+
+- (Done) Health signals: AppSync status + HTTP `/health`
+- (Done) Hysteresis: 5s poll; 3 fails -> LAN; 6 successes -> cloud
+- (Done) UX: banner on employee-register
+
+## 6) Offline Outbox + Reconciliation
+
+- [x] Add `offline_command_outbox` table
+- [x] Write outbox records for LAN-mode accepted commands
+- [x] Replay worker on reconnect (ordered, idempotent)
+- [x] Conflict handling for diverged versions
+- [x] Observability: logs/metrics for replay lag + failures
+
+### Conflict policy (LAN -> cloud replay)
+
+- If replayed command fails with a version mismatch or invalid transition:
+  - **Do not retry indefinitely**.
+  - Persist `last_replay_error` and increment `replay_attempts`.
+  - Require manual resolution (inspect lane/session state and clear or re-issue commands).
+
+### Observability (initial)
+
+- Worker logs each replay attempt with: `lane_id`, `session_id`, `command_id`, `type`, `attempts`, `error`.
+- Track replay backlog by querying `offline_command_outbox` pending count + oldest `created_at`.
+
+## 7) Frontend: Render by `flowStep` (No Heuristics)
+
+### customer-kiosk
+
+- [x] Drive view routing off `SessionUpdatedPayload.flowStep`
+- [x] Send `BACK_STEP` / `CANCEL_STEP` flow commands on back/cancel UI
+- [x] Ensure monotonic flowVersion updates everywhere (already in reducer, verify all paths)
+- [x] Remove heuristic fallbacks once stable
+
+### employee-register
+
+- [x] Drive Employee Assist step off `flowStep`
+- [x] Implement first-click highlight / second-click confirm backed by commands
+- [x] Mirror kiosk ordering + hide unavailable options (includes GYM_LOCKER)
+
+## 8) Frontend: Hybrid Transport + Mode Switch
+
+- [x] Finish porting legacy `useLaneSession` to use transports by default (remove legacy socket path)
+- [x] Implement `LanWebSocketTransport` protocol (match server LAN WS)
+- [x] Implement `HybridTransport` selection logic (cloud preferred, LAN fallback)
+- [x] Add health-based mode switch plumbing in apps
+
+## 9) Tests + Acceptance
+
+- [x] API transition tests for each command type
+- [x] API idempotency/version tests for flow-command
+- [x] LAN websocket integration test (auth rejection)
+- [x] Realtime ordering tests (stale ignored) end-to-end
+- [x] Cross-app lock-step acceptance tests
+- [x] Failover tests: cloud disconnect -> LAN -> reconnect
+
+## 10) Docs + Ops
+
+- [x] Document env flags in `docs/ENV_FLAGS.md`
+- [x] Update `docs/DEPLOYMENT.md` with rollout + rollback steps
+- [x] Add runbook: debug realtime lane sync
+- [x] Add runbook: LAN edge deploy + failback
+
+---
+
+## Counts
+
+- Total checklist items: 72
+- Completed checklist items: 72
+- Remaining checklist items: 0

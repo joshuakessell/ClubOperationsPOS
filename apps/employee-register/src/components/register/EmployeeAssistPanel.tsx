@@ -45,16 +45,20 @@ export interface EmployeeAssistPanelProps {
   onConfirmMembershipOneTime?: () => Promise<void> | void;
   onConfirmMembershipSixMonth: () => Promise<void> | void;
 
-  onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => Promise<void> | void;
+  onHighlightRental: (
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
+  ) => Promise<void> | void;
   onSelectRentalAsCustomer: (
-    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => Promise<void> | void;
   onDirectSelectRental?: (
-    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => Promise<void> | void;
-  onHighlightWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => void;
+  onHighlightWaitlistBackup: (
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null
+  ) => void;
   onSelectWaitlistBackupAsCustomer: (
-    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
     options?: {
       waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
       waitlistRequestedResourceNumber?: string | null;
@@ -62,10 +66,13 @@ export interface EmployeeAssistPanelProps {
     }
   ) => Promise<void> | void;
   onDirectSelectWaitlistBackup?: (
-    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
   ) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
   onClearSession?: () => void;
+
+  onBack?: () => Promise<void> | void;
+  onCancel?: () => Promise<void> | void;
 
 }
 
@@ -98,6 +105,8 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     onApproveRental,
     onClearSession,
     onDirectSelectRental,
+    onBack,
+    onCancel,
   } = props;
 
   const [pending, setPending] = useState<PendingState>(null);
@@ -159,6 +168,12 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
         allowed: allowed.has('LOCKER'),
       },
       {
+        id: 'GYM_LOCKER' as const,
+        label: directSelect ? 'Select Gym Locker' : 'Propose Gym Locker',
+        count: lockers,
+        allowed: allowed.has('GYM_LOCKER'),
+      },
+      {
         id: 'STANDARD' as const,
         label: directSelect ? 'Select Private Dressing Room' : 'Propose Private Dressing Room',
         count: standard,
@@ -187,7 +202,9 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     const special = Number(inventoryAvailable?.rooms?.SPECIAL ?? 0);
 
     const allowed = new Set(
-      Array.isArray(allowedRentals) ? allowedRentals : ['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL']
+      Array.isArray(allowedRentals)
+        ? allowedRentals
+        : ['LOCKER', 'GYM_LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL']
     );
     const candidates = [
       {
@@ -195,6 +212,12 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
         label: 'Backup Locker',
         count: lockers,
         allowed: allowed.has('LOCKER'),
+      },
+      {
+        id: 'GYM_LOCKER' as const,
+        label: 'Backup Gym Locker',
+        count: lockers,
+        allowed: allowed.has('GYM_LOCKER'),
       },
       {
         id: 'STANDARD' as const,
@@ -240,20 +263,42 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
         }}
       >
         <div style={{ fontWeight: 950, fontSize: '1rem' }}>Employee Assist</div>
-        {onClearSession ? (
-          <button
-            type="button"
-            className="cs-liquid-button cs-liquid-button--danger"
-            onClick={onClearSession}
-            style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }}
-          >
-            Clear Session
-          </button>
-        ) : (
-          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-            Step: {step}
-          </div>
-        )}
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {onBack ? (
+            <button
+              type="button"
+              className="cs-liquid-button cs-liquid-button--secondary"
+              onClick={() => void onBack()}
+              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
+            >
+              Back
+            </button>
+          ) : null}
+          {onCancel ? (
+            <button
+              type="button"
+              className="cs-liquid-button cs-liquid-button--secondary"
+              onClick={() => void onCancel()}
+              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
+            >
+              Cancel
+            </button>
+          ) : null}
+          {onClearSession ? (
+            <button
+              type="button"
+              className="cs-liquid-button cs-liquid-button--danger"
+              onClick={onClearSession}
+              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }}
+            >
+              Clear Session
+            </button>
+          ) : (
+            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+              Step: {step}
+            </div>
+          )}
+        </div>
       </div>
 
       <div

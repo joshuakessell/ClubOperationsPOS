@@ -87,6 +87,7 @@ export function useEmployeeRegisterDerivedState(params: EmployeeRegisterDerivedP
         customerMembershipValidUntil: customerMembershipValidUntil || null,
         membershipPurchaseIntent,
         membershipChoice: laneBindings.membershipChoice,
+        flowStep: laneBindings.flowStep,
       }),
     [
       laneBindings.agreementSigned,
@@ -100,6 +101,7 @@ export function useEmployeeRegisterDerivedState(params: EmployeeRegisterDerivedP
       membershipNumber,
       membershipPurchaseIntent,
       selectionConfirmed,
+      laneBindings.flowStep,
     ]
   );
 

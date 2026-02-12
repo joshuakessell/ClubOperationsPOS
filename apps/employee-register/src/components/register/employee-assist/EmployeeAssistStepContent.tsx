@@ -29,7 +29,7 @@ type Props = {
   onConfirmLanguage: (lang: LanguageOption) => Promise<void> | void;
   onHighlightMembership: (choice: MembershipOption | null) => void;
   onConfirmMembershipSixMonth: () => Promise<void> | void;
-  onHighlightRental: (rental: RentalOption) => Promise<void> | void;
+  onHighlightRental: (rental: RentalOption | null) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
   onDirectSelectRental?: (rental: RentalOption) => Promise<void> | void;
   onHighlightWaitlistBackup: (rental: RentalOption | null) => void;
@@ -291,7 +291,7 @@ export function EmployeeAssistStepContent({
         ) : null}
 
         <div style={{ display: 'grid', gap: '0.6rem' }}>
-          {waitlistBackupButtons.map((btn) => {
+          {waitlistBackupButtons.filter((btn) => btn.allowed && btn.count > 0).map((btn) => {
             const isPending = pending?.step === 'WAITLIST_BACKUP' && pending.option === btn.id;
             const { label: countLabel, tone } = remainingCountLabel(btn.count);
             const disabled = isSubmitting || !btn.allowed || btn.count <= 0;
@@ -363,7 +363,8 @@ export function EmployeeAssistStepContent({
   }
 
   if (step === 'RENTAL') {
-    const unavailableJoinTarget = rentalButtons.find((btn) => btn.allowed && btn.count === 0)?.id ?? null;
+    const unavailableJoinTarget =
+      rentalButtons.find((btn) => btn.allowed && btn.count === 0)?.id ?? null;
     const availableRentalButtons = rentalButtons.filter((btn) => btn.allowed && btn.count > 0);
 
     return (
@@ -412,7 +413,7 @@ export function EmployeeAssistStepContent({
             const isPending = pending?.step === 'RENTAL' && pending.option === btn.id;
             const { label: countLabel, tone } = remainingCountLabel(btn.count);
             const disabled = isSubmitting || !btn.allowed || btn.count === 0;
-            const spanTwo = btn.id === 'LOCKER' || btn.id === 'STANDARD';
+            const spanTwo = btn.id === 'LOCKER' || btn.id === 'GYM_LOCKER' || btn.id === 'STANDARD';
             const toneClass =
               tone === 'none'
                 ? 'cs-liquid-button--secondary'
@@ -444,6 +445,9 @@ export function EmployeeAssistStepContent({
                     },
                     () => {
                       void onApproveRental();
+                    },
+                    () => {
+                      void onHighlightRental(null);
                     }
                   );
                 }}

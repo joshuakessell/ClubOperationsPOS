@@ -28,6 +28,10 @@ import type {
   CustomerDeclinedPayload,
 } from '@club-ops/shared';
 
+function isFlowCommandsEnabled(): boolean {
+  return process.env.FLOW_COMMANDS === 'true';
+}
+
 function formatAgreementTimeBlock(params: {
   startsAt: Date;
   endsAt: Date;
@@ -566,6 +570,29 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
            WHERE id = $3`,
             [assignedResourceId, assignedResourceType, session.id]
           );
+
+          if (isFlowCommandsEnabled()) {
+            const commandId =
+              typeof crypto !== 'undefined' && 'randomUUID' in crypto
+                ? crypto.randomUUID()
+                : `agr-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+            await client.query(
+              `INSERT INTO lane_session_commands (session_id, command_id, actor, type, payload_json)
+               VALUES ($1, $2, $3, $4, $5)
+               ON CONFLICT (session_id, command_id) DO NOTHING`,
+              [session.id, commandId, 'CUSTOMER', 'SET_STEP', { step: 'AGREEMENT' }]
+            );
+            await client.query(
+              `UPDATE lane_sessions
+               SET flow_step = 'AGREEMENT',
+                   flow_version = COALESCE(flow_version, 0) + 1,
+                   flow_last_command_id = $1,
+                   flow_last_actor = 'CUSTOMER',
+                   updated_at = NOW()
+               WHERE id = $2`,
+              [commandId, session.id]
+            );
+          }
 
           // Complete check-in: create visit (if needed) and check-in block with PDF
           if (!visitId) {

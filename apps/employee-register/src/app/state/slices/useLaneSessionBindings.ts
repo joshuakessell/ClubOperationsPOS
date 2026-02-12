@@ -49,6 +49,8 @@ export function useLaneSessionBindings() {
     checkoutAt,
     paymentDeclineError,
     idScanIssue,
+    flowVersion,
+    flowStep,
   } = laneSession;
 
   const setCustomerName = useCallback(
@@ -207,6 +209,8 @@ export function useLaneSessionBindings() {
     checkoutAt,
     paymentDeclineError,
     idScanIssue,
+    flowVersion,
+    flowStep,
     setCustomerName,
     setMembershipNumber,
     setCurrentSessionId,

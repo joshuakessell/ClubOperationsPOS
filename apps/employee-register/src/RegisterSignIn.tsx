@@ -37,6 +37,7 @@ interface RegisterSignInProps {
   lane?: string;
   apiStatus?: string | null;
   realtimeConnected?: boolean;
+  realtimeMode?: 'cloud' | 'lan';
   onSignOut?: () => void;
   onCloseOut?: () => void;
   children: React.ReactNode;
@@ -49,6 +50,7 @@ export function RegisterSignIn({
   lane,
   apiStatus,
   realtimeConnected,
+  realtimeMode,
   onSignOut,
   onCloseOut,
   children,
@@ -367,6 +369,19 @@ export function RegisterSignIn({
   // Signed in state
   return (
     <div className="register-sign-in-container">
+      {realtimeMode === 'lan' ? (
+        <div
+          style={{
+            background: '#c66a00',
+            color: '#fff',
+            padding: '0.35rem 0.75rem',
+            fontWeight: 700,
+            textAlign: 'center',
+          }}
+        >
+          LAN mode (offline fallback)
+        </div>
+      ) : null}
       <div className="register-top-bar">
         <div className="register-top-bar-left">
           <div className="register-top-bar-title">{topTitle}</div>

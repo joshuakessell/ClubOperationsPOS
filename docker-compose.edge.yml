@@ -1,0 +1,90 @@
+# Edge stack (LAN fallback)
+#
+# Runs API + Postgres with LAN websocket enabled. Intended for on-prem / internet-outage fallback.
+#
+# Usage:
+#   docker compose -f docker-compose.edge.yml up -d
+#
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: club-ops-edge-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${EDGE_DB_NAME:-club_operations}
+      POSTGRES_USER: ${EDGE_DB_USER:-clubops}
+      POSTGRES_PASSWORD: ${EDGE_DB_PASSWORD:-club-ops-edge}
+    ports:
+      - "${EDGE_DB_PORT:-5434}:5432"
+    volumes:
+      - edge_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        ["CMD-SHELL", "pg_isready -U ${EDGE_DB_USER:-clubops} -d ${EDGE_DB_NAME:-club_operations}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - club-ops-edge
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: club-ops-edge-api
+    restart: unless-stopped
+    environment:
+      PORT: ${EDGE_PORT:-3000}
+      HOST: 0.0.0.0
+
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${EDGE_DB_NAME:-club_operations}
+      DB_USER: ${EDGE_DB_USER:-clubops}
+      DB_PASSWORD: ${EDGE_DB_PASSWORD:-club-ops-edge}
+      DB_SSL: false
+
+      # Feature flags
+      LAN_FALLBACK: "true"
+      EDGE_STACK: "true"
+      LAN_AUTHORITATIVE: ${EDGE_LAN_AUTHORITATIVE:-true}
+      FLOW_COMMANDS: ${EDGE_FLOW_COMMANDS:-true}
+      LOCKSTEP_V2: ${EDGE_LOCKSTEP_V2:-true}
+
+      KIOSK_TOKEN: ${KIOSK_TOKEN}
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
+
+      DEMO_MODE: "false"
+      SEED_ON_STARTUP: ${EDGE_SEED_ON_STARTUP:-false}
+
+      # Square (optional; edge can run without if flows don't require payments)
+      SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-development}
+      SQUARE_LOCATION_ID: ${SQUARE_LOCATION_ID:-development}
+      SQUARE_ENVIRONMENT: ${SQUARE_ENVIRONMENT:-sandbox}
+    ports:
+      - "${EDGE_PORT:-3000}:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - club-ops-edge
+    healthcheck:
+      test:
+        ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  edge_postgres_data:
+    name: club-ops-edge-postgres-data
+
+networks:
+  club-ops-edge:
+    name: club-ops-edge
+    driver: bridge
+
+# Notes for app configuration:
+# - Set `VITE_LAN_API_BASE_URL=http://<edge-host>:${EDGE_PORT:-3000}`
+# - Set `VITE_LAN_REALTIME_WS_URL=ws://<edge-host>:${EDGE_PORT:-3000}/v1/realtime/lan/lane/<laneId>`

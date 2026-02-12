@@ -246,6 +246,7 @@ describe('Check-in Flow', () => {
     it(
       'should store signature, create checkin_block, and assign inventory ONLY after signing',
       runIfDbAvailable(async () => {
+        process.env.FLOW_COMMANDS = 'true';
         // Setup: create session, lock selection, create payment intent, demo-take-payment, then sign agreement
         const roomResult = await query<{ id: string }>(
           `INSERT INTO rooms (number, type, status, floor)
@@ -342,6 +343,10 @@ describe('Check-in Flow', () => {
         expect(response.statusCode).toBe(200);
         const data = JSON.parse(response.body);
         expect(data.success).toBe(true);
+
+        const last = sessionUpdatedEvents.filter((e) => e.lane === laneId).at(-1)?.payload;
+        expect(last).toBeTruthy();
+        expect(last!.flowStep).toBe('AGREEMENT');
 
         // Verify visit and check-in block created
         const visitResult = await query<{ id: string }>(

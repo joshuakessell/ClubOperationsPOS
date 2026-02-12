@@ -80,6 +80,14 @@ export function useKioskRealtime({
     reconnectMode: 'aggressive',
   });
 
+  const rawEnv = import.meta.env as unknown as Record<string, unknown>;
+  const transportModeEnabled = rawEnv.VITE_REALTIME_TRANSPORTS === '1';
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+    if (!transportModeEnabled) return;
+    console.log('[realtime] transport mode enabled', { connected: realtimeConnected });
+  }, [realtimeConnected, transportModeEnabled]);
+
   const hasConnectedRef = useRef(false);
   useEffect(() => {
     if (realtimeConnected) {
@@ -112,7 +120,6 @@ export function useKioskRealtime({
             sessionActions.setSelectionConfirmedBy(payload.confirmedBy);
             sessionActions.setSelectedRental(payload.rentalType);
             sessionActions.setSelectionAcknowledged(true);
-            sessionActions.setView('payment');
           }
         } else if (message.type === 'SELECTION_FORCED') {
           const payload = message.payload;
@@ -121,7 +128,6 @@ export function useKioskRealtime({
             sessionActions.setSelectionConfirmedBy('EMPLOYEE');
             sessionActions.setSelectedRental(payload.rentalType);
             sessionActions.setSelectionAcknowledged(true);
-            sessionActions.setView('payment');
           }
         } else if (message.type === 'SELECTION_ACKNOWLEDGED') {
           sessionActions.setSelectionAcknowledged(true);

@@ -24,6 +24,9 @@ export function SelectionFlow({
     notices,
   });
 
+  const handleBack = callbacks.onBack;
+  const handleCancel = callbacks.onCancel;
+
   const {
     session,
     inventory,
@@ -119,9 +122,15 @@ export function SelectionFlow({
         onWaitlistSpecificSelection={actions.handleWaitlistSpecificSelection}
         onWaitlistSpecificFocus={() => void actions.handleWaitlistSpecificFocus()}
         onWaitlistBackupSelection={actions.handleWaitlistBackupSelection}
-        onWaitlistBackToPreferences={actions.handleWaitlistBackToPreferences}
+        onWaitlistBackToPreferences={() => {
+          void actions.handleWaitlistBackToPreferences();
+          void handleBack?.();
+        }}
         onWaitlistSubmit={() => void actions.handleWaitlistSubmit()}
-        onWaitlistCancel={() => void actions.handleWaitlistCancel()}
+        onWaitlistCancel={() => {
+          void actions.handleWaitlistCancel();
+          void handleCancel?.();
+        }}
         onCloseRenewal={() => setShowRenewalDisclaimer(false)}
         onProceedRenewal={() => {
           setShowRenewalDisclaimer(false);

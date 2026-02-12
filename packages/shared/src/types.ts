@@ -226,6 +226,39 @@ export interface SessionUpdatedPayload {
   assignedResourceType?: 'room' | 'locker';
   assignedResourceNumber?: string;
   checkoutAt?: string;
+  flowStep?:
+    | 'LANGUAGE'
+    | 'RENTAL'
+    | 'WAITLIST_PREFERENCES'
+    | 'WAITLIST_BACKUP'
+    | 'PAYMENT'
+    | 'AGREEMENT'
+    | 'COMPLETE';
+  flowVersion?: number;
+  flowLastActor?: 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
+  flowLastCommandId?: string;
+}
+
+export type CheckinFlowStep =
+  | 'LANGUAGE'
+  | 'RENTAL'
+  | 'WAITLIST_PREFERENCES'
+  | 'WAITLIST_BACKUP'
+  | 'PAYMENT'
+  | 'AGREEMENT'
+  | 'COMPLETE';
+
+export type CheckinFlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
+
+export type CheckinFlowCommandType = 'SET_STEP' | 'BACK_STEP' | 'CANCEL_STEP';
+
+export interface CheckinFlowCommandRequest {
+  sessionId: string;
+  commandId: string;
+  actor: CheckinFlowActor;
+  expectedFlowVersion?: number;
+  type: CheckinFlowCommandType;
+  payload?: Record<string, unknown>;
 }
 
 /**

@@ -350,6 +350,7 @@ export function useEmployeeRegisterStateValue() {
     lane,
     health,
     realtimeConnected: realtimeState.realtimeConnected,
+    realtimeMode: realtimeState.realtimeMode,
     handleLogout,
     handleCloseOut,
     registerSession,

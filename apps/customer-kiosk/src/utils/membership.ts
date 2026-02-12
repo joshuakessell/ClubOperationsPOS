@@ -27,6 +27,15 @@ export interface SessionState {
   assignedResourceType?: 'room' | 'locker';
   assignedResourceNumber?: string;
   checkoutAt?: string;
+  flowVersion?: number;
+  flowStep?:
+    | 'LANGUAGE'
+    | 'RENTAL'
+    | 'WAITLIST_PREFERENCES'
+    | 'WAITLIST_BACKUP'
+    | 'PAYMENT'
+    | 'AGREEMENT'
+    | 'COMPLETE';
 }
 
 export function getMembershipStatus(

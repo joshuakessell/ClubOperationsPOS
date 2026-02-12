@@ -395,6 +395,12 @@ export async function buildFullSessionUpdatedPayload(
         : undefined,
     ledgerLineItems,
     ledgerTotal,
+    flowStep: session.flow_step ?? undefined,
+    flowVersion: typeof session.flow_version === 'number' ? session.flow_version : undefined,
+    flowLastActor: session.flow_last_actor
+      ? (session.flow_last_actor as 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM')
+      : undefined,
+    flowLastCommandId: session.flow_last_command_id ?? undefined,
   };
 
   return { laneId, payload };

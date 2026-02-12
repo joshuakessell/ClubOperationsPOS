@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 
 import { loadEnvFromDotEnvIfPresent } from './env/loadEnv';
 
@@ -22,6 +23,7 @@ import {
   checkinRoutes,
   registerRoutes,
   realtimeRoutes,
+  realtimeLanRoutes,
   shiftsRoutes,
   timeclockRoutes,
   documentsRoutes,
@@ -33,6 +35,7 @@ import {
   orderRoutes,
 } from './routes';
 import { createBroadcaster, type Broadcaster } from './realtime/broadcaster';
+import { LocalLaneSockets } from './realtime/localSockets';
 import { initializeDatabase, closeDatabase } from './db';
 import { cleanupAbandonedRegisterSessions } from './routes/registers';
 import { seedDemoData } from './db/seed-demo';
@@ -59,6 +62,7 @@ declare module 'fastify' {
   interface FastifyInstance {
     broadcaster: Broadcaster;
     dbHealthy: boolean;
+    localLaneSockets: LocalLaneSockets;
   }
 }
 
@@ -82,8 +86,12 @@ async function main() {
     credentials: true,
   });
 
+  await fastify.register(websocket);
+
   // Create broadcaster for realtime events
-  const broadcaster = createBroadcaster();
+  const localLaneSockets = new LocalLaneSockets();
+  fastify.decorate('localLaneSockets', localLaneSockets);
+  const broadcaster = createBroadcaster({ localLaneSockets });
 
   // Decorate fastify with broadcaster for access in routes
   fastify.decorate('broadcaster', broadcaster);
@@ -165,6 +173,7 @@ async function main() {
   await fastify.register(checkinRoutes);
   await fastify.register(registerRoutes);
   await fastify.register(realtimeRoutes);
+  await fastify.register(realtimeLanRoutes);
   await fastify.register(shiftsRoutes);
   await fastify.register(timeclockRoutes);
   await fastify.register(documentsRoutes);

@@ -5,6 +5,10 @@ import type { LaneSessionRow } from '../../checkin/types';
 import { transaction } from '../../db';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 
+function isFlowCommandsEnabled(): boolean {
+  return process.env.FLOW_COMMANDS === 'true';
+}
+
 export function registerCheckinLanguageRoutes(fastify: FastifyInstance): void {
   /**
    * POST /v1/checkin/lane/:laneId/set-language
@@ -68,6 +72,31 @@ export function registerCheckinLanguageRoutes(fastify: FastifyInstance): void {
         `UPDATE customers SET primary_language = $1, updated_at = NOW() WHERE id = $2`,
         [language, session.customer_id]
       );
+
+      if (isFlowCommandsEnabled()) {
+        const commandId =
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `lang-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+        await client.query(
+          `INSERT INTO lane_session_commands (session_id, command_id, actor, type, payload_json)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (session_id, command_id) DO NOTHING`,
+          [session.id, commandId, 'CUSTOMER', 'SET_STEP', { step: 'LANGUAGE', language }]
+        );
+
+        await client.query(
+          `UPDATE lane_sessions
+           SET flow_step = 'LANGUAGE',
+               flow_version = COALESCE(flow_version, 0) + 1,
+               flow_last_command_id = $1,
+               flow_last_actor = 'CUSTOMER',
+               updated_at = NOW()
+           WHERE id = $2`,
+          [commandId, session.id]
+        );
+      }
 
       return { sessionId: session.id, success: true as const, language, laneId: resolvedLaneId };
     });
