@@ -19,3 +19,8 @@ export type RentalButton = {
   count: number;
   allowed: boolean;
 };
+
+export type WaitlistUnavailableOptions = {
+  rooms: Record<'SPECIAL' | 'DOUBLE' | 'STANDARD', Array<{ number: string; status: string }>>;
+  lockers: Array<{ number: string; status: string }>;
+} | null;

@@ -137,9 +137,21 @@ export function useSelectionActions({
   };
 
   const handleSelectWaitlistBackupAsCustomer = async (
-    rentalType: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
+    rentalType: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+    options?: {
+      waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
+      waitlistRequestedResourceNumber?: string | null;
+      waitlistRequestedResourceType?: 'room' | 'locker' | null;
+    }
   ) => {
-    if (!currentSessionId || !waitlistDesiredTier) return;
+    if (!currentSessionId) return;
+    const effectiveDesiredTypes = options?.waitlistDesiredTypes ?? [];
+    const effectiveDesiredType =
+      effectiveDesiredTypes[0] ??
+      (waitlistDesiredTier === 'STANDARD' || waitlistDesiredTier === 'DOUBLE' || waitlistDesiredTier === 'SPECIAL'
+        ? waitlistDesiredTier
+        : undefined);
+    if (!effectiveDesiredType && !options?.waitlistRequestedResourceNumber) return;
     setIsSubmitting(true);
     try {
       const response = await fetch(`${API_BASE}/v1/checkin/lane/${lane}/propose-selection`, {
@@ -151,7 +163,10 @@ export function useSelectionActions({
         body: JSON.stringify({
           rentalType,
           proposedBy: 'CUSTOMER',
-          waitlistDesiredType: waitlistDesiredTier,
+          waitlistDesiredType: effectiveDesiredType,
+          waitlistDesiredTypes: effectiveDesiredTypes,
+          waitlistRequestedResourceNumber: options?.waitlistRequestedResourceNumber || undefined,
+          waitlistRequestedResourceType: options?.waitlistRequestedResourceType || undefined,
           backupRentalType: rentalType,
         }),
       });

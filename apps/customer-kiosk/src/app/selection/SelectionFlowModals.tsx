@@ -34,6 +34,7 @@ type SelectionFlowModalsProps = {
   }) => void;
   onWaitlistSpecificFocus: () => void;
   onWaitlistBackupSelection: (rental: string) => void;
+  onWaitlistBackToPreferences: () => void;
   onWaitlistSubmit: () => void;
   onWaitlistCancel: () => void;
   onCloseRenewal: () => void;
@@ -67,6 +68,7 @@ export function SelectionFlowModals({
   onWaitlistSpecificSelection,
   onWaitlistSpecificFocus,
   onWaitlistBackupSelection,
+  onWaitlistBackToPreferences,
   onWaitlistSubmit,
   onWaitlistCancel,
   onCloseRenewal,
@@ -111,6 +113,7 @@ export function SelectionFlowModals({
           onSpecificSelection={onWaitlistSpecificSelection}
           onSpecificFocus={onWaitlistSpecificFocus}
           onBackupSelection={onWaitlistBackupSelection}
+          onBackToPreferences={onWaitlistBackToPreferences}
           onSubmit={onWaitlistSubmit}
           onClose={onWaitlistCancel}
         />

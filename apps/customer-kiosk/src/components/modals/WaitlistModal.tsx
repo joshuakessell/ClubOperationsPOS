@@ -32,6 +32,7 @@ export interface WaitlistModalProps {
     lockers: Array<{ number: string; status: string }>;
   } | null;
   onBackupSelection: (rental: string) => void;
+  onBackToPreferences?: () => void;
   onSubmit: () => void;
   onClose: () => void;
 }
@@ -55,6 +56,7 @@ export function WaitlistModal({
   onSpecificFocus,
   specificOptions,
   onBackupSelection,
+  onBackToPreferences,
   onSubmit,
   onClose,
 }: WaitlistModalProps) {
@@ -275,7 +277,10 @@ export function WaitlistModal({
             </button>
             <button
               className="cs-liquid-button cs-liquid-button--secondary ck-modal-btn"
-              onClick={() => setShowBackupStep(false)}
+              onClick={() => {
+                setShowBackupStep(false);
+                onBackToPreferences?.();
+              }}
               disabled={isSubmitting}
             >
               {t(customerPrimaryLanguage, 'waitlist.backToPreferences')}

@@ -15,6 +15,22 @@ export interface DatabaseConfig {
   connectionTimeoutMillis?: number;
 }
 
+function resolveSslConfig(): pg.PoolConfig['ssl'] {
+  if (process.env.DB_SSL !== 'true') {
+    return undefined;
+  }
+
+  const sslCaPath = (process.env.DB_SSL_CA_PATH ?? '').trim();
+  if (sslCaPath) {
+    return {
+      ca: fs.readFileSync(sslCaPath, 'utf8'),
+      rejectUnauthorized: true,
+    };
+  }
+
+  return { rejectUnauthorized: false };
+}
+
 function parseConnectionTimeoutMillis(): number {
   const raw = (process.env.DB_CONNECTION_TIMEOUT_MS ?? '').trim();
   if (!raw) return 5000;
@@ -62,12 +78,11 @@ function parseDatabaseUrl(urlString: string): {
  */
 export function loadDatabaseConfig(): pg.PoolConfig {
   const connectionTimeoutMillis = parseConnectionTimeoutMillis();
+  const ssl = resolveSslConfig();
 
   if (process.env.DATABASE_URL) {
     const databaseUrlRaw = process.env.DATABASE_URL;
     const parsed = parseDatabaseUrl(databaseUrlRaw);
-    const sslEnabled = process.env.DB_SSL === 'true';
-    const sslCaPath = process.env.DB_SSL_CA_PATH || process.env.PGSSLROOTCERT;
 
     // `pg` reads the `DATABASE_URL` environment variable implicitly, even when
     // passing a config object without `connectionString`.
@@ -92,11 +107,7 @@ export function loadDatabaseConfig(): pg.PoolConfig {
       ...(parsed.database ? { database: parsed.database } : {}),
       ...(parsed.user ? { user: parsed.user } : {}),
       ...(parsed.password ? { password: parsed.password } : {}),
-      ssl: sslEnabled
-        ? sslCaPath
-          ? { ca: fs.readFileSync(sslCaPath, 'utf8'), rejectUnauthorized: true }
-          : { rejectUnauthorized: false }
-        : undefined,
+      ssl,
       max: parseInt(process.env.DB_POOL_MAX || '20', 10),
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis,
@@ -112,20 +123,13 @@ export function loadDatabaseConfig(): pg.PoolConfig {
     );
   }
 
-  const sslEnabled = process.env.DB_SSL === 'true';
-  const sslCaPath = process.env.DB_SSL_CA_PATH || process.env.PGSSLROOTCERT;
-
   return {
     host: process.env.DB_HOST!.trim(),
     port: parseInt(process.env.DB_PORT || '5432', 10),
     database: process.env.DB_NAME || 'club_operations',
     user: process.env.DB_USER || 'clubops',
     password: process.env.DB_PASSWORD || 'clubops_dev',
-    ssl: sslEnabled
-      ? sslCaPath
-      ? { ca: fs.readFileSync(sslCaPath, 'utf8'), rejectUnauthorized: true }
-      : { rejectUnauthorized: false }
-    : undefined,
+    ssl,
     max: parseInt(process.env.DB_POOL_MAX || '20', 10),
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis,

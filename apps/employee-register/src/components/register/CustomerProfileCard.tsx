@@ -174,18 +174,6 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
         <Detail label="Last Visit (MM/YY)" value={formatMmYyFromTimestamp(props.lastVisitAt)} />
       </div>
 
-      <div style={{ marginTop: '0.6rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-        <input
-          type="checkbox"
-          checked={Boolean(props.hasEncryptedLookupMarker)}
-          readOnly
-          aria-label="Encrypted Lookup Marker"
-        />
-        <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-          Encrypted Lookup Marker (DL hash)
-        </div>
-      </div>
-
       {props.waitlistDesiredTier && props.waitlistBackupType ? (
         <div
           className={compact ? undefined : 'cs-liquid-card'}

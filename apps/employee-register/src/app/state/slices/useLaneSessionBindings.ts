@@ -15,7 +15,10 @@ export function useLaneSessionBindings() {
     agreementSignedMethod,
     customerSelectedType,
     waitlistDesiredTier,
+    waitlistDesiredTypes,
     waitlistBackupType,
+    waitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
     proposedRentalType,
     proposedBy,
     selectionConfirmed,
@@ -78,6 +81,20 @@ export function useLaneSessionBindings() {
   );
   const setWaitlistBackupType = useCallback(
     (value: string | null) => laneSessionActions.patch({ waitlistBackupType: value }),
+    [laneSessionActions]
+  );
+  const setWaitlistDesiredTypes = useCallback(
+    (value: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>) =>
+      laneSessionActions.patch({ waitlistDesiredTypes: value }),
+    [laneSessionActions]
+  );
+  const setWaitlistRequestedResourceNumber = useCallback(
+    (value: string | null) => laneSessionActions.patch({ waitlistRequestedResourceNumber: value }),
+    [laneSessionActions]
+  );
+  const setWaitlistRequestedResourceType = useCallback(
+    (value: 'room' | 'locker' | null) =>
+      laneSessionActions.patch({ waitlistRequestedResourceType: value }),
     [laneSessionActions]
   );
   const setSelectionConfirmed = useCallback(
@@ -156,7 +173,10 @@ export function useLaneSessionBindings() {
     agreementSignedMethod,
     customerSelectedType,
     waitlistDesiredTier,
+    waitlistDesiredTypes,
     waitlistBackupType,
+    waitlistRequestedResourceNumber,
+    waitlistRequestedResourceType,
     proposedRentalType,
     proposedBy,
     selectionConfirmed,
@@ -194,7 +214,10 @@ export function useLaneSessionBindings() {
     setAgreementSigned,
     setCustomerSelectedType,
     setWaitlistDesiredTier,
+    setWaitlistDesiredTypes,
     setWaitlistBackupType,
+    setWaitlistRequestedResourceNumber,
+    setWaitlistRequestedResourceType,
     setSelectionConfirmed,
     setPaymentIntentId,
     setPaymentQuote,

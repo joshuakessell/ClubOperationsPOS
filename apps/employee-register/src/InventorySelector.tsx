@@ -353,35 +353,41 @@ export function InventorySelector({
           style={{
             display: 'grid',
             gridTemplateColumns: 'minmax(140px, 40%) minmax(0, 1fr)',
+            gridTemplateRows: 'minmax(0, 1fr)',
+            alignItems: 'stretch',
             gap: '1.5rem',
             flex: 1,
             minHeight: 0,
             overflow: 'hidden',
           }}
         >
-          <InventoryNav
-            activeSection={activeSection}
-            navCounts={navCounts}
-            onSectionSelect={setActiveSection}
-            effectiveFilterQuery={effectiveFilterQuery}
-            onFilterQueryChange={setLocalFilterQuery}
-            filterQueryLocked={filterQuery !== undefined}
-          />
+          <div style={{ minHeight: 0, overflow: 'auto' }}>
+            <InventoryNav
+              activeSection={activeSection}
+              navCounts={navCounts}
+              onSectionSelect={setActiveSection}
+              effectiveFilterQuery={effectiveFilterQuery}
+              onFilterQueryChange={setLocalFilterQuery}
+              filterQueryLocked={filterQuery !== undefined}
+            />
+          </div>
 
-          <InventoryListPane
-            activeSection={activeSection}
-            roomsByTier={roomsByTier}
-            lockers={filteredLockers}
-            onSelectRoom={handleRoomClick}
-            onSelectLocker={handleLockerClick}
-            selectedItem={selectedItem}
-            waitlistEntries={waitlistEntries}
-            nowMs={nowMs}
-            disableSelection={disableSelection}
-            occupancyLookupMode={occupancyLookupMode}
-            searchHighlight={searchHighlight}
-            onOpenCustomerAccount={onOpenCustomerAccount}
-          />
+          <div style={{ minHeight: 0, overflow: 'hidden' }}>
+            <InventoryListPane
+              activeSection={activeSection}
+              roomsByTier={roomsByTier}
+              lockers={filteredLockers}
+              onSelectRoom={handleRoomClick}
+              onSelectLocker={handleLockerClick}
+              selectedItem={selectedItem}
+              waitlistEntries={waitlistEntries}
+              nowMs={nowMs}
+              disableSelection={disableSelection}
+              occupancyLookupMode={occupancyLookupMode}
+              searchHighlight={searchHighlight}
+              onOpenCustomerAccount={onOpenCustomerAccount}
+            />
+          </div>
         </div>
       </div>
 

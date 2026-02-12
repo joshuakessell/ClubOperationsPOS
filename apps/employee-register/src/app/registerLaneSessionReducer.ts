@@ -37,7 +37,10 @@ export type RegisterLaneSessionState = {
 
   customerSelectedType: string | null;
   waitlistDesiredTier: string | null;
+  waitlistDesiredTypes: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
   waitlistBackupType: string | null;
+  waitlistRequestedResourceNumber: string | null;
+  waitlistRequestedResourceType: 'room' | 'locker' | null;
 
   customerPrimaryLanguage: 'EN' | 'ES' | undefined;
   customerDob: string | null;
@@ -90,7 +93,10 @@ export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
 
   customerSelectedType: null,
   waitlistDesiredTier: null,
+  waitlistDesiredTypes: [],
   waitlistBackupType: null,
+  waitlistRequestedResourceNumber: null,
+  waitlistRequestedResourceType: null,
 
   customerPrimaryLanguage: undefined,
   customerDob: null,
@@ -145,6 +151,9 @@ type RegisterLaneSessionAction =
 type SessionUpdatedPayloadExtras = SessionUpdatedPayload & {
   selectionAcknowledged?: boolean;
   customerSelectedType?: string | null;
+  waitlistDesiredTypes?: string[];
+  waitlistRequestedResourceNumber?: string;
+  waitlistRequestedResourceType?: 'room' | 'locker';
 };
 
 export function registerLaneSessionReducer(
@@ -243,8 +252,22 @@ export function registerLaneSessionReducer(
       if (hasKey('waitlistDesiredType')) {
         next.waitlistDesiredTier = p.waitlistDesiredType ?? null;
       }
+      if (hasKey('waitlistDesiredTypes')) {
+        next.waitlistDesiredTypes = Array.isArray(p.waitlistDesiredTypes)
+          ? p.waitlistDesiredTypes.filter(
+              (value): value is 'STANDARD' | 'DOUBLE' | 'SPECIAL' =>
+                value === 'STANDARD' || value === 'DOUBLE' || value === 'SPECIAL'
+            )
+          : [];
+      }
       if (hasKey('backupRentalType')) {
         next.waitlistBackupType = p.backupRentalType ?? null;
+      }
+      if (hasKey('waitlistRequestedResourceNumber')) {
+        next.waitlistRequestedResourceNumber = p.waitlistRequestedResourceNumber ?? null;
+      }
+      if (hasKey('waitlistRequestedResourceType')) {
+        next.waitlistRequestedResourceType = p.waitlistRequestedResourceType ?? null;
       }
 
       if (hasKey('membershipChoice')) next.membershipChoice = p.membershipChoice ?? null;

@@ -315,12 +315,19 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
   /**
    * POST /v1/checkin/lane/:laneId/waitlist-desired
    *
-   * Record the desired (unavailable) rental type for waitlist flow without proposing a selection.
+   * Record waitlist draft state (desired types / specific request / backup) without confirming selection.
    * Public endpoint (kiosk token required).
    */
   fastify.post<{
     Params: { laneId: string };
-    Body: { waitlistDesiredType: string | null; sessionId?: string };
+    Body: {
+      waitlistDesiredType: string | null;
+      waitlistDesiredTypes?: string[];
+      waitlistRequestedResourceNumber?: string | null;
+      waitlistRequestedResourceType?: 'room' | 'locker' | null;
+      backupRentalType?: string | null;
+      sessionId?: string;
+    };
   }>(
     '/v1/checkin/lane/:laneId/waitlist-desired',
     {
@@ -328,7 +335,14 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
     },
     async (request, reply) => {
       const { laneId } = request.params;
-      const { waitlistDesiredType, sessionId } = request.body || {};
+      const {
+        waitlistDesiredType,
+        waitlistDesiredTypes,
+        waitlistRequestedResourceNumber,
+        waitlistRequestedResourceType,
+        backupRentalType,
+        sessionId,
+      } = request.body || {};
       const hasDesiredType =
         request.body && Object.prototype.hasOwnProperty.call(request.body, 'waitlistDesiredType');
       if (!hasDesiredType) {
@@ -362,17 +376,42 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
             (typeof waitlistDesiredType === 'string' && !waitlistDesiredType.trim())
               ? null
               : waitlistDesiredType;
+          const normalizedDesiredTypes = normalizeDesiredTypes(waitlistDesiredTypes);
+          const effectiveDesiredTypes =
+            normalizedDesiredTypes.length > 0
+              ? normalizedDesiredTypes
+              : desired
+                ? [desired]
+                : [];
+          const normalizedDesiredType = desired ?? effectiveDesiredTypes[0] ?? null;
+          const normalizedRequestedNumber =
+            waitlistRequestedResourceNumber && waitlistRequestedResourceNumber.trim()
+              ? waitlistRequestedResourceNumber.trim()
+              : null;
+          const normalizedRequestedType =
+            waitlistRequestedResourceType === 'room' || waitlistRequestedResourceType === 'locker'
+              ? waitlistRequestedResourceType
+              : null;
+          const normalizedBackupRentalType =
+            backupRentalType && backupRentalType.trim() ? backupRentalType.trim() : null;
 
           await client.query(
             `UPDATE lane_sessions
              SET waitlist_desired_type = $1,
-                 waitlist_desired_types_json = CASE WHEN $1 IS NULL THEN NULL ELSE jsonb_build_array($1) END,
-                 backup_rental_type = NULL,
-                 waitlist_requested_resource_number = NULL,
-                 waitlist_requested_resource_type = NULL,
+                 waitlist_desired_types_json = $2,
+                 backup_rental_type = $3,
+                 waitlist_requested_resource_number = $4,
+                 waitlist_requested_resource_type = $5,
                  updated_at = NOW()
-             WHERE id = $2`,
-            [desired, session.id]
+             WHERE id = $6`,
+            [
+              normalizedDesiredType,
+              effectiveDesiredTypes.length > 0 ? JSON.stringify(effectiveDesiredTypes) : null,
+              normalizedBackupRentalType,
+              normalizedRequestedNumber,
+              normalizedRequestedType,
+              session.id,
+            ]
           );
 
           return { sessionId: session.id, laneId: session.lane_id || laneId };

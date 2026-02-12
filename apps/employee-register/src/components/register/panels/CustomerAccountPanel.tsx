@@ -6,6 +6,7 @@ import { PanelHeader } from '../../../views/PanelHeader';
 import { PanelShell } from '../../../views/PanelShell';
 import { ActiveVisitSummary } from './ActiveVisitSummary';
 import type { ActiveCheckinDetails } from '../modals/AlreadyCheckedInModal';
+import type { WaitlistUnavailableOptions } from '../employee-assist/types';
 type CustomerProfile = Pick<
   CustomerProfileCardProps,
   | 'name'
@@ -57,8 +58,12 @@ export function CustomerAccountPanel(props: {
   customerIdTypeOther: string | null;
   hasEncryptedLookupMarker: boolean;
   waitlistDesiredTier: string | null;
+  waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
   waitlistBackupType: string | null;
+  waitlistRequestedResourceNumber?: string | null;
+  waitlistRequestedResourceType?: 'room' | 'locker' | null;
   inventoryAvailable: null | { rooms: Record<string, number>; lockers: number };
+  waitlistUnavailableOptions?: WaitlistUnavailableOptions;
   isSubmitting: boolean;
   checkinStage: CheckinStage | null;
   sessionMode?: 'CHECKIN' | 'RENEWAL';
@@ -92,7 +97,14 @@ export function CustomerAccountPanel(props: {
   onHighlightRental: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onSelectRentalAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
   onHighlightWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL' | null) => void;
-  onSelectWaitlistBackupAsCustomer: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') => void;
+  onSelectWaitlistBackupAsCustomer: (
+    rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL',
+    options?: {
+      waitlistDesiredTypes?: Array<'STANDARD' | 'DOUBLE' | 'SPECIAL'>;
+      waitlistRequestedResourceNumber?: string | null;
+      waitlistRequestedResourceType?: 'room' | 'locker' | null;
+    }
+  ) => void;
   onApproveRental: () => void;
 }) {
   const { state, retry, start, hasAttemptedStart } = useStartLaneCheckinForCustomerIfNotVisiting({
@@ -142,15 +154,6 @@ export function CustomerAccountPanel(props: {
       footer={footer ?? undefined}
     />
   );
-  const clearSessionButton = props.checkinStage ? (
-    <button
-      type="button"
-      className="cs-liquid-button cs-liquid-button--danger er-header-action-btn"
-      onClick={props.onClearSession}
-    >
-      Clear Session
-    </button>
-  ) : null;
   const beginCheckinButton = (
     <button
       type="button"
@@ -162,15 +165,11 @@ export function CustomerAccountPanel(props: {
       {manualStartPending ? 'Starting Check-in…' : 'Start Checkin'}
     </button>
   );
-  const headerAction = hasActiveSession
-    ? clearSessionButton
-    : props.customerLabel
-      ? (
-          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-            {props.customerLabel}
-          </div>
-        )
-      : null;
+  const headerAction = props.customerLabel ? (
+    <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
+      {props.customerLabel}
+    </div>
+  ) : null;
   return (
     <PanelShell align="top" scroll="hidden">
       <PanelHeader title="Customer Account" spacing="none" action={headerAction} />
@@ -269,8 +268,12 @@ export function CustomerAccountPanel(props: {
                 proposedBy={props.proposedBy}
                 selectionConfirmed={props.selectionConfirmed}
                 waitlistDesiredTier={props.waitlistDesiredTier}
+                waitlistDesiredTypes={props.waitlistDesiredTypes}
                 waitlistBackupType={props.waitlistBackupType}
+                waitlistRequestedResourceNumber={props.waitlistRequestedResourceNumber}
+                waitlistRequestedResourceType={props.waitlistRequestedResourceType}
                 inventoryAvailable={props.inventoryAvailable}
+                waitlistUnavailableOptions={props.waitlistUnavailableOptions}
                 isSubmitting={props.isSubmitting}
                 directSelect={props.directSelect}
                 onHighlightLanguage={props.onHighlightLanguage}
@@ -283,6 +286,7 @@ export function CustomerAccountPanel(props: {
                 onDirectSelectRental={props.onDirectSelectRental}
                 onHighlightWaitlistBackup={props.onHighlightWaitlistBackup}
                 onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
+                onClearSession={props.onClearSession}
                 onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
                 onApproveRental={props.onApproveRental}
               />

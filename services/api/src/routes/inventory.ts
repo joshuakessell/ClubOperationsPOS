@@ -141,7 +141,7 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
    * GET /v1/inventory/unavailable-options
    *
    * Returns currently unavailable room/locker numbers for waitlist-specific selection.
-   * Includes OCCUPIED, DIRTY, and CLEANING resources; excludes OUT_OF_SERVICE.
+   * Includes OCCUPIED, DIRTY, CLEANING, and assigned CLEAN resources; excludes OUT_OF_SERVICE.
    * Public for kiosk/staff via kiosk token or staff auth.
    */
   fastify.get(
@@ -158,7 +158,10 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
           `SELECT number, status
            FROM rooms
            WHERE type != 'LOCKER'
-             AND status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
+             AND (
+               status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
+               OR assigned_to_customer_id IS NOT NULL
+             )
              AND status != 'OUT_OF_SERVICE'
            ORDER BY number`
         );
@@ -169,7 +172,10 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
         }>(
           `SELECT number, status
            FROM lockers
-           WHERE status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
+           WHERE (
+             status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
+             OR assigned_to_customer_id IS NOT NULL
+           )
              AND status != 'OUT_OF_SERVICE'
            ORDER BY number`
         );
