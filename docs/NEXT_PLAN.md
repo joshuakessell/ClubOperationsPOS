@@ -49,7 +49,7 @@ Legend:
 - [ ] Route `selection` endpoints through command engine (propose/force/lock)
 - [ ] Route waitlist preference + backup endpoints through command engine
 - [x] Route payment-intent creation/updates through command engine (step bump + audit)
-- [ ] Route agreement signing/bypass through command engine
+- [x] Route agreement signing/bypass through command engine (step bump + audit)
 - [ ] Route back/cancel actions from both apps through command engine
   - [x] customer-kiosk (behind `VITE_FLOW_COMMANDS`)
   - [x] employee-register (behind `VITE_FLOW_COMMANDS`)
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 29
-- Remaining checklist items: 43
+- Completed checklist items: 30
+- Remaining checklist items: 42
