@@ -206,4 +206,133 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
       }
     }
   );
+
+  /**
+   * GET /v1/admin/customers/:customerId/agreements
+   *
+   * Admin-only: return per-visit agreement artifacts and PDF availability.
+   * This is the management-friendly shape for viewing agreements by visit.
+   */
+  fastify.get<{ Params: { customerId: string }; Querystring: { limit?: string } }>(
+    '/v1/admin/customers/:customerId/agreements',
+    {
+      preHandler: [requireAuth, requireAdmin],
+    },
+    async (request, reply) => {
+      const { customerId } = request.params;
+      const limit = Math.min(Math.max(parseInt(request.query.limit || '25', 10) || 25, 1), 100);
+
+      try {
+        const visitsResult = await query<{
+          id: string;
+          started_at: Date;
+          ended_at: Date | null;
+        }>(
+          `SELECT id, started_at, ended_at
+           FROM visits
+           WHERE customer_id = $1
+           ORDER BY started_at DESC
+           LIMIT $2`,
+          [customerId, limit]
+        );
+
+        if (visitsResult.rows.length === 0) {
+          return reply.send({ visits: [] });
+        }
+
+        const visitIds = visitsResult.rows.map((v) => v.id);
+        const blocksResult = await query<{
+          id: string;
+          visit_id: string;
+          block_type: string;
+          starts_at: Date;
+          ends_at: Date;
+          rental_type: string;
+          room_number: string | null;
+          locker_number: string | null;
+          agreement_signed: boolean;
+          agreement_signed_at: Date | null;
+          has_pdf: boolean;
+          signature_png_base64: string | null;
+          signature_strokes_json: unknown;
+          signature_created_at: Date | null;
+          agreement_version: string | null;
+          agreement_text_snapshot: string | null;
+        }>(
+          `
+          SELECT
+            cb.id,
+            cb.visit_id,
+            cb.block_type::text as block_type,
+            cb.starts_at,
+            cb.ends_at,
+            cb.rental_type::text as rental_type,
+            r.number as room_number,
+            l.number as locker_number,
+            cb.agreement_signed,
+            cb.agreement_signed_at,
+            (cb.agreement_pdf IS NOT NULL) as has_pdf,
+            sig.signature_png_base64,
+            sig.signature_strokes_json,
+            sig.created_at as signature_created_at,
+            sig.agreement_version,
+            sig.agreement_text_snapshot
+          FROM checkin_blocks cb
+          LEFT JOIN rooms r ON r.id = cb.room_id
+          LEFT JOIN lockers l ON l.id = cb.locker_id
+          LEFT JOIN LATERAL (
+            SELECT signature_png_base64, signature_strokes_json, created_at, agreement_version, agreement_text_snapshot
+            FROM agreement_signatures
+            WHERE checkin_block_id = cb.id
+            ORDER BY created_at DESC
+            LIMIT 1
+          ) sig ON TRUE
+          WHERE cb.visit_id = ANY($1::uuid[])
+          ORDER BY cb.starts_at DESC, cb.id DESC
+          `,
+          [visitIds]
+        );
+
+        const blocksByVisit = new Map<string, typeof blocksResult.rows>();
+        for (const b of blocksResult.rows) {
+          const arr = blocksByVisit.get(b.visit_id) ?? [];
+          arr.push(b);
+          blocksByVisit.set(b.visit_id, arr);
+        }
+
+        const visits = visitsResult.rows.map((v) => {
+          const blocks = blocksByVisit.get(v.id) ?? [];
+          return {
+            visitId: v.id,
+            visitStartedAt: v.started_at.toISOString(),
+            visitEndedAt: v.ended_at ? v.ended_at.toISOString() : null,
+            checkinBlocks: blocks.map((b) => {
+              const hasSignature = Boolean(b.signature_png_base64) || Boolean(b.signature_strokes_json);
+              return {
+                checkinBlockId: b.id,
+                blockType: b.block_type,
+                startsAt: b.starts_at.toISOString(),
+                endsAt: b.ends_at.toISOString(),
+                rentalType: b.rental_type,
+                roomNumber: b.room_number,
+                lockerNumber: b.locker_number,
+                agreementSigned: b.agreement_signed,
+                agreementSignedAt: b.agreement_signed_at ? b.agreement_signed_at.toISOString() : null,
+                hasPdf: b.has_pdf,
+                hasSignature,
+                signatureCreatedAt: b.signature_created_at ? b.signature_created_at.toISOString() : null,
+                agreementVersion: b.agreement_version,
+                agreementTitle: null,
+              };
+            }),
+          };
+        });
+
+        return reply.send({ visits });
+      } catch (error) {
+        request.log.error(error, 'Failed to fetch customer agreements');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
 }

@@ -12,6 +12,7 @@ import { StartLaneSessionBodySchema } from '../../checkin/schemas';
 import type { CustomerRow, LaneSessionRow } from '../../checkin/types';
 import { toDate } from '../../checkin/utils';
 import { transaction } from '../../db';
+import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
 
 export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void {
   /**
@@ -452,6 +453,7 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
 
           return {
             sessionId: session.id,
+            customerId,
             customerName: session.customer_display_name,
             membershipNumber: session.membership_number,
             allowedRentals,
@@ -469,6 +471,43 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
             idScanIssue,
           };
         });
+
+        if (result.sessionId && result.customerId) {
+          // Best-effort customer activity log (non-blocking; but within success path).
+          await transaction(async (client) => {
+            const event = await insertCustomerActivityEvent(client, {
+              customerId: result.customerId,
+              actionType: 'CHECKIN_STARTED',
+              actionCategory: 'CHECKIN',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staffId,
+              actorStaffName: request.staff!.name,
+              summary: 'Check-in started',
+              metadata: {
+                laneId,
+                laneSessionId: result.sessionId,
+                mode: result.mode,
+                visitId: result.visitId ?? null,
+              },
+              dedupeKey: `ACT:CHECKIN_STARTED:${result.sessionId}`,
+              searchParts: [result.sessionId, result.visitId ?? ''],
+            });
+
+            request.log.info(
+              {
+                customerActivityEventId: event.id,
+                customerId: result.customerId,
+                actionType: 'CHECKIN_STARTED',
+                actionCategory: 'CHECKIN',
+                sourceApp: 'EMPLOYEE_REGISTER',
+                actorType: 'STAFF',
+                actorStaffId: staffId,
+              },
+              'customer_activity_event'
+            );
+          });
+        }
 
         // Broadcast full session update (stable payload)
         const { payload } = await transaction((client) =>

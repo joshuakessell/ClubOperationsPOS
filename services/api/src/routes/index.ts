@@ -6,6 +6,7 @@ export { healthRoutes } from './health';
 export { authRoutes } from './auth';
 export { webauthnRoutes } from './webauthn';
 export { customerRoutes } from './customers';
+export { customerSpendLedgerRoutes } from './customer-spend-ledger';
 export { inventoryRoutes } from './inventory';
 export { roomsRoutes } from './rooms';
 export { keysRoutes } from './keys';

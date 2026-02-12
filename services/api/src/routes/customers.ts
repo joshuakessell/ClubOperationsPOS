@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { query } from '../db';
+import { query, transaction } from '../db';
 import { requireAuth } from '../auth/middleware';
 import crypto from 'crypto';
 import {
@@ -8,6 +8,7 @@ import {
   getIdScanIssue,
   getIdScanIssueMessage,
 } from '../checkin/identity';
+import { insertCustomerActivityEvent } from '../activity/customerActivityLog';
 
 const SearchQuerySchema = z.object({
   q: z.string().min(3),
@@ -88,6 +89,40 @@ function toDobMonthDay(value: string | Date | null | undefined): string | null {
     return `${mm}/${dd}`;
   }
   return null;
+}
+
+const CustomerNotesListSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).optional().default(25),
+  cursor: z.string().optional(),
+});
+
+const CreateCustomerNoteSchema = z.object({
+  note: z.string().min(1),
+  isImportant: z.boolean().optional(),
+  sourceApp: z.enum(['EMPLOYEE_REGISTER', 'OFFICE_DASHBOARD']).optional(),
+});
+
+type NotesCursor = { createdAt: string; id: string };
+
+function parseNotesCursor(raw: string | undefined): { createdAt: Date; id: string } | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(raw, 'base64').toString('utf8')) as NotesCursor;
+    if (!parsed || typeof parsed !== 'object') return null;
+    if (typeof parsed.createdAt !== 'string' || typeof parsed.id !== 'string') return null;
+    const d = new Date(parsed.createdAt);
+    if (!Number.isFinite(d.getTime())) return null;
+    return { createdAt: d, id: parsed.id };
+  } catch {
+    return null;
+  }
+}
+
+function buildNotesCursor(value: { createdAt: Date; id: string }): string {
+  return Buffer.from(
+    JSON.stringify({ createdAt: value.createdAt.toISOString(), id: value.id }),
+    'utf8'
+  ).toString('base64');
 }
 
 type NormalizedNameParts = {
@@ -230,6 +265,180 @@ export async function customerRoutes(fastify: FastifyInstance): Promise<void> {
         return reply.send({ suggestions });
       } catch (error) {
         request.log.error(error, 'Failed to search customers');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * GET /v1/customers/:customerId/notes
+   *
+   * Structured customer notes (staff-auth), newest first.
+   */
+  fastify.get<{
+    Params: { customerId: string };
+    Querystring: z.infer<typeof CustomerNotesListSchema>;
+  }>(
+    '/v1/customers/:customerId/notes',
+    { preHandler: [requireAuth] },
+    async (request, reply) => {
+      if (!request.staff) return reply.status(401).send({ error: 'Unauthorized' });
+
+      let parsed: z.infer<typeof CustomerNotesListSchema>;
+      try {
+        parsed = CustomerNotesListSchema.parse(request.query);
+      } catch (error) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+        });
+      }
+
+      const cursor = parseNotesCursor(parsed.cursor);
+
+      try {
+        const rows = await query<{
+          id: string;
+          customer_id: string;
+          created_at: Date;
+          created_by_staff_id: string | null;
+          created_by_staff_name: string;
+          source_app: string;
+          note: string;
+          is_important: boolean;
+        }>(
+          `
+          SELECT id, customer_id, created_at, created_by_staff_id, created_by_staff_name, source_app, note, is_important
+          FROM customer_notes
+          WHERE customer_id = $1
+            AND deleted_at IS NULL
+            AND (
+              $2::timestamptz IS NULL
+              OR (created_at < $2 OR (created_at = $2 AND id < $3::uuid))
+            )
+          ORDER BY created_at DESC, id DESC
+          LIMIT $4
+          `,
+          [
+            request.params.customerId,
+            cursor?.createdAt ?? null,
+            cursor?.id ?? '00000000-0000-0000-0000-000000000000',
+            parsed.limit,
+          ]
+        );
+
+        const notes = rows.rows.map((r) => ({
+          id: r.id,
+          customerId: r.customer_id,
+          createdAt: r.created_at.toISOString(),
+          createdByStaffId: r.created_by_staff_id,
+          createdByStaffName: r.created_by_staff_name,
+          sourceApp: r.source_app,
+          note: r.note,
+          isImportant: r.is_important,
+          cursor: buildNotesCursor({ createdAt: r.created_at, id: r.id }),
+        }));
+
+        const nextCursor = notes.length === parsed.limit ? notes[notes.length - 1]!.cursor : null;
+        return reply.send({ notes, nextCursor });
+      } catch (error) {
+        request.log.error(error, 'Failed to fetch customer notes');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
+
+  /**
+   * POST /v1/customers/:customerId/notes
+   *
+   * Add a structured note for the customer.
+   */
+  fastify.post<{
+    Params: { customerId: string };
+    Body: z.infer<typeof CreateCustomerNoteSchema>;
+  }>(
+    '/v1/customers/:customerId/notes',
+    { preHandler: [requireAuth] },
+    async (request, reply) => {
+      if (!request.staff) return reply.status(401).send({ error: 'Unauthorized' });
+
+      let parsed: z.infer<typeof CreateCustomerNoteSchema>;
+      try {
+        parsed = CreateCustomerNoteSchema.parse(request.body);
+      } catch (error) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+        });
+      }
+
+      const noteText = parsed.note.trim();
+      if (!noteText) return reply.status(400).send({ error: 'note is required' });
+
+      try {
+        const created = await transaction(async (client) => {
+          const inserted = await client.query<{
+            id: string;
+            created_at: Date;
+          }>(
+            `
+            INSERT INTO customer_notes
+              (customer_id, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
+            VALUES
+              ($1::uuid, $2::uuid, $3, $4, $5, $6)
+            RETURNING id, created_at
+            `,
+            [
+              request.params.customerId,
+              request.staff!.staffId,
+              request.staff!.name,
+              parsed.sourceApp ?? 'EMPLOYEE_REGISTER',
+              noteText,
+              parsed.isImportant ?? false,
+            ]
+          );
+
+          const row = inserted.rows[0]!;
+
+          const preview = noteText.length > 80 ? `${noteText.slice(0, 77)}…` : noteText;
+          const event = await insertCustomerActivityEvent(client, {
+            customerId: request.params.customerId,
+            actionType: 'NOTE_ADDED',
+            actionCategory: 'NOTE',
+            sourceApp: parsed.sourceApp ?? 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: request.staff!.staffId,
+            actorStaffName: request.staff!.name,
+            summary: `Note added: ${preview}`,
+            metadata: {
+              noteId: row.id,
+              isImportant: parsed.isImportant ?? false,
+            },
+            dedupeKey: null,
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId: request.params.customerId,
+              actionType: 'NOTE_ADDED',
+              actionCategory: 'NOTE',
+              sourceApp: parsed.sourceApp ?? 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: request.staff!.staffId,
+            },
+            'customer_activity_event'
+          );
+
+          return row;
+        });
+
+        return reply.send({
+          id: created.id,
+          createdAt: created.created_at.toISOString(),
+        });
+      } catch (error) {
+        request.log.error(error, 'Failed to create customer note');
         return reply.status(500).send({ error: 'Internal server error' });
       }
     }
