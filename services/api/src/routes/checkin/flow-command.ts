@@ -7,6 +7,7 @@ import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import { transaction } from '../../db';
 import { assertCustomerLanguageSelected } from '../../checkin/session';
 import { getLaneFeatureFlags } from '../../checkin/laneFeatureFlags';
+import { assertLaneWriteAuthority } from '../../checkin/laneAuthority';
 import { writeOfflineOutboxRecord } from '../../checkin/offlineOutbox';
 
 type FlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
@@ -345,6 +346,11 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
         const result = await transaction(async (client) => {
           if (!(await isFlowCommandsEnabled({ client, laneId }))) {
             throw { statusCode: 404, message: 'Not Found' };
+          }
+
+          const authority = await assertLaneWriteAuthority({ client, laneId });
+          if (!authority.allowed) {
+            throw { statusCode: 409, error: 'LaneNotAuthoritative', message: authority.reason };
           }
 
           const lanMode = await isLanFallbackEnabledForLane({ client, laneId });

@@ -46,6 +46,8 @@ services:
 
       # Feature flags
       LAN_FALLBACK: "true"
+      EDGE_STACK: "true"
+      LAN_AUTHORITATIVE: ${EDGE_LAN_AUTHORITATIVE:-true}
       FLOW_COMMANDS: ${EDGE_FLOW_COMMANDS:-true}
       LOCKSTEP_V2: ${EDGE_LOCKSTEP_V2:-true}
 

@@ -22,8 +22,17 @@ This document lists non-secret environment variables used as feature flags.
   - When enabled, the API will dual-publish lane-scoped realtime events to both AppSync and connected
     LAN websocket clients.
 
+- `LAN_AUTHORITATIVE` (default: `false`)
+  - Enforces “edge is authoritative” behavior when LAN fallback is active.
+  - Intended for edge/LAN deployments where the edge API should reject non-authoritative writes.
+  - Can be overridden per lane via `lane_feature_flags.lan_authoritative_enabled`.
+
+- `EDGE_STACK` (default: `false`)
+  - Identifies that this API instance is running as the on-prem edge stack.
+  - Used with `LAN_AUTHORITATIVE=true` to decide whether writes should be accepted.
+
 - Per-lane overrides (table: `lane_feature_flags`)
-  - `lockstep_v2_enabled`, `flow_commands_enabled`, `lan_fallback_enabled`
+  - `lockstep_v2_enabled`, `flow_commands_enabled`, `lan_fallback_enabled`, `lan_authoritative_enabled`
   - When set (non-null), these override the corresponding global env flags for that lane.
 
 ## Frontend
@@ -36,8 +45,8 @@ This document lists non-secret environment variables used as feature flags.
   - When `1`, enables sending step-navigation flow commands (`BACK_STEP` / `CANCEL_STEP`) from the apps.
   - Requires API `FLOW_COMMANDS=true`.
 
-- `VITE_REALTIME_TRANSPORTS` (default: `0`)
-  - Enables the experimental realtime transport abstraction in `@club-ops/shared/realtime/useLaneSession`.
+- `VITE_REALTIME_TRANSPORTS` (default: `1`)
+  - Enables the realtime transport abstraction in `@club-ops/shared/realtime/useLaneSession`.
   - When `0`, the apps use the legacy in-hook AppSync websocket implementation.
 
 - `VITE_LAN_REALTIME_WS_URL` (default: unset)

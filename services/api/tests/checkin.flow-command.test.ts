@@ -24,6 +24,9 @@ describe('Check-in Flow Commands', () => {
   beforeAll(async () => {
     process.env.KIOSK_TOKEN = TEST_KIOSK_TOKEN;
     process.env.FLOW_COMMANDS = 'true';
+    process.env.LAN_FALLBACK = 'false';
+    process.env.LAN_AUTHORITATIVE = 'false';
+    process.env.EDGE_STACK = 'false';
 
     try {
       await initializeDatabase();
@@ -74,6 +77,44 @@ describe('Check-in Flow Commands', () => {
        RETURNING id`
     );
     await query(`UPDATE lane_sessions SET customer_id = $1 WHERE id = $2`, [customer.rows[0]!.id, sessionId]);
+  });
+
+  it('rejects cloud writes when lane is LAN-authoritative', async () => {
+    if (!dbAvailable) return;
+
+    process.env.LAN_FALLBACK = 'true';
+    process.env.LAN_AUTHORITATIVE = 'true';
+    process.env.EDGE_STACK = 'false';
+
+    await query(
+      `INSERT INTO lane_feature_flags (lane_id, flow_commands_enabled, lan_fallback_enabled, lan_authoritative_enabled)
+       VALUES ($1, true, true, true)
+       ON CONFLICT (lane_id)
+       DO UPDATE SET
+         flow_commands_enabled = EXCLUDED.flow_commands_enabled,
+         lan_fallback_enabled = EXCLUDED.lan_fallback_enabled,
+         lan_authoritative_enabled = EXCLUDED.lan_authoritative_enabled`,
+      [laneId]
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '33333333-3333-3333-3333-333333333333',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'SET_STEP',
+        payload: { step: 'LANGUAGE' },
+      },
+    });
+
+    expect(response.statusCode).toBe(409);
+    const json = response.json() as any;
+    expect(json.applied).toBe(false);
+    expect(json.error).toBe('LaneNotAuthoritative');
   });
 
   it('dedupes repeated commandId for same session', async () => {

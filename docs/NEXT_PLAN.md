@@ -67,7 +67,7 @@ Legend:
 - [x] Add edge docker-compose stack (API + Postgres + LAN websocket)
 - [x] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud)
 - [x] Define offline auth behavior (kiosk token, staff tokens)
-- [ ] Add local “lane ownership” / authority rules
+- [x] Add local “lane ownership” / authority rules
 
 ### Local lane ownership / authority (proposal)
 
@@ -150,7 +150,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 60
-- Completed checklist items: 62
-- Completed checklist items: 65
-- Remaining checklist items: 7
+- Completed checklist items: 66
+- Remaining checklist items: 6

@@ -6,6 +6,7 @@ CREATE TABLE IF NOT EXISTS public.lane_feature_flags (
     lockstep_v2_enabled boolean,
     flow_commands_enabled boolean,
     lan_fallback_enabled boolean,
+    lan_authoritative_enabled boolean,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     CONSTRAINT lane_feature_flags_pkey PRIMARY KEY (lane_id)
@@ -13,4 +14,3 @@ CREATE TABLE IF NOT EXISTS public.lane_feature_flags (
 
 -- down migration
 DROP TABLE IF EXISTS public.lane_feature_flags;
-
