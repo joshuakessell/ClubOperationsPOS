@@ -48,7 +48,7 @@ Legend:
 - [x] `set-language` increments flow_version when FLOW_COMMANDS enabled
 - [ ] Route `selection` endpoints through command engine (propose/force/lock)
 - [ ] Route waitlist preference + backup endpoints through command engine
-- [ ] Route payment-intent creation/updates through command engine
+- [x] Route payment-intent creation/updates through command engine (step bump + audit)
 - [ ] Route agreement signing/bypass through command engine
 - [ ] Route back/cancel actions from both apps through command engine
   - [x] customer-kiosk (behind `VITE_FLOW_COMMANDS`)
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 28
-- Remaining checklist items: 44
+- Completed checklist items: 29
+- Remaining checklist items: 43
