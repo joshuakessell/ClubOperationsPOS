@@ -37,8 +37,10 @@ export function AccountPanel() {
     startCheckoutFromCustomerAccount,
     handleClearSession,
     selectNavTab,
-    returnToPreviousTab,
-    currentSessionId,
+	    returnToPreviousTab,
+	    handleBackStep,
+	    handleCancelStep,
+	    currentSessionId,
     laneSession,
     customerName,
     membershipNumber,
@@ -259,6 +261,8 @@ export function AccountPanel() {
     onDirectSelectWaitlistBackup: (rental: 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL') =>
       void handleDirectSelectWaitlistBackup(rental),
     onApproveRental: () => void handleConfirmSelection(),
+    onBack: () => void handleBackStep(),
+    onCancel: () => void handleCancelStep(),
   };
 
   useEffect(() => {

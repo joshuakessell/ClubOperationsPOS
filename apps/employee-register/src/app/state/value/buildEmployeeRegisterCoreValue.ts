@@ -13,6 +13,7 @@ import type { useSelectionActions } from '../slices/useSelectionActions';
 import type { useSessionResetActions } from '../slices/useSessionResetActions';
 import type { useStaffSessionState } from '../slices/useStaffSessionState';
 import type { useWaitlistUpgradeState } from '../slices/useWaitlistUpgradeState';
+import { sendFlowCommand } from '../shared/flowCommands';
 
 type EmployeeRegisterCoreParams = {
   deviceId: ReturnType<typeof useStaffSessionState>['deviceId'];
@@ -118,7 +119,38 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     paymentDeclineError,
     pastDueBlocked,
     pastDueBalance,
+    flowVersion,
   } = laneBindings;
+
+  const handleBackStep = async () => {
+    if (!lane) return;
+    if (!session?.sessionToken) return;
+    if (!currentSessionId) return;
+    if (typeof flowVersion !== 'number') return;
+    await sendFlowCommand({
+      lane,
+      sessionToken: session.sessionToken,
+      sessionId: currentSessionId,
+      flowVersion,
+      actor: 'EMPLOYEE',
+      type: 'BACK_STEP',
+    });
+  };
+
+  const handleCancelStep = async () => {
+    if (!lane) return;
+    if (!session?.sessionToken) return;
+    if (!currentSessionId) return;
+    if (typeof flowVersion !== 'number') return;
+    await sendFlowCommand({
+      lane,
+      sessionToken: session.sessionToken,
+      sessionId: currentSessionId,
+      flowVersion,
+      actor: 'EMPLOYEE',
+      type: 'CANCEL_STEP',
+    });
+  };
 
   return {
     deviceId,
@@ -146,6 +178,8 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     navTab: navState.navTab,
     selectNavTab: navState.selectNavTab,
     returnToPreviousTab: navState.returnToPreviousTab,
+    handleBackStep,
+    handleCancelStep,
     canOpenAccountTab: navState.canOpenAccountTab,
     inventoryHasLate: checkoutState.inventoryHasLate,
     setInventoryHasLate: checkoutState.setInventoryHasLate,
