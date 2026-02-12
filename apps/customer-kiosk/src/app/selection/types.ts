@@ -83,6 +83,8 @@ export type SelectionFlowUi = {
 export type SelectionFlowCallbacks = {
   onSwitchToLanguage: () => void;
   onProceedToAgreement: () => void;
+  onBack?: () => Promise<void> | void;
+  onCancel?: () => Promise<void> | void;
 };
 
 export type SelectionFlowNotices = {

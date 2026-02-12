@@ -81,7 +81,7 @@ Legend:
 ### customer-kiosk
 
 - [x] Drive view routing off `SessionUpdatedPayload.flowStep`
-- [ ] Send `BACK_STEP` / `CANCEL_STEP` flow commands on back/cancel UI
+- [x] Send `BACK_STEP` / `CANCEL_STEP` flow commands on back/cancel UI
 - [ ] Ensure monotonic flowVersion updates everywhere (already in reducer, verify all paths)
 - [ ] Remove heuristic fallbacks once stable
 
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 34
-- Remaining checklist items: 38
+- Completed checklist items: 35
+- Remaining checklist items: 37

@@ -85,6 +85,8 @@ export function AppComposition() {
     handleLanguageSelection,
     handleKioskAcknowledge,
     handleIdScanIssueDismiss,
+    handleBack,
+    handleCancel,
   } = useKioskController();
 
   const welcomeOverlayNode = (
@@ -263,6 +265,8 @@ export function AppComposition() {
           callbacks={{
             onSwitchToLanguage: () => setView('language'),
             onProceedToAgreement: () => setView('agreement'),
+            onBack: () => handleBack(),
+            onCancel: () => handleCancel(),
           }}
           notices={{
             notice,
