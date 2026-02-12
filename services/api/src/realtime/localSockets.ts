@@ -1,4 +1,4 @@
-import type { WebSocket } from '@fastify/websocket';
+import type { WebSocket } from 'ws';
 import type { RealtimeEvent } from '@club-ops/shared';
 
 type LaneKey = string;
@@ -38,4 +38,3 @@ export class LocalLaneSockets {
     }
   }
 }
-

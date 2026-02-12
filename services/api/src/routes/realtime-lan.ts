@@ -18,6 +18,10 @@ export async function realtimeLanRoutes(fastify: FastifyInstance): Promise<void>
     return;
   }
 
+  if (!fastify.websocketServer) {
+    throw new Error('LAN realtime websocket routes require @fastify/websocket to be registered');
+  }
+
   fastify.get<{
     Params: { laneId: string };
   }>(
@@ -35,8 +39,16 @@ export async function realtimeLanRoutes(fastify: FastifyInstance): Promise<void>
       }
 
       sockets.add(laneId, connection.socket);
+      connection.socket.on('error', (error) => {
+        request.log.error({ error }, 'LAN realtime socket error');
+      });
+
       connection.socket.send(
-        JSON.stringify({ type: 'LAN_SOCKET_READY', payload: { laneId }, timestamp: new Date().toISOString() })
+        JSON.stringify({
+          type: 'LAN_SOCKET_READY',
+          payload: { laneId },
+          timestamp: new Date().toISOString(),
+        })
       );
     }
   );

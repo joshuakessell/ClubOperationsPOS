@@ -1,5 +1,6 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import websocket from '@fastify/websocket';
 
 import { loadEnvFromDotEnvIfPresent } from './env/loadEnv';
 
@@ -84,6 +85,8 @@ async function main() {
     origin: true,
     credentials: true,
   });
+
+  await fastify.register(websocket);
 
   // Create broadcaster for realtime events
   const localLaneSockets = new LocalLaneSockets();
