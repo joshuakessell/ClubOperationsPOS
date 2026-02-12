@@ -141,9 +141,9 @@ Legend:
 ## 10) Docs + Ops
 
 - [x] Document env flags in `docs/ENV_FLAGS.md`
-- [ ] Update `docs/DEPLOYMENT.md` with rollout + rollback steps
-- [ ] Add runbook: debug realtime lane sync
-- [ ] Add runbook: LAN edge deploy + failback
+- [x] Update `docs/DEPLOYMENT.md` with rollout + rollback steps
+- [x] Add runbook: debug realtime lane sync
+- [x] Add runbook: LAN edge deploy + failback
 
 ---
 
@@ -152,4 +152,5 @@ Legend:
 - Total checklist items: 72
 - Completed checklist items: 60
 - Completed checklist items: 62
-- Remaining checklist items: 10
+- Completed checklist items: 65
+- Remaining checklist items: 7

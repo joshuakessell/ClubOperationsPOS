@@ -226,6 +226,43 @@ pnpm spec:check
 
 ## Deployment Checklist
 
+## Lock-Step v2 Rollout (Suggested)
+
+Roll out in this order so failures are easy to contain:
+
+1) **API first (cloud)**
+- Deploy API with v2 code present but keep features off:
+  - `LOCKSTEP_V2=false`
+  - `FLOW_COMMANDS=false`
+  - `LAN_FALLBACK=false`
+
+2) **Frontends (cloud)**
+- Deploy kiosk/register with v2 code present but keep features off:
+  - `VITE_LOCKSTEP_V2=0`
+  - `VITE_FLOW_COMMANDS=0`
+  - `VITE_LAN_FALLBACK=0`
+
+3) **Enable flow commands + v2 rendering (cloud)**
+- Enable on API:
+  - `LOCKSTEP_V2=true`
+  - `FLOW_COMMANDS=true`
+- Enable in apps:
+  - `VITE_LOCKSTEP_V2=1`
+  - `VITE_FLOW_COMMANDS=1`
+
+4) **Enable transport abstraction (cloud)**
+
+Transports are enabled by default; the rollback lever is `VITE_REALTIME_TRANSPORTS=0`.
+
+5) **Enable LAN fallback (optional)**
+- API:
+  - `LAN_FALLBACK=true`
+- Apps:
+  - `VITE_LAN_FALLBACK=1`
+  - Configure `VITE_LAN_API_BASE_URL` and `VITE_LAN_REALTIME_WS_URL`
+
+If only some lanes should participate, prefer `lane_feature_flags` overrides.
+
 ### Pre-Deployment
 - [ ] All tests passing (`pnpm test`)
 - [ ] Lint passes (`pnpm lint`)
@@ -266,6 +303,11 @@ feature-flag rollback before code rollback.
   - `VITE_LAN_FALLBACK=0`
   - `VITE_REALTIME_TRANSPORTS=0` (forces legacy AppSync websocket path)
   - Unset `VITE_LAN_REALTIME_WS_URL` (if set)
+
+## Runbooks
+
+- Realtime lane sync debugging: `docs/runbooks/DEBUG_REALTIME_LANE_SYNC.md`
+- LAN edge deploy + failback: `docs/runbooks/LAN_EDGE_DEPLOY_AND_FAILBACK.md`
 
 **Targeted rollback (per-lane overrides)**
 - If only some lanes are impacted, use `lane_feature_flags` overrides to disable features per lane while keeping the
