@@ -118,6 +118,6 @@ Legend:
 
 ## Counts
 
-- Total checklist items: 57
-- Completed checklist items: 11
-- Remaining checklist items: 46
+- Total checklist items: 72
+- Completed checklist items: 27
+- Remaining checklist items: 45
