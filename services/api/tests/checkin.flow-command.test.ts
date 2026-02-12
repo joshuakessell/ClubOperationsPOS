@@ -66,6 +66,14 @@ describe('Check-in Flow Commands', () => {
       [laneId]
     );
     sessionId = sessionResult.rows[0]!.id;
+
+    // Create a customer + attach to session so selection commands can pass language gating.
+    const customer = await query<{ id: string }>(
+      `INSERT INTO customers (name, primary_language)
+       VALUES ('Flow Customer', 'EN')
+       RETURNING id`
+    );
+    await query(`UPDATE lane_sessions SET customer_id = $1 WHERE id = $2`, [customer.rows[0]!.id, sessionId]);
   });
 
   it('dedupes repeated commandId for same session', async () => {
@@ -164,5 +172,105 @@ describe('Check-in Flow Commands', () => {
     const json = response.json() as any;
     expect(json.applied).toBe(false);
     expect(json.error).toBe('InvalidTransition');
+  });
+
+  it('PROPOSE_SELECTION dedupes repeated commandId and does not double-apply', async () => {
+    if (!dbAvailable) return;
+
+    const body = {
+      sessionId,
+      commandId: '44444444-4444-4444-4444-444444444444',
+      actor: 'CUSTOMER',
+      expectedFlowVersion: 0,
+      type: 'PROPOSE_SELECTION',
+      payload: { rentalType: 'STANDARD' },
+    };
+
+    const first = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: body,
+    });
+    expect(first.statusCode).toBe(200);
+
+    const sessionAfterFirst = await query<{ proposed_rental_type: string | null; flow_version: number }>(
+      `SELECT proposed_rental_type, flow_version FROM lane_sessions WHERE id = $1`,
+      [sessionId]
+    );
+    expect(sessionAfterFirst.rows[0]!.proposed_rental_type).toBe('STANDARD');
+    expect(sessionAfterFirst.rows[0]!.flow_version).toBe(1);
+
+    const second = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: body,
+    });
+    expect(second.statusCode).toBe(200);
+    const secondJson = second.json() as any;
+    expect(secondJson.deduped).toBe(true);
+
+    const sessionAfterSecond = await query<{ proposed_rental_type: string | null; flow_version: number }>(
+      `SELECT proposed_rental_type, flow_version FROM lane_sessions WHERE id = $1`,
+      [sessionId]
+    );
+    expect(sessionAfterSecond.rows[0]!.proposed_rental_type).toBe('STANDARD');
+    expect(sessionAfterSecond.rows[0]!.flow_version).toBe(1);
+  });
+
+  it('CONFIRM_SELECTION locks selection and rejects version mismatch', async () => {
+    if (!dbAvailable) return;
+
+    // First propose.
+    await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '55555555-5555-5555-5555-555555555555',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'PROPOSE_SELECTION',
+        payload: { rentalType: 'STANDARD' },
+      },
+    });
+
+    // Stale expectedFlowVersion should 409.
+    const stale = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '66666666-6666-6666-6666-666666666666',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'CONFIRM_SELECTION',
+      },
+    });
+    expect(stale.statusCode).toBe(409);
+
+    const ok = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: '77777777-7777-7777-7777-777777777777',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 1,
+        type: 'CONFIRM_SELECTION',
+      },
+    });
+    expect(ok.statusCode).toBe(200);
+
+    const locked = await query<{ selection_confirmed: boolean; selection_confirmed_by: string | null }>(
+      `SELECT selection_confirmed, selection_confirmed_by FROM lane_sessions WHERE id = $1`,
+      [sessionId]
+    );
+    expect(locked.rows[0]!.selection_confirmed).toBe(true);
+    expect(locked.rows[0]!.selection_confirmed_by).toBe('CUSTOMER');
   });
 });
