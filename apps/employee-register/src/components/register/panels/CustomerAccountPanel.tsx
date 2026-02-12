@@ -132,6 +132,8 @@ export function CustomerAccountPanel(props: {
     if (customerSpendLedgerState.isLoading(props.customerId)) return;
     if (customerNotesState.getNotes(props.customerId).length > 0) return;
     if (customerNotesState.getError(props.customerId)) return;
+    if (customerSpendLedgerState.getGroups(props.customerId).length > 0) return;
+    if (customerSpendLedgerState.getError(props.customerId)) return;
 
     void customerNotesState.loadNotes(props.customerId);
     void customerSpendLedgerState.loadSpendLedger(props.customerId);
