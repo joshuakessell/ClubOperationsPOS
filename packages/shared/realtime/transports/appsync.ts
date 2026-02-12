@@ -121,6 +121,9 @@ export class AppSyncTransport implements RealtimeTransport {
   private readonly laneId: string;
   private readonly kioskToken: string;
   private readonly staffToken?: string;
+  private shouldReconnect = true;
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private retryCount = 0;
 
   constructor(params: {
     laneId: string;
@@ -150,6 +153,11 @@ export class AppSyncTransport implements RealtimeTransport {
   }
 
   disconnect(): void {
+    this.shouldReconnect = false;
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     this.socket?.close();
     this.socket = null;
     this.setStatus('disconnected');
@@ -157,6 +165,7 @@ export class AppSyncTransport implements RealtimeTransport {
 
   async connect(): Promise<void> {
     if (this.socket) return;
+    this.shouldReconnect = true;
     this.setStatus('connecting');
 
     const laneSegment = this.laneId.trim() ? this.laneId.trim() : null;
@@ -165,44 +174,42 @@ export class AppSyncTransport implements RealtimeTransport {
       channels.push(buildChannel(this.channelNamespace, 'lane', laneSegment));
     }
 
-    const response = await fetch(this.authUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.staffToken ? { Authorization: `Bearer ${this.staffToken}` } : {}),
-        ...(this.kioskToken ? { 'x-kiosk-token': this.kioskToken } : {}),
-      },
-      body: JSON.stringify({ channels }),
-    });
+    const connectOnce = async () => {
+      const response = await fetch(this.authUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(this.staffToken ? { Authorization: `Bearer ${this.staffToken}` } : {}),
+          ...(this.kioskToken ? { 'x-kiosk-token': this.kioskToken } : {}),
+        },
+        body: JSON.stringify({ channels }),
+      });
 
-    if (response.status === 404 || response.status === 501) {
-      this.setStatus('disconnected');
-      throw new Error(`Realtime auth not configured (${response.status})`);
-    }
+      if (response.status === 404 || response.status === 501) {
+        throw new Error(`Realtime auth not configured (${response.status})`);
+      }
 
-    if (!response.ok) {
-      this.setStatus('disconnected');
-      throw new Error(`Realtime auth failed: ${response.status}`);
-    }
+      if (!response.ok) {
+        throw new Error(`Realtime auth failed: ${response.status}`);
+      }
 
-    const auth = (await response.json()) as AppSyncAuthResponse;
-    if (!auth?.realtimeEndpoint) {
-      this.setStatus('disconnected');
-      throw new Error('Realtime auth returned invalid payload');
-    }
+      const auth = (await response.json()) as AppSyncAuthResponse;
+      if (!auth?.realtimeEndpoint) {
+        throw new Error('Realtime auth returned invalid payload');
+      }
 
-    const protocols = [
-      'aws-appsync-event-ws',
-      `header-${base64UrlEncode(JSON.stringify(auth.connectionHeaders))}`,
-    ];
-    const socket = new WebSocket(auth.realtimeEndpoint, protocols);
-    this.socket = socket;
+      const protocols = [
+        'aws-appsync-event-ws',
+        `header-${base64UrlEncode(JSON.stringify(auth.connectionHeaders))}`,
+      ];
+      const socket = new WebSocket(auth.realtimeEndpoint, protocols);
+      this.socket = socket;
 
-    let didSubscribe = false;
+      let didSubscribe = false;
 
-    socket.onopen = () => {
-      socket.send(JSON.stringify({ type: 'connection_init' }));
-    };
+      socket.onopen = () => {
+        socket.send(JSON.stringify({ type: 'connection_init' }));
+      };
 
     socket.onmessage = (event) => {
       let parsed: AppSyncMessage | null = null;
@@ -246,14 +253,63 @@ export class AppSyncTransport implements RealtimeTransport {
       }
     };
 
-    socket.onerror = () => {
-      this.setStatus('disconnected');
+      socket.onerror = (event) => {
+        this.options.onError?.({ type: 'error', error: event });
+        this.setStatus('disconnected');
+      };
+
+      socket.onclose = () => {
+        this.socket = null;
+        this.setStatus('disconnected');
+        if (this.shouldReconnect) {
+          this.scheduleReconnect();
+        }
+      };
+
+      // Mark as connected once we see connection_ack.
+      const originalOnMessage = socket.onmessage?.bind(socket);
+      socket.onmessage = (event) => {
+        let parsed: AppSyncMessage | null = null;
+        try {
+          parsed = JSON.parse(event.data as string) as AppSyncMessage;
+        } catch {
+          parsed = null;
+        }
+
+        if (parsed && parsed.type === 'connection_ack') {
+          this.retryCount = 0;
+        }
+
+        originalOnMessage?.(event);
+      };
     };
 
-    socket.onclose = () => {
+    try {
+      await connectOnce();
+    } catch (error) {
+      this.options.onError?.({ type: 'error', error });
       this.socket = null;
       this.setStatus('disconnected');
-    };
+      if (this.shouldReconnect) {
+        this.scheduleReconnect();
+      }
+    }
+  }
+
+  private scheduleReconnect(): void {
+    if (this.reconnectTimer) return;
+    const attempt = this.retryCount + 1;
+    this.retryCount = attempt;
+
+    const baseDelay = Math.min(30_000, 500 * Math.pow(2, attempt - 1));
+    const jitter = baseDelay * 0.2 * Math.random();
+    const delayMs = Math.round(baseDelay + jitter);
+
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+      if (!this.shouldReconnect) return;
+      void this.connect();
+    }, delayMs);
   }
 
   private setStatus(next: RealtimeTransportStatus): void {

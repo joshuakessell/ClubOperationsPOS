@@ -5,8 +5,14 @@ export type RealtimeTransportEvent = {
   data: unknown;
 };
 
+export type RealtimeTransportError = {
+  type: 'error';
+  error: unknown;
+};
+
 export type RealtimeTransportOptions = {
   onEvent: (event: RealtimeTransportEvent) => void;
+  onError?: (event: RealtimeTransportError) => void;
   onStatus?: (status: RealtimeTransportStatus) => void;
   debug?: boolean;
 };
@@ -16,4 +22,3 @@ export interface RealtimeTransport {
   disconnect(): void;
   getStatus(): RealtimeTransportStatus;
 }
-
