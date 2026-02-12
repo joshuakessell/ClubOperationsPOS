@@ -90,7 +90,7 @@ Legend:
 ## 6) Offline Outbox + Reconciliation
 
 - [x] Add `offline_command_outbox` table
-- [ ] Write outbox records for LAN-mode accepted commands
+- [x] Write outbox records for LAN-mode accepted commands
 - [ ] Replay worker on reconnect (ordered, idempotent)
 - [ ] Conflict handling for diverged versions
 - [ ] Observability: logs/metrics for replay lag + failures
@@ -138,5 +138,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 55
-- Remaining checklist items: 17
+- Completed checklist items: 56
+- Remaining checklist items: 16

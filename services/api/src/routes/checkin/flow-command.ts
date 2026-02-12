@@ -7,6 +7,7 @@ import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import { transaction } from '../../db';
 import { assertCustomerLanguageSelected } from '../../checkin/session';
 import { getLaneFeatureFlags } from '../../checkin/laneFeatureFlags';
+import { writeOfflineOutboxRecord } from '../../checkin/offlineOutbox';
 
 type FlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
 
@@ -284,6 +285,15 @@ async function isFlowCommandsEnabled(params: {
   return flags.flowCommandsEnabled;
 }
 
+async function isLanFallbackEnabledForLane(params: {
+  client: Parameters<typeof getLaneFeatureFlags>[0];
+  laneId: string;
+}): Promise<boolean> {
+  if (process.env.LAN_FALLBACK !== 'true') return false;
+  const flags = await getLaneFeatureFlags(params.client, params.laneId);
+  return flags.lanFallbackEnabled;
+}
+
 export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void {
   fastify.post<{
     Params: { laneId: string };
@@ -336,6 +346,8 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           if (!(await isFlowCommandsEnabled({ client, laneId }))) {
             throw { statusCode: 404, message: 'Not Found' };
           }
+
+          const lanMode = await isLanFallbackEnabledForLane({ client, laneId });
           const locked = await client.query<LaneSessionRow>(
             `SELECT *
              FROM lane_sessions
@@ -376,6 +388,17 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
              VALUES ($1, $2, $3, $4, $5)`,
             [sessionId, commandId, actor, type, payload ?? null]
           );
+
+          if (lanMode) {
+            await writeOfflineOutboxRecord(client, {
+              laneId,
+              sessionId,
+              commandId,
+              actor,
+              type,
+              payload: payload ?? null,
+            });
+          }
 
           // Domain-specific command mutations.
           if (type === 'PROPOSE_SELECTION') {
