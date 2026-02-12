@@ -50,9 +50,10 @@ Legend:
 - [x] Route waitlist preference + backup endpoints through command engine
 - [x] Route payment-intent creation/updates through command engine (step bump + audit)
 - [x] Route agreement signing/bypass through command engine (step bump + audit)
-- [ ] Route back/cancel actions from both apps through command engine
+- [x] Route back/cancel actions from both apps through command engine
   - [x] customer-kiosk (behind `VITE_FLOW_COMMANDS`)
   - [x] employee-register (behind `VITE_FLOW_COMMANDS`)
+  - Server: `BACK_STEP` / `CANCEL_STEP` handled via `/flow-command`
 
 ## 4) Backend: Realtime Dual-Publish (Cloud + LAN)
 
@@ -119,5 +120,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 49
-- Remaining checklist items: 23
+- Completed checklist items: 50
+- Remaining checklist items: 22
