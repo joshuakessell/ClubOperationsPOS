@@ -91,7 +91,7 @@ Legend:
 
 - [x] Add `offline_command_outbox` table
 - [x] Write outbox records for LAN-mode accepted commands
-- [ ] Replay worker on reconnect (ordered, idempotent)
+- [x] Replay worker on reconnect (ordered, idempotent)
 - [ ] Conflict handling for diverged versions
 - [ ] Observability: logs/metrics for replay lag + failures
 
@@ -138,5 +138,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 56
-- Remaining checklist items: 16
+- Completed checklist items: 57
+- Remaining checklist items: 15
