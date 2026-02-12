@@ -69,6 +69,12 @@ Legend:
 - [ ] Define offline auth behavior (kiosk token, staff tokens)
 - [ ] Add local “lane ownership” / authority rules
 
+### Decisions needed before implementing §5.2-
+
+- Choose health signal(s): AppSync status vs. explicit HTTP health check
+- Choose hysteresis timings (switch-to-LAN / switch-to-cloud)
+- Choose UX: banner/toast when switching modes
+
 ## 6) Offline Outbox + Reconciliation
 
 - [ ] Add `offline_command_outbox` table
