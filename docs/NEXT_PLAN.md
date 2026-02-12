@@ -65,7 +65,7 @@ Legend:
 ## 5) LAN Fallback: Edge Stack + Local DB
 
 - [x] Add edge docker-compose stack (API + Postgres + LAN websocket)
-- [ ] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud)
+- [ ] Add `LAN_FALLBACK` health detection + hysteresis (cloud->LAN, LAN->cloud) (requires infra + app UX decisions)
 - [ ] Define offline auth behavior (kiosk token, staff tokens)
 - [ ] Add local “lane ownership” / authority rules
 
