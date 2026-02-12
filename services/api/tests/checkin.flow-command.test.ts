@@ -284,6 +284,111 @@ describe('Check-in Flow Commands', () => {
     expect(json.error).toBe('ValidationFailed');
   });
 
+  it('WAITLIST_UPDATE applies waitlist desired + backup + requested resource fields', async () => {
+    if (!dbAvailable) return;
+
+    await query(`UPDATE lane_sessions SET flow_version = 0, flow_step = 'WAITLIST_PREFERENCES' WHERE id = $1`, [
+      sessionId,
+    ]);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: 'eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 0,
+        type: 'WAITLIST_UPDATE',
+        payload: {
+          desiredTier: 'DOUBLE',
+          desiredTypes: ['DOUBLE'],
+          backupRentalType: 'STANDARD',
+          requestedResourceNumber: '101',
+          requestedResourceType: 'room',
+        },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const session = await query<{
+      waitlist_desired_type: string | null;
+      waitlist_desired_types_json: any;
+      backup_rental_type: string | null;
+      waitlist_requested_resource_number: string | null;
+      waitlist_requested_resource_type: string | null;
+    }>(
+      `SELECT waitlist_desired_type,
+              waitlist_desired_types_json,
+              backup_rental_type,
+              waitlist_requested_resource_number,
+              waitlist_requested_resource_type
+       FROM lane_sessions
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    expect(session.rows[0]!.waitlist_desired_type).toBe('DOUBLE');
+    expect(session.rows[0]!.backup_rental_type).toBe('STANDARD');
+    expect(session.rows[0]!.waitlist_requested_resource_number).toBe('101');
+    expect(session.rows[0]!.waitlist_requested_resource_type).toBe('room');
+  });
+
+  it('CONFIRM_SELECTION sets selection_confirmed and bumps step when needed', async () => {
+    if (!dbAvailable) return;
+
+    await query(
+      `UPDATE lane_sessions
+       SET flow_version = 2,
+           flow_step = 'RENTAL',
+           proposed_rental_type = 'STANDARD',
+           proposed_by = 'CUSTOMER'
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    const response = await app.inject({
+      method: 'POST',
+      url: `/v1/checkin/lane/${laneId}/flow-command`,
+      headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+      payload: {
+        sessionId,
+        commandId: 'ffffffff-ffff-ffff-ffff-ffffffffffff',
+        actor: 'CUSTOMER',
+        expectedFlowVersion: 2,
+        type: 'CONFIRM_SELECTION',
+        payload: { rentalType: 'STANDARD' },
+      },
+    });
+
+    expect(response.statusCode).toBe(200);
+
+    const updated = await query<{
+      selection_confirmed: boolean;
+      selection_confirmed_by: string | null;
+      desired_rental_type: string | null;
+      flow_step: string | null;
+      flow_version: number | null;
+    }>(
+      `SELECT selection_confirmed,
+              selection_confirmed_by,
+              desired_rental_type,
+              flow_step,
+              flow_version
+       FROM lane_sessions
+       WHERE id = $1`,
+      [sessionId]
+    );
+
+    expect(updated.rows[0]!.selection_confirmed).toBe(true);
+    expect(updated.rows[0]!.selection_confirmed_by).toBe('CUSTOMER');
+    expect(updated.rows[0]!.desired_rental_type).toBe('STANDARD');
+    expect(updated.rows[0]!.flow_step).toBe('WAITLIST_PREFERENCES');
+    expect(updated.rows[0]!.flow_version).toBe(3);
+  });
+
   it('PROPOSE_SELECTION dedupes repeated commandId and does not double-apply', async () => {
     if (!dbAvailable) return;
 

@@ -26,7 +26,7 @@ Legend:
 ## 2) Backend: Authoritative Flow Command Engine (Hardening)
 
 - [x] Define canonical transition table for steps (allowed transitions)
-- [ ] Implement transition-specific clearing rules for each step:
+- [x] Implement transition-specific clearing rules for each step:
   - [x] LANGUAGE
   - [x] RENTAL
   - [x] WAITLIST_PREFERENCES
@@ -34,7 +34,7 @@ Legend:
   - [x] PAYMENT
   - [x] AGREEMENT
   - [x] COMPLETE
-- [ ] Add command types beyond step navigation (as needed):
+- [x] Add command types beyond step navigation (as needed):
   - [x] PROPOSE_SELECTION
   - [x] FORCE_SELECTION
   - [x] ACK_SELECTION
@@ -131,7 +131,7 @@ Legend:
 
 ## 9) Tests + Acceptance
 
-- [ ] API transition tests for each command type
+- [x] API transition tests for each command type
 - [x] API idempotency/version tests for flow-command
 - [x] LAN websocket integration test (auth rejection)
 - [x] Realtime ordering tests (stale ignored) end-to-end
@@ -151,5 +151,5 @@ Legend:
 
 - Total checklist items: 72
 - Completed checklist items: 66
-- Completed checklist items: 69
-- Remaining checklist items: 3
+- Completed checklist items: 72
+- Remaining checklist items: 0
