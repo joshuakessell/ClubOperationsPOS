@@ -46,8 +46,8 @@ Legend:
 ## 3) Backend: Route Legacy Endpoints Through Command Engine
 
 - [x] `set-language` increments flow_version when FLOW_COMMANDS enabled
-- [ ] Route `selection` endpoints through command engine (propose/force/lock)
-- [ ] Route waitlist preference + backup endpoints through command engine
+- [x] Route `selection` endpoints through command engine (propose/force/lock)
+- [x] Route waitlist preference + backup endpoints through command engine
 - [x] Route payment-intent creation/updates through command engine (step bump + audit)
 - [x] Route agreement signing/bypass through command engine (step bump + audit)
 - [ ] Route back/cancel actions from both apps through command engine
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 30
-- Remaining checklist items: 42
+- Completed checklist items: 32
+- Remaining checklist items: 40
