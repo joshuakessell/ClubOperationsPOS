@@ -60,7 +60,7 @@ Legend:
 - [x] Add local websocket server endpoint to API for LAN mode
 - [x] Add local lane channel routing semantics (match AppSync channels)
 - [x] Update broadcaster to publish to AppSync + local sockets
-- [ ] Add ordering guarantees / monotonic version enforcement in broadcaster
+- [x] Add ordering guarantees / monotonic version enforcement in broadcaster
 
 ## 5) LAN Fallback: Edge Stack + Local DB
 
@@ -120,5 +120,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 50
-- Remaining checklist items: 22
+- Completed checklist items: 51
+- Remaining checklist items: 21
