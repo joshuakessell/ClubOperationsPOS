@@ -1,0 +1,275 @@
+{
+  "info": {
+    "_postman_id": "b2c1b30c-7c2e-4d3c-9d7e-87f1a40fa40a",
+    "name": "Customer Notes + Activity Log + Spend Ledger (Debug)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Requests to validate structured customer notes, activity events, spend ledger, and agreements endpoints."
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Me (GET /v1/auth/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Customer Notes (staff)",
+      "item": [
+        {
+          "name": "List Notes (GET /v1/customers/:customerId/notes)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/customers/{{customerId}}/notes?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "customers", "{{customerId}}", "notes"],
+              "query": [
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Create Note (POST /v1/customers/:customerId/notes)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"note\": \"Postman test note\",\n  \"isImportant\": true,\n  \"sourceApp\": \"OFFICE_DASHBOARD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/customers/{{customerId}}/notes",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "customers", "{{customerId}}", "notes"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Spend Ledger (staff)",
+      "item": [
+        {
+          "name": "Spend Ledger by Visit (GET /v1/customers/:customerId/spend-ledger)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/customers/{{customerId}}/spend-ledger?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "customers", "{{customerId}}", "spend-ledger"],
+              "query": [
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Spend Ledger Visit Drilldown (GET /v1/customers/:customerId/visits/:visitId/spend-ledger)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/customers/{{customerId}}/visits/{{visitId}}/spend-ledger?limit=200",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "customers", "{{customerId}}", "visits", "{{visitId}}", "spend-ledger"],
+              "query": [
+                { "key": "limit", "value": "200" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Spend Ledger Unassigned Drilldown (GET /v1/customers/:customerId/visits/unassigned/spend-ledger)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/customers/{{customerId}}/visits/unassigned/spend-ledger?limit=200",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "customers", "{{customerId}}", "visits", "unassigned", "spend-ledger"],
+              "query": [
+                { "key": "limit", "value": "200" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Activity Log (admin)",
+      "item": [
+        {
+          "name": "Club Log (GET /v1/admin/activity-log)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/activity-log?limit=50",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "activity-log"],
+              "query": [
+                { "key": "limit", "value": "50" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Customer Log (GET /v1/admin/customers/:customerId/activity-log)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/customers/{{customerId}}/activity-log?limit=41",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "customers", "{{customerId}}", "activity-log"],
+              "query": [
+                { "key": "limit", "value": "41" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Customer Log Centered (GET /v1/admin/customers/:customerId/activity-log?centerEventId=...)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/customers/{{customerId}}/activity-log?limit=41&centerEventId={{centerEventId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "customers", "{{customerId}}", "activity-log"],
+              "query": [
+                { "key": "limit", "value": "41" },
+                { "key": "centerEventId", "value": "{{centerEventId}}" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agreements (admin)",
+      "item": [
+        {
+          "name": "Agreements by Visit (GET /v1/admin/customers/:customerId/agreements)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/customers/{{customerId}}/agreements?limit=25",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "customers", "{{customerId}}", "agreements"],
+              "query": [
+                { "key": "limit", "value": "25" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Documents: Customers lookup (GET /v1/documents/customers)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents/customers?name={{customerNameQuery}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "documents", "customers"],
+              "query": [
+                { "key": "name", "value": "{{customerNameQuery}}" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Documents: By Customer (GET /v1/documents/by-customer/:customerId)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents/by-customer/{{customerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "documents", "by-customer", "{{customerId}}"]
+            }
+          }
+        },
+        {
+          "name": "Documents: Download PDF (GET /v1/documents/:documentId/download)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/documents/{{documentId}}/download",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "documents", "{{documentId}}", "download"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Check-in (staff)",
+      "item": [
+        {
+          "name": "Start Lane Session (POST /v1/checkin/lane/:laneId/start)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{staffToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customerId\": \"{{customerId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/checkin/lane/{{laneId}}/start",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "checkin", "lane", "{{laneId}}", "start"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
+
