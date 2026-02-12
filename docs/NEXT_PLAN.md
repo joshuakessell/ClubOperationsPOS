@@ -17,7 +17,7 @@ Legend:
 
 ## 1) Feature Flags + Rollout Controls
 
-- [ ] Add `LOCKSTEP_V2` flag plumbing (API + apps)
+- [x] Add `LOCKSTEP_V2` flag plumbing (API + apps)
 - [ ] Add `LAN_FALLBACK` flag plumbing (API + apps)
 - [x] Add `FLOW_COMMANDS` flag (API)
 - [ ] Add per-lane flag overrides (server-side lane config)
@@ -119,5 +119,5 @@ Legend:
 ## Counts
 
 - Total checklist items: 72
-- Completed checklist items: 39
-- Remaining checklist items: 33
+- Completed checklist items: 40
+- Remaining checklist items: 32

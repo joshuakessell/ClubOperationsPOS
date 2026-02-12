@@ -7,6 +7,11 @@ This document lists non-secret environment variables used as feature flags.
 
 ## API
 
+- `LOCKSTEP_V2` (default: `false`)
+  - Master flag for the Lock-Step Check-In v2 rollout.
+  - When enabled, the API may prefer the v2 flow engine / dual-transport behaviors when available.
+  - This flag is intended to gate broader behavior than `FLOW_COMMANDS` so we can roll out incrementally.
+
 - `FLOW_COMMANDS` (default: `false`)
   - Enables `POST /v1/checkin/lane/:laneId/flow-command`.
   - When enabled, some legacy endpoints may also increment `lane_sessions.flow_version` to keep
@@ -18,6 +23,10 @@ This document lists non-secret environment variables used as feature flags.
     LAN websocket clients.
 
 ## Frontend
+
+- `VITE_LOCKSTEP_V2` (default: `0`)
+  - Master flag for Lock-Step Check-In v2 app behavior.
+  - When `1`, the apps may prefer v2 state derivation and transports when available.
 
 - `VITE_FLOW_COMMANDS` (default: `0`)
   - When `1`, enables sending step-navigation flow commands (`BACK_STEP` / `CANCEL_STEP`) from the apps.
