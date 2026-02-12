@@ -105,12 +105,22 @@ function buildChannel(namespace: string, ...segments: string[]): string {
   return `/${cleaned.join('/')}`;
 }
 
+function createSubscriptionId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID();
+  }
+  return `sub-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 export class AppSyncTransport implements RealtimeTransport {
   private status: RealtimeTransportStatus = 'disconnected';
   private socket: WebSocket | null = null;
   private readonly options: RealtimeTransportOptions;
   private readonly authUrl: string;
   private readonly channelNamespace: string;
+  private readonly laneId: string;
+  private readonly kioskToken: string;
+  private readonly staffToken?: string;
 
   constructor(params: {
     laneId: string;
@@ -128,8 +138,11 @@ export class AppSyncTransport implements RealtimeTransport {
     this.authUrl = getApiUrl('/api/v1/realtime/auth');
     this.channelNamespace = getChannelNamespace(env);
 
-    // Keep these for possible future enhancements (reconnect, etc).
-    void params;
+    this.laneId = params.laneId;
+    // role reserved for future channel partitioning; keep param to avoid API churn.
+    void params.role;
+    this.kioskToken = params.kioskToken;
+    this.staffToken = params.staffToken;
   }
 
   getStatus(): RealtimeTransportStatus {
@@ -146,19 +159,26 @@ export class AppSyncTransport implements RealtimeTransport {
     if (this.socket) return;
     this.setStatus('connecting');
 
-    // NOTE: This is a scaffold for transport abstraction. The existing useLaneSession
-    // already fully implements auth + subscribe flows. We'll port it over incrementally.
-    const namespace = this.channelNamespace;
-    const laneChannel = buildChannel(namespace, 'lane', 'todo');
-    void laneChannel;
+    const laneSegment = this.laneId.trim() ? this.laneId.trim() : null;
+    const channels = [buildChannel(this.channelNamespace, 'global')];
+    if (laneSegment) {
+      channels.push(buildChannel(this.channelNamespace, 'lane', laneSegment));
+    }
 
     const response = await fetch(this.authUrl, {
       method: 'POST',
       headers: {
-        'content-type': 'application/json',
+        'Content-Type': 'application/json',
+        ...(this.staffToken ? { Authorization: `Bearer ${this.staffToken}` } : {}),
+        ...(this.kioskToken ? { 'x-kiosk-token': this.kioskToken } : {}),
       },
-      body: JSON.stringify({}),
+      body: JSON.stringify({ channels }),
     });
+
+    if (response.status === 404 || response.status === 501) {
+      this.setStatus('disconnected');
+      throw new Error(`Realtime auth not configured (${response.status})`);
+    }
 
     if (!response.ok) {
       this.setStatus('disconnected');
@@ -171,10 +191,14 @@ export class AppSyncTransport implements RealtimeTransport {
       throw new Error('Realtime auth returned invalid payload');
     }
 
-    const connectionPayload = base64UrlEncode(JSON.stringify(auth.connectionHeaders ?? {}));
-    const socketUrl = `${auth.realtimeEndpoint}?header=${connectionPayload}&payload=e30=`;
-    const socket = new WebSocket(socketUrl, ['graphql-ws']);
+    const protocols = [
+      'aws-appsync-event-ws',
+      `header-${base64UrlEncode(JSON.stringify(auth.connectionHeaders))}`,
+    ];
+    const socket = new WebSocket(auth.realtimeEndpoint, protocols);
     this.socket = socket;
+
+    let didSubscribe = false;
 
     socket.onopen = () => {
       socket.send(JSON.stringify({ type: 'connection_init' }));
@@ -190,6 +214,23 @@ export class AppSyncTransport implements RealtimeTransport {
 
       if (parsed && parsed.type === 'connection_ack') {
         this.setStatus('connected');
+
+        if (!didSubscribe) {
+          didSubscribe = true;
+          for (const channel of channels) {
+            const authHeaders = auth.subscriptions[channel];
+            if (!authHeaders) continue;
+            const id = createSubscriptionId();
+            socket.send(
+              JSON.stringify({
+                id,
+                type: 'subscribe',
+                channel,
+                authorization: authHeaders,
+              })
+            );
+          }
+        }
         return;
       }
 
