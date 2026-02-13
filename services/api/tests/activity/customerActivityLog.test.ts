@@ -119,6 +119,9 @@ describe('customerActivityLog', () => {
             expect(mockQuery).toHaveBeenCalledTimes(1);
             // Verify SQL contains ON CONFLICT
             expect(mockQuery.mock.calls[0][0]).toContain('ON CONFLICT (dedupe_key)');
+            // Ensure ON CONFLICT clause matches implementation
+            expect(mockQuery.mock.calls[0][0]).toContain('WHERE dedupe_key IS NOT NULL');
+            expect(mockQuery.mock.calls[0][0]).toContain('DO NOTHING');
         });
 
         it('should return existing id when insert is deduplicated', async () => {

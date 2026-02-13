@@ -585,12 +585,29 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
           );
 
           // 6. Apply ban if needed
+          // Ban is manager-approval-based. If a ban is recommended, create a manager alert.
+          // (No immediate customer ban is applied here.)
           if (checkoutRequest.ban_applied) {
-            const banUntil = new Date();
-            banUntil.setDate(banUntil.getDate() + 30); // 30 days from now
             await client.query(
-              `UPDATE customers SET banned_until = $1, updated_at = NOW() WHERE id = $2`,
-              [banUntil, checkoutRequest.customer_id]
+              `
+              INSERT INTO late_checkout_ban_alerts
+                (customer_id, checkout_request_id, occupancy_id, visit_id,
+                 late_minutes, fee_amount_cents, recommended_ban_days,
+                 status, created_by_staff_id, created_by_staff_name)
+              VALUES
+                ($1, $2, $3, $4, $5, $6, 30, 'PENDING', $7, $8)
+              ON CONFLICT (checkout_request_id) DO NOTHING
+              `,
+              [
+                checkoutRequest.customer_id,
+                checkoutRequest.id,
+                checkoutRequest.occupancy_id,
+                block.visit_id,
+                checkoutRequest.late_minutes,
+                Number(checkoutRequest.late_fee_amount) || 0,
+                staffId,
+                request.staff!.name,
+              ]
             );
           }
 

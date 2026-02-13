@@ -9,6 +9,7 @@ import { registerAdminRegisterSessionRoutes } from './admin/register-sessions';
 import { registerAdminReportRoutes } from './admin/reports';
 import { registerAdminRoomRoutes } from './admin/rooms';
 import { registerAdminStaffRoutes } from './admin/staff';
+import { registerAdminLateCheckoutBanAlertRoutes } from './admin/late-checkout-ban-alerts';
 
 /**
  * Admin-only routes for operations management and metrics.
@@ -30,6 +31,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   registerAdminDeviceRoutes(fastify);
 
   registerAdminCustomerRoutes(fastify);
+
+  registerAdminLateCheckoutBanAlertRoutes(fastify);
 
   registerAdminReportRoutes(fastify);
 }

@@ -13,6 +13,7 @@ export { keysRoutes } from './keys';
 export { cleaningRoutes } from './cleaning';
 export { adminRoutes } from './admin';
 export { agreementsRoutes } from './agreements';
+export { registerAdminLateCheckoutBanAlertRoutes } from './admin/late-checkout-ban-alerts';
 export { upgradeRoutes } from './upgrades';
 export { waitlistRoutes } from './waitlist';
 export { metricsRoutes } from './metrics';
