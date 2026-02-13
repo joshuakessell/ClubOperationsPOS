@@ -291,8 +291,11 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
     // Wipe member/customer-related data (keep staff/employees)
     setMessage('Clearing demo data');
     const deleteStatements = [
+      'DELETE FROM customer_spend_ledger_entries',
       'DELETE FROM checkout_requests',
       'DELETE FROM late_checkout_events',
+      'DELETE FROM customer_notes',
+      'DELETE FROM customer_activity_events',
       'DELETE FROM inventory_reservations',
       'DELETE FROM waitlist',
       'DELETE FROM agreement_signatures',

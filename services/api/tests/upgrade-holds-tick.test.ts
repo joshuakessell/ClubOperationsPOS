@@ -14,6 +14,7 @@ declare module 'fastify' {
 describe('processUpgradeHoldsTick (locking + expiry)', () => {
   let app: FastifyInstance;
   let pool: pg.Pool;
+  let dbAvailable = false;
 
   beforeAll(async () => {
     pool = new pg.Pool({
@@ -25,9 +26,17 @@ describe('processUpgradeHoldsTick (locking + expiry)', () => {
       // Prevent "hung" test runs when DB isn't reachable.
       connectionTimeoutMillis: 3000,
     });
+
+    try {
+      await pool.query('SELECT 1');
+      dbAvailable = true;
+    } catch {
+      dbAvailable = false;
+    }
   });
 
   beforeEach(async () => {
+    if (!dbAvailable) return;
     await truncateAllTables(pool.query.bind(pool));
     app = Fastify({ logger: false });
     app.decorate('broadcaster', createBroadcaster());
@@ -35,11 +44,12 @@ describe('processUpgradeHoldsTick (locking + expiry)', () => {
   });
 
   afterAll(async () => {
-    await app.close();
+    if (dbAvailable) await app.close();
     await pool.end();
   });
 
   it('expires OFFERED entries and releases UPGRADE_HOLD reservations (no outer-join FOR UPDATE error)', async () => {
+    if (!dbAvailable) return;
     const room = await pool.query<{ id: string }>(
       `INSERT INTO rooms (number, type, status, floor)
        VALUES ('200', 'STANDARD', 'CLEAN', 1)

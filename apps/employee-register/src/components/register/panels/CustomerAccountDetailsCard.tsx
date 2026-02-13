@@ -52,6 +52,11 @@ export function CustomerAccountDetailsCard({
   const [notesModalOpen, setNotesModalOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
 
+  const latestNote = customerNotesState
+    .getNotes(customerId)
+    .slice()
+    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+
   const notesList = (
     <div className="er-account-scroll" style={{ marginTop: '0.5rem' }}>
       {customerNotesState.isLoading(customerId) ? (
@@ -182,10 +187,53 @@ export function CustomerAccountDetailsCard({
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div className="er-account-section-title">Notes</div>
-            <span className="er-text-xs" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              Click to expand
-            </span>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              {latestNote ? (
+                <span className="er-text-xs" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                  Last: {new Date(latestNote.createdAt).toLocaleString()}
+                </span>
+              ) : null}
+              <span className="er-text-xs" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                View all
+              </span>
+            </div>
           </div>
+
+          {latestNote ? (
+            <div
+              style={{
+                marginTop: '0.4rem',
+                padding: '0.5rem',
+                borderRadius: 12,
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+                background: 'rgba(2, 6, 23, 0.2)',
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                {latestNote.isImportant ? (
+                  <span aria-hidden="true" style={{ color: '#ef4444', fontWeight: 900 }}>
+                    ⚑
+                  </span>
+                ) : null}
+                <div style={{ fontWeight: latestNote.isImportant ? 950 : 850 }}>
+                  {latestNote.createdByStaffName}
+                </div>
+              </div>
+              <div
+                style={{
+                  marginTop: '0.25rem',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  fontWeight: latestNote.isImportant ? 900 : 800,
+                  opacity: 0.95,
+                }}
+              >
+                {latestNote.note}
+              </div>
+            </div>
+          ) : null}
+
           {customerNotesState.getError(customerId) ? (
             <div style={{ marginTop: '0.5rem', color: '#fecaca', fontWeight: 800 }}>
               {customerNotesState.getError(customerId)}

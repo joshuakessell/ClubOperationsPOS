@@ -474,6 +474,28 @@ export async function appendIncrementalDemoSimulation(params: {
     );
 
     if (order.customerId) {
+      // Seed the customer spend ledger so the UI can show per-visit groupings.
+      await params.client.query(
+        `
+        INSERT INTO customer_spend_ledger_entries
+          (occurred_at, customer_id, visit_id, entry_type, amount_cents, currency,
+           source_app, actor_type, actor_staff_id, actor_staff_name, summary, metadata, dedupe_key)
+        VALUES
+          ($1, $2::uuid, NULL, 'ORDER_PAID', $3::bigint, $4,
+           'EMPLOYEE_REGISTER', 'STAFF', $5::uuid, NULL, 'Order paid', $6::jsonb, $7)
+        ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+        `,
+        [
+          order.createdAt,
+          order.customerId,
+          totalCents,
+          currencyUSD(),
+          order.staffId,
+          { orderId, totalCents, currency: currencyUSD() },
+          `LEDGER:DEMO:ORDER_PAID:${orderId}`,
+        ]
+      );
+
       await params.client.query(
         `
         INSERT INTO customer_activity_events
@@ -488,7 +510,8 @@ export async function appendIncrementalDemoSimulation(params: {
           order.createdAt,
           order.customerId,
           order.staffId,
-          order.staffId,
+          // demo doesn't have names on register sessions in this function; keep staff name null
+          null,
           `Order paid`,
           { orderId, totalCents, currency: currencyUSD() },
           `Order paid ${orderId} ${totalCents}`,
