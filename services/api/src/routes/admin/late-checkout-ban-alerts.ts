@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { requireAdmin, requireAuth } from '../../auth/middleware';
+import { requireAdmin, requireAuth, requireReauthForAdmin } from '../../auth/middleware';
 import { transaction } from '../../db';
 import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
 
@@ -122,7 +122,7 @@ export function registerAdminLateCheckoutBanAlertRoutes(fastify: FastifyInstance
     Body: z.infer<typeof DecideSchema>;
   }>(
     '/v1/admin/late-checkout-ban-alerts/:id/decide',
-    { preHandler: [requireAuth, requireAdmin] },
+    { preHandler: [requireReauthForAdmin] },
     async (request, reply) => {
       let parsed: z.infer<typeof DecideSchema>;
       try {

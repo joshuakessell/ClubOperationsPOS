@@ -43,10 +43,7 @@ function getAppSyncRegion(httpEndpoint: URL): string {
   const fromEnv = process.env.AWS_REGION || process.env.AWS_DEFAULT_REGION;
   if (fromEnv) return fromEnv;
   const inferred = getRegionFromHost(httpEndpoint.host);
-  if (!inferred) {
-    throw new Error(`Unable to infer AWS region from AppSync endpoint host: ${httpEndpoint.host}`);
-  }
-  return inferred;
+  return inferred || 'us-east-1';
 }
 
 export function getAppSyncHttpEndpoint(): URL {
