@@ -257,6 +257,10 @@ describe('Manual Checkout APIs', () => {
       headers: { Authorization: `Bearer ${testStaffToken}` },
       payload: { occupancyId: testBlockId },
     });
+    if (first.statusCode !== 200) {
+      // eslint-disable-next-line no-console
+      console.error('Manual checkout complete failed:', first.statusCode, first.body);
+    }
     expect(first.statusCode).toBe(200);
     const firstData = JSON.parse(first.body);
     expect(firstData.alreadyCheckedOut).toBe(false);

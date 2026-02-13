@@ -815,6 +815,9 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
           const err = error as { statusCode: number; message: string };
           return reply.status(err.statusCode).send({ error: err.message });
         }
+        // Ensure CI logs include the underlying exception even if fastify/pino output is filtered.
+        // eslint-disable-next-line no-console
+        console.error('Failed to complete checkout', error);
         fastify.log.error(
           {
             err: error,

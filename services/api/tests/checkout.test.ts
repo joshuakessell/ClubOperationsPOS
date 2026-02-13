@@ -647,6 +647,10 @@ describe('Checkout Flow', () => {
           authorization: `Bearer ${testStaffToken}`,
         },
       });
+      if (response.statusCode !== 200) {
+        // eslint-disable-next-line no-console
+        console.error('Checkout complete failed:', response.statusCode, response.body);
+      }
       expect(response.statusCode).toBe(200);
 
       const customerAfter = await pool.query<{ past_due_balance: string }>(

@@ -2,7 +2,7 @@
 CREATE TABLE IF NOT EXISTS public.late_checkout_ban_alerts (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
-  checkout_request_id uuid NOT NULL REFERENCES public.checkout_requests(id) ON DELETE CASCADE,
+  checkout_request_id uuid REFERENCES public.checkout_requests(id) ON DELETE CASCADE,
   occupancy_id uuid NOT NULL REFERENCES public.checkin_blocks(id) ON DELETE CASCADE,
   visit_id uuid REFERENCES public.visits(id) ON DELETE SET NULL,
   late_minutes int NOT NULL,
@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS public.late_checkout_ban_alerts (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_late_checkout_ban_alerts_request
   ON public.late_checkout_ban_alerts (checkout_request_id);
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_late_checkout_ban_alerts_occupancy_manual
+  ON public.late_checkout_ban_alerts (occupancy_id)
+  WHERE checkout_request_id IS NULL;
+
 CREATE INDEX IF NOT EXISTS idx_late_checkout_ban_alerts_status_created
   ON public.late_checkout_ban_alerts (status, created_at DESC);
 
@@ -31,4 +35,3 @@ CREATE INDEX IF NOT EXISTS idx_late_checkout_ban_alerts_customer
 
 -- down migration
 DROP TABLE IF EXISTS public.late_checkout_ban_alerts;
-
