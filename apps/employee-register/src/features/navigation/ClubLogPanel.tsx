@@ -86,7 +86,10 @@ export function ClubLogPanel() {
                     <button
                       type="button"
                       className="cs-link"
-                      onClick={() => openCustomerAccount(it.customerId, it.customerName)}
+                      onClick={() =>
+                        openCustomerAccount(it.customerId, it.customerName, { autoStart: false })
+                      }
+                      style={{ fontWeight: 900 }}
                     >
                       {it.customerName}
                     </button>
@@ -126,4 +129,3 @@ export function ClubLogPanel() {
     </div>
   );
 }
-

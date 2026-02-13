@@ -124,7 +124,7 @@ export function useNavigationState({
       setAccountCustomerIdSafe(customerId);
       setAccountCustomerLabel(label ?? null);
       setAccountCustomerSummary(opts?.summary ?? null);
-      setAccountAutoStartCheckin(opts?.autoStart ?? true);
+      setAccountAutoStartCheckin(opts?.autoStart === false ? false : true);
       selectNavTab('account');
     },
     [selectNavTab, setAccountCustomerIdSafe]
