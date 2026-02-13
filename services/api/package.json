@@ -6,7 +6,7 @@
   "main": "./dist/index.js",
   "scripts": {
     "dev": "pnpm exec tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/index.js",
     "db:start": "node scripts/compose.mjs up -d",
     "db:stop": "node scripts/compose.mjs down",
