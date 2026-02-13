@@ -71,22 +71,41 @@ pnpm turbo run build --filter @club-ops/shared --filter @club-ops/api
 export DOCKER_BUILDKIT=0
 docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
 
+# When using the classic builder (DOCKER_BUILDKIT=0), ensure the manifest is
+# actually pushed as expected. We've seen cases where the push logs show layers
+# pushed, but the manifest remains unavailable, which later breaks App Runner.
 docker push "$IMAGE_SHA_TAG"
 
 # Some runners (notably GitHub Actions with buildx) can hit a transient 403 on
 # manifest HEAD/GET checks immediately after a successful push. Since App Runner
 # needs to read the manifest too, wait until the tag is readable.
 repo_name="${ECR_REPO_URI##*/}"
+manifest_ok="false"
 for i in {1..12}; do
-  if aws ecr batch-get-image --region "$AWS_REGION" --repository-name "$repo_name" \
+  tag="$(aws ecr batch-get-image --region "$AWS_REGION" --repository-name "$repo_name" \
     --image-ids imageTag="$IMAGE_TAG" --query 'images[0].imageId.imageTag' --output text \
-    2>/dev/null | grep -q "^${IMAGE_TAG}$"; then
+    2>/dev/null || true)"
+  if [[ "$tag" == "$IMAGE_TAG" ]]; then
     echo "✓ ECR manifest is readable for tag ${IMAGE_TAG}"
+    manifest_ok="true"
     break
   fi
   echo "Waiting for ECR to serve manifest for ${IMAGE_TAG}... (attempt ${i}/12)"
   sleep 5
 done
+
+if [[ "$manifest_ok" != "true" ]]; then
+  echo "ERROR: ECR did not serve a manifest for ${IMAGE_TAG} after waiting." >&2
+  echo "Attempting one more push before failing..." >&2
+  docker push "$IMAGE_SHA_TAG"
+  tag="$(aws ecr batch-get-image --region "$AWS_REGION" --repository-name "$repo_name" \
+    --image-ids imageTag="$IMAGE_TAG" --query 'images[0].imageId.imageTag' --output text \
+    2>/dev/null || true)"
+  if [[ "$tag" != "$IMAGE_TAG" ]]; then
+    echo "ERROR: Still unable to read manifest for ${IMAGE_TAG}." >&2
+    exit 1
+  fi
+fi
 
 # NOTE: We intentionally do not attempt an immediate post-push `docker manifest inspect`.
 # GitHub Actions runners + ECR auth can intermittently return 403/401 for manifest
