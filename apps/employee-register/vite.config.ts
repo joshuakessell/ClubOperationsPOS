@@ -9,6 +9,20 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    chunkSizeWarningLimit: 550,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          // Keep realtime (AppSync websocket signing / transport) out of the main chunk.
+          // This is only needed after sign-in + lane selection.
+          realtime: [
+            '@club-ops/shared/realtime/useLaneSession',
+          ],
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5175,
