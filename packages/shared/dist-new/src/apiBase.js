@@ -2,13 +2,13 @@
 const getEnv = () => {
     try {
         // In Vite/ESM, import.meta.env is available
-        // @ts-ignore
+        // @ts-expect-error - import.meta is not available in all environments
         if (typeof import.meta !== 'undefined' && import.meta.env) {
-            // @ts-ignore
+            // @ts-expect-error - import.meta is not available in all environments
             return import.meta.env;
         }
     }
-    catch (e) {
+    catch {
         // Ignore ReferenceError in CJS
     }
     // Fallback to process.env for Node
@@ -19,7 +19,7 @@ const getEnv = () => {
 };
 const env = getEnv();
 export const API_BASE_URL = typeof env?.VITE_API_BASE_URL === 'string' ? env.VITE_API_BASE_URL : '';
-const isDev = env?.DEV === true || env?.DEV === 'true';
+const isDev = env?.DEV === 'true';
 let didWarnApiBaseUrlSuffix = false;
 function warnIfApiBaseUrlEndsWithApi(raw) {
     if (!isDev)
