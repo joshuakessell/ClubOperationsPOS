@@ -49,6 +49,7 @@ export function registerAdminLateCheckoutBanAlertRoutes(fastify: FastifyInstance
           created_at: Date;
           created_by_staff_name: string | null;
           customer_name: string;
+          notes_json: string;
         }>(
           `
           SELECT
@@ -63,7 +64,26 @@ export function registerAdminLateCheckoutBanAlertRoutes(fastify: FastifyInstance
             a.status,
             a.created_at,
             a.created_by_staff_name,
-            c.name as customer_name
+            c.name as customer_name,
+            COALESCE(
+              (
+                SELECT json_agg(
+                  json_build_object(
+                    'id', n.id,
+                    'createdAt', n.created_at,
+                    'createdByStaffName', n.created_by_staff_name,
+                    'note', n.note,
+                    'isImportant', n.is_important
+                  )
+                  ORDER BY n.created_at DESC
+                )::text
+                FROM customer_notes n
+                WHERE n.customer_id = a.customer_id
+                  AND n.created_at >= date_trunc('day', a.created_at)
+                  AND n.created_at < date_trunc('day', a.created_at) + interval '1 day'
+              ),
+              '[]'
+            ) as notes_json
           FROM late_checkout_ban_alerts a
           JOIN customers c ON c.id = a.customer_id
           WHERE a.status = $1
@@ -87,6 +107,7 @@ export function registerAdminLateCheckoutBanAlertRoutes(fastify: FastifyInstance
         status: r.status,
         createdAt: r.created_at.toISOString(),
         createdByStaffName: r.created_by_staff_name,
+        customerNotesThatDay: JSON.parse(r.notes_json) as unknown,
       }));
 
       return reply.send({ alerts });
@@ -191,6 +212,23 @@ export function registerAdminLateCheckoutBanAlertRoutes(fastify: FastifyInstance
             dedupeKey: `ACT:LATE_CHECKOUT_BAN_DECISION:${alert.id}:${decision}`,
             searchParts: [alert.id, alert.checkout_request_id],
           });
+
+          if (parsed.managerNotes?.trim()) {
+            await client.query(
+              `
+              INSERT INTO customer_notes
+                (customer_id, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
+              VALUES
+                ($1::uuid, $2::uuid, $3, 'OFFICE_DASHBOARD', $4, true)
+              `,
+              [
+                alert.customer_id,
+                request.staff!.staffId,
+                request.staff!.name,
+                parsed.managerNotes.trim(),
+              ]
+            );
+          }
 
           return { decision, bannedUntil: bannedUntil ? bannedUntil.toISOString() : null };
         });

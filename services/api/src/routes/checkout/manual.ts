@@ -398,15 +398,7 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
             [row.visit_id]
           );
 
-          // Apply ban if needed
-          if (banApplied) {
-            const banUntil = new Date();
-            banUntil.setDate(banUntil.getDate() + 30);
-            await client.query(
-              `UPDATE customers SET banned_until = $1, updated_at = NOW() WHERE id = $2`,
-              [banUntil, row.customer_id]
-            );
-          }
+          // NOTE: bans must be manager-approved (see admin late-checkout alert flow).
 
           // Update past due balance + itemized charge if fee > 0
           if (feeAmount > 0) {

@@ -22,6 +22,13 @@ type AlertRow = {
   status: string;
   createdAt: string;
   createdByStaffName: string | null;
+  customerNotesThatDay?: Array<{
+    id: string;
+    createdAt: string;
+    createdByStaffName: string | null;
+    note: string;
+    isImportant: boolean;
+  }>;
 };
 
 export function LateCheckoutBanAlertsView({ session }: Props) {
@@ -81,6 +88,30 @@ export function LateCheckoutBanAlertsView({ session }: Props) {
     }
   }
 
+  function renderNotesPreview(a: AlertRow) {
+    const notes = a.customerNotesThatDay ?? [];
+    if (notes.length === 0) {
+      return <div style={{ color: 'var(--text-muted)', fontSize: 12 }}>No notes for this customer today.</div>;
+    }
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+        <div style={{ fontSize: 12, fontWeight: 800 }}>Notes (today)</div>
+        {notes.slice(0, 2).map((n) => (
+          <div key={n.id} style={{ fontSize: 12, lineHeight: 1.25 }}>
+            <div style={{ color: 'var(--text-muted)' }}>
+              {new Date(n.createdAt).toLocaleString()} — {n.createdByStaffName ?? '—'}
+            </div>
+            <div style={{ fontWeight: n.isImportant ? 800 : 500 }}>{n.note}</div>
+          </div>
+        ))}
+        {notes.length > 2 ? (
+          <div style={{ fontSize: 12, color: 'var(--text-muted)' }}>+{notes.length - 2} more</div>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <PanelShell>
       <PanelHeader
@@ -128,6 +159,8 @@ export function LateCheckoutBanAlertsView({ session }: Props) {
                       Created: {new Date(a.createdAt).toLocaleString()}
                       {a.createdByStaffName ? ` by ${a.createdByStaffName}` : ''}
                     </div>
+
+                    {renderNotesPreview(a)}
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-end' }}>
