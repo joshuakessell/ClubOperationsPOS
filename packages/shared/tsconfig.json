@@ -4,11 +4,23 @@
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "verbatimModuleSyntax": true,
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "outDir": "./dist",
-    "rootDir": ".",
-    "composite": true
+    "lib": [
+      "ES2022",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "outDir": "./dist-new",
+    "rootDir": "."
   },
-  "include": ["index.ts", "src/**/*", "realtime/**/*"],
-  "exclude": ["node_modules", "dist", "tests"]
+  "include": [
+    "index.ts",
+    "src/**/*",
+    "realtime/**/*"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "dist-new",
+    "tests"
+  ]
 }

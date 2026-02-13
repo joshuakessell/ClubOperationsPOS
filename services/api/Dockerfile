@@ -30,7 +30,7 @@ COPY --from=deps /repo/packages/shared/node_modules ./packages/shared/node_modul
 COPY --from=deps /repo/services/api/node_modules ./services/api/node_modules
 
 # Copy prebuilt artifacts and certificate
-COPY packages/shared/dist ./packages/shared/dist
+COPY packages/shared/dist-new ./packages/shared/dist-new
 COPY services/api/dist ./services/api/dist
 COPY services/api/certs/rds-ca-bundle.pem ./services/api/certs/rds-ca-bundle.pem
 

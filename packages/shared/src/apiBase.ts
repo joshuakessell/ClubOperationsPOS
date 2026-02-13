@@ -1,4 +1,23 @@
-const env = (import.meta as unknown as { env?: Record<string, unknown> }).env;
+// Universal environment check (Node CJS + Vite ESM)
+const getEnv = () => {
+  try {
+    // In Vite/ESM, import.meta.env is available
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      // @ts-ignore
+      return import.meta.env;
+    }
+  } catch (e) {
+    // Ignore ReferenceError in CJS
+  }
+  // Fallback to process.env for Node
+  if (typeof process !== 'undefined' && process.env) {
+    return process.env;
+  }
+  return {};
+};
+
+const env = getEnv();
 
 export const API_BASE_URL = typeof env?.VITE_API_BASE_URL === 'string' ? env.VITE_API_BASE_URL : '';
 
