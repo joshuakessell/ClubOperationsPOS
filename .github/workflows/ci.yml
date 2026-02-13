@@ -99,3 +99,17 @@ jobs:
           DB_NAME: testdb
           DB_USER: test
           DB_PASSWORD: testpassword
+
+      - name: Debug lingering processes
+        if: always()
+        run: |
+          echo "=== ps aux (top 40) ==="
+          ps aux --sort=-%cpu | head -n 40
+          echo "=== node processes ==="
+          ps aux | grep -E "node|vitest|vite" | grep -v grep || true
+
+      - name: Debug pnpm store size
+        if: always()
+        run: |
+          echo "pnpm store path: $(pnpm store path)"
+          du -sh "$(pnpm store path)" || true

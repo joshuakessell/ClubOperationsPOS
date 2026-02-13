@@ -182,6 +182,9 @@ export function setupKioskAppTest() {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // Start with real timers; individual tests can opt into fake timers.
+    // Some app flows rely on real `fetch`/Promise timing and will hang if we
+    // globally fake timers without advancing them.
     vi.useRealTimers();
     lastSocket = null;
     createdSockets.length = 0;
@@ -274,6 +277,10 @@ export function setupKioskAppTest() {
 
   afterEach(() => {
     cleanup();
+    // Some kiosk hooks use polling/retry timers (setTimeout/setInterval).
+    // Ensure no timers leak across tests and keep the runner alive.
+    vi.clearAllTimers();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
