@@ -118,6 +118,19 @@ aws cloudformation update-stack \
 
 ## Docker Configuration
 
+### Local dev vs edge (LAN) env files
+
+The repo supports two common local modes for the API:
+
+- **Local dev**: `services/api/docker-compose.yml` (Postgres exposed on host port `5433`).
+- **Edge / LAN fallback stack**: `docker-compose.edge.yml` (Postgres exposed on host port `5434`).
+
+Keep `services/api/.env` configured for **local dev**.
+
+For the edge stack, use `services/api/.env.edge` (or copy from `services/api/.env.edge.example`).
+
+This avoids constantly rewriting `DB_PORT` / `DB_PASSWORD` when switching between local dev and edge mode.
+
 ### Multi-Stage Builds
 All services use optimized multi-stage Dockerfiles:
 
