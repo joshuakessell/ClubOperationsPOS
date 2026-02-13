@@ -312,7 +312,7 @@ describe('Checkout Flow', () => {
       expect(data.banApplied).toBe(false);
     });
 
-    it('should calculate $35 fee for 60-89 minutes late', async () => {
+    it('should calculate $30 fee for 60-89 minutes late', async () => {
       if (!dbAvailable) return;
       await pool.query(
         `UPDATE checkin_blocks SET ends_at = NOW() - INTERVAL '75 minutes' WHERE id = $1`,
@@ -335,11 +335,11 @@ describe('Checkout Flow', () => {
       const data = JSON.parse(response.body);
       expect(data.lateMinutes).toBeGreaterThanOrEqual(60);
       expect(data.lateMinutes).toBeLessThan(90);
-      expect(data.lateFeeAmount).toBe(35);
+      expect(data.lateFeeAmount).toBe(30);
       expect(data.banApplied).toBe(false);
     });
 
-    it('should calculate $35 fee and apply ban for 90+ minutes late', async () => {
+    it('should calculate $30 fee and apply ban for 90+ minutes late', async () => {
       if (!dbAvailable) return;
       await pool.query(
         `UPDATE checkin_blocks SET ends_at = NOW() - INTERVAL '95 minutes' WHERE id = $1`,
@@ -361,7 +361,7 @@ describe('Checkout Flow', () => {
       expect(response.statusCode).toBe(200);
       const data = JSON.parse(response.body);
       expect(data.lateMinutes).toBeGreaterThanOrEqual(90);
-      expect(data.lateFeeAmount).toBe(35);
+      expect(data.lateFeeAmount).toBe(30);
       expect(data.banApplied).toBe(true);
     });
   });
@@ -634,7 +634,7 @@ describe('Checkout Flow', () => {
       // Create a checkout request that already has a late fee assessed + paid
       const requestResult = await pool.query(
         `INSERT INTO checkout_requests (occupancy_id, customer_id, kiosk_device_id, customer_checklist_json, late_minutes, late_fee_amount, claimed_by_staff_id, status, items_confirmed, fee_paid)
-         VALUES ($1, $2, 'test-kiosk', '{}', 74, 35, $3, 'CLAIMED', true, true)
+         VALUES ($1, $2, 'test-kiosk', '{}', 74, 30, $3, 'CLAIMED', true, true)
          RETURNING id`,
         [testBlockId, testCustomerId, testStaffId]
       );
@@ -653,7 +653,7 @@ describe('Checkout Flow', () => {
         `SELECT past_due_balance FROM customers WHERE id = $1`,
         [testCustomerId]
       );
-      expect(parseFloat(String(customerAfter.rows[0]!.past_due_balance))).toBe(35);
+      expect(parseFloat(String(customerAfter.rows[0]!.past_due_balance))).toBe(30);
 
       const chargesRes = await pool.query<{
         type: string;

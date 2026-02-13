@@ -1,8 +1,4 @@
 export function calculateLateFee(lateMinutes: number): { feeAmount: number; banApplied: boolean } {
-  // In demo mode, suppress late fees/bans to keep flows lightweight
-  if (process.env.DEMO_MODE === 'true') {
-    return { feeAmount: 0, banApplied: false };
-  }
   if (lateMinutes < 30) {
     return { feeAmount: 0, banApplied: false };
   } else if (lateMinutes < 60) {

@@ -233,7 +233,7 @@ describe('Manual Checkout APIs', () => {
     expect(match.isOverdue).toBe(true);
   });
 
-  it('POST /v1/checkout/manual-resolve returns correct late fee tier (90+ => $35 + ban)', async () => {
+  it('POST /v1/checkout/manual-resolve returns correct late fee tier (90+ => $30 + ban)', async () => {
     if (!dbAvailable) return;
     const res = await fastify.inject({
       method: 'POST',
@@ -245,7 +245,7 @@ describe('Manual Checkout APIs', () => {
     const data = JSON.parse(res.body);
     expect(data.occupancyId).toBe(testBlockId);
     expect(data.lateMinutes).toBeGreaterThanOrEqual(90);
-    expect(data.fee).toBe(35);
+    expect(data.fee).toBe(30);
     expect(data.banApplied).toBe(true);
   });
 
