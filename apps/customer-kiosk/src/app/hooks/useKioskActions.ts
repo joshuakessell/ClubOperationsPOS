@@ -1,7 +1,6 @@
 import { useCallback } from 'react';
 import type { Language } from '../../i18n';
 import { t } from '../../i18n';
-import { getErrorMessage, readJson } from '@club-ops/ui';
 import type { SessionState } from '../../utils/membership';
 import type { KioskNotice } from '../notice';
 import { generateUUID } from '../../utils/uuid';
@@ -22,6 +21,7 @@ export function useKioskActions({
   setView,
   resetToIdle,
   showNotice,
+  enqueue,
 }: {
   apiBase: string;
   lane: string | null;
@@ -41,6 +41,14 @@ export function useKioskActions({
   ) => void;
   resetToIdle: () => void;
   showNotice: (notice: KioskNotice, ttlMs?: number) => void;
+  enqueue: (
+    url: string,
+    options: {
+      method?: string;
+      headers?: Record<string, string>;
+      body?: string;
+    }
+  ) => Promise<void>;
 }) {
   const handleLanguageSelection = useCallback(
     async (language: Language) => {
@@ -51,7 +59,7 @@ export function useKioskActions({
 
       setIsSubmitting(true);
       try {
-        const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/set-language`, {
+        await enqueue(`${apiBase}/v1/checkin/lane/${lane}/set-language`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -63,11 +71,6 @@ export function useKioskActions({
             customerName: session.customerName || undefined,
           }),
         });
-
-        if (!response.ok) {
-          const errorPayload: unknown = await response.json().catch(() => null);
-          throw new Error(getErrorMessage(errorPayload) || 'Failed to set language');
-        }
       } catch (error) {
         console.error('Failed to set language:', error);
         showNotice({
@@ -87,16 +90,10 @@ export function useKioskActions({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/kiosk-ack`, {
+      await enqueue(`${apiBase}/v1/checkin/lane/${lane}/kiosk-ack`, {
         method: 'POST',
-        // No request body; avoid sending JSON content-type (Fastify may 400 on empty JSON body).
         headers: kioskAuthHeaders(),
       });
-
-      if (!response.ok) {
-        const errorPayload = await readJson(response);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to acknowledge completion');
-      }
 
       setView('idle');
     } catch (error) {
@@ -111,18 +108,13 @@ export function useKioskActions({
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/reset`, {
+      await enqueue(`${apiBase}/v1/checkin/lane/${lane}/reset`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...kioskAuthHeaders(),
         },
       });
-
-      if (!response.ok) {
-        const errorPayload = await readJson(response);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to reset');
-      }
 
       resetToIdle();
     } catch (error) {
@@ -140,7 +132,7 @@ export function useKioskActions({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/flow-command`, {
+      await enqueue(`${apiBase}/v1/checkin/lane/${lane}/flow-command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -154,11 +146,6 @@ export function useKioskActions({
           type: 'BACK_STEP',
         }),
       });
-
-      if (!response.ok) {
-        const errorPayload = await readJson(response);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to navigate back');
-      }
     } catch (error) {
       console.error('Failed to navigate back:', error);
       showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.generic') });
@@ -175,7 +162,7 @@ export function useKioskActions({
 
     setIsSubmitting(true);
     try {
-      const response = await fetch(`${apiBase}/v1/checkin/lane/${lane}/flow-command`, {
+      await enqueue(`${apiBase}/v1/checkin/lane/${lane}/flow-command`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,11 +176,6 @@ export function useKioskActions({
           type: 'CANCEL_STEP',
         }),
       });
-
-      if (!response.ok) {
-        const errorPayload = await readJson(response);
-        throw new Error(getErrorMessage(errorPayload) || 'Failed to cancel step');
-      }
     } catch (error) {
       console.error('Failed to cancel step:', error);
       showNotice({ tone: 'warning', title: t(session.customerPrimaryLanguage, 'error.generic') });

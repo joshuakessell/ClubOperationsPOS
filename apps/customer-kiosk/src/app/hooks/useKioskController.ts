@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import { getApiUrl } from '@club-ops/shared';
 import { useKioskLane } from './useKioskLane';
 import { useOrientationOverlay } from './useOrientationOverlay';
@@ -8,19 +8,28 @@ import { useKioskRealtime } from './useKioskRealtime';
 import { useKioskActions } from './useKioskActions';
 import { usePulseHighlightStyles } from './usePulseHighlightStyles';
 import { useKioskNotice } from './useKioskNotice';
+import { useMutationQueue } from './useMutationQueue';
 
 export function useKioskController() {
   usePulseHighlightStyles();
-  const apiBase = getApiUrl('/api');
+
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
     .process?.env;
+
+  const cloudApiBase = getApiUrl('/api');
+  const lanApiBase = (
+    typeof rawEnv.VITE_LAN_API_BASE_URL === 'string' && rawEnv.VITE_LAN_API_BASE_URL
+      ? rawEnv.VITE_LAN_API_BASE_URL
+      : ''
+  ).replace(/\/$/, '');
+
   const kioskToken =
     typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
       ? rawEnv.VITE_KIOSK_TOKEN.trim()
       : typeof processEnv?.VITE_KIOSK_TOKEN === 'string' && processEnv.VITE_KIOSK_TOKEN.trim()
         ? processEnv.VITE_KIOSK_TOKEN.trim()
-      : null;
+        : null;
 
   const kioskAuthHeaders = useCallback(
     (extra?: Record<string, string>) => {
@@ -38,14 +47,20 @@ export function useKioskController() {
   const { orientationOverlay } = useOrientationOverlay(
     sessionState.session.customerPrimaryLanguage
   );
-  const inventoryState = useKioskInventory({ apiBase, enabled: Boolean(lane) });
 
-  useKioskRealtime({
+  // Cycle breaking: useKioskRealtime needs inventory actions, but useKioskInventory needs apiBase (which depends on realtime mode).
+  // We use a ref to proxy the inventory actions.
+  const inventoryActionsRef = useRef<{ applyInventoryUpdate: (payload: unknown) => void } | null>(null);
+
+  const { mode } = useKioskRealtime({
     lane,
     kioskToken,
     sessionIdRef: sessionState.sessionIdRef,
+    // For snapshot polling inside useKioskRealtime, we'll start with cloud. 
+    // Ideally useKioskRealtime would handle its own polling target based on mode,
+    // but for now let's pass cloudApiBase.
     api: {
-      apiBase,
+      apiBase: cloudApiBase,
       kioskAuthHeaders,
     },
     sessionActions: {
@@ -66,12 +81,26 @@ export function useKioskController() {
       resetToIdle: sessionState.resetToIdle,
     },
     inventoryActions: {
-      applyInventoryUpdate: inventoryState.applyInventoryUpdate,
+      applyInventoryUpdate: (payload) => {
+        if (inventoryActionsRef.current) {
+          inventoryActionsRef.current.applyInventoryUpdate(payload);
+        }
+      },
     },
   });
 
+  const activeApiBase = mode === 'lan' && lanApiBase ? lanApiBase : cloudApiBase;
+
+  const inventoryState = useKioskInventory({ apiBase: activeApiBase, enabled: Boolean(lane) });
+
+  // Update the ref so realtime can call it
+  inventoryActionsRef.current = inventoryState;
+
+  // Use mutation queue for robust commands
+  const { enqueue } = useMutationQueue(activeApiBase, Boolean(lane));
+
   const actions = useKioskActions({
-    apiBase,
+    apiBase: activeApiBase,
     lane,
     kioskAuthHeaders,
     session: sessionState.session,
@@ -80,10 +109,11 @@ export function useKioskController() {
     setView: sessionState.setView,
     resetToIdle: sessionState.resetToIdle,
     showNotice: noticeState.showNotice,
+    enqueue,
   });
 
   return {
-    apiBase,
+    apiBase: activeApiBase,
     kioskToken,
     kioskAuthHeaders,
     lane,
