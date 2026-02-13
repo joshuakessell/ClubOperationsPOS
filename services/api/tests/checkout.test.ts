@@ -603,7 +603,7 @@ describe('Checkout Flow', () => {
       );
 
       // Reset customer bookkeeping
-      await pool.query(`UPDATE customers SET past_due_balance = 0, notes = '' WHERE id = $1`, [
+      await pool.query(`UPDATE customers SET past_due_balance = 0 WHERE id = $1`, [
         testCustomerId,
       ]);
       await pool.query(`DELETE FROM charges WHERE visit_id = $1`, [testVisitId]);
@@ -626,22 +626,11 @@ describe('Checkout Flow', () => {
       });
       expect(response.statusCode).toBe(200);
 
-      const customerAfter = await pool.query<{ past_due_balance: string; notes: string | null }>(
-        `SELECT past_due_balance, notes FROM customers WHERE id = $1`,
+      const customerAfter = await pool.query<{ past_due_balance: string }>(
+        `SELECT past_due_balance FROM customers WHERE id = $1`,
         [testCustomerId]
       );
       expect(parseFloat(String(customerAfter.rows[0]!.past_due_balance))).toBe(35);
-      const notes = String(customerAfter.rows[0]!.notes || '');
-      expect(notes).toContain('[SYSTEM_LATE_FEE_PENDING]');
-      // 74 mins -> floor to 60 -> "1h 0m late"
-      expect(notes).toContain('1h 0m late');
-
-      const visitRow = await pool.query<{ started_at: Date }>(
-        `SELECT started_at FROM visits WHERE id = $1`,
-        [testVisitId]
-      );
-      const visitDate = visitRow.rows[0]!.started_at.toISOString().slice(0, 10);
-      expect(notes).toContain(`on last visit on ${visitDate}.`);
 
       const chargesRes = await pool.query<{
         type: string;
@@ -655,7 +644,7 @@ describe('Checkout Flow', () => {
       // Clean up
       await pool.query('DELETE FROM checkout_requests WHERE id = $1', [requestId]);
       await pool.query('DELETE FROM charges WHERE visit_id = $1', [testVisitId]);
-      await pool.query(`UPDATE customers SET past_due_balance = 0, notes = '' WHERE id = $1`, [
+      await pool.query(`UPDATE customers SET past_due_balance = 0 WHERE id = $1`, [
         testCustomerId,
       ]);
     });

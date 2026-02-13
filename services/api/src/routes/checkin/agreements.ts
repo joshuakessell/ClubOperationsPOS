@@ -18,7 +18,6 @@ import {
 import { getHttpError } from '../../checkin/utils';
 import { getRoomTier } from '../../checkin/waitlist';
 import { generateAgreementPdf } from '../../utils/pdf-generator';
-import { stripSystemLateFeeNotes } from '../../utils/lateFeeNotes';
 import { roundUpToQuarterHour } from '../../time/rounding';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { insertAuditLog } from '../../audit/auditLog';
@@ -691,22 +690,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
             ]
           );
 
-          // Auto-archive system late-fee notes after they have been shown on the next visit.
-          // Manual notes (staff-entered) must persist and are never auto-archived.
-          if (session.customer_id) {
-            const notesRes = await client.query<{ notes: string | null }>(
-              `SELECT notes FROM customers WHERE id = $1 LIMIT 1`,
-              [session.customer_id]
-            );
-            const existing = notesRes.rows[0]?.notes ?? null;
-            const cleaned = stripSystemLateFeeNotes(existing);
-            if (cleaned !== existing) {
-              await client.query(
-                `UPDATE customers SET notes = $1, updated_at = NOW() WHERE id = $2`,
-                [cleaned, session.customer_id]
-              );
-            }
-          }
+          // Legacy notes cleanup removed; structured notes live in customer_notes.
 
           // Update session status
           await client.query(

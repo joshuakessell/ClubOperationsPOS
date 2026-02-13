@@ -1,7 +1,8 @@
 import type { CheckinStage, CustomerProfileCardProps } from '../CustomerProfileCard';
 import { CustomerProfileCard } from '../CustomerProfileCard';
 import { EmployeeAssistPanel } from '../EmployeeAssistPanel';
-import { useEffect, useState } from 'react';
+import { CustomerAccountDetailsCard } from './CustomerAccountDetailsCard';
+import { useEffect } from 'react';
 import { useStartLaneCheckinForCustomerIfNotVisiting } from '../../../app/useStartLaneCheckinForCustomerIfNotVisiting';
 import { PanelHeader } from '../../../views/PanelHeader';
 import { PanelShell } from '../../../views/PanelShell';
@@ -118,10 +119,6 @@ export function CustomerAccountPanel(props: {
   const registerState = useEmployeeRegisterState();
   const customerNotesState = registerState.customerNotesState;
   const customerSpendLedgerState = registerState.customerSpendLedgerState;
-
-  const [showAddCustomerNote, setShowAddCustomerNote] = useState(false);
-  const [customerNoteText, setCustomerNoteText] = useState('');
-  const [customerNoteImportant, setCustomerNoteImportant] = useState(false);
 
   // Load notes + spend ledger when customer changes.
   // Guarded to avoid repeated retries/spam when requests fail.
@@ -282,244 +279,50 @@ export function CustomerAccountPanel(props: {
         >
           {hasActiveSession ? (
             <>
-              <div
-                style={{
-                  minHeight: '14rem',
-                  maxHeight: '22rem',
-                  overflowY: 'auto',
-                  paddingRight: '0.2rem',
-                }}
-              >
-                {renderProfileCard(null)}
-              </div>
-
-              <div className="cs-liquid-card" style={{ padding: '0.85rem', overflow: 'auto' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ fontWeight: 900 }}>Notes</div>
-                  <button
-                    type="button"
-                    className="cs-liquid-button cs-liquid-button--secondary"
-                    onClick={() => setShowAddCustomerNote(true)}
-                  >
-                    Add Note
-                  </button>
-                </div>
-
-                {customerNotesState.getError(props.customerId) ? (
-                  <div style={{ marginTop: '0.5rem', color: '#fecaca', fontWeight: 800 }}>
-                    {customerNotesState.getError(props.customerId)}
-                  </div>
-                ) : null}
-
-                {customerNotesState.isLoading(props.customerId) ? (
-                  <div style={{ marginTop: '0.5rem', color: '#94a3b8', fontWeight: 800 }}>
-                    Loading notes…
-                  </div>
-                ) : customerNotesState.getNotes(props.customerId).length === 0 ? (
-                  <div style={{ marginTop: '0.5rem', color: '#94a3b8', fontWeight: 800 }}>
-                    No notes.
-                  </div>
-                ) : (
-                  <div style={{ marginTop: '0.5rem', display: 'grid', gap: '0.5rem' }}>
-                    {[...customerNotesState.getNotes(props.customerId)]
-                      .sort((a, b) => Number(b.isImportant) - Number(a.isImportant))
-                      .map((n) => (
-                        <div
-                          key={n.id}
-                          style={{
-                            border: '1px solid rgba(148, 163, 184, 0.15)',
-                            borderRadius: 10,
-                            padding: '0.6rem',
-                          }}
-                        >
-                          <div
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: '0.75rem',
-                              marginBottom: '0.25rem',
-                            }}
-                          >
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                              {n.isImportant ? (
-                                <span aria-hidden="true" style={{ color: '#ef4444', fontWeight: 900 }}>
-                                  ⚑
-                                </span>
-                              ) : null}
-                              <div style={{ fontWeight: n.isImportant ? 950 : 850 }}>
-                                {n.createdByStaffName}
-                              </div>
-                            </div>
-                            <div className="er-text-xs" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                              {new Date(n.createdAt).toLocaleString()}
-                            </div>
-                          </div>
-                          <div style={{ whiteSpace: 'pre-wrap', fontWeight: n.isImportant ? 900 : 800 }}>
-                            {n.note}
-                          </div>
-                        </div>
-                      ))}
-                  </div>
-                )}
-
-                {showAddCustomerNote ? (
-                  <div
-                    style={{
-                      marginTop: '0.75rem',
-                      borderTop: '1px solid rgba(148, 163, 184, 0.15)',
-                      paddingTop: '0.75rem',
-                      display: 'grid',
-                      gap: '0.5rem',
-                    }}
-                  >
-                    <textarea
-                      value={customerNoteText}
-                      onChange={(e) => setCustomerNoteText(e.target.value)}
-                      placeholder="Add a note…"
-                      style={{
-                        width: '100%',
-                        minHeight: 80,
-                        borderRadius: 10,
-                        padding: '0.6rem',
-                        border: '1px solid rgba(148, 163, 184, 0.25)',
-                        background: 'rgba(15, 23, 42, 0.35)',
-                        color: '#e2e8f0',
-                        fontWeight: 800,
-                      }}
-                    />
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 900 }}>
-                      <input
-                        type="checkbox"
-                        checked={customerNoteImportant}
-                        onChange={(e) => setCustomerNoteImportant(e.target.checked)}
-                      />
-                      Important
-                    </label>
-                    <div style={{ display: 'flex', gap: '0.5rem' }}>
-                      <button
-                        type="button"
-                        className="cs-liquid-button"
-                        onClick={() => {
-                          void (async () => {
-                            await customerNotesState.createNote(
-                              props.customerId,
-                              customerNoteText,
-                              customerNoteImportant
-                            );
-                            setCustomerNoteText('');
-                            setCustomerNoteImportant(false);
-                            setShowAddCustomerNote(false);
-                          })();
-                        }}
-                      >
-                        Save
-                      </button>
-                      <button
-                        type="button"
-                        className="cs-liquid-button cs-liquid-button--secondary"
-                        onClick={() => setShowAddCustomerNote(false)}
-                      >
-                        Cancel
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
-              </div>
-
-              <div className="cs-liquid-card" style={{ padding: '0.85rem', overflow: 'auto' }}>
-                <div style={{ fontWeight: 900, marginBottom: '0.5rem' }}>Spending</div>
-                {customerSpendLedgerState.getError(props.customerId) ? (
-                  <div style={{ marginBottom: '0.5rem', color: '#fecaca', fontWeight: 800 }}>
-                    {customerSpendLedgerState.getError(props.customerId)}
-                  </div>
-                ) : null}
-                {customerSpendLedgerState.isLoading(props.customerId) ? (
-                  <div style={{ color: '#94a3b8', fontWeight: 800 }}>Loading spend ledger…</div>
-                ) : customerSpendLedgerState.getGroups(props.customerId).length === 0 ? (
-                  <div style={{ color: '#94a3b8', fontWeight: 800 }}>No spend ledger entries.</div>
-                ) : (
-                  <div style={{ display: 'grid', gap: '0.5rem' }}>
-                    {customerSpendLedgerState.getGroups(props.customerId).map((g) => (
-                      <details
-                        key={g.visitId ?? 'unassigned'}
-                        onToggle={(e) => {
-                          const open = (e.target as HTMLDetailsElement).open;
-                          if (!open) return;
-                          customerSpendLedgerState
-                            .loadVisitLedger(props.customerId, g.visitId)
-                            .catch(() => undefined);
-                        }}
-                      >
-                        <summary style={{ cursor: 'pointer', fontWeight: 900 }}>
-                          {g.visitStartedAt
-                            ? new Date(g.visitStartedAt).toLocaleString()
-                            : g.visitId
-                              ? `Visit ${g.visitId.slice(0, 8)}`
-                              : 'Unassigned'}
-                          {` — Net $${(g.netCents / 100).toFixed(2)}`}
-                        </summary>
-                        <div style={{ marginTop: '0.5rem', display: 'grid', gap: '0.35rem' }}>
-                          {customerSpendLedgerState
-                            .getVisitEntries(props.customerId, g.visitId)
-                            .map((e) => (
-                              <div
-                                key={e.id}
-                                style={{
-                                  display: 'flex',
-                                  justifyContent: 'space-between',
-                                  gap: '0.75rem',
-                                  fontWeight: 850,
-                                }}
-                              >
-                                <div style={{ color: '#cbd5e1' }}>{e.summary}</div>
-                                <div style={{ color: e.amountCents < 0 ? '#fca5a5' : '#86efac' }}>
-                                  {(e.amountCents < 0 ? '-' : '') + `$${(Math.abs(e.amountCents) / 100).toFixed(2)}`}
-                                </div>
-                              </div>
-                            ))}
-                        </div>
-                      </details>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              <EmployeeAssistPanel
-                sessionId={props.currentSessionId!}
-                customerName={props.customerName}
-                customerPrimaryLanguage={props.customerPrimaryLanguage}
-                membershipNumber={props.membershipNumber || null}
-                customerMembershipValidUntil={props.customerMembershipValidUntil}
-                membershipPurchaseIntent={props.membershipPurchaseIntent}
-                membershipChoice={props.membershipChoice}
-                allowedRentals={props.allowedRentals}
-                proposedRentalType={props.proposedRentalType}
-                proposedBy={props.proposedBy}
-                selectionConfirmed={props.selectionConfirmed}
-                waitlistDesiredTier={props.waitlistDesiredTier}
-                waitlistDesiredTypes={props.waitlistDesiredTypes}
-                waitlistBackupType={props.waitlistBackupType}
-                waitlistRequestedResourceNumber={props.waitlistRequestedResourceNumber}
-                waitlistRequestedResourceType={props.waitlistRequestedResourceType}
-                inventoryAvailable={props.inventoryAvailable}
-                waitlistUnavailableOptions={props.waitlistUnavailableOptions}
-                isSubmitting={props.isSubmitting}
-                directSelect={props.directSelect}
-                onHighlightLanguage={props.onHighlightLanguage}
-                onConfirmLanguage={props.onConfirmLanguage}
-                onHighlightMembership={props.onHighlightMembership}
-                onConfirmMembershipOneTime={props.onConfirmMembershipOneTime}
-                onConfirmMembershipSixMonth={props.onConfirmMembershipSixMonth}
-                onHighlightRental={props.onHighlightRental}
-                onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
-                onDirectSelectRental={props.onDirectSelectRental}
-                onHighlightWaitlistBackup={props.onHighlightWaitlistBackup}
-                onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
-                onClearSession={props.onClearSession}
-                onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
-                onApproveRental={props.onApproveRental}
+              <CustomerAccountDetailsCard
+                customerId={props.customerId}
+                profileCard={renderProfileCard(null)}
+                customerNotesState={customerNotesState}
+                customerSpendLedgerState={customerSpendLedgerState}
               />
+
+              <div className="cs-liquid-card" style={{ padding: '0.85rem', maxHeight: '12rem', overflow: 'auto' }}>
+                <EmployeeAssistPanel
+                  sessionId={props.currentSessionId!}
+                  customerName={props.customerName}
+                  customerPrimaryLanguage={props.customerPrimaryLanguage}
+                  membershipNumber={props.membershipNumber || null}
+                  customerMembershipValidUntil={props.customerMembershipValidUntil}
+                  membershipPurchaseIntent={props.membershipPurchaseIntent}
+                  membershipChoice={props.membershipChoice}
+                  allowedRentals={props.allowedRentals}
+                  proposedRentalType={props.proposedRentalType}
+                  proposedBy={props.proposedBy}
+                  selectionConfirmed={props.selectionConfirmed}
+                  waitlistDesiredTier={props.waitlistDesiredTier}
+                  waitlistDesiredTypes={props.waitlistDesiredTypes}
+                  waitlistBackupType={props.waitlistBackupType}
+                  waitlistRequestedResourceNumber={props.waitlistRequestedResourceNumber}
+                  waitlistRequestedResourceType={props.waitlistRequestedResourceType}
+                  inventoryAvailable={props.inventoryAvailable}
+                  waitlistUnavailableOptions={props.waitlistUnavailableOptions}
+                  isSubmitting={props.isSubmitting}
+                  directSelect={props.directSelect}
+                  onHighlightLanguage={props.onHighlightLanguage}
+                  onConfirmLanguage={props.onConfirmLanguage}
+                  onHighlightMembership={props.onHighlightMembership}
+                  onConfirmMembershipOneTime={props.onConfirmMembershipOneTime}
+                  onConfirmMembershipSixMonth={props.onConfirmMembershipSixMonth}
+                  onHighlightRental={props.onHighlightRental}
+                  onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
+                  onDirectSelectRental={props.onDirectSelectRental}
+                  onHighlightWaitlistBackup={props.onHighlightWaitlistBackup}
+                  onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
+                  onClearSession={props.onClearSession}
+                  onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
+                  onApproveRental={props.onApproveRental}
+                />
+              </div>
             </>
           ) : showManualStart ? (
             <>

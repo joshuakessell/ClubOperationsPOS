@@ -453,7 +453,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
             <RaisedCard>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Customer Admin Tools</div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                Search customers; admin can clear notes and waive past-due balance.
+                Search customers; admin can waive past-due balance.
               </div>
               <button className="cs-liquid-button" onClick={() => navigate('/customers')}>
                 Open Customer Tools

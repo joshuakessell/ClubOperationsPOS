@@ -4,7 +4,7 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE TABLE IF NOT EXISTS public.customer_activity_events (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   occurred_at timestamptz NOT NULL DEFAULT now(),
-  customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE RESTRICT,
+  customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
   action_type text NOT NULL,
   action_category text NOT NULL,
   source_app text NOT NULL,
@@ -40,4 +40,3 @@ CREATE INDEX IF NOT EXISTS idx_customer_activity_events_search_trgm
 
 -- down migration
 DROP TABLE IF EXISTS public.customer_activity_events;
-

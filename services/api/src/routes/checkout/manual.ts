@@ -7,12 +7,10 @@ import type {
   ManualCheckoutResourceType,
   ManualCheckoutCandidateRow,
   ManualResolveRow,
-  VisitDateRow,
   WaitlistStatusRow,
 } from '../../checkout/types';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { insertAuditLog } from '../../audit/auditLog';
-import { buildSystemLateFeeNote } from '../../utils/lateFeeNotes';
 import { calculateLateFee, looksLikeUuid } from '../../checkout/utils';
 
 export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
@@ -236,15 +234,13 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
         }
 
         if (!row) return reply.status(404).send({ error: 'Active occupancy not found' });
-
-        const now = new Date();
-        const scheduledCheckoutAt =
-          row.scheduled_checkout_at instanceof Date
-            ? row.scheduled_checkout_at
-            : new Date(row.scheduled_checkout_at);
+    const scheduledCheckoutAt =
+      row.scheduled_checkout_at instanceof Date
+        ? row.scheduled_checkout_at
+        : new Date(row.scheduled_checkout_at);
         const lateMinutes = Math.max(
           0,
-          Math.floor((now.getTime() - scheduledCheckoutAt.getTime()) / (1000 * 60))
+          Math.floor((Date.now() - scheduledCheckoutAt.getTime()) / (1000 * 60))
         );
         const { feeAmount, banApplied } = calculateLateFee(lateMinutes);
 
@@ -337,14 +333,13 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
             return { alreadyCheckedOut: true, row };
           }
 
-          const now = new Date();
           const scheduledCheckoutAt =
             row.scheduled_checkout_at instanceof Date
               ? row.scheduled_checkout_at
               : new Date(row.scheduled_checkout_at);
           const lateMinutes = Math.max(
             0,
-            Math.floor((now.getTime() - scheduledCheckoutAt.getTime()) / (1000 * 60))
+            Math.floor((Date.now() - scheduledCheckoutAt.getTime()) / (1000 * 60))
           );
           const { feeAmount, banApplied } = calculateLateFee(lateMinutes);
 
@@ -413,7 +408,7 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
             );
           }
 
-          // Update past due balance + itemized charge + system note if fee > 0
+          // Update past due balance + itemized charge if fee > 0
           if (feeAmount > 0) {
             await client.query(
               `UPDATE customers
@@ -435,29 +430,6 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
               );
             }
 
-            // System note: visible on next visit, then auto-archived during next successful check-in.
-            const visitRow = await client.query<VisitDateRow>(
-              `SELECT started_at FROM visits WHERE id = $1 LIMIT 1`,
-              [row.visit_id]
-            );
-            const visitDate = visitRow.rows[0]?.started_at
-              ? visitRow.rows[0]!.started_at.toISOString().slice(0, 10)
-              : now.toISOString().slice(0, 10);
-            const noteLine = buildSystemLateFeeNote({
-              lateMinutes,
-              visitDate,
-              feeAmount,
-            });
-            await client.query(
-              `UPDATE customers
-               SET notes = CASE
-                 WHEN notes IS NULL OR notes = '' THEN $1
-                 ELSE notes || E'\\n' || $1
-               END,
-               updated_at = NOW()
-               WHERE id = $2`,
-              [noteLine, row.customer_id]
-            );
           }
 
           // Log late checkout event if late >= 30 minutes
@@ -527,14 +499,13 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
           }
         }
 
-        const now = new Date();
         const lateMinutes =
           alreadyCheckedOut && typeof (result as any).lateMinutes !== 'number'
-            ? Math.max(0, Math.floor((now.getTime() - scheduledCheckoutAt.getTime()) / (1000 * 60)))
+            ? Math.max(0, Math.floor((Date.now() - scheduledCheckoutAt.getTime()) / (1000 * 60)))
             : ((result as any).lateMinutes ??
               Math.max(
                 0,
-                Math.floor((now.getTime() - scheduledCheckoutAt.getTime()) / (1000 * 60))
+                Math.floor((Date.now() - scheduledCheckoutAt.getTime()) / (1000 * 60))
               ));
         const fee = (result as any).feeAmount ?? calculateLateFee(lateMinutes).feeAmount;
         const banApplied = (result as any).banApplied ?? calculateLateFee(lateMinutes).banApplied;

@@ -2,12 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../../auth/middleware';
 import { serializableTransaction, transaction } from '../../db';
-import type {
-  CheckoutRequestRow,
-  CheckinBlockRow,
-  WaitlistStatusRow,
-  VisitDateRow,
-} from '../../checkout/types';
+import type { CheckoutRequestRow, CheckinBlockRow, WaitlistStatusRow } from '../../checkout/types';
 import { MarkFeePaidSchema, type MarkFeePaidInput } from '../../checkout/schemas';
 import type {
   CheckoutClaimedPayload,
@@ -20,7 +15,6 @@ import { insertAuditLog } from '../../audit/auditLog';
 import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
 import { insertCustomerSpendLedgerEntry } from '../../ledger/customerSpendLedger';
 import { looksLikeUuid } from '../../checkout/utils';
-import { buildSystemLateFeeNote } from '../../utils/lateFeeNotes';
 import { computeOrderTotals, ensureOrderWithReceipt, toCents } from '../../money/orderAudit';
 
 export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
@@ -603,7 +597,6 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
           // 6b. Late fee bookkeeping (NO amount/rate changes):
           // - itemize as a charges row
           // - increment past_due_balance
-          // - append system note (auto-archived on next successful check-in)
           const feeAmount = Number(checkoutRequest.late_fee_amount) || 0;
           if (feeAmount > 0) {
             await client.query(
@@ -626,35 +619,7 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
               );
             }
 
-            const now = new Date();
-            const scheduledCheckoutAt =
-              block.ends_at instanceof Date ? block.ends_at : new Date(block.ends_at);
-            const lateMinutesActual = Math.max(
-              0,
-              Math.floor((now.getTime() - scheduledCheckoutAt.getTime()) / (1000 * 60))
-            );
-            const visitRow = await client.query<VisitDateRow>(
-              `SELECT started_at FROM visits WHERE id = $1 LIMIT 1`,
-              [block.visit_id]
-            );
-            const visitDate = visitRow.rows[0]?.started_at
-              ? visitRow.rows[0]!.started_at.toISOString().slice(0, 10)
-              : now.toISOString().slice(0, 10);
-            const noteLine = buildSystemLateFeeNote({
-              lateMinutes: lateMinutesActual,
-              visitDate,
-              feeAmount,
-            });
-            await client.query(
-              `UPDATE customers
-               SET notes = CASE
-                 WHEN notes IS NULL OR notes = '' THEN $1
-                 ELSE notes || E'\\n' || $1
-               END,
-               updated_at = NOW()
-               WHERE id = $2`,
-              [noteLine, checkoutRequest.customer_id]
-            );
+            // No legacy notes; past_due_balance update is sufficient.
           }
 
           // 7. Log late checkout event if late >= 30 minutes

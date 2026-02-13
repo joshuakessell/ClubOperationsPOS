@@ -40,7 +40,6 @@ export function useLaneSessionBindings() {
     customerDobMonthDay,
     customerIdNumber,
     customerLastVisitAt,
-    customerNotes,
     customerIdExpirationDate,
     customerIdType,
     customerIdTypeOther,
@@ -142,10 +141,7 @@ export function useLaneSessionBindings() {
     (value: string | undefined) => laneSessionActions.patch({ customerLastVisitAt: value }),
     [laneSessionActions]
   );
-  const setCustomerNotes = useCallback(
-    (value: string | undefined) => laneSessionActions.patch({ customerNotes: value }),
-    [laneSessionActions]
-  );
+  const setCustomerNotes = useCallback(() => {}, []);
   const setAssignedResourceType = useCallback(
     (value: 'room' | 'locker' | null) => laneSessionActions.patch({ assignedResourceType: value }),
     [laneSessionActions]
@@ -200,7 +196,6 @@ export function useLaneSessionBindings() {
     customerDobMonthDay,
     customerIdNumber,
     customerLastVisitAt,
-    customerNotes,
     customerIdExpirationDate,
     customerIdType,
     customerIdTypeOther,

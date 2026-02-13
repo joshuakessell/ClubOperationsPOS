@@ -111,8 +111,8 @@ describe('Manual Checkout APIs', () => {
     await truncateAllTables(pool.query.bind(pool));
 
     const customerResult = await pool.query(
-      `INSERT INTO customers (name, membership_number, past_due_balance, notes)
-       VALUES ('Late Customer', '900001', 0, '')
+      `INSERT INTO customers (name, membership_number, past_due_balance)
+       VALUES ('Late Customer', '900001', 0)
        RETURNING id`
     );
     testCustomerId = customerResult.rows[0]!.id;
@@ -181,10 +181,9 @@ describe('Manual Checkout APIs', () => {
       `UPDATE rooms SET status = 'OCCUPIED', assigned_to_customer_id = $1 WHERE id = $2`,
       [testCustomerId, testRoomId]
     );
-    await pool.query(
-      `UPDATE customers SET past_due_balance = 0, banned_until = NULL, notes = '' WHERE id = $1`,
-      [testCustomerId]
-    );
+    await pool.query(`UPDATE customers SET past_due_balance = 0, banned_until = NULL WHERE id = $1`, [
+      testCustomerId,
+    ]);
     await pool.query(
       `UPDATE waitlist SET status = 'ACTIVE', cancelled_at = NULL, cancelled_by_staff_id = NULL WHERE id = $1`,
       [testWaitlistId]
@@ -263,13 +262,9 @@ describe('Manual Checkout APIs', () => {
     const customer = await pool.query<{
       past_due_balance: string;
       banned_until: Date | null;
-      notes: string | null;
-    }>(`SELECT past_due_balance, banned_until, notes FROM customers WHERE id = $1`, [
-      testCustomerId,
-    ]);
+    }>(`SELECT past_due_balance, banned_until FROM customers WHERE id = $1`, [testCustomerId]);
     expect(parseFloat(String(customer.rows[0]!.past_due_balance))).toBe(35);
     expect(customer.rows[0]!.banned_until).not.toBeNull();
-    expect(String(customer.rows[0]!.notes || '')).toContain('[SYSTEM_LATE_FEE_PENDING]');
 
     const waitlist = await pool.query<{ status: string }>(
       `SELECT status FROM waitlist WHERE id = $1`,
@@ -285,8 +280,6 @@ describe('Manual Checkout APIs', () => {
     expect(lateEvents.rows[0]!.checkout_request_id).toBeNull();
     expect(parseFloat(String(lateEvents.rows[0]!.fee_amount))).toBe(35);
 
-    const notesAfterFirst = String(customer.rows[0]!.notes || '');
-
     const second = await fastify.inject({
       method: 'POST',
       url: '/v1/checkout/manual-complete',
@@ -297,12 +290,11 @@ describe('Manual Checkout APIs', () => {
     const secondData = JSON.parse(second.body);
     expect(secondData.alreadyCheckedOut).toBe(true);
 
-    const customerAfter = await pool.query<{ past_due_balance: string; notes: string | null }>(
-      `SELECT past_due_balance, notes FROM customers WHERE id = $1`,
+    const customerAfter = await pool.query<{ past_due_balance: string }>(
+      `SELECT past_due_balance FROM customers WHERE id = $1`,
       [testCustomerId]
     );
     expect(parseFloat(String(customerAfter.rows[0]!.past_due_balance))).toBe(35);
-    expect(String(customerAfter.rows[0]!.notes || '')).toBe(notesAfterFirst);
 
     const lateEventsAfter = await pool.query<{ id: string }>(
       `SELECT id FROM late_checkout_events WHERE occupancy_id = $1`,

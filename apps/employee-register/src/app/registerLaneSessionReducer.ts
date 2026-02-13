@@ -47,7 +47,6 @@ export type RegisterLaneSessionState = {
   customerDobMonthDay: string | undefined;
   customerIdNumber: string | null;
   customerLastVisitAt: string | undefined;
-  customerNotes: string | undefined;
   customerIdExpirationDate: string | null;
   customerIdType: CustomerIdType | null;
   customerIdTypeOther: string | null;
@@ -114,7 +113,6 @@ export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
   customerDobMonthDay: undefined,
   customerIdNumber: null,
   customerLastVisitAt: undefined,
-  customerNotes: undefined,
   customerIdExpirationDate: null,
   customerIdType: null,
   customerIdTypeOther: null,
@@ -334,9 +332,6 @@ export function registerLaneSessionReducer(
       }
       if (p.customerLastVisitAt !== undefined) {
         next.customerLastVisitAt = p.customerLastVisitAt || undefined;
-      }
-      if (p.customerNotes !== undefined) {
-        next.customerNotes = p.customerNotes || undefined;
       }
       if (p.customerIdExpirationDate !== undefined) {
         next.customerIdExpirationDate = p.customerIdExpirationDate || null;

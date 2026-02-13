@@ -1052,21 +1052,19 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
           // Get customer info if customer exists
           let pastDueBalance = 0;
           let pastDueBlocked = false;
-          let customerNotes: string | undefined;
           let customerPrimaryLanguage: 'EN' | 'ES' | undefined;
           let customerDobMonthDay: string | undefined;
           // last visit is derived from visits + checkin_blocks (broadcast uses DB-join helper)
 
           if (session.customer_id) {
             const customerInfo = await client.query<CustomerRow>(
-              `SELECT past_due_balance, notes, primary_language, dob FROM customers WHERE id = $1`,
+              `SELECT past_due_balance, primary_language, dob FROM customers WHERE id = $1`,
               [session.customer_id]
             );
             if (customerInfo.rows.length > 0) {
               const customer = customerInfo.rows[0]!;
               pastDueBalance = parseFloat(String(customer.past_due_balance || 0));
               pastDueBlocked = pastDueBalance > 0 && !(session.past_due_bypassed || false);
-              customerNotes = customer.notes || undefined;
               customerPrimaryLanguage = customer.primary_language as 'EN' | 'ES' | undefined;
 
               if (customer.dob) {
@@ -1083,7 +1081,6 @@ export function registerCheckinScanRoutes(fastify: FastifyInstance): void {
             mode: computedMode,
             pastDueBalance,
             pastDueBlocked,
-            customerNotes,
             customerPrimaryLanguage,
             customerDobMonthDay,
           };

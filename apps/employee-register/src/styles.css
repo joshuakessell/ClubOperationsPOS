@@ -638,6 +638,37 @@ body::after {
   margin-right: auto;
 }
 
+.er-account-scroll {
+  max-height: 16rem;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.er-account-scroll--tall {
+  max-height: 20rem;
+}
+
+.er-account-section-title {
+  font-weight: 900;
+  margin-bottom: 0.5rem;
+}
+
+.er-account-grid {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.er-account-link {
+  color: #7dd3fc;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.er-account-link:hover {
+  text-decoration: underline;
+}
+
 @media (max-width: 900px) {
   .er-search-section-half {
     width: 100%;
