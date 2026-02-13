@@ -259,9 +259,18 @@ Transports are enabled by default; the rollback lever is `VITE_REALTIME_TRANSPOR
   - `LAN_FALLBACK=true`
 - Apps:
   - `VITE_LAN_FALLBACK=1`
-  - Configure `VITE_LAN_API_BASE_URL` and `VITE_LAN_REALTIME_WS_URL`
+ - Configure `VITE_LAN_API_BASE_URL` and `VITE_LAN_REALTIME_WS_URL`
 
 If only some lanes should participate, prefer `lane_feature_flags` overrides.
+
+### Office Dashboard Activity Analytics
+
+The Reports view pulls aggregated traffic + revenue data from:
+
+- `GET /v1/admin/activity-analytics?from=<ISO>&to=<ISO>&tz=<IANA>`
+
+If `from`/`to` are omitted, the endpoint defaults to the last 7 days. Use the club's
+local timezone (e.g. `America/Chicago`) to align hourly heatmaps with operations.
 
 ### Pre-Deployment
 - [ ] All tests passing (`pnpm test`)
