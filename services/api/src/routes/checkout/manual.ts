@@ -398,7 +398,39 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
             [row.visit_id]
           );
 
-          // NOTE: bans must be manager-approved (see admin late-checkout alert flow).
+          // Ban is applied immediately for severe late checkouts (90+ minutes) and must be
+          // reviewed by a manager to confirm or lift/adjust.
+          if (banApplied) {
+            await client.query(
+              `UPDATE customers
+               SET banned_until = GREATEST(COALESCE(banned_until, NOW()), NOW() + INTERVAL '30 days'),
+                   updated_at = NOW()
+               WHERE id = $1`,
+              [row.customer_id]
+            );
+
+            // Create a manager alert to review the ban.
+            await client.query(
+              `
+              INSERT INTO late_checkout_ban_alerts
+                (customer_id, checkout_request_id, occupancy_id, visit_id,
+                 late_minutes, fee_amount_cents, recommended_ban_days,
+                 status, created_by_staff_id, created_by_staff_name)
+              VALUES
+                ($1, NULL, $2, $3, $4, $5, 30, 'PENDING', $6, $7)
+              ON CONFLICT (occupancy_id) WHERE checkout_request_id IS NULL DO NOTHING
+              `,
+              [
+                row.customer_id,
+                row.occupancy_id,
+                row.visit_id,
+                lateMinutes,
+                feeAmount,
+                staffId,
+                request.staff!.name,
+              ]
+            );
+          }
 
           // Update past due balance + itemized charge if fee > 0
           if (feeAmount > 0) {
