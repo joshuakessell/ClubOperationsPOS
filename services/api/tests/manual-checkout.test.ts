@@ -279,7 +279,8 @@ describe('Manual Checkout APIs', () => {
       banned_until: Date | null;
     }>(`SELECT past_due_balance, banned_until FROM customers WHERE id = $1`, [testCustomerId]);
     expect(parseFloat(String(customer.rows[0]!.past_due_balance))).toBe(30);
-    expect(customer.rows[0]!.banned_until).not.toBeNull();
+    // Ban is manager-approval-based; manual-complete should not immediately set banned_until.
+    expect(customer.rows[0]!.banned_until).toBeNull();
 
     const waitlist = await pool.query<{ status: string }>(
       `SELECT status FROM waitlist WHERE id = $1`,
