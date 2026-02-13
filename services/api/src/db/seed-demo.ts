@@ -167,6 +167,25 @@ async function restoreDemoSnapshot(client: DbClient): Promise<void> {
   }
 }
 
+function formatPgError(error: unknown): Record<string, unknown> {
+  if (!error || typeof error !== 'object') {
+    return { message: String(error) };
+  }
+
+  const e = error as any;
+  return {
+    message: e?.message,
+    code: e?.code,
+    detail: e?.detail,
+    schema: e?.schema,
+    table: e?.table,
+    column: e?.column,
+    constraint: e?.constraint,
+    where: e?.where,
+    hint: e?.hint,
+  };
+}
+
 async function validateSeededCustomers(client: DbClient): Promise<void> {
   const missingProfile = await client.query<{ count: string }>(
     `SELECT COUNT(*)::text as count
@@ -429,6 +448,32 @@ async function appendIncrementalDemoVisits(params: { from: Date; to: Date }): Pr
           [checkinBlockId, visitId, start, end, lockerId, roomId, signedAt, rentalType]
         );
 
+        // Activity log event (powers both customer log + club log).
+        // Keep this lightweight; it’s demo data and should be idempotent.
+        await client.query(
+          `
+          INSERT INTO customer_activity_events
+            (occurred_at, customer_id, action_type, action_category, source_app,
+             actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+          VALUES
+            ($1, $2::uuid, $3, $4, $5, $6, NULL, $7, $8, $9::jsonb, $10, $11)
+          ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+          `,
+          [
+            start,
+            customer.id,
+            'CHECKIN_COMPLETED',
+            'CHECKIN',
+            'SYSTEM',
+            'SYSTEM',
+            'Demo Simulator',
+            'Checked in',
+            { visitId, checkinBlockId, rentalType },
+            `Checked in ${customer.name} ${visitId} ${checkinBlockId}`,
+            `ACT:DEMO:CHECKIN_COMPLETED:${checkinBlockId}`,
+          ]
+        );
+
         await client.query(
           `INSERT INTO agreement_signatures
            (id, agreement_id, customer_name, membership_number, signed_at,
@@ -501,10 +546,15 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
       const deltaMs = now.getTime() - seedAnchor.getTime();
 
       await transaction(async (client) => {
-        await restoreDemoSnapshot(client);
-        await shiftDemoTimestamps(client, deltaMs);
-        if (DEMO_SHIFT_REGENERATE_PDFS) {
-          await regenerateAgreementPdfs(client);
+        try {
+          await restoreDemoSnapshot(client);
+          await shiftDemoTimestamps(client, deltaMs);
+          if (DEMO_SHIFT_REGENERATE_PDFS) {
+            await regenerateAgreementPdfs(client);
+          }
+        } catch (error) {
+          console.error('❌ Demo seed restore/shift failed:', formatPgError(error));
+          throw error;
         }
       });
 
