@@ -48,15 +48,10 @@ jobs:
         id: pnpm-store
         run: echo "path=$(pnpm store path)" >> $GITHUB_OUTPUT
 
-      - name: Cache pnpm store
-        uses: actions/cache@v4
-        timeout-minutes: 5
-        with:
-          path: ${{ steps.pnpm-store.outputs.path }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-          enableCrossOsArchive: true
+      # NOTE: We intentionally do NOT cache the pnpm store in CI.
+      # Saving the pnpm store cache is frequently slower than re-installing and
+      # can hang indefinitely in post-job cache upload ("Post Cache pnpm store").
+      # If we want caching later, prefer caching smaller artifacts (e.g. Turbo).
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
