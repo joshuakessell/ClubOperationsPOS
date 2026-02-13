@@ -159,8 +159,14 @@ async function restoreDemoSnapshot(client: DbClient): Promise<void> {
     await client.query(
       `TRUNCATE ${DEMO_SNAPSHOT_TABLES.map((t) => `public.${t}`).join(', ')} RESTART IDENTITY CASCADE`
     );
+
     for (const table of DEMO_SNAPSHOT_TABLES) {
-      await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
+      try {
+        await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
+      } catch (error) {
+        console.error(`❌ Failed restoring demo snapshot table: ${table}`, formatPgError(error));
+        throw error;
+      }
     }
   } finally {
     await client.query('SET session_replication_role = origin');
