@@ -815,7 +815,14 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
           const err = error as { statusCode: number; message: string };
           return reply.status(err.statusCode).send({ error: err.message });
         }
-        fastify.log.error(error, 'Failed to complete checkout');
+        fastify.log.error(
+          {
+            err: error,
+            requestId: request.params.requestId,
+            staffId: request.staff?.staffId,
+          },
+          'Failed to complete checkout'
+        );
         return reply.status(500).send({ error: 'Internal server error' });
       }
     }

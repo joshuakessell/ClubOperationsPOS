@@ -551,7 +551,14 @@ export function registerCheckoutManualRoutes(fastify: FastifyInstance): void {
           const err = error as { statusCode: number; message: string };
           return reply.status(err.statusCode).send({ error: err.message });
         }
-        fastify.log.error(error, 'Failed to complete manual checkout');
+        fastify.log.error(
+          {
+            err: error,
+            staffId: request.staff?.staffId,
+            occupancyId: (request.body as any)?.occupancyId,
+          },
+          'Failed to complete manual checkout'
+        );
         return reply.status(500).send({ error: 'Internal server error' });
       }
     }
