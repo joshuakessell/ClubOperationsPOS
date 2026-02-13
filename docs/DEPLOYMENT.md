@@ -356,6 +356,28 @@ aws logs filter-log-events \
 
 ## Troubleshooting
 
+### Dev deploy fails during API image push (ECR 403 on manifest HEAD)
+
+Symptom: GitHub Actions fails in `Deploy API (App Runner)` with an error like:
+
+`unexpected status from HEAD request .../v2/<repo>/manifests/<tag>: 403 Forbidden`
+
+Root cause: the GitHub Actions assumed role is missing `ecr:BatchGetImage` for the API ECR repository.
+Docker performs a manifest fetch (HEAD/GET) as part of the push flow, and ECR authorizes that via
+`ecr:BatchGetImage`.
+
+Fix: ensure the role used by the `aws-actions/configure-aws-credentials` step has, at minimum, these
+permissions on the API ECR repo:
+
+- `ecr:BatchCheckLayerAvailability`
+- `ecr:InitiateLayerUpload`
+- `ecr:UploadLayerPart`
+- `ecr:CompleteLayerUpload`
+- `ecr:PutImage`
+- `ecr:BatchGetImage`
+
+Optional (but useful for tooling/debugging): `ecr:DescribeImages`, `ecr:ListImages`, `ecr:GetDownloadUrlForLayer`.
+
 ### Build Failures
 1. Check GitHub Actions logs
 2. Run `pnpm build` locally
