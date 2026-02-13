@@ -61,9 +61,12 @@ export function useCustomerNotesState({ session, notifications }: Params) {
   );
 
   const createNote = useCallback(
-    async (customerId: string, note: string, isImportant: boolean) => {
+    async (
+      customerId: string,
+      note: { note: string; isImportant?: boolean; sourceApp?: string }
+    ) => {
       if (!session?.sessionToken) return;
-      const trimmed = note.trim();
+      const trimmed = note.note.trim();
       if (!trimmed) return;
 
       try {
@@ -75,8 +78,8 @@ export function useCustomerNotesState({ session, notifications }: Params) {
           },
           body: JSON.stringify({
             note: trimmed,
-            isImportant,
-            sourceApp: 'EMPLOYEE_REGISTER',
+            isImportant: note.isImportant ?? false,
+            sourceApp: note.sourceApp ?? 'EMPLOYEE_REGISTER',
           }),
         });
 

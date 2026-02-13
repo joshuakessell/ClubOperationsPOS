@@ -2,7 +2,7 @@ import type { CheckinStage, CustomerProfileCardProps } from '../CustomerProfileC
 import { CustomerProfileCard } from '../CustomerProfileCard';
 import { EmployeeAssistPanel } from '../EmployeeAssistPanel';
 import { CustomerAccountDetailsCard } from './CustomerAccountDetailsCard';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useStartLaneCheckinForCustomerIfNotVisiting } from '../../../app/useStartLaneCheckinForCustomerIfNotVisiting';
 import { PanelHeader } from '../../../views/PanelHeader';
 import { PanelShell } from '../../../views/PanelShell';
@@ -119,6 +119,9 @@ export function CustomerAccountPanel(props: {
   const registerState = useEmployeeRegisterState();
   const customerNotesState = registerState.customerNotesState;
   const customerSpendLedgerState = registerState.customerSpendLedgerState;
+  const [activeTab, setActiveTab] = useState<'profile' | 'guided'>(
+    props.autoStartCheckin ? 'guided' : 'profile'
+  );
 
   // Load notes + spend ledger when customer changes.
   // Guarded to avoid repeated retries/spam when requests fail.
@@ -164,6 +167,11 @@ export function CustomerAccountPanel(props: {
   const displayDob = props.customerDobMonthDay || fallbackDob;
   const displayMembership = props.membershipNumber || fallbackMembership;
   const showManualStart = !hasActiveSession && props.autoStartCheckin === false;
+  useEffect(() => {
+    if (props.autoStartCheckin) {
+      setActiveTab('guided');
+    }
+  }, [props.autoStartCheckin]);
   const manualStartPending = showManualStart && state.isStarting;
   const showGoBack =
     state.mode === 'ERROR' &&
@@ -204,6 +212,32 @@ export function CustomerAccountPanel(props: {
       {props.customerLabel}
     </div>
   ) : null;
+  const tabs = (
+    <div style={{ display: 'flex', gap: '0.5rem' }}>
+      <button
+        type="button"
+        className={
+          activeTab === 'profile'
+            ? 'cs-liquid-button'
+            : 'cs-liquid-button cs-liquid-button--secondary'
+        }
+        onClick={() => setActiveTab('profile')}
+      >
+        Profile
+      </button>
+      <button
+        type="button"
+        className={
+          activeTab === 'guided'
+            ? 'cs-liquid-button'
+            : 'cs-liquid-button cs-liquid-button--secondary'
+        }
+        onClick={() => setActiveTab('guided')}
+      >
+        Guided Access
+      </button>
+    </div>
+  );
   return (
     <PanelShell align="top" scroll="hidden">
       <PanelHeader title="Customer Account" spacing="none" action={headerAction} />
@@ -278,52 +312,60 @@ export function CustomerAccountPanel(props: {
           }}
         >
           {hasActiveSession ? (
-            <>
-              <CustomerAccountDetailsCard
-                customerId={props.customerId}
-                profileCard={renderProfileCard(null)}
-                customerNotesState={customerNotesState}
-                customerSpendLedgerState={customerSpendLedgerState}
-              />
-
-              <div className="cs-liquid-card" style={{ padding: '0.85rem', maxHeight: '12rem', overflow: 'auto' }}>
-                <EmployeeAssistPanel
-                  sessionId={props.currentSessionId!}
-                  customerName={props.customerName}
-                  customerPrimaryLanguage={props.customerPrimaryLanguage}
-                  membershipNumber={props.membershipNumber || null}
-                  customerMembershipValidUntil={props.customerMembershipValidUntil}
-                  membershipPurchaseIntent={props.membershipPurchaseIntent}
-                  membershipChoice={props.membershipChoice}
-                  allowedRentals={props.allowedRentals}
-                  proposedRentalType={props.proposedRentalType}
-                  proposedBy={props.proposedBy}
-                  selectionConfirmed={props.selectionConfirmed}
-                  waitlistDesiredTier={props.waitlistDesiredTier}
-                  waitlistDesiredTypes={props.waitlistDesiredTypes}
-                  waitlistBackupType={props.waitlistBackupType}
-                  waitlistRequestedResourceNumber={props.waitlistRequestedResourceNumber}
-                  waitlistRequestedResourceType={props.waitlistRequestedResourceType}
-                  inventoryAvailable={props.inventoryAvailable}
-                  waitlistUnavailableOptions={props.waitlistUnavailableOptions}
-                  isSubmitting={props.isSubmitting}
-                  directSelect={props.directSelect}
-                  onHighlightLanguage={props.onHighlightLanguage}
-                  onConfirmLanguage={props.onConfirmLanguage}
-                  onHighlightMembership={props.onHighlightMembership}
-                  onConfirmMembershipOneTime={props.onConfirmMembershipOneTime}
-                  onConfirmMembershipSixMonth={props.onConfirmMembershipSixMonth}
-                  onHighlightRental={props.onHighlightRental}
-                  onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
-                  onDirectSelectRental={props.onDirectSelectRental}
-                  onHighlightWaitlistBackup={props.onHighlightWaitlistBackup}
-                  onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
-                  onClearSession={props.onClearSession}
-                  onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
-                  onApproveRental={props.onApproveRental}
-                />
+            <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
+                <div style={{ fontWeight: 900, fontSize: '1.05rem' }}>Customer Profile</div>
+                {tabs}
               </div>
-            </>
+              <div style={{ marginTop: '0.75rem' }}>
+                {activeTab === 'profile' ? (
+                  <CustomerAccountDetailsCard
+                    customerId={props.customerId}
+                    profileCard={renderProfileCard(null)}
+                    customerNotesState={customerNotesState}
+                    customerSpendLedgerState={customerSpendLedgerState}
+                  />
+                ) : (
+                  <div style={{ maxHeight: '28rem', overflow: 'auto' }}>
+                    <EmployeeAssistPanel
+                      sessionId={props.currentSessionId!}
+                      customerName={props.customerName}
+                      customerPrimaryLanguage={props.customerPrimaryLanguage}
+                      membershipNumber={props.membershipNumber || null}
+                      customerMembershipValidUntil={props.customerMembershipValidUntil}
+                      membershipPurchaseIntent={props.membershipPurchaseIntent}
+                      membershipChoice={props.membershipChoice}
+                      allowedRentals={props.allowedRentals}
+                      proposedRentalType={props.proposedRentalType}
+                      proposedBy={props.proposedBy}
+                      selectionConfirmed={props.selectionConfirmed}
+                      waitlistDesiredTier={props.waitlistDesiredTier}
+                      waitlistDesiredTypes={props.waitlistDesiredTypes}
+                      waitlistBackupType={props.waitlistBackupType}
+                      waitlistRequestedResourceNumber={props.waitlistRequestedResourceNumber}
+                      waitlistRequestedResourceType={props.waitlistRequestedResourceType}
+                      inventoryAvailable={props.inventoryAvailable}
+                      waitlistUnavailableOptions={props.waitlistUnavailableOptions}
+                      isSubmitting={props.isSubmitting}
+                      directSelect={props.directSelect}
+                      onHighlightLanguage={props.onHighlightLanguage}
+                      onConfirmLanguage={props.onConfirmLanguage}
+                      onHighlightMembership={props.onHighlightMembership}
+                      onConfirmMembershipOneTime={props.onConfirmMembershipOneTime}
+                      onConfirmMembershipSixMonth={props.onConfirmMembershipSixMonth}
+                      onHighlightRental={props.onHighlightRental}
+                      onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
+                      onDirectSelectRental={props.onDirectSelectRental}
+                      onHighlightWaitlistBackup={props.onHighlightWaitlistBackup}
+                      onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
+                      onClearSession={props.onClearSession}
+                      onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
+                      onApproveRental={props.onApproveRental}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
           ) : showManualStart ? (
             <>
               {renderProfileCard(beginCheckinButton)}

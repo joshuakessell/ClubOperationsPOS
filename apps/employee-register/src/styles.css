@@ -659,15 +659,7 @@ body::after {
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
-.er-account-link {
-  color: #7dd3fc;
-  font-weight: 800;
-  text-decoration: none;
-}
 
-.er-account-link:hover {
-  text-decoration: underline;
-}
 
 @media (max-width: 900px) {
   .er-search-section-half {
