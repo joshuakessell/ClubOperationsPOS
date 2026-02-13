@@ -76,17 +76,9 @@ docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
 # pushed, but the manifest remains unavailable, which later breaks App Runner.
 docker push "$IMAGE_SHA_TAG"
 
-# If the registry returns transient 403s for the manifest immediately after push,
-# retrying the push can help. We don't block on this; we just opportunistically
-# re-push once if the tag isn't readable yet.
-repo_name="${ECR_REPO_URI##*/}"
-tag="$(aws ecr batch-get-image --region "$AWS_REGION" --repository-name "$repo_name" \
-  --image-ids imageTag="$IMAGE_TAG" --query 'images[0].imageId.imageTag' --output text \
-  2>/dev/null || true)"
-if [[ "$tag" != "$IMAGE_TAG" ]]; then
-  echo "⚠️  ECR manifest not readable yet for ${IMAGE_TAG}; retrying push once."
-  docker push "$IMAGE_SHA_TAG" || true
-fi
+# NOTE: The GitHub Actions deploy role only needs write permissions to ECR.
+# Do not call read APIs like `ecr:BatchGetImage` here, as that can fail due to
+# missing permissions even when push permissions are correct.
 
 # Some runners (notably GitHub Actions with buildx) can hit a transient 403 on
 # manifest HEAD/GET checks immediately after a successful push. Since App Runner
