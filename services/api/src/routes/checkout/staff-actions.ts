@@ -619,7 +619,20 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
               );
             }
 
-            // No legacy notes; past_due_balance update is sufficient.
+            // Record a customer note for late checkouts (common staff practice).
+            // This is separate from the activity log so it shows prominently on the account.
+            if (checkoutRequest.late_minutes >= 30) {
+              const noteText = `Late checkout: ${checkoutRequest.late_minutes} minutes late. Fee assessed: $${(
+                feeAmount / 100
+              ).toFixed(2)}${checkoutRequest.ban_applied ? ' (ban applied)' : ''}.`;
+              await client.query(
+                `INSERT INTO customer_notes
+                   (customer_id, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
+                 VALUES
+                   ($1, $2, $3, 'EMPLOYEE_REGISTER', $4, true)`,
+                [checkoutRequest.customer_id, staffId, request.staff!.name, noteText]
+              );
+            }
           }
 
           // 7. Log late checkout event if late >= 30 minutes

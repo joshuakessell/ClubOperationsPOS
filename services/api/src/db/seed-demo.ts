@@ -16,6 +16,8 @@ const DEMO_INCREMENTAL = process.env.DEMO_INCREMENTAL === 'true';
 
 const DEMO_SNAPSHOT_TABLES = [
   'agreements',
+  'customer_activity_events',
+  'customer_notes',
   'customers',
   'rooms',
   'lockers',
