@@ -73,6 +73,22 @@ docker build -t "$IMAGE_SHA_TAG" -f services/api/Dockerfile .
 
 docker push "$IMAGE_SHA_TAG"
 
+# ECR can sometimes return a transient 403 to manifest HEAD/GET requests
+# immediately after a successful push (observed in GitHub Actions). App Runner
+# will also query the manifest when updating the service, so add a short retry
+# loop to wait for the tag to become readable before calling update-service.
+repo_name="${ECR_REPO_URI##*/}"
+for i in {1..12}; do
+  if aws ecr batch-get-image --region "$AWS_REGION" --repository-name "$repo_name" \
+    --image-ids imageTag="$IMAGE_TAG" --query 'images[0].imageId.imageTag' --output text \
+    2>/dev/null | grep -q "^${IMAGE_TAG}$"; then
+    echo "✓ ECR manifest is readable for tag ${IMAGE_TAG}"
+    break
+  fi
+  echo "Waiting for ECR to serve manifest for ${IMAGE_TAG}... (attempt ${i}/12)"
+  sleep 5
+done
+
 # NOTE: We intentionally do not attempt an immediate post-push `docker manifest inspect`.
 # GitHub Actions runners + ECR auth can intermittently return 403/401 for manifest
 # HEAD/GET calls right after a push (even though the push succeeded), which makes
