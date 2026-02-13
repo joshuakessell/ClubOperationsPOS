@@ -225,13 +225,22 @@ if [[ "$state" != "running" ]]; then
 fi
 
 echo "Waiting for SSM registration..."
-for i in {1..30}; do
+connected=false
+for i in {1..60}; do
   id="$(aws ssm describe-instance-information --filters Key=InstanceIds,Values="$BASTION_INSTANCE_ID" --query 'InstanceInformationList[0].InstanceId' --output text)"
   if [[ "$id" == "$BASTION_INSTANCE_ID" ]]; then
+    connected=true
     break
   fi
   sleep 5
 done
+
+if [[ "$connected" != "true" ]]; then
+  echo "ERROR: Bastion ${BASTION_INSTANCE_ID} is not registered in SSM." >&2
+  echo "- Ensure the instance has the SSM agent running and an IAM role with AmazonSSMManagedInstanceCore." >&2
+  echo "- Ensure the instance can reach SSM endpoints (NAT/egress or VPC endpoints)." >&2
+  exit 1
+fi
 
 echo "Starting SSM tunnel localhost:${LOCAL_PORT} -> ${RDS_ENDPOINT}:${RDS_PORT}"
 mkdir -p "$(dirname "$LOG_PATH")"

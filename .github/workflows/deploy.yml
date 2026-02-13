@@ -73,6 +73,7 @@ jobs:
           KILL_PORT_LISTENER: 'true'
           SKIP_PNPM_INSTALL: 'false'
           SKIP_SHARED_BUILD: 'false'
+          STOP_INSTANCE_ON_EXIT: 'false'
         run: scripts/aws/seed-demo-via-ssm.sh
 
       - name: Deploy API (App Runner)
