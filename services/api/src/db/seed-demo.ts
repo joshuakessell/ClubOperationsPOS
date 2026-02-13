@@ -8,7 +8,10 @@ import { generateAgreementPdf } from '../utils/pdf-generator';
 loadEnvFromDotEnvIfPresent();
 
 const DEMO_STATE_KEY = 'busy_saturday_demo_v1';
-const DEMO_SNAPSHOT_VERSION = 3;
+// Bump whenever demo snapshot schema or seed behavior changes.
+// This forces the demo DB to rebuild the snapshot schema so restore doesn't
+// fail due to column mismatch between demo_snapshot.* and public.*.
+const DEMO_SNAPSHOT_VERSION = 4;
 const DEMO_FORCE_RESEED = process.env.DEMO_FORCE_RESEED === 'true';
 const DEMO_SHIFT_REGENERATE_PDFS = process.env.DEMO_SHIFT_REGENERATE_PDFS !== 'false';
 const DEMO_RESET_ON_STARTUP = process.env.DEMO_RESET_ON_STARTUP !== 'false';
@@ -165,7 +168,11 @@ async function restoreDemoSnapshot(client: DbClient): Promise<void> {
         await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
       } catch (error) {
         console.error(`❌ Failed restoring demo snapshot table: ${table}`, formatPgError(error));
-        throw error;
+        // Snapshot schema can drift if migrations ran after snapshot creation.
+        // Auto-repair: rebuild the snapshot schema from public.* and retry once.
+        await resetSnapshotSchema(client);
+        await createDemoSnapshot(client);
+        await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
       }
     }
   } finally {
