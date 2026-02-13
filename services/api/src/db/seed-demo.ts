@@ -12,11 +12,15 @@ const DEMO_STATE_KEY = 'busy_saturday_demo_v1';
 // Bump whenever demo snapshot schema or seed behavior changes.
 // This forces the demo DB to rebuild the snapshot schema so restore doesn't
 // fail due to column mismatch between demo_snapshot.* and public.*.
-const DEMO_SNAPSHOT_VERSION = 4;
+const DEMO_SNAPSHOT_VERSION = 6;
 const DEMO_FORCE_RESEED = process.env.DEMO_FORCE_RESEED === 'true';
 const DEMO_SHIFT_REGENERATE_PDFS = process.env.DEMO_SHIFT_REGENERATE_PDFS !== 'false';
 const DEMO_RESET_ON_STARTUP = process.env.DEMO_RESET_ON_STARTUP !== 'false';
-const DEMO_INCREMENTAL = process.env.DEMO_INCREMENTAL === 'true';
+// Demo seed behavior:
+// - DEMO_INCREMENTAL=true enables the incremental fast-forward simulation.
+// - If omitted, we default to true so demo data includes realistic time-series activity
+//   (customer_activity_events, customer_notes, cleaning_events, etc.).
+const DEMO_INCREMENTAL = process.env.DEMO_INCREMENTAL !== 'false';
 
 const DEMO_SNAPSHOT_TABLES = [
   'agreements',
@@ -33,7 +37,9 @@ const DEMO_SNAPSHOT_TABLES = [
   'inventory_reservations',
   'checkout_requests',
   'late_checkout_events',
+  'cleaning_events',
   'lane_sessions',
+  'demo_state',
   'payment_intents',
   'charges',
   'register_sessions',
@@ -61,6 +67,7 @@ const DEMO_TIMESTAMP_TABLES = [
   'inventory_reservations',
   'checkout_requests',
   'late_checkout_events',
+  'cleaning_events',
   'lane_sessions',
   'payment_intents',
   'charges',
@@ -497,6 +504,15 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
     progress.setMessage('Seeding busy Saturday data');
     await seedBusySaturdayDemo(now, progress);
 
+    if (DEMO_INCREMENTAL) {
+      progress.setMessage('Simulating incremental visits (last 14 days)');
+      const from = new Date(now);
+      from.setDate(from.getDate() - 14);
+      const appended = await appendIncrementalDemoVisits({ from, to: now });
+      progress.log(`✅ Added ${appended} incremental demo visit(s).`);
+      await saveDemoState({ seedAnchor: now, lastShifted: now, lastSimulated: now });
+    }
+
     progress.setMessage('Validating seeded customers');
     progress.addTotal(1);
     await transaction(async (client) => {
@@ -529,7 +545,7 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
       await transaction(async (client) => {
         await createDemoSnapshot(client);
       });
-      await saveDemoState({ seedAnchor: now, lastShifted: now });
+      await saveDemoState({ seedAnchor: now, lastShifted: now, lastSimulated: now });
       progress.tick();
       progress.done('Demo seed complete');
       return;
