@@ -19,7 +19,7 @@ type ActivityEventRow = {
 };
 
 type ActivityLogResponse = {
-  items: ActivityEventRow[];
+  events: ActivityEventRow[];
   nextCursor: string | null;
 };
 
@@ -55,7 +55,7 @@ export function useClubLogState(params?: { pageSize?: number }) {
       });
       if (!res.ok) throw new Error(`Failed to load club log (${res.status})`);
       const json = (await res.json()) as ActivityLogResponse;
-      setItems(json.items ?? []);
+      setItems(json.events ?? []);
       setNextCursor(json.nextCursor ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
@@ -78,7 +78,7 @@ export function useClubLogState(params?: { pageSize?: number }) {
       });
       if (!res.ok) throw new Error(`Failed to load more (${res.status})`);
       const json = (await res.json()) as ActivityLogResponse;
-      setItems((prev) => [...prev, ...(json.items ?? [])]);
+      setItems((prev) => [...prev, ...(json.events ?? [])]);
       setNextCursor(json.nextCursor ?? null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Unknown error');
@@ -108,4 +108,3 @@ export function useClubLogState(params?: { pageSize?: number }) {
     loadMore,
   };
 }
-

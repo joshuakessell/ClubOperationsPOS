@@ -619,6 +619,27 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
               );
             }
 
+            // Add the late fee to the customer's spend ledger so the running checkout ledger
+            // includes it and it can be collected now or next visit.
+            await insertCustomerSpendLedgerEntry(client, {
+              customerId: checkoutRequest.customer_id,
+              visitId: block.visit_id,
+              entryType: 'LATE_FEE',
+              amountCents: feeAmount,
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staffId,
+              actorStaffName: request.staff!.name,
+              summary: `Late fee assessed ($${(feeAmount / 100).toFixed(2)})`,
+              metadata: {
+                checkoutRequestId: checkoutRequest.id,
+                occupancyId: checkoutRequest.occupancy_id,
+                lateMinutes: checkoutRequest.late_minutes,
+                banApplied: checkoutRequest.ban_applied,
+              },
+              dedupeKey: `LEDGER:LATE_FEE:${checkoutRequest.id}`,
+            });
+          
             // Record a customer note for late checkouts (common staff practice).
             // This is separate from the activity log so it shows prominently on the account.
             if (checkoutRequest.late_minutes >= 30) {
