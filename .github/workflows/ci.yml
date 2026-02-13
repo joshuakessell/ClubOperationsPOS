@@ -70,6 +70,22 @@ jobs:
         env:
           DATABASE_URL: postgres://test:testpassword@localhost:5432/testdb
 
+      - name: Seed demo DB (for integration tests)
+        run: pnpm -C services/api seed:demo
+        env:
+          # Seed scripts use DB_* env vars (not DATABASE_URL)
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          DB_NAME: testdb
+          DB_USER: test
+          DB_PASSWORD: testpassword
+          # Demo seed requires this flag
+          DEMO_MODE: "true"
+          # Use deterministic, fast seed for CI
+          DEMO_RESET_ON_STARTUP: "true"
+          DEMO_INCREMENTAL: "true"
+          KIOSK_TOKEN: "dummy-token-for-tests"
+
       - name: Test
         run: pnpm test
         env:
