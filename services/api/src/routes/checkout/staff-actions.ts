@@ -646,13 +646,33 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
               const noteText = `Late checkout: ${checkoutRequest.late_minutes} minutes late. Fee assessed: $${(
                 feeAmount / 100
               ).toFixed(2)}${checkoutRequest.ban_applied ? ' (ban applied)' : ''}.`;
-              await client.query(
+              const noteResult = await client.query<{ id: string }>(
                 `INSERT INTO customer_notes
                    (customer_id, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
                  VALUES
-                   ($1, $2, $3, 'EMPLOYEE_REGISTER', $4, true)`,
+                   ($1, $2, $3, 'EMPLOYEE_REGISTER', $4, true)
+                 RETURNING id`,
                 [checkoutRequest.customer_id, staffId, request.staff!.name, noteText]
               );
+
+              await insertCustomerActivityEvent(client, {
+                customerId: checkoutRequest.customer_id,
+                actionType: 'NOTE_ADDED',
+                actionCategory: 'NOTE',
+                sourceApp: 'EMPLOYEE_REGISTER',
+                actorType: 'STAFF',
+                actorStaffId: staffId,
+                actorStaffName: request.staff!.name,
+                summary: 'Note added (Late checkout)',
+                metadata: {
+                  noteId: noteResult.rows[0]?.id,
+                  isImportant: true,
+                  reason: 'LATE_CHECKOUT',
+                  checkoutRequestId: checkoutRequest.id,
+                },
+                dedupeKey: `ACT:NOTE_ADDED:LATE_CHECKOUT:${checkoutRequest.id}`,
+                searchParts: [checkoutRequest.id],
+              });
             }
           }
 

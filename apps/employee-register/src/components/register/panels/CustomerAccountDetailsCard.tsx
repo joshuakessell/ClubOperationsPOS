@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ModalFrame } from '../modals/ModalFrame';
+import { getApiUrl } from '@club-ops/shared';
+import { isRecord, readJson } from '@club-ops/ui';
+import { useEmployeeRegisterState } from '../../../app/state/useEmployeeRegisterState';
 
 type CustomerNotesState = {
   getNotes: (customerId: string) => Array<{
@@ -34,11 +37,25 @@ type CustomerSpendLedgerState = {
   loadVisitLedger: (customerId: string, visitId: string | null) => Promise<void> | void;
 };
 
+type CustomerDocumentsState = {
+  loadDocuments: (customerId: string) => Promise<void> | void;
+  getDocuments: (customerId: string) => Array<{
+    id: string;
+    created_at: string;
+    visit_started_at: string | null;
+    visit_ended_at: string | null;
+    has_pdf: boolean;
+  }>;
+  isLoading: (customerId: string) => boolean;
+  getError: (customerId: string) => string | null;
+};
+
 type Props = {
   customerId: string;
   profileCard: ReactNode;
   customerNotesState: CustomerNotesState;
   customerSpendLedgerState: CustomerSpendLedgerState;
+  customerDocumentsState: CustomerDocumentsState;
 };
 
 export function CustomerAccountDetailsCard({
@@ -46,11 +63,17 @@ export function CustomerAccountDetailsCard({
   profileCard,
   customerNotesState,
   customerSpendLedgerState,
+  customerDocumentsState,
 }: Props) {
+  const { session } = useEmployeeRegisterState();
   const [customerNoteText, setCustomerNoteText] = useState('');
   const [customerNoteImportant, setCustomerNoteImportant] = useState(false);
   const [notesModalOpen, setNotesModalOpen] = useState(false);
   const [activityModalOpen, setActivityModalOpen] = useState(false);
+  const [agreementListModalOpen, setAgreementListModalOpen] = useState(false);
+  const [agreementPdfModalOpen, setAgreementPdfModalOpen] = useState(false);
+  const [agreementPdfUrl, setAgreementPdfUrl] = useState<string | null>(null);
+  const [agreementError, setAgreementError] = useState<string | null>(null);
 
   const latestNote = customerNotesState
     .getNotes(customerId)
@@ -165,6 +188,84 @@ export function CustomerAccountDetailsCard({
     </div>
   );
 
+  const agreementsList = (
+    <div className="er-account-scroll" style={{ marginTop: '0.6rem' }}>
+      {customerDocumentsState.getError(customerId) ? (
+        <div style={{ color: '#fecaca', fontWeight: 800 }}>
+          {customerDocumentsState.getError(customerId)}
+        </div>
+      ) : null}
+      {customerDocumentsState.isLoading(customerId) ? (
+        <div style={{ color: '#94a3b8', fontWeight: 800 }}>Loading agreements…</div>
+      ) : customerDocumentsState.getDocuments(customerId).length === 0 ? (
+        <div style={{ color: '#94a3b8', fontWeight: 800 }}>No agreements found.</div>
+      ) : (
+        <div style={{ display: 'grid', gap: '0.5rem' }}>
+          {customerDocumentsState.getDocuments(customerId).map((d) => (
+            <button
+              key={d.id}
+              type="button"
+              className="cs-liquid-card"
+              style={{
+                padding: '0.75rem',
+                textAlign: 'left',
+                border: '1px solid rgba(148, 163, 184, 0.15)',
+                background: 'rgba(15, 23, 42, 0.15)',
+                color: 'inherit',
+                fontWeight: 850,
+              }}
+              onClick={() => {
+                void (async () => {
+                  if (!session?.sessionToken) return;
+                  setAgreementError(null);
+                  setAgreementPdfUrl(null);
+                  setAgreementPdfModalOpen(true);
+                  try {
+                    const res = await fetch(
+                      getApiUrl(`/api/v1/documents/${encodeURIComponent(d.id)}/download`),
+                      { headers: { Authorization: `Bearer ${session.sessionToken}` } }
+                    );
+						if (!res.ok) {
+							const payload = await readJson<unknown>(res);
+							const message =
+								isRecord(payload) && typeof payload.error === 'string'
+									? payload.error
+									: `Failed to fetch PDF (${res.status})`;
+							throw new Error(message);
+						}
+                    const blob = await res.blob();
+                    const url = URL.createObjectURL(blob);
+                    setAgreementPdfUrl(url);
+                  } catch (e) {
+                    setAgreementError(e instanceof Error ? e.message : 'Failed to fetch PDF');
+                  }
+                })();
+              }}
+              disabled={!d.has_pdf}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                <div style={{ fontWeight: 900 }}>Agreement PDF</div>
+                <div className="er-text-xs" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                  {d.created_at ? new Date(d.created_at).toLocaleString() : ''}
+                </div>
+              </div>
+              <div className="er-text-xs" style={{ color: '#94a3b8', fontWeight: 800 }}>
+                {d.visit_started_at
+                  ? `Visit started: ${new Date(d.visit_started_at).toLocaleString()}`
+                  : 'Visit start: —'}
+              </div>
+              {!d.has_pdf ? (
+                <div className="er-text-xs" style={{ color: '#fca5a5', fontWeight: 900 }}>
+                  PDF not stored
+                </div>
+              ) : null}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div style={{ display: 'grid', gap: '0.75rem' }}>
       <div className="er-account-scroll er-account-scroll--tall">{profileCard}</div>
@@ -263,6 +364,34 @@ export function CustomerAccountDetailsCard({
           </div>
           {activityList}
         </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            void customerDocumentsState.loadDocuments(customerId);
+            setAgreementListModalOpen(true);
+          }}
+          style={{
+            gridColumn: '1 / -1',
+            padding: '0.75rem',
+            maxHeight: '10rem',
+            overflow: 'auto',
+            textAlign: 'left',
+            borderRadius: 16,
+            border: '1px solid rgba(148, 163, 184, 0.2)',
+            background: 'rgba(15, 23, 42, 0.22)',
+            color: 'inherit',
+            fontWeight: 800,
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div className="er-account-section-title">Agreements</div>
+            <span className="er-text-xs" style={{ color: '#94a3b8', fontWeight: 800 }}>
+              Click to view
+            </span>
+          </div>
+          {agreementsList}
+        </button>
       </div>
 
       <ModalFrame
@@ -344,6 +473,57 @@ export function CustomerAccountDetailsCard({
         closeOnEscape
       >
         {activityList}
+      </ModalFrame>
+
+      <ModalFrame
+        isOpen={agreementListModalOpen}
+        title="Agreements"
+        onClose={() => setAgreementListModalOpen(false)}
+        maxWidth="900px"
+        maxHeight="80vh"
+        closeOnOverlayClick
+        closeOnEscape
+      >
+        {agreementsList}
+      </ModalFrame>
+
+      <ModalFrame
+        isOpen={agreementPdfModalOpen}
+        title="Agreement PDF"
+        onClose={() => {
+          setAgreementPdfModalOpen(false);
+          if (agreementPdfUrl) {
+            URL.revokeObjectURL(agreementPdfUrl);
+          }
+          setAgreementPdfUrl(null);
+          setAgreementError(null);
+        }}
+        maxWidth="980px"
+        maxHeight="85vh"
+        closeOnOverlayClick
+        closeOnEscape
+      >
+        {agreementError ? (
+          <div className="cs-alert cs-alert--error">{agreementError}</div>
+        ) : null}
+        {agreementPdfUrl ? (
+          <iframe
+            title="Agreement PDF"
+            src={agreementPdfUrl}
+            style={{ width: '100%', height: '70vh', border: 'none', borderRadius: 12 }}
+          />
+        ) : (
+          <div style={{ color: '#94a3b8', fontWeight: 800 }}>Loading PDF…</div>
+        )}
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
+          <button
+            type="button"
+            className="cs-liquid-button cs-liquid-button--secondary"
+            onClick={() => setAgreementPdfModalOpen(false)}
+          >
+            Close
+          </button>
+        </div>
       </ModalFrame>
     </div>
   );

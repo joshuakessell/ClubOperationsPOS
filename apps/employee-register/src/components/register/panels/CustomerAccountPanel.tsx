@@ -324,6 +324,7 @@ export function CustomerAccountPanel(props: {
                     profileCard={renderProfileCard(null)}
                     customerNotesState={customerNotesState}
                     customerSpendLedgerState={customerSpendLedgerState}
+                    customerDocumentsState={registerState.customerDocumentsState}
                   />
                 ) : (
                   <div style={{ maxHeight: '28rem', overflow: 'auto' }}>

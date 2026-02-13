@@ -16,6 +16,7 @@ import { useMembershipActions } from './slices/useMembershipActions';
 import { useMembershipPromptState } from './slices/useMembershipPromptState';
 import { useNotesState } from './slices/useNotesState';
 import { useCustomerNotesState } from './slices/useCustomerNotesState';
+import { useCustomerDocumentsState } from './slices/useCustomerDocumentsState';
 import { useCustomerSpendLedgerState } from './slices/useCustomerSpendLedgerState';
 import { usePastDueState } from './slices/usePastDueState';
 import { usePaymentActions } from './slices/usePaymentActions';
@@ -171,6 +172,7 @@ export function useEmployeeRegisterStateValue() {
 
   const customerNotesState = useCustomerNotesState({ session, notifications: notifier });
   const customerSpendLedgerState = useCustomerSpendLedgerState({ session, notifications: notifier });
+  const customerDocumentsState = useCustomerDocumentsState({ session, notifications: notifier });
 
   const realtimeState = useRegisterRealtimeState({
     lane,
@@ -398,7 +400,13 @@ export function useEmployeeRegisterStateValue() {
     selectionActions,
   });
 
-  return { ...coreValue, ...modalValue, customerNotesState, customerSpendLedgerState };
+  return {
+    ...coreValue,
+    ...modalValue,
+    customerNotesState,
+    customerSpendLedgerState,
+    customerDocumentsState,
+  };
 }
 
 export type EmployeeRegisterStateValue = ReturnType<typeof useEmployeeRegisterStateValue>;
