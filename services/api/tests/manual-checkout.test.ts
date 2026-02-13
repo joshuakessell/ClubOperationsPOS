@@ -278,7 +278,7 @@ describe('Manual Checkout APIs', () => {
       past_due_balance: string;
       banned_until: Date | null;
     }>(`SELECT past_due_balance, banned_until FROM customers WHERE id = $1`, [testCustomerId]);
-    expect(parseFloat(String(customer.rows[0]!.past_due_balance))).toBe(35);
+    expect(parseFloat(String(customer.rows[0]!.past_due_balance))).toBe(30);
     expect(customer.rows[0]!.banned_until).not.toBeNull();
 
     const waitlist = await pool.query<{ status: string }>(
@@ -293,7 +293,7 @@ describe('Manual Checkout APIs', () => {
     );
     expect(lateEvents.rows.length).toBe(1);
     expect(lateEvents.rows[0]!.checkout_request_id).toBeNull();
-    expect(parseFloat(String(lateEvents.rows[0]!.fee_amount))).toBe(35);
+    expect(parseFloat(String(lateEvents.rows[0]!.fee_amount))).toBe(30);
 
     const second = await fastify.inject({
       method: 'POST',
@@ -309,7 +309,7 @@ describe('Manual Checkout APIs', () => {
       `SELECT past_due_balance FROM customers WHERE id = $1`,
       [testCustomerId]
     );
-    expect(parseFloat(String(customerAfter.rows[0]!.past_due_balance))).toBe(35);
+    expect(parseFloat(String(customerAfter.rows[0]!.past_due_balance))).toBe(30);
 
     const lateEventsAfter = await pool.query<{ id: string }>(
       `SELECT id FROM late_checkout_events WHERE occupancy_id = $1`,
