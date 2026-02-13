@@ -32,6 +32,8 @@ export async function insertCustomerSpendLedgerEntry(
   const currency = input.currency ?? 'USD';
   const metadata = input.metadata ?? {};
 
+  const hasDedupeKey = Boolean((input.dedupeKey ?? '').trim());
+
   const inserted = await client.query<{ id: string }>(
     `
     INSERT INTO customer_spend_ledger_entries
@@ -39,7 +41,7 @@ export async function insertCustomerSpendLedgerEntry(
        source_app, actor_type, actor_staff_id, actor_staff_name, summary, metadata, dedupe_key)
     VALUES
       ($1, $2::uuid, $3::uuid, $4, $5::bigint, $6, $7, $8, $9::uuid, $10, $11, $12::jsonb, $13)
-    ON CONFLICT (dedupe_key) DO NOTHING
+    ${hasDedupeKey ? 'ON CONFLICT (dedupe_key) DO NOTHING' : ''}
     RETURNING id
     `,
     [
@@ -63,7 +65,7 @@ export async function insertCustomerSpendLedgerEntry(
     return { id: inserted.rows[0]!.id, deduped: false };
   }
 
-  if (!input.dedupeKey) {
+  if (!hasDedupeKey) {
     throw new Error('Failed to insert customer spend ledger entry');
   }
 
@@ -274,4 +276,3 @@ export async function listVisitSpendLedgerEntries(
     },
   };
 }
-
