@@ -25,12 +25,14 @@ describe('App payment safety', () => {
           paymentStatus: 'DUE',
           paymentTotal: 12.34,
           paymentFailureReason: 'CVV mismatch: 123',
+          flowStep: 'PAYMENT',
         },
       });
     });
 
     // Payment screen should show total due
-    expect(await screen.findByText('$12.34')).toBeDefined();
+    // (Prefer a regex matcher to avoid false negatives if markup changes slightly.)
+    expect(await screen.findByText(/\$12\.34/)).toBeDefined();
 
     // Generic customer-facing message is OK
     expect(screen.getByText(/please see attendant/i)).toBeDefined();

@@ -71,6 +71,7 @@ describe('App language flow', () => {
         allowedRentals: ['LOCKER'],
         pastDueBlocked: false,
         // customerPrimaryLanguage intentionally omitted
+        flowStep: 'LANGUAGE',
       };
       mockSessionSnapshot = payload;
       await emitRealtimeEvent({
@@ -97,6 +98,7 @@ describe('App language flow', () => {
         allowedRentals: ['LOCKER'],
         pastDueBlocked: false,
         customerPrimaryLanguage: 'EN',
+        flowStep: 'RENTAL',
       };
       mockSessionSnapshot = payload;
       await emitRealtimeEvent({
@@ -122,6 +124,7 @@ describe('App language flow', () => {
         allowedRentals: ['LOCKER'],
         pastDueBlocked: false,
         customerPrimaryLanguage: 'EN',
+        flowStep: 'RENTAL',
       };
       mockSessionSnapshot = payload;
       await emitRealtimeEvent({
@@ -197,6 +200,7 @@ describe('App language flow', () => {
         pastDueBlocked: true,
         pastDueBalance: 12.34,
         // customerPrimaryLanguage intentionally omitted
+        flowStep: 'LANGUAGE',
       };
       mockSessionSnapshot = payload;
       await emitRealtimeEvent({
@@ -224,6 +228,7 @@ describe('App language flow', () => {
         pastDueBlocked: true,
         pastDueBalance: 12.34,
         customerPrimaryLanguage: 'EN',
+        flowStep: 'RENTAL',
       };
       mockSessionSnapshot = payload;
       await emitRealtimeEvent({
