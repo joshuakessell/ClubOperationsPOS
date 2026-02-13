@@ -18,14 +18,14 @@ const getEnv = () => {
 };
 
 interface KeyValue {
-  [key: string]: string | undefined;
+  [key: string]: string | boolean | undefined;
 }
 
 const env = getEnv();
 
 export const API_BASE_URL = typeof env?.VITE_API_BASE_URL === 'string' ? env.VITE_API_BASE_URL : '';
 
-const isDev = env?.DEV === 'true';
+const isDev = env?.DEV === true || env?.DEV === 'true';
 let didWarnApiBaseUrlSuffix = false;
 
 function warnIfApiBaseUrlEndsWithApi(raw: string) {

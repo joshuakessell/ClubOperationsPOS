@@ -89,7 +89,7 @@ export async function insertCustomerActivityEvent(
        actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
     VALUES
       ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
-    ON CONFLICT (dedupe_key) DO NOTHING
+    ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
     RETURNING id
     `,
     [

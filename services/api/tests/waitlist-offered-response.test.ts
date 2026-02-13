@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll, beforeEach, afterEach, vi } 
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
+import { initializeDatabase, closeDatabase } from '../src/db/index.js';
 import { waitlistRoutes } from '../src/routes/waitlist.js';
 import { truncateAllTables } from './testDb.js';
 
@@ -36,7 +37,7 @@ vi.mock('../src/auth/middleware.js', async () => {
       const staff = await ensureDefaultStaff();
       request.staff = { staffId: staff.staffId, name: staff.name, role: staff.role };
     },
-    requireAdmin: async (_request: any, _reply: any) => {},
+    requireAdmin: async (_request: any, _reply: any) => { },
     requireReauth: async (request: any, _reply: any) => {
       const staff = await ensureDefaultStaff();
       request.staff = { staffId: staff.staffId, name: staff.name, role: staff.role };
@@ -45,7 +46,7 @@ vi.mock('../src/auth/middleware.js', async () => {
       const staff = await ensureDefaultStaff();
       request.staff = { staffId: staff.staffId, name: staff.name, role: 'ADMIN' };
     },
-    optionalAuth: async (_request: any, _reply: any) => {},
+    optionalAuth: async (_request: any, _reply: any) => { },
   };
 });
 
@@ -69,6 +70,7 @@ describe('GET /v1/waitlist (offered room details)', () => {
       // Prevent "hung" test runs when DB isn't reachable.
       connectionTimeoutMillis: 3000,
     });
+    await initializeDatabase();
   });
 
   beforeEach(async () => {
@@ -87,6 +89,7 @@ describe('GET /v1/waitlist (offered room details)', () => {
 
   afterAll(async () => {
     await pool.end();
+    await closeDatabase();
   });
 
   it('returns offered room id/number and keeps display identifier from current assignment', async () => {

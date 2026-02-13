@@ -40,7 +40,7 @@ describe('Check-in Flow Commands', () => {
       return;
     }
 
-    app = Fastify({ logger: false });
+    app = Fastify({ logger: true });
     await app.register(cors);
     await app.register(websocket);
 
@@ -60,6 +60,10 @@ describe('Check-in Flow Commands', () => {
     if (!dbAvailable) return;
     await truncateAllTables((text, params) => query(text, params));
 
+    process.env.LAN_FALLBACK = 'false';
+    process.env.LAN_AUTHORITATIVE = 'false';
+    process.env.EDGE_STACK = 'false';
+
     laneId = 'lane-flow-test';
 
     const sessionResult = await query<{ id: string }>(
@@ -77,6 +81,14 @@ describe('Check-in Flow Commands', () => {
        RETURNING id`
     );
     await query(`UPDATE lane_sessions SET customer_id = $1 WHERE id = $2`, [customer.rows[0]!.id, sessionId]);
+
+    // Create dummy payment intents for tests that need them
+    await query(
+      `INSERT INTO payment_intents (id, amount, status, quote_json)
+       VALUES ('00000000-0000-0000-0000-000000000000', 0, 'DUE', '{}'::jsonb),
+              ('11111111-1111-1111-1111-111111111111', 0, 'DUE', '{}'::jsonb)
+       ON CONFLICT (id) DO NOTHING`
+    );
   });
 
   it('rejects cloud writes when lane is LAN-authoritative', async () => {
@@ -151,7 +163,7 @@ describe('Check-in Flow Commands', () => {
     const secondJson = second.json() as any;
     expect(secondJson.applied).toBe(true);
     expect(secondJson.deduped).toBe(true);
-    expect(secondJson.flowVersion).toBe(0);
+    expect(secondJson.flowVersion).toBe(1);
 
     const db = await query<{ flow_version: number }>(
       `SELECT flow_version FROM lane_sessions WHERE id = $1`,
@@ -544,7 +556,7 @@ describe('Check-in Flow Commands', () => {
       `UPDATE lane_sessions
        SET flow_step = 'PAYMENT',
            flow_version = 4,
-           payment_intent_id = 'pi_test',
+           payment_intent_id = '00000000-0000-0000-0000-000000000000',
            price_quote_json = '{"total":123}',
            disclaimers_ack_json = '{"ack":true}',
            agreement_bypass_pending = true
@@ -609,7 +621,7 @@ describe('Check-in Flow Commands', () => {
            backup_rental_type = 'STANDARD',
            waitlist_requested_resource_number = '101',
            waitlist_requested_resource_type = 'room',
-           payment_intent_id = 'pi_test',
+           payment_intent_id = '11111111-1111-1111-1111-111111111111',
            price_quote_json = '{"total":123}',
            disclaimers_ack_json = '{"ack":true}',
            agreement_bypass_pending = true

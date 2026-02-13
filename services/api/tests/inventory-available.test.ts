@@ -7,10 +7,11 @@ import { truncateAllTables } from './testDb.js';
 // Mock auth middleware (inventory/available is public, but other inventory routes may register auth handlers)
 vi.mock('../src/auth/middleware.js', async () => {
   return {
-    requireAuth: async (_request: any, _reply: any) => {},
-    requireAdmin: async (_request: any, _reply: any) => {},
-    requireReauth: async (_request: any, _reply: any) => {},
-    requireReauthForAdmin: async (_request: any, _reply: any) => {},
+    requireAuth: async (_request: any, _reply: any) => { },
+    requireAdmin: async (_request: any, _reply: any) => { },
+    requireReauth: async (_request: any, _reply: any) => { },
+    requireReauthForAdmin: async (_request: any, _reply: any) => { },
+    optionalAuth: async (_request: any, _reply: any) => { },
   };
 });
 

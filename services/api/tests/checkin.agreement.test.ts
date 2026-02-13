@@ -95,8 +95,8 @@ describe('Check-in Flow', () => {
     // Create test staff
     const pinHash = await hashPin('111111');
     const staffResult = await query<{ id: string }>(
-      `INSERT INTO staff (name, role, pin_hash, active)
-       VALUES ('Test Staff', 'STAFF', $1, true)
+      `INSERT INTO staff (name, pin_hash, role)
+       VALUES ('Test Staff', $1, 'ADMIN'::public.staff_role)
        RETURNING id`,
       [pinHash]
     );
@@ -309,14 +309,13 @@ describe('Check-in Flow', () => {
         expect(roomPreCheck.rows[0]!.status).toBe('CLEAN');
         expect(roomPreCheck.rows[0]!.assigned_to_customer_id).toBeNull();
 
-        const intentResponse = await app.inject({
+        await app.inject({
           method: 'POST',
           url: `/v1/checkin/lane/${laneId}/create-payment-intent`,
           headers: {
             Authorization: `Bearer ${staffToken}`,
           },
         });
-        const intentData = JSON.parse(intentResponse.body);
 
         // Demo payment success -> sets payment PAID + session AWAITING_SIGNATURE
         await app.inject({
@@ -375,8 +374,8 @@ describe('Check-in Flow', () => {
           (e) => e.payload.sessionId === startData.sessionId
         );
         expect(matchingEvents.length).toBeGreaterThan(0);
-        const last = matchingEvents[matchingEvents.length - 1]!;
-        expect(last.payload.agreementSigned).toBe(true);
+        const lastEvent = matchingEvents[matchingEvents.length - 1]!;
+        expect(lastEvent.payload.agreementSigned).toBe(true);
 
         // Verify room status changed to OCCUPIED
         const roomStatusResult = await query<{ status: string }>(

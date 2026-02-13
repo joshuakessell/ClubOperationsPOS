@@ -2,6 +2,7 @@ import { beforeAll, afterAll, beforeEach, afterEach, describe, it, expect, vi } 
 import Fastify, { type FastifyInstance } from 'fastify';
 import pg from 'pg';
 import { createBroadcaster, type Broadcaster } from '../src/realtime/broadcaster.js';
+import { initializeDatabase, closeDatabase } from '../src/db/index.js';
 import { upgradeRoutes } from '../src/routes/upgrades.js';
 import { waitlistRoutes } from '../src/routes/waitlist.js';
 import { truncateAllTables } from './testDb.js';
@@ -36,7 +37,7 @@ vi.mock('../src/auth/middleware.js', async () => {
       const staff = await ensureDefaultStaff();
       request.staff = { staffId: staff.staffId, name: staff.name, role: staff.role };
     },
-    requireAdmin: async (_request: any, _reply: any) => {},
+    requireAdmin: async (_request: any, _reply: any) => { },
     requireReauth: async (request: any, _reply: any) => {
       const staff = await ensureDefaultStaff();
       request.staff = { staffId: staff.staffId, name: staff.name, role: staff.role };
@@ -45,7 +46,7 @@ vi.mock('../src/auth/middleware.js', async () => {
       const staff = await ensureDefaultStaff();
       request.staff = { staffId: staff.staffId, name: staff.name, role: 'ADMIN' };
     },
-    optionalAuth: async (_request: any, _reply: any) => {},
+    optionalAuth: async (_request: any, _reply: any) => { },
   };
 });
 
@@ -70,13 +71,14 @@ describe('Upgrade payment flow attaches charges', () => {
       // Prevent "hung" test runs when DB isn't reachable.
       connectionTimeoutMillis: 3000,
     });
+    await initializeDatabase();
   });
 
   beforeEach(async () => {
     await truncateAllTables(pool.query.bind(pool));
     events = [];
 
-    app = Fastify({ logger: false });
+    app = Fastify({ logger: true });
     const broadcaster = createBroadcaster();
     const originalBroadcast = broadcaster.broadcast.bind(broadcaster);
     broadcaster.broadcast = (evt: any) => {
@@ -95,6 +97,7 @@ describe('Upgrade payment flow attaches charges', () => {
 
   afterAll(async () => {
     await pool.end();
+    await closeDatabase();
   });
 
   it('creates upgrade payment intent with original charges and records upgrade charge on completion', async () => {
@@ -168,6 +171,9 @@ describe('Upgrade payment flow attaches charges', () => {
       },
     });
 
+    if (fulfillRes.statusCode !== 200) {
+      console.log('FULFILL FAILURE:', fulfillRes.statusCode, fulfillRes.body);
+    }
     expect(fulfillRes.statusCode).toBe(200);
     const fulfillJson = fulfillRes.json() as {
       paymentIntentId: string;

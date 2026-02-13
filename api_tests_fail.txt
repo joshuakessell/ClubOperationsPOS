@@ -1,0 +1,796 @@
+
+> @club-ops/api@0.1.0 test /Users/joshuakessell/Projects/ClubOperationsPOS/services/api
+> vitest run
+
+[33mThe CJS build of Vite's Node API is deprecated. See https://vite.dev/guide/troubleshooting.html#vite-cjs-node-api-deprecated for more details.[39m
+
+ RUN  v1.6.1 /Users/joshuakessell/Projects/ClubOperationsPOS/services/api
+
+stdout | tests/checkin.test.ts > Check-in Flow
+Database connection established
+
+ ❯ tests/checkin.test.ts  (13 tests | 8 failed) 2699ms
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/start > should create a new lane session with ID scan
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/start > should start a lane session for an existing customerId (no ID scan required)
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/start > should update existing session with membership scan
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/customer-confirm > should unassign the selected resource when customer declines (regression for assigned_to column mismatch)
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/customer-confirm > should broadcast confirmedType/confirmedNumber using the assigned resource number (not UUID)
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/visits/:visitId/switch-resource > should require and then apply differential payment for higher-tier room switch
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/visits/:visitId/switch-resource > should reject switch when credit is declined and keep current assignment
+     → expected +0 to be 1 // Object.is equality
+   ❯ tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/create-payment-intent > should broadcast a full, stable SessionUpdated payload including customer + payment fields
+     → expected undefined to be truthy
+stdout | tests/checkin.test.ts > Check-in Flow
+Database connection pool closed
+
+stdout | tests/checkin.scan.test.ts > Check-in Flow
+Database connection established
+
+stdout | tests/checkin.scan.test.ts > Check-in Flow
+Database connection pool closed
+
+ ✓ tests/checkin.scan.test.ts  (16 tests) 3169ms
+stdout | tests/auth.test.ts > Auth Tests
+Database connection established
+
+ ✓ tests/auth.test.ts  (25 tests) 3521ms
+stdout | tests/auth.test.ts > Auth Tests
+Database connection pool closed
+
+ ❯ tests/checkin.agreement.test.ts  (0 test)
+ ❯ tests/checkout.test.ts  (10 tests | 2 failed) 441ms
+   ❯ tests/checkout.test.ts > Checkout Flow > Checkout request flow > should complete checkout and update room status
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkout.test.ts > Checkout Flow > Checkout request flow > should post late fee as itemized charge + system note (without changing amounts)
+     → expected 500 to be 200 // Object.is equality
+stdout | tests/checkout.test.ts
+Database connection pool closed
+
+stdout | tests/checkin.membership.test.ts > Check-in Flow
+Database connection established
+
+ ❯ tests/checkin.membership.test.ts  (6 tests | 6 failed) 1307ms
+   ❯ tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/membership-purchase-intent > should allow intent=NONE to clear a prior 6-month intent (stored as NULL) and recompute the DUE quote
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/propose-selection > should allow customer to propose a rental type
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/propose-selection > should allow employee to propose a rental type
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/confirm-selection > should lock selection on first confirmation (first-wins)
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/confirm-selection > should require acknowledgement from non-confirming party
+     → expected 500 to be 200 // Object.is equality
+   ❯ tests/checkin.membership.test.ts > Check-in Flow > GET /v1/checkin/lane/:laneId/waitlist-info > should compute waitlist position and ETA
+     → expected 500 to be 200 // Object.is equality
+stdout | tests/checkin.membership.test.ts > Check-in Flow
+Database connection pool closed
+
+stdout | tests/checkin.flow-command.test.ts > Check-in Flow Commands
+Database connection established
+
+stdout | tests/checkin.flow-command.test.ts
+Database connection pool closed
+
+ ❯ tests/checkin.flow-command.test.ts  (14 tests | 10 failed) 1954ms
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > dedupes repeated commandId for same session
+     → expected 409 to be 200 // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > rejects stale expectedFlowVersion with 409
+     → expected 'LaneNotAuthoritative' to be 'VersionMismatch' // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > rejects SET_STEP forward jumps beyond +1 with 400
+     → expected 409 to be 400 // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > WAITLIST_UPDATE applies waitlist desired + backup + requested resource fields
+     → expected 409 to be 200 // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > CONFIRM_SELECTION sets selection_confirmed and bumps step when needed
+     → expected 400 to be 200 // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > PROPOSE_SELECTION dedupes repeated commandId and does not double-apply
+     → expected 409 to be 200 // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > CONFIRM_SELECTION locks selection and rejects version mismatch
+     → expected 409 to be 200 // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > WAITLIST_UPDATE updates waitlist draft fields
+     → expected 409 to be 200 // Object.is equality
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > BACK_STEP from PAYMENT clears payment + agreement state
+     → invalid input syntax for type uuid: "pi_test"
+   ❯ tests/checkin.flow-command.test.ts > Check-in Flow Commands > SET_STEP jump back to RENTAL clears selection + waitlist + payment + agreement
+     → invalid input syntax for type uuid: "pi_test"
+stdout | tests/cleaning.test.ts
+Database connection pool closed
+
+ ✓ tests/cleaning.test.ts  (21 tests) 1895ms
+ ✓ tests/pricing.test.ts  (31 tests) 2ms
+ ✓ tests/membership-purchase-renew.integration.test.ts  (3 tests) 667ms
+stdout | tests/membership-purchase-renew.integration.test.ts
+Database connection pool closed
+
+ ✓ tests/manual-checkout.test.ts  (3 tests) 389ms
+stdout | tests/manual-checkout.test.ts
+Database connection pool closed
+
+stdout | tests/visits.test.ts
+Database connection pool closed
+
+ ✓ tests/visits.test.ts  (4 tests) 873ms
+ ↓ tests/demo-seed.test.ts  (1 test | 1 skipped)
+stdout | tests/rooms-offer-upgrade.test.ts
+Database connection pool closed
+
+ ✓ tests/rooms-offer-upgrade.test.ts  (2 tests) 499ms
+stdout | tests/upgrades-payment.test.ts
+Database connection pool closed
+
+ ❯ tests/upgrades-payment.test.ts  (1 test | 1 failed) 366ms
+   ❯ tests/upgrades-payment.test.ts > Upgrade payment flow attaches charges > creates upgrade payment intent with original charges and records upgrade charge on completion
+     → expected 500 to be 200 // Object.is equality
+ ✓ tests/activity/customerActivityLog.test.ts  (9 tests) 2ms
+ ✓ tests/waitlist-offer-expiry.test.ts  (1 test) 382ms
+stdout | tests/waitlist-offer-expiry.test.ts
+Database connection pool closed
+
+ ❯ tests/inventory-available.test.ts  (2 tests | 2 failed) 394ms
+   ❯ tests/inventory-available.test.ts > GET /v1/inventory/available (effective availability subtracts waitlist demand) > subtracts ACTIVE/OFFERED waitlist demand from CLEAN unassigned room supply (clamped at 0)
+     → [vitest] No "optionalAuth" export is defined on the "../src/auth/middleware.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+   ❯ tests/inventory-available.test.ts > GET /v1/inventory/available (effective availability subtracts waitlist demand) > does not count waitlist entries for ended visits or ended blocks as active demand
+     → [vitest] No "optionalAuth" export is defined on the "../src/auth/middleware.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+stdout | tests/timeoff.test.ts > Time off requests
+Database connection established
+
+stdout | tests/timeoff.test.ts > Time off requests
+Database connection pool closed
+
+ ✓ tests/timeoff.test.ts  (1 test) 190ms
+ ✓ tests/waitlist-offered-response.test.ts  (1 test) 356ms
+stdout | tests/waitlist-offered-response.test.ts
+Database connection pool closed
+
+stdout | tests/session-lifecycle-kiosk-ack.test.ts
+Database connection pool closed
+
+ ✓ tests/session-lifecycle-kiosk-ack.test.ts  (1 test) 345ms
+ ✓ tests/upgrade-holds-tick.test.ts  (1 test) 356ms
+stdout | tests/upgrade-holds-tick.test.ts
+Database connection pool closed
+
+stdout | tests/customers-manual.test.ts
+Database connection pool closed
+
+ ✓ tests/customers-manual.test.ts  (3 tests) 594ms
+ ❯ tests/inventory-detailed.test.ts  (1 test | 1 failed) 268ms
+   ❯ tests/inventory-detailed.test.ts > GET /v1/inventory/detailed (includes overdue active stays) > returns checkinAt/checkoutAt for an overdue locker stay on an active visit
+     → [vitest] No "optionalAuth" export is defined on the "../src/auth/middleware.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+stdout | tests/registers.test.ts > Register Routes
+Database connection established
+
+ ✓ tests/registers.test.ts  (3 tests) 343ms
+stdout | tests/registers.test.ts > Register Routes
+Database connection pool closed
+
+ ✓ tests/auth-enforcement.test.ts  (6 tests) 67ms
+ ✓ tests/realtime-lan.test.ts  (2 tests) 61ms
+ ❯ tests/agreement-pdf.test.ts  (1 test | 1 failed) 92ms
+   ❯ tests/agreement-pdf.test.ts > Agreement PDF generation > writes a valid, multi-page PDF and a parser can open it (no raw HTML tags)
+     → EPERM: operation not permitted, open '/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/tests/_artifacts/agreement.generated.pdf'
+ ✓ tests/realtime-ordering.test.ts  (1 test) 4ms
+stderr | tests/realtime-ordering.test.ts > Realtime ordering > drops stale SESSION_UPDATED events by flowVersion per lane
+AppSync Events publish failed (lane lane-1): Error: Unable to infer AWS region from AppSync endpoint host: example.com
+    at getAppSyncRegion (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/appsyncEvents.ts:47:11)
+    at signAppSyncEventRequest (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/appsyncEvents.ts:70:18)
+    at Module.publishAppSyncEvent (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/appsyncEvents.ts:135:25)
+    at publishToLane (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/broadcaster.ts:121:10)
+    at broadcastToLane (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/broadcaster.ts:155:5)
+    at Object.broadcastSessionUpdated (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/broadcaster.ts:183:7)
+    at /Users/joshuakessell/Projects/ClubOperationsPOS/services/api/tests/realtime-ordering.test.ts:32:26
+    at file:///Users/joshuakessell/Projects/ClubOperationsPOS/node_modules/.pnpm/@vitest+runner@1.6.1/node_modules/@vitest/runner/dist/index.js:135:14
+    at file:///Users/joshuakessell/Projects/ClubOperationsPOS/node_modules/.pnpm/@vitest+runner@1.6.1/node_modules/@vitest/runner/dist/index.js:60:26
+    at runTest (file:///Users/joshuakessell/Projects/ClubOperationsPOS/node_modules/.pnpm/@vitest+runner@1.6.1/node_modules/@vitest/runner/dist/index.js:781:17)
+AppSync Events publish failed (lane lane-1): Error: Unable to infer AWS region from AppSync endpoint host: example.com
+    at getAppSyncRegion (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/appsyncEvents.ts:47:11)
+    at signAppSyncEventRequest (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/appsyncEvents.ts:70:18)
+    at Module.publishAppSyncEvent (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/appsyncEvents.ts:135:25)
+    at publishToLane (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/broadcaster.ts:121:10)
+    at broadcastToLane (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/broadcaster.ts:155:5)
+    at Object.broadcastSessionUpdated (/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/src/realtime/broadcaster.ts:183:7)
+    at /Users/joshuakessell/Projects/ClubOperationsPOS/services/api/tests/realtime-ordering.test.ts:34:26
+    at file:///Users/joshuakessell/Projects/ClubOperationsPOS/node_modules/.pnpm/@vitest+runner@1.6.1/node_modules/@vitest/runner/dist/index.js:135:14
+    at file:///Users/joshuakessell/Projects/ClubOperationsPOS/node_modules/.pnpm/@vitest+runner@1.6.1/node_modules/@vitest/runner/dist/index.js:60:26
+    at runTest (file:///Users/joshuakessell/Projects/ClubOperationsPOS/node_modules/.pnpm/@vitest+runner@1.6.1/node_modules/@vitest/runner/dist/index.js:781:17)
+
+ ✓ tests/calcTotals.test.ts  (3 tests) 1ms
+ ✓ tests/health.test.ts  (1 test) 65ms
+ ✓ tests/pricing-membership-purchase.test.ts  (1 test)
+
+⎯⎯⎯⎯⎯⎯ Failed Suites 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/checkin.agreement.test.ts [ tests/checkin.agreement.test.ts ]
+Error: Transform failed with 1 error:
+/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/tests/checkin.agreement.test.ts:378:14: ERROR: The symbol "last" has already been declared
+ ❯ failureErrorWithLog ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:1472:15
+ ❯ ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:755:50
+ ❯ responseCallbacks.<computed> ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:622:9
+ ❯ handleIncomingPacket ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:677:12
+ ❯ Socket.readFromStdout ../../node_modules/.pnpm/esbuild@0.21.5/node_modules/esbuild/lib/main.js:600:7
+ ❯ Socket.emit node:events:508:28
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/32]⎯
+
+⎯⎯⎯⎯⎯⎯ Failed Tests 31 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/agreement-pdf.test.ts > Agreement PDF generation > writes a valid, multi-page PDF and a parser can open it (no raw HTML tags)
+Error: EPERM: operation not permitted, open '/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/tests/_artifacts/agreement.generated.pdf'
+ ❯ tests/agreement-pdf.test.ts:31:5
+     29|     const outPath = path.join(outDir, 'agreement.generated.pdf');
+     30|     await fs.mkdir(outDir, { recursive: true });
+     31|     await fs.writeFile(outPath, pdf);
+       |     ^
+     32| 
+     33|     // Parse with a different library than the generator to confirm th…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { errno: -1, code: 'EPERM', syscall: 'open', path: '/Users/joshuakessell/Projects/ClubOperationsPOS/services/api/tests/_artifacts/agreement.generated.pdf' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[2/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > dedupes repeated commandId for same session
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ tests/checkin.flow-command.test.ts:138:30
+    136|       payload: body,
+    137|     });
+    138|     expect(first.statusCode).toBe(200);
+       |                              ^
+    139|     const firstJson = first.json() as any;
+    140|     expect(firstJson.applied).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[3/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > rejects stale expectedFlowVersion with 409
+AssertionError: expected 'LaneNotAuthoritative' to be 'VersionMismatch' // Object.is equality
+
+- Expected
++ Received
+
+- VersionMismatch
++ LaneNotAuthoritative
+
+ ❯ tests/checkin.flow-command.test.ts:187:24
+    185|     const json = response.json() as any;
+    186|     expect(json.applied).toBe(false);
+    187|     expect(json.error).toBe('VersionMismatch');
+       |                        ^
+    188|   });
+    189| 
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[4/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > rejects SET_STEP forward jumps beyond +1 with 400
+AssertionError: expected 409 to be 400 // Object.is equality
+
+- Expected
++ Received
+
+- 400
++ 409
+
+ ❯ tests/checkin.flow-command.test.ts:212:33
+    210|     });
+    211| 
+    212|     expect(response.statusCode).toBe(400);
+       |                                 ^
+    213|     const json = response.json() as any;
+    214|     expect(json.applied).toBe(false);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[5/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > WAITLIST_UPDATE applies waitlist desired + backup + requested resource fields
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ tests/checkin.flow-command.test.ts:314:33
+    312|     });
+    313| 
+    314|     expect(response.statusCode).toBe(200);
+       |                                 ^
+    315| 
+    316|     const session = await query<{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[6/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > CONFIRM_SELECTION sets selection_confirmed and bumps step when needed
+AssertionError: expected 400 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 400
+
+ ❯ tests/checkin.flow-command.test.ts:366:33
+    364|     });
+    365| 
+    366|     expect(response.statusCode).toBe(200);
+       |                                 ^
+    367| 
+    368|     const updated = await query<{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[7/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > PROPOSE_SELECTION dedupes repeated commandId and does not double-apply
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ tests/checkin.flow-command.test.ts:410:30
+    408|       payload: body,
+    409|     });
+    410|     expect(first.statusCode).toBe(200);
+       |                              ^
+    411| 
+    412|     const sessionAfterFirst = await query<{ proposed_rental_type: stri…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[8/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > CONFIRM_SELECTION locks selection and rejects version mismatch
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ tests/checkin.flow-command.test.ts:482:27
+    480|       },
+    481|     });
+    482|     expect(ok.statusCode).toBe(200);
+       |                           ^
+    483| 
+    484|     const locked = await query<{ selection_confirmed: boolean; selecti…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[9/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > WAITLIST_UPDATE updates waitlist draft fields
+AssertionError: expected 409 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 409
+
+ ❯ tests/checkin.flow-command.test.ts:515:33
+    513|     });
+    514| 
+    515|     expect(response.statusCode).toBe(200);
+       |                                 ^
+    516| 
+    517|     const session = await query<{
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[10/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > BACK_STEP from PAYMENT clears payment + agreement state
+error: invalid input syntax for type uuid: "pi_test"
+ ❯ ../../node_modules/.pnpm/pg-pool@3.10.1_pg@8.16.3/node_modules/pg-pool/index.js:45:11
+ ❯ Module.query src/db/index.ts:197:18
+    195|   const dbPool = getPool();
+    196|   const start = Date.now();
+    197|   const result = await dbPool.query<T>(text, params);
+       |                  ^
+    198|   const duration = Date.now() - start;
+    199| 
+ ❯ tests/checkin.flow-command.test.ts:543:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { length: 107, severity: 'ERROR', code: '22P02', detail: undefined, hint: undefined, position: '116', internalPosition: undefined, internalQuery: undefined, where: undefined, schema: undefined, table: undefined, column: undefined, dataType: undefined, constraint: undefined, file: 'uuid.c', line: '133', routine: 'string_to_uuid' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[11/32]⎯
+
+ FAIL  tests/checkin.flow-command.test.ts > Check-in Flow Commands > SET_STEP jump back to RENTAL clears selection + waitlist + payment + agreement
+error: invalid input syntax for type uuid: "pi_test"
+ ❯ ../../node_modules/.pnpm/pg-pool@3.10.1_pg@8.16.3/node_modules/pg-pool/index.js:45:11
+ ❯ Module.query src/db/index.ts:197:18
+    195|   const dbPool = getPool();
+    196|   const start = Date.now();
+    197|   const result = await dbPool.query<T>(text, params);
+       |                  ^
+    198|   const duration = Date.now() - start;
+    199| 
+ ❯ tests/checkin.flow-command.test.ts:597:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯
+Serialized Error: { length: 107, severity: 'ERROR', code: '22P02', detail: undefined, hint: undefined, position: '627', internalPosition: undefined, internalQuery: undefined, where: undefined, schema: undefined, table: undefined, column: undefined, dataType: undefined, constraint: undefined, file: 'uuid.c', line: '133', routine: 'string_to_uuid' }
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[12/32]⎯
+
+ FAIL  tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/membership-purchase-intent > should allow intent=NONE to clear a prior 6-month intent (stored as NULL) and recompute the DUE quote
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.membership.test.ts:226:42
+    224|           },
+    225|         });
+    226|         expect(startResponse.statusCode).toBe(200);
+       |                                          ^
+    227|         const startData = JSON.parse(startResponse.body) as { sessionI…
+    228|         expect(startData.sessionId).toBeTruthy();
+ ❯ tests/checkin.membership.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[13/32]⎯
+
+ FAIL  tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/propose-selection > should allow customer to propose a rental type
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.membership.test.ts:344:42
+    342|           },
+    343|         });
+    344|         expect(startResponse.statusCode).toBe(200);
+       |                                          ^
+    345| 
+    346|         // Customer proposes selection
+ ❯ tests/checkin.membership.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[14/32]⎯
+
+ FAIL  tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/propose-selection > should allow employee to propose a rental type
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.membership.test.ts:378:42
+    376|           },
+    377|         });
+    378|         expect(startResponse.statusCode).toBe(200);
+       |                                          ^
+    379| 
+    380|         // Employee proposes selection
+ ❯ tests/checkin.membership.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[15/32]⎯
+
+ FAIL  tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/confirm-selection > should lock selection on first confirmation (first-wins)
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.membership.test.ts:416:42
+    414|           },
+    415|         });
+    416|         expect(startResponse.statusCode).toBe(200);
+       |                                          ^
+    417| 
+    418|         // Customer proposes
+ ❯ tests/checkin.membership.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[16/32]⎯
+
+ FAIL  tests/checkin.membership.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/confirm-selection > should require acknowledgement from non-confirming party
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.membership.test.ts:490:42
+    488|           },
+    489|         });
+    490|         expect(startResponse.statusCode).toBe(200);
+       |                                          ^
+    491| 
+    492|         // Employee proposes and confirms
+ ❯ tests/checkin.membership.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[17/32]⎯
+
+ FAIL  tests/checkin.membership.test.ts > Check-in Flow > GET /v1/checkin/lane/:laneId/waitlist-info > should compute waitlist position and ETA
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.membership.test.ts:545:42
+    543|           },
+    544|         });
+    545|         expect(startResponse.statusCode).toBe(200);
+       |                                          ^
+    546| 
+    547|         // Seed two occupied room blocks with different tiers and diff…
+ ❯ tests/checkin.membership.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[18/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/start > should create a new lane session with ID scan
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.test.ts:227:37
+    225|         });
+    226| 
+    227|         expect(response.statusCode).toBe(200);
+       |                                     ^
+    228|         const data = JSON.parse(response.body);
+    229|         expect(data.sessionId).toBeDefined();
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[19/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/start > should start a lane session for an existing customerId (no ID scan required)
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.test.ts:252:37
+    250|         });
+    251| 
+    252|         expect(response.statusCode).toBe(200);
+       |                                     ^
+    253|         const data = JSON.parse(response.body);
+    254|         expect(data.sessionId).toBeDefined();
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[20/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/start > should update existing session with membership scan
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.test.ts:288:37
+    286|         });
+    287| 
+    288|         expect(response.statusCode).toBe(200);
+       |                                     ^
+    289|         const data = JSON.parse(response.body);
+    290|         expect(data.membershipNumber).toBe('12345');
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[21/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/customer-confirm > should unassign the selected resource when customer declines (regression for assigned_to column mismatch)
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.test.ts:319:37
+    317|           },
+    318|         });
+    319|         expect(startRes.statusCode).toBe(200);
+       |                                     ^
+    320|         const startJson = JSON.parse(startRes.body) as { sessionId: st…
+    321| 
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[22/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/customer-confirm > should broadcast confirmedType/confirmedNumber using the assigned resource number (not UUID)
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.test.ts:388:37
+    386|           },
+    387|         });
+    388|         expect(startRes.statusCode).toBe(200);
+       |                                     ^
+    389|         const startJson = JSON.parse(startRes.body) as { sessionId: st…
+    390| 
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[23/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/visits/:visitId/switch-resource > should require and then apply differential payment for higher-tier room switch
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkin.test.ts:649:36
+    647|         });
+    648| 
+    649|         expect(paidRes.statusCode).toBe(200);
+       |                                    ^
+    650|         const paidBody = JSON.parse(paidRes.body);
+    651|         expect(paidBody.success).toBe(true);
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[24/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/visits/:visitId/switch-resource > should reject switch when credit is declined and keep current assignment
+AssertionError: expected +0 to be 1 // Object.is equality
+
+- Expected
++ Received
+
+- 1
++ 0
+
+ ❯ tests/checkin.test.ts:789:67
+    787|           [blockId]
+    788|         );
+    789|         expect(parseInt(cancelledIntentCheck.rows[0]!.count, 10)).toBe…
+       |                                                                   ^
+    790|       })
+    791|     );
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[25/32]⎯
+
+ FAIL  tests/checkin.test.ts > Check-in Flow > POST /v1/checkin/lane/:laneId/create-payment-intent > should broadcast a full, stable SessionUpdated payload including customer + payment fields
+AssertionError: expected undefined to be truthy
+
+- Expected: 
+undefined
+
++ Received: 
+false
+
+ ❯ tests/checkin.test.ts:908:39
+    906|         expect(last!.customerPrimaryLanguage).toBe('ES');
+    907|         expect(last!.customerDobMonthDay).toBe('01/15');
+    908|         expect(last!.paymentIntentId).toBeTruthy();
+       |                                       ^
+    909|         expect(last!.paymentStatus).toBe('DUE');
+    910|         expect(typeof last!.paymentTotal).toBe('number');
+ ❯ tests/checkin.test.ts:208:5
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[26/32]⎯
+
+ FAIL  tests/checkout.test.ts > Checkout Flow > Checkout request flow > should complete checkout and update room status
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkout.test.ts:480:35
+    478|       });
+    479| 
+    480|       expect(response.statusCode).toBe(200);
+       |                                   ^
+    481|       const data = JSON.parse(response.body);
+    482|       expect(data.completed).toBe(true);
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[27/32]⎯
+
+ FAIL  tests/checkout.test.ts > Checkout Flow > Checkout request flow > should post late fee as itemized charge + system note (without changing amounts)
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/checkout.test.ts:627:35
+    625|         },
+    626|       });
+    627|       expect(response.statusCode).toBe(200);
+       |                                   ^
+    628| 
+    629|       const customerAfter = await pool.query<{ past_due_balance: strin…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[28/32]⎯
+
+ FAIL  tests/inventory-available.test.ts > GET /v1/inventory/available (effective availability subtracts waitlist demand) > subtracts ACTIVE/OFFERED waitlist demand from CLEAN unassigned room supply (clamped at 0)
+ FAIL  tests/inventory-available.test.ts > GET /v1/inventory/available (effective availability subtracts waitlist demand) > does not count waitlist entries for ended visits or ended blocks as active demand
+ FAIL  tests/inventory-detailed.test.ts > GET /v1/inventory/detailed (includes overdue active stays) > returns checkinAt/checkoutAt for an overdue locker stay on an active visit
+Error: [vitest] No "optionalAuth" export is defined on the "../src/auth/middleware.js" mock. Did you forget to return it from "vi.mock"?
+If you need to partially mock a module, you can use "importOriginal" helper inside:
+
+vi.mock("../src/auth/middleware.js", async (importOriginal) => {
+  const actual = await importOriginal()
+  return {
+    ...actual,
+    // your mocked methods
+  }
+})
+
+ ❯ inventoryRoutes src/routes/inventory.ts:150:20
+    148|     '/v1/inventory/unavailable-options',
+    149|     {
+    150|       preHandler: [optionalAuth, requireKioskTokenOrStaff],
+       |                    ^
+    151|     },
+    152|     async (_request, reply) => {
+ ❯ Plugin.exec ../../node_modules/.pnpm/avvio@9.1.0/node_modules/avvio/lib/plugin.js:125:28
+ ❯ Boot._loadPlugin ../../node_modules/.pnpm/avvio@9.1.0/node_modules/avvio/boot.js:432:10
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[29/32]⎯
+
+ FAIL  tests/upgrades-payment.test.ts > Upgrade payment flow attaches charges > creates upgrade payment intent with original charges and records upgrade charge on completion
+AssertionError: expected 500 to be 200 // Object.is equality
+
+- Expected
++ Received
+
+- 200
++ 500
+
+ ❯ tests/upgrades-payment.test.ts:171:35
+    169|     });
+    170| 
+    171|     expect(fulfillRes.statusCode).toBe(200);
+       |                                   ^
+    172|     const fulfillJson = fulfillRes.json() as {
+    173|       paymentIntentId: string;
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[30/32]⎯
+
+ Test Files  9 failed | 22 passed | 1 skipped (32)
+      Tests  31 failed | 156 passed | 1 skipped (188)
+   Start at  00:12:16
+   Duration  30.11s (transform 406ms, setup 593ms, collect 4.20s, tests 21.30s, environment 2ms, prepare 2.04s)
+
+/Users/joshuakessell/Projects/ClubOperationsPOS/services/api:
+ ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL  @club-ops/api@0.1.0 test: `vitest run`
+Exit status 1
