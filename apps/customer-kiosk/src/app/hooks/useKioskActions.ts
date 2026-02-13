@@ -81,7 +81,7 @@ export function useKioskActions({
         setIsSubmitting(false);
       }
     },
-    [apiBase, kioskAuthHeaders, lane, session, setIsSubmitting, showNotice]
+    [apiBase, kioskAuthHeaders, lane, session, setIsSubmitting, showNotice, enqueue]
   );
 
   const handleKioskAcknowledge = useCallback(async () => {
@@ -101,7 +101,7 @@ export function useKioskActions({
     } finally {
       setIsSubmitting(false);
     }
-  }, [apiBase, isSubmitting, kioskAuthHeaders, lane, setIsSubmitting, setView]);
+  }, [apiBase, isSubmitting, kioskAuthHeaders, lane, setIsSubmitting, setView, enqueue]);
 
   const handleIdScanIssueDismiss = useCallback(async () => {
     if (!lane) return;
@@ -122,7 +122,7 @@ export function useKioskActions({
     } finally {
       setIsSubmitting(false);
     }
-  }, [apiBase, isSubmitting, kioskAuthHeaders, lane, resetToIdle, setIsSubmitting]);
+  }, [apiBase, isSubmitting, kioskAuthHeaders, lane, resetToIdle, setIsSubmitting, enqueue]);
 
   const handleBack = useCallback(async () => {
     if (!lane) return;
@@ -152,7 +152,7 @@ export function useKioskActions({
     } finally {
       setIsSubmitting(false);
     }
-  }, [apiBase, kioskAuthHeaders, lane, session.customerPrimaryLanguage, session.flowVersion, session.sessionId, setIsSubmitting, showNotice]);
+  }, [apiBase, kioskAuthHeaders, lane, session.customerPrimaryLanguage, session.flowVersion, session.sessionId, setIsSubmitting, showNotice, enqueue]);
 
   const handleCancel = useCallback(async () => {
     if (!lane) return;
@@ -182,7 +182,7 @@ export function useKioskActions({
     } finally {
       setIsSubmitting(false);
     }
-  }, [apiBase, kioskAuthHeaders, lane, session.customerPrimaryLanguage, session.flowVersion, session.sessionId, setIsSubmitting, showNotice]);
+  }, [apiBase, kioskAuthHeaders, lane, session.customerPrimaryLanguage, session.flowVersion, session.sessionId, setIsSubmitting, showNotice, enqueue]);
 
   return { handleLanguageSelection, handleKioskAcknowledge, handleIdScanIssueDismiss, handleBack, handleCancel };
 }

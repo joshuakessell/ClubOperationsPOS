@@ -17,7 +17,7 @@ export function useMutationQueue(apiBase: string, enabled: boolean = true) {
     const [queue, setQueue] = useState<QueuedMutation[]>(() => {
         try {
             const stored = localStorage.getItem(STORAGE_KEY);
-            return stored ? JSON.parse(stored) : [];
+            return stored ? (JSON.parse(stored) as QueuedMutation[]) : [];
         } catch {
             return [];
         }
@@ -151,11 +151,11 @@ export function useMutationQueue(apiBase: string, enabled: boolean = true) {
             }
 
             if (mounted && activeQueue.length > 0) {
-                timeoutId = window.setTimeout(processQueue, 1000); // Fast retry
+                timeoutId = window.setTimeout(() => { void processQueue(); }, 1000); // Fast retry
             }
         };
 
-        timeoutId = window.setTimeout(processQueue, 100);
+        timeoutId = window.setTimeout(() => { void processQueue(); }, 100);
 
         return () => {
             mounted = false;
