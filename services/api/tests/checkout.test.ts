@@ -209,6 +209,7 @@ describe('Checkout Flow', () => {
       // Clean up test data
       await pool.query('DELETE FROM checkout_requests WHERE customer_id = $1', [testCustomerId]);
       await pool.query('DELETE FROM late_checkout_events WHERE customer_id = $1', [testCustomerId]);
+      await pool.query('DELETE FROM customer_spend_ledger_entries WHERE customer_id = $1', [testCustomerId]);
       await pool.query('DELETE FROM checkin_blocks WHERE visit_id = $1', [testVisitId]);
       await pool.query('DELETE FROM visits WHERE id = $1', [testVisitId]);
       await pool.query('DELETE FROM key_tags WHERE id = $1', [testKeyTagId]);
