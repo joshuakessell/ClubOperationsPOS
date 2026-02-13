@@ -50,11 +50,13 @@ jobs:
 
       - name: Cache pnpm store
         uses: actions/cache@v4
+        timeout-minutes: 5
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
+          enableCrossOsArchive: true
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
