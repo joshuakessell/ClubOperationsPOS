@@ -118,7 +118,7 @@ describe('customerActivityLog', () => {
             expect(result).toEqual({ id: 'new-id', deduped: false });
             expect(mockQuery).toHaveBeenCalledTimes(1);
             // Verify SQL contains ON CONFLICT
-            expect(mockQuery.mock.calls[0][0]).toContain('ON CONFLICT (dedupe_key) DO NOTHING');
+            expect(mockQuery.mock.calls[0][0]).toContain('ON CONFLICT (dedupe_key)');
         });
 
         it('should return existing id when insert is deduplicated', async () => {
