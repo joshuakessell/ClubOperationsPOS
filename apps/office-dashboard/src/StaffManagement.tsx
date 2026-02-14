@@ -452,7 +452,6 @@ export function StaffManagement({ session }: StaffManagementProps) {
           onRevokePasskey={handleRevokePasskey}
           onPinReset={() => setShowPinResetModal(true)}
           sessionToken={session.sessionToken}
-          apiBase={API_BASE}
         />
       )}
 
