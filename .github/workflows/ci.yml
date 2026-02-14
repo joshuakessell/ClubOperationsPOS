@@ -14,6 +14,17 @@ jobs:
   quality:
     name: Quality Checks
     runs-on: ubuntu-latest
+
+    env:
+      # Test database (GitHub Actions postgres service)
+      DATABASE_URL: postgres://test:testpassword@localhost:5432/testdb
+      DB_HOST: localhost
+      DB_PORT: "5432"
+      DB_NAME: testdb
+      DB_USER: test
+      DB_PASSWORD: testpassword
+      # Kiosk/employee-register tests require a kiosk token to enable realtime init.
+      KIOSK_TOKEN: dummy-token-for-tests
     
     services:
       postgres:
@@ -25,7 +36,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd pg_isready
+          --health-cmd "pg_isready -U test -d testdb"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -67,11 +78,19 @@ jobs:
 
       - name: Migrate DB
         run: pnpm db:migrate
-        env:
-          DATABASE_URL: postgres://test:testpassword@localhost:5432/testdb
+
+      - name: Wait for Postgres
+        run: |
+          for i in {1..30}; do
+            if docker exec "${{ job.services.postgres.id }}" pg_isready -U "$DB_USER" -d "$DB_NAME"; then
+              echo "Postgres is ready"
+              exit 0
+            fi
+            echo "Waiting for Postgres... ($i/30)"
+            sleep 1
+          done
+          echo "Postgres did not become ready in time"
+          exit 1
 
       - name: Test
         run: pnpm test
-        env:
-          DATABASE_URL: postgres://test:testpassword@localhost:5432/testdb
-          KIOSK_TOKEN: "dummy-token-for-tests"
