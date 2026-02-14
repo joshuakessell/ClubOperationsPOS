@@ -564,6 +564,14 @@ export function useLaneSession({ laneId, role, kioskToken, staffToken, enabled =
                 clearTimeout(reconnectTimerRef.current);
                 reconnectTimerRef.current = null;
             }
+            if (cooldownTimerRef.current) {
+                clearTimeout(cooldownTimerRef.current);
+                cooldownTimerRef.current = null;
+            }
+            if (flushTimerRef.current) {
+                clearTimeout(flushTimerRef.current);
+                flushTimerRef.current = null;
+            }
         };
     }, [
         authUrl,
