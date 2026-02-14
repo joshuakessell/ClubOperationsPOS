@@ -32,12 +32,14 @@ export default defineConfig({
     pool: 'forks',
     poolOptions: {
       forks: {
-        singleFork: true,
+        maxForks: 1,
       },
     },
+    isolate: false,
     // Vitest may keep the Vite server open depending on open handles.
     // This makes CI fail fast instead of hanging indefinitely.
     teardownTimeout: 10000,
+    forceExit: true,
     // Note: tests should clean up any background intervals/sockets they start.
     // The mock WebSocket in registerAppTestUtils.ts simulates proper close() behavior
     // to ensure React cleanup effects cancel reconnection timers and intervals.

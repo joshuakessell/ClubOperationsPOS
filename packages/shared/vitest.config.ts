@@ -7,5 +7,6 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     pool: 'forks',
     teardownTimeout: 10000,
+    forceExit: true,
   },
 });

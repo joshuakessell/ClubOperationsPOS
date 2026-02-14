@@ -20,10 +20,12 @@ export default defineConfig({
     pool: 'forks',
     poolOptions: {
       forks: {
-        singleFork: true,
+        maxForks: 1,
       },
     },
+    isolate: false,
     teardownTimeout: 10000,
+    forceExit: true,
     reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
   },
 });
