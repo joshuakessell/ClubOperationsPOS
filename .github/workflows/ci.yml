@@ -88,7 +88,11 @@ jobs:
           KIOSK_TOKEN: "dummy-token-for-tests"
 
       - name: Test
-        run: timeout 8m pnpm test
+        # `timeout` returns 124 when it kills the command.
+        # This catches "tests finished printing, but process never exited" cases too.
+        run: |
+          set -euo pipefail
+          timeout 8m pnpm test
         env:
           DATABASE_URL: postgres://test:testpassword@localhost:5432/testdb
           KIOSK_TOKEN: "dummy-token-for-tests"

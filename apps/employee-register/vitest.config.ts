@@ -35,5 +35,8 @@ export default defineConfig({
         singleFork: true,
       },
     },
+
+    // Note: tests should clean up any background intervals/sockets they start.
+    // If the process hangs, prefer fixing the leak rather than force-exiting here.
   },
 });

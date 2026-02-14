@@ -7,4 +7,5 @@ afterEach(() => {
   document.body.innerHTML = '';
   vi.useRealTimers();
   vi.clearAllMocks();
+  vi.clearAllTimers();
 });

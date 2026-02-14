@@ -67,11 +67,17 @@ const RealtimeSocketMock = vi.fn((url?: string) => {
 
   // Keep `.onmessage` usable by tests even if production code overwrites it:
   // calling `ws.onmessage(...)` should dispatch to both the assigned handler and any addEventListener handlers.
+  //
+  // Important: when production code does `const original = socket.onmessage` then `socket.onmessage = ...`,
+  // our getter must NOT return a wrapper that calls `assignedOnMessage`, otherwise `original` becomes
+  // self-referential and we recurse forever.
   Object.defineProperty(ws, 'onmessage', {
     configurable: true,
     get() {
+      // If the app assigned an onmessage handler, return it directly.
+      if (assignedOnMessage) return assignedOnMessage;
+      // Otherwise, provide a dispatcher that only targets addEventListener handlers.
       return (ev: { data: string }) => {
-        assignedOnMessage?.(ev);
         for (const fn of listeners.message) fn(ev);
       };
     },
