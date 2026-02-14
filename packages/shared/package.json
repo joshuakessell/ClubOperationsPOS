@@ -3,23 +3,23 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "main": "./dist-new/index.js",
-  "types": "./dist-new/index.d.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./dist-new/index.d.ts",
-      "import": "./dist-new/index.js",
-      "require": "./dist-new/index.js"
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
     },
     "./realtime/useLaneSession": {
-      "types": "./dist-new/realtime/useLaneSession.d.ts",
-      "import": "./dist-new/realtime/useLaneSession.js"
+      "types": "./dist/realtime/useLaneSession.d.ts",
+      "import": "./dist/realtime/useLaneSession.js"
     }
   },
   "scripts": {
-    "clean": "node -e \"require('fs').rmSync('dist-new', { recursive: true, force: true })\"",
+    "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
     "check:esm": "node ./scripts/check-esm.mjs",
-    "build": "pnpm clean && pnpm exec tsc && pnpm check:esm",
+    "build": "pnpm clean && pnpm exec tsc --build --force && pnpm check:esm",
     "dev": "tsc --watch",
     "test": "pnpm exec vitest run",
     "test:watch": "pnpm exec vitest",

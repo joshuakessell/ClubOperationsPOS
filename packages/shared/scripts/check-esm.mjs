@@ -1,7 +1,7 @@
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const distDir = path.resolve(process.cwd(), 'dist-new');
+const distDir = path.resolve(process.cwd(), 'dist');
 
 async function* walk(dir) {
   const entries = await readdir(dir, { withFileTypes: true });
