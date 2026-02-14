@@ -1,4 +1,5 @@
 import { RaisedCard } from './views/RaisedCard';
+import { downloadCustomerDocumentPdf } from './api/customerDocuments';
 
 export type CustomerAdminSummary = {
   id: string;
@@ -322,13 +323,8 @@ export function CustomerAdminDetailPanel({
                               className="cs-liquid-button"
                               disabled={!b.hasPdf}
                               onClick={() => {
-                                const url = `/api/v1/documents/${b.checkinBlockId}/download`;
-                                fetch(url, {
-                                  headers: { Authorization: `Bearer ${sessionToken}` },
-                                })
-                                  .then(async (res) => {
-                                    if (!res.ok) throw new Error('Download failed');
-                                    const blob = await res.blob();
+                                downloadCustomerDocumentPdf(sessionToken, b.checkinBlockId)
+                                  .then(async (blob) => {
                                     const obj = URL.createObjectURL(blob);
                                     window.open(obj, '_blank', 'noopener,noreferrer');
                                     window.setTimeout(() => URL.revokeObjectURL(obj), 60_000);
