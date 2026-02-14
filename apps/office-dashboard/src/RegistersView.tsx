@@ -4,9 +4,7 @@ import type { StaffSession } from './LockScreen';
 import type { RegisterSessionUpdatedPayload, RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
-import { getApiUrl } from '@club-ops/shared';
-
-const API_BASE = getApiUrl('/api');
+import { fetchRegisterSessionsStatus, forceRegisterSignOut } from './api/registerSessions';
 
 interface RegisterSession {
   registerNumber: 1 | 2 | 3;
@@ -35,15 +33,8 @@ export function RegistersView({ session }: RegistersViewProps) {
 
   const fetchRegisters = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/register-sessions`, {
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setRegisters(data);
-      }
+      const { registers } = await fetchRegisterSessionsStatus(session.sessionToken);
+      setRegisters(registers as unknown as RegisterSession[]);
     } catch (error) {
       console.error('Failed to fetch registers:', error);
     } finally {
@@ -97,20 +88,8 @@ export function RegistersView({ session }: RegistersViewProps) {
   const handleForceSignOut = async (registerNumber: number) => {
     setForceSignOutLoading(registerNumber);
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/admin/register-sessions/${registerNumber}/force-signout`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-        }
-      );
-      if (response.ok) {
-        await fetchRegisters();
-      } else {
-        alert('Failed to force sign out');
-      }
+      await forceRegisterSignOut(session.sessionToken, registerNumber);
+      await fetchRegisters();
     } catch (error) {
       console.error('Failed to force sign out:', error);
       alert('Failed to force sign out');
