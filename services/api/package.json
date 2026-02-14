@@ -17,7 +17,7 @@
     "seed:demo": "DEMO_MODE=true pnpm exec tsx src/db/seed-demo.ts",
     "seed:all": "pnpm -s run seed && pnpm -s run seed:demo",
     "offline:replay": "pnpm exec tsx scripts/replay-offline-outbox.ts",
-    "test": "vitest run"
+    "test": "TMPDIR=/tmp vitest run"
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "^5.2.0",

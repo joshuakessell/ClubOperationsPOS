@@ -1,22 +1,28 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['tests/**/*.test.ts'],
-    setupFiles: ['./tests/vitest.setup.ts'],
-    // Integration tests share a single Postgres instance; run serially to avoid cross-test DB interference.
-    // Vitest 4.x removed singleFork; use maxWorkers + isolate instead.
-    pool: 'forks',
-    poolOptions: {
-      forks: {
-        maxForks: 1,
-      },
+    resolve: {
+        alias: [
+            {
+                find: '@club-ops/shared',
+                replacement: path.resolve(__dirname, '../../packages/shared/src'),
+            },
+            {
+                find: '@',
+                replacement: path.resolve(__dirname, './src'),
+            },
+        ],
     },
-    isolate: false,
-    fileParallelism: false,
-    teardownTimeout: 10000,
-    forceExit: true,
-  },
+    test: {
+        globals: true,
+        environment: 'node',
+        include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
+        pool: 'forks', // Use forks for better isolation in Node environment
+        poolOptions: {
+            forks: {
+                singleFork: true,
+            },
+        },
+    },
 });

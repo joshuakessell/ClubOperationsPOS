@@ -29,15 +29,10 @@ export default defineConfig({
     // Avoid flaky OOMs:
     // - Node worker threads often have a lower heap limit than the parent process.
     // - Use a single forked process instead of threads to get a normal Node heap.
+    // Vitest 4.x: singleFork → maxWorkers: 1, isolate: false; poolOptions removed.
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        maxForks: 1,
-      },
-    },
+    maxWorkers: 1,
     isolate: false,
-    // Vitest may keep the Vite server open depending on open handles.
-    // This makes CI fail fast instead of hanging indefinitely.
     teardownTimeout: 10000,
     forceExit: true,
     // Note: tests should clean up any background intervals/sockets they start.
