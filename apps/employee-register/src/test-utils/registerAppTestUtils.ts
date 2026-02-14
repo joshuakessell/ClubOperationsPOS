@@ -173,12 +173,15 @@ export function setupRegisterAppTest() {
   let App: (typeof import('../App'))['default'];
 
   beforeEach(async () => {
+    // Clear all mocks and state between tests, but DON'T call vi.resetModules().
+    // resetModules() causes re-imports that can trigger module-level initialization
+    // code creating timers that don't always get cleaned up properly.
     vi.clearAllMocks();
-    // Prevent cross-test contamination from module singletons (event buses, cached clients, etc).
-    // This also helps avoid memory growth across the suite.
-    vi.resetModules();
+    vi.clearAllTimers();
     vi.useRealTimers();
     createdSockets.length = 0;
+    lastSocket = null;
+    
     const fetchMock = vi.fn();
     Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
@@ -237,8 +240,10 @@ export function setupRegisterAppTest() {
       processEnv.VITE_DISABLE_REALTIME = 'false';
     }
 
-    // Import after env + realtime socket mocks are in place (Vite can inline import.meta.env at load time).
-    App = (await import('../App')).default;
+    // Import App module. With isolate: true in vitest config, each test gets a fresh module context anyway.
+    if (!App) {
+      App = (await import('../App')).default;
+    }
   });
 
   afterEach(() => {
