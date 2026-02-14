@@ -1,13 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getApiUrl } from '@club-ops/shared';
 import type { StaffSession } from './LockScreen';
 import { ReAuthModal } from './ReAuthModal';
 import { CreateStaffModal } from './staff/CreateStaffModal';
 import { PinResetModal } from './staff/PinResetModal';
 import { StaffDetailModal } from './staff/StaffDetailModal';
 import type { PasskeyCredential, StaffMember } from './staff/types';
-
-const API_BASE = getApiUrl('/api');
+import { createStaff, fetchStaff, resetStaffPin, updateStaff } from './api/staffAdmin';
+import { fetchWebAuthnCredentials, revokeWebAuthnCredential } from './api/webauthnAdmin';
 
 interface StaffManagementProps {
   session: StaffSession;
@@ -44,16 +43,8 @@ export function StaffManagement({ session }: StaffManagementProps) {
       if (roleFilter) params.set('role', roleFilter);
       if (activeFilter) params.set('active', activeFilter);
 
-      const response = await fetch(`${API_BASE}/v1/admin/staff?${params}`, {
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setStaff(data.staff || []);
-      }
+      const data = await fetchStaff(session.sessionToken, params);
+      setStaff(data.staff || []);
     } catch (error) {
       console.error('Failed to load staff:', error);
       showToast('Failed to load staff', 'error');
@@ -70,16 +61,8 @@ export function StaffManagement({ session }: StaffManagementProps) {
     if (!session.sessionToken) return;
 
     try {
-      const response = await fetch(`${API_BASE}/v1/auth/webauthn/credentials/${staffId}`, {
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setPasskeys(data.credentials || []);
-      }
+      const data = await fetchWebAuthnCredentials(session.sessionToken, staffId);
+      setPasskeys(data.credentials || []);
     } catch (error) {
       console.error('Failed to load passkeys:', error);
       showToast('Failed to load passkeys', 'error');
@@ -95,24 +78,12 @@ export function StaffManagement({ session }: StaffManagementProps) {
     if (!session.sessionToken) return;
 
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/staff`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify(formData),
-      });
-
-      if (response.ok) {
-        showToast('Staff created successfully', 'success');
-        setShowCreateModal(false);
-        loadStaff();
-      } else {
-        const error = await response.json();
-        showToast(error.error || 'Failed to create staff', 'error');
-      }
-    } catch {
+      await createStaff(session.sessionToken, formData);
+      showToast('Staff created successfully', 'success');
+      setShowCreateModal(false);
+      loadStaff();
+    } catch (error) {
+      console.error('Failed to create staff:', error);
       showToast('Failed to create staff', 'error');
     }
   };
@@ -121,23 +92,11 @@ export function StaffManagement({ session }: StaffManagementProps) {
     if (!session.sessionToken) return;
 
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/staff/${staffId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ active: !currentActive }),
-      });
-
-      if (response.ok) {
-        showToast(`Staff ${!currentActive ? 'activated' : 'deactivated'}`, 'success');
-        loadStaff();
-      } else {
-        const error = await response.json();
-        showToast(error.error || 'Failed to update staff', 'error');
-      }
-    } catch {
+      await updateStaff(session.sessionToken, staffId, { active: !currentActive });
+      showToast(`Staff ${!currentActive ? 'activated' : 'deactivated'}`, 'success');
+      loadStaff();
+    } catch (error) {
+      console.error('Failed to update staff:', error);
       showToast('Failed to update staff', 'error');
     }
   };
@@ -158,30 +117,13 @@ export function StaffManagement({ session }: StaffManagementProps) {
     if (!session.sessionToken) return;
 
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/auth/webauthn/credentials/${credentialId}/revoke`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-        }
-      );
-
-      if (response.ok) {
-        showToast('Passkey revoked', 'success');
-        if (selectedStaff) {
-          loadPasskeys(selectedStaff.id);
-        }
-      } else {
-        const error = await response.json();
-        if (error.code === 'REAUTH_REQUIRED' || error.code === 'REAUTH_EXPIRED') {
-          showToast('Re-authentication required. Please try again.', 'error');
-        } else {
-          showToast(error.error || 'Failed to revoke passkey', 'error');
-        }
+      await revokeWebAuthnCredential(session.sessionToken, credentialId);
+      showToast('Passkey revoked', 'success');
+      if (selectedStaff) {
+        loadPasskeys(selectedStaff.id);
       }
-    } catch {
+    } catch (error) {
+      console.error('Failed to revoke passkey:', error);
       showToast('Failed to revoke passkey', 'error');
     }
   };
@@ -207,31 +149,12 @@ export function StaffManagement({ session }: StaffManagementProps) {
     if (!session.sessionToken) return false;
 
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/staff/${staffId}/pin-reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-        body: JSON.stringify({ newPin }),
-      });
-
-      if (response.ok) {
-        showToast('PIN reset successfully', 'success');
-        setShowPinResetModal(false);
-        return true;
-      } else {
-        const error = await response.json();
-        if (error.code === 'REAUTH_REQUIRED' || error.code === 'REAUTH_EXPIRED') {
-          showToast('Re-authentication required. Please try again.', 'error');
-          // Don't clear state - allow retry after re-auth
-          setShowReAuthModal(true);
-        } else {
-          showToast(error.error || 'Failed to reset PIN', 'error');
-        }
-        return false;
-      }
-    } catch {
+      await resetStaffPin(session.sessionToken, staffId, newPin);
+      showToast('PIN reset successfully', 'success');
+      setShowPinResetModal(false);
+      return true;
+    } catch (error) {
+      console.error('Failed to reset PIN:', error);
       showToast('Failed to reset PIN', 'error');
       return false;
     }
