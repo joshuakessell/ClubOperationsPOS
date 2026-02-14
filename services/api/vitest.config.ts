@@ -7,8 +7,13 @@ export default defineConfig({
     include: ['tests/**/*.test.ts'],
     setupFiles: ['./tests/vitest.setup.ts'],
     // Integration tests share a single Postgres instance; run serially to avoid cross-test DB interference.
-    minThreads: 1,
-    maxThreads: 1,
+    pool: 'forks',
+    poolOptions: {
+      forks: {
+        singleFork: true,
+      },
+    },
     fileParallelism: false,
+    teardownTimeout: 10000,
   },
 });

@@ -62,7 +62,14 @@ const RealtimeSocketMock = vi.fn((url?: string) => {
         listeners[type] = listeners[type].filter((h) => h !== handler);
       }
     ),
-    close: vi.fn(),
+    close: vi.fn(() => {
+      if (ws.readyState === 3) return; // already closed
+      ws.readyState = 3;
+      // Note: do NOT fire onclose listeners here. In a real WebSocket the 'close'
+      // event fires asynchronously, but during test teardown the React component is
+      // already unmounted. Firing onclose would trigger reconnection logic creating
+      // new real timers that keep the process alive.
+    }) as ReturnType<typeof vi.fn>,
     send: vi.fn(),
   };
 
