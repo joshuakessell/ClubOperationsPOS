@@ -1,5 +1,8 @@
 import { afterEach, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import { registerHangingProcessDiagnostics } from './test-utils/vitestHooks';
+
+registerHangingProcessDiagnostics();
 
 afterEach(() => {
   // First, unmount all rendered components to trigger useEffect cleanups.

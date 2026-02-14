@@ -35,7 +35,13 @@ export default defineConfig({
         singleFork: true,
       },
     },
+    // Vitest may keep the Vite server open depending on open handles.
+    // This makes CI fail fast instead of hanging indefinitely.
+    teardownTimeout: 10000,
     // Note: tests should clean up any background intervals/sockets they start.
-    // If the process hangs, prefer fixing the leak rather than force-exiting here.
+    // The mock WebSocket in registerAppTestUtils.ts simulates proper close() behavior
+    // to ensure React cleanup effects cancel reconnection timers and intervals.
+    // The CI step also has a timeout-minutes safety net.
+    reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
   },
 });

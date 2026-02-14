@@ -61,7 +61,14 @@ const RealtimeSocketMock = vi.fn((url?: string) => {
         listeners[type] = listeners[type].filter((h) => h !== handler);
       }
     ),
-    close: vi.fn(),
+    close: vi.fn(() => {
+      if (ws.readyState === 3) return; // already closed
+      ws.readyState = 3;
+      // Note: do NOT fire onclose listeners here. In a real WebSocket the 'close'
+      // event fires asynchronously, but during test teardown the React component is
+      // already unmounted. Firing onclose would trigger scheduleReconnect() in
+      // useLaneSession which creates new real timers that keep the process alive.
+    }) as ReturnType<typeof vi.fn>,
     send: vi.fn(),
   };
 
@@ -181,7 +188,7 @@ export function setupRegisterAppTest() {
     vi.useRealTimers();
     createdSockets.length = 0;
     lastSocket = null;
-    
+
     const fetchMock = vi.fn();
     Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
