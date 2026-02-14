@@ -25,7 +25,7 @@ jobs:
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U test -d testdb"
+          --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
@@ -50,7 +50,6 @@ jobs:
 
       - name: Cache pnpm store
         uses: actions/cache@v4
-        timeout-minutes: 5
         with:
           path: ${{ steps.pnpm-store.outputs.path }}
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
@@ -71,57 +70,8 @@ jobs:
         env:
           DATABASE_URL: postgres://test:testpassword@localhost:5432/testdb
 
-      - name: Seed demo DB (for integration tests)
-        run: pnpm -C services/api seed:demo
-        env:
-          # Seed scripts use DB_* env vars (not DATABASE_URL)
-          DB_HOST: localhost
-          DB_PORT: "5432"
-          DB_NAME: testdb
-          DB_USER: test
-          DB_PASSWORD: testpassword
-          # Demo seed requires this flag
-          DEMO_MODE: "true"
-          # Use deterministic, fast seed for CI
-          DEMO_RESET_ON_STARTUP: "true"
-          DEMO_INCREMENTAL: "true"
-          KIOSK_TOKEN: "dummy-token-for-tests"
-
       - name: Test
         run: pnpm test
         env:
           DATABASE_URL: postgres://test:testpassword@localhost:5432/testdb
           KIOSK_TOKEN: "dummy-token-for-tests"
-          # Some integration tests create their own pg.Pool using DB_* env vars
-          # (instead of DATABASE_URL). Keep these aligned with the CI Postgres
-          # service above so tests don't fall back to incorrect defaults.
-          DB_HOST: localhost
-          DB_PORT: "5432"
-          DB_NAME: testdb
-          DB_USER: test
-          DB_PASSWORD: testpassword
-
-      - name: Test timed out (debug)
-        if: failure()
-        run: |
-          echo "pnpm test failed or timed out. Dumping process + docker state."
-          echo "=== ps aux (top 60) ==="
-          ps aux --sort=-%cpu | head -n 60
-          echo "=== all node-ish processes ==="
-          ps aux | grep -E "node|vitest|vite|tsc|esbuild|pnpm" | grep -v grep || true
-          echo "=== docker ps -a ==="
-          docker ps -a || true
-
-      - name: Debug lingering processes
-        if: always()
-        run: |
-          echo "=== ps aux (top 40) ==="
-          ps aux --sort=-%cpu | head -n 40
-          echo "=== node processes ==="
-          ps aux | grep -E "node|vitest|vite" | grep -v grep || true
-
-      - name: Debug pnpm store size
-        if: always()
-        run: |
-          echo "pnpm store path: $(pnpm store path)"
-          du -sh "$(pnpm store path)" || true
