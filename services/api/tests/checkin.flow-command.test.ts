@@ -20,8 +20,10 @@ describe('Check-in Flow Commands', () => {
   let laneId: string;
   let sessionId: string;
   const commandId = '11111111-1111-1111-1111-111111111111';
+  let savedFlowCommands: string | undefined;
 
   beforeAll(async () => {
+    savedFlowCommands = process.env.FLOW_COMMANDS;
     process.env.KIOSK_TOKEN = TEST_KIOSK_TOKEN;
     process.env.FLOW_COMMANDS = 'true';
     process.env.LAN_FALLBACK = 'false';
@@ -52,6 +54,12 @@ describe('Check-in Flow Commands', () => {
   });
 
   afterAll(async () => {
+    // Restore FLOW_COMMANDS to prevent leaking into subsequent test files
+    if (savedFlowCommands === undefined) {
+      delete process.env.FLOW_COMMANDS;
+    } else {
+      process.env.FLOW_COMMANDS = savedFlowCommands;
+    }
     if (!dbAvailable) return;
     await app.close();
   });

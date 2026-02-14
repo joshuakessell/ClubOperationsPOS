@@ -246,178 +246,188 @@ describe('Check-in Flow', () => {
     it(
       'should store signature, create checkin_block, and assign inventory ONLY after signing',
       runIfDbAvailable(async () => {
+        const savedFlowCommands = process.env.FLOW_COMMANDS;
         process.env.FLOW_COMMANDS = 'true';
-        // Setup: create session, lock selection, create payment intent, demo-take-payment, then sign agreement
-        const roomResult = await query<{ id: string }>(
-          `INSERT INTO rooms (number, type, status, floor)
-         VALUES ('200', 'STANDARD', 'CLEAN', 2)
-         RETURNING id`
-        );
-        const roomId = roomResult.rows[0]!.id;
+        try {
+          // Setup: create session, lock selection, create payment intent, demo-take-payment, then sign agreement
+          const roomResult = await query<{ id: string }>(
+            `INSERT INTO rooms (number, type, status, floor)
+          VALUES ('200', 'STANDARD', 'CLEAN', 2)
+          RETURNING id`
+          );
+          const roomId = roomResult.rows[0]!.id;
 
-        // Sanity: room 200 is available before check-in completion
-        const beforeAvail = await app.inject({ method: 'GET', url: '/v1/inventory/available' });
-        expect(beforeAvail.statusCode).toBe(200);
-        const beforeAvailBody = JSON.parse(beforeAvail.body);
-        expect(beforeAvailBody.rawRooms?.STANDARD).toBe(1);
+          // Sanity: room 200 is available before check-in completion
+          const beforeAvail = await app.inject({ method: 'GET', url: '/v1/inventory/available' });
+          expect(beforeAvail.statusCode).toBe(200);
+          const beforeAvailBody = JSON.parse(beforeAvail.body);
+          expect(beforeAvailBody.rawRooms?.STANDARD).toBe(1);
 
-        const startResponse = await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/start`,
-          headers: {
-            Authorization: `Bearer ${staffToken}`,
-          },
-          payload: {
-            idScanValue: 'ID123456',
-            membershipScanValue: '12345',
-          },
-        });
-        const startData = JSON.parse(startResponse.body);
+          const startResponse = await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/start`,
+            headers: {
+              Authorization: `Bearer ${staffToken}`,
+            },
+            payload: {
+              idScanValue: 'ID123456',
+              membershipScanValue: '12345',
+            },
+          });
+          const startData = JSON.parse(startResponse.body);
 
-        // Lock selection
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/propose-selection`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-          payload: { rentalType: 'STANDARD', proposedBy: 'EMPLOYEE' },
-        });
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/confirm-selection`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-          payload: { confirmedBy: 'EMPLOYEE' },
-        });
+          // Lock selection
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/propose-selection`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+            payload: { rentalType: 'STANDARD', proposedBy: 'EMPLOYEE' },
+          });
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/confirm-selection`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+            payload: { confirmedBy: 'EMPLOYEE' },
+          });
 
-        // Preselect a specific room on the session (actual inventory assignment happens later)
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/assign`,
-          headers: {
-            Authorization: `Bearer ${staffToken}`,
-          },
-          payload: {
-            resourceType: 'room',
-            resourceId: roomId,
-          },
-        });
+          // Preselect a specific room on the session (actual inventory assignment happens later)
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/assign`,
+            headers: {
+              Authorization: `Bearer ${staffToken}`,
+            },
+            payload: {
+              resourceType: 'room',
+              resourceId: roomId,
+            },
+          });
 
-        // Verify not assigned yet
-        const roomPreCheck = await query<{
-          status: string;
-          assigned_to_customer_id: string | null;
-        }>(`SELECT status, assigned_to_customer_id FROM rooms WHERE id = $1`, [roomId]);
-        expect(roomPreCheck.rows[0]!.status).toBe('CLEAN');
-        expect(roomPreCheck.rows[0]!.assigned_to_customer_id).toBeNull();
+          // Verify not assigned yet
+          const roomPreCheck = await query<{
+            status: string;
+            assigned_to_customer_id: string | null;
+          }>(`SELECT status, assigned_to_customer_id FROM rooms WHERE id = $1`, [roomId]);
+          expect(roomPreCheck.rows[0]!.status).toBe('CLEAN');
+          expect(roomPreCheck.rows[0]!.assigned_to_customer_id).toBeNull();
 
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/create-payment-intent`,
-          headers: {
-            Authorization: `Bearer ${staffToken}`,
-          },
-        });
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/create-payment-intent`,
+            headers: {
+              Authorization: `Bearer ${staffToken}`,
+            },
+          });
 
-        // Demo payment success -> sets payment PAID + session AWAITING_SIGNATURE
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/demo-take-payment`,
-          headers: {
-            Authorization: `Bearer ${staffToken}`,
-          },
-          payload: { outcome: 'CASH_SUCCESS' },
-        });
+          // Demo payment success -> sets payment PAID + session AWAITING_SIGNATURE
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/demo-take-payment`,
+            headers: {
+              Authorization: `Bearer ${staffToken}`,
+            },
+            payload: { outcome: 'CASH_SUCCESS' },
+          });
 
-        // Sign agreement
-        const response = await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/sign-agreement`,
-          headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
-          payload: {
-            signaturePayload:
-              'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-            sessionId: startData.sessionId,
-          },
-        });
+          // Sign agreement
+          const response = await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/sign-agreement`,
+            headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+            payload: {
+              signaturePayload:
+                'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+              sessionId: startData.sessionId,
+            },
+          });
 
-        expect(response.statusCode).toBe(200);
-        const data = JSON.parse(response.body);
-        expect(data.success).toBe(true);
+          expect(response.statusCode).toBe(200);
+          const data = JSON.parse(response.body);
+          expect(data.success).toBe(true);
 
-        const last = sessionUpdatedEvents.filter((e) => e.lane === laneId).at(-1)?.payload;
-        expect(last).toBeTruthy();
-        expect(last!.flowStep).toBe('AGREEMENT');
+          const last = sessionUpdatedEvents.filter((e) => e.lane === laneId).at(-1)?.payload;
+          expect(last).toBeTruthy();
+          expect(last!.flowStep).toBe('AGREEMENT');
 
-        // Verify visit and check-in block created
-        const visitResult = await query<{ id: string }>(
-          `SELECT id FROM visits WHERE customer_id = $1`,
-          [customerId]
-        );
-        expect(visitResult.rows.length).toBeGreaterThan(0);
+          // Verify visit and check-in block created
+          const visitResult = await query<{ id: string }>(
+            `SELECT id FROM visits WHERE customer_id = $1`,
+            [customerId]
+          );
+          expect(visitResult.rows.length).toBeGreaterThan(0);
 
-        const blockResult = await query<{
-          id: string;
-          session_id: string | null;
-          agreement_signed: boolean;
-        }>(
-          `SELECT id, session_id, agreement_signed
-         FROM checkin_blocks
-         WHERE visit_id = $1
-         ORDER BY created_at DESC
-         LIMIT 1`,
-          [visitResult.rows[0]!.id]
-        );
-        expect(blockResult.rows[0]!.session_id).toBe(startData.sessionId);
-        expect(blockResult.rows[0]!.agreement_signed).toBe(true);
+          const blockResult = await query<{
+            id: string;
+            session_id: string | null;
+            agreement_signed: boolean;
+          }>(
+            `SELECT id, session_id, agreement_signed
+          FROM checkin_blocks
+          WHERE visit_id = $1
+          ORDER BY created_at DESC
+          LIMIT 1`,
+            [visitResult.rows[0]!.id]
+          );
+          expect(blockResult.rows[0]!.session_id).toBe(startData.sessionId);
+          expect(blockResult.rows[0]!.agreement_signed).toBe(true);
 
-        // Agreement completion sync: ensure the server broadcast SESSION_UPDATED includes agreementSigned=true
-        const matchingEvents = sessionUpdatedEvents.filter(
-          (e) => e.payload.sessionId === startData.sessionId
-        );
-        expect(matchingEvents.length).toBeGreaterThan(0);
-        const lastEvent = matchingEvents[matchingEvents.length - 1]!;
-        expect(lastEvent.payload.agreementSigned).toBe(true);
+          // Agreement completion sync: ensure the server broadcast SESSION_UPDATED includes agreementSigned=true
+          const matchingEvents = sessionUpdatedEvents.filter(
+            (e) => e.payload.sessionId === startData.sessionId
+          );
+          expect(matchingEvents.length).toBeGreaterThan(0);
+          const lastEvent = matchingEvents[matchingEvents.length - 1]!;
+          expect(lastEvent.payload.agreementSigned).toBe(true);
 
-        // Verify room status changed to OCCUPIED
-        const roomStatusResult = await query<{ status: string }>(
-          `SELECT status FROM rooms WHERE id = $1`,
-          [roomId]
-        );
-        expect(roomStatusResult.rows[0]!.status).toBe('OCCUPIED');
+          // Verify room status changed to OCCUPIED
+          const roomStatusResult = await query<{ status: string }>(
+            `SELECT status FROM rooms WHERE id = $1`,
+            [roomId]
+          );
+          expect(roomStatusResult.rows[0]!.status).toBe('OCCUPIED');
 
-        // Verify room is assigned to the customer
-        const roomAssignedResult = await query<{ assigned_to_customer_id: string | null }>(
-          `SELECT assigned_to_customer_id FROM rooms WHERE id = $1`,
-          [roomId]
-        );
-        expect(roomAssignedResult.rows[0]!.assigned_to_customer_id).toBe(customerId);
+          // Verify room is assigned to the customer
+          const roomAssignedResult = await query<{ assigned_to_customer_id: string | null }>(
+            `SELECT assigned_to_customer_id FROM rooms WHERE id = $1`,
+            [roomId]
+          );
+          expect(roomAssignedResult.rows[0]!.assigned_to_customer_id).toBe(customerId);
 
-        // Expected outcome: /v1/inventory/available must no longer count room 200 immediately after completion
-        const afterAvail = await app.inject({ method: 'GET', url: '/v1/inventory/available' });
-        expect(afterAvail.statusCode).toBe(200);
-        const afterAvailBody = JSON.parse(afterAvail.body);
-        expect(afterAvailBody.rawRooms?.STANDARD).toBe(0);
+          // Expected outcome: /v1/inventory/available must no longer count room 200 immediately after completion
+          const afterAvail = await app.inject({ method: 'GET', url: '/v1/inventory/available' });
+          expect(afterAvail.statusCode).toBe(200);
+          const afterAvailBody = JSON.parse(afterAvail.body);
+          expect(afterAvailBody.rawRooms?.STANDARD).toBe(0);
 
-        // Document verification: employee/office can prove agreement PDF + signature artifacts exist
-        const docsRes = await app.inject({
-          method: 'GET',
-          url: `/v1/documents/by-session/${startData.sessionId}`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-        });
-        expect(docsRes.statusCode).toBe(200);
-        const docsBody = JSON.parse(docsRes.body) as { documents?: any[] };
-        expect(Array.isArray(docsBody.documents)).toBe(true);
-        expect(docsBody.documents!.length).toBeGreaterThan(0);
-        expect(docsBody.documents![0]!.has_signature).toBe(true);
-        expect(docsBody.documents![0]!.has_pdf).toBe(true);
+          // Document verification: employee/office can prove agreement PDF + signature artifacts exist
+          const docsRes = await app.inject({
+            method: 'GET',
+            url: `/v1/documents/by-session/${startData.sessionId}`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+          });
+          expect(docsRes.statusCode).toBe(200);
+          const docsBody = JSON.parse(docsRes.body) as { documents?: any[] };
+          expect(Array.isArray(docsBody.documents)).toBe(true);
+          expect(docsBody.documents!.length).toBeGreaterThan(0);
+          expect(docsBody.documents![0]!.has_signature).toBe(true);
+          expect(docsBody.documents![0]!.has_pdf).toBe(true);
 
-        const downloadRes = await app.inject({
-          method: 'GET',
-          url: `/v1/documents/${docsBody.documents![0]!.id}/download`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-        });
-        expect(downloadRes.statusCode).toBe(200);
-        expect(downloadRes.headers['content-type']).toContain('application/pdf');
-        expect(downloadRes.body.length).toBeGreaterThan(100);
+          const downloadRes = await app.inject({
+            method: 'GET',
+            url: `/v1/documents/${docsBody.documents![0]!.id}/download`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+          });
+          expect(downloadRes.statusCode).toBe(200);
+          expect(downloadRes.headers['content-type']).toContain('application/pdf');
+          expect(downloadRes.body.length).toBeGreaterThan(100);
+        } finally {
+          // Restore to prevent leaking into subsequent test files
+          if (savedFlowCommands === undefined) {
+            delete process.env.FLOW_COMMANDS;
+          } else {
+            process.env.FLOW_COMMANDS = savedFlowCommands;
+          }
+        }
       })
     );
 
