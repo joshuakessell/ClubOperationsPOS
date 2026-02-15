@@ -55,6 +55,7 @@ jobs:
         run: pnpm lint
 
       - name: Test
+        timeout-minutes: 5
         run: pnpm test
 
   build-images:

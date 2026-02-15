@@ -260,13 +260,13 @@ export function useLaneSession({
 
   useEffect(() => {
     if (transportAbstractionEnabled) {
-      setMode('cloud');
+      setMode(prev => prev === 'cloud' ? prev : 'cloud');
       if (!effectiveEnabled || laneId === undefined) {
         transportRef.current?.disconnect();
         transportRef.current = null;
         closedIntentionallyRef.current = true;
-        setConnected(false);
-        setMode('cloud');
+        setConnected(prev => prev === false ? prev : false);
+        setMode(prev => prev === 'cloud' ? prev : 'cloud');
         return;
       }
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEmployeeRegisterTabletUiTweaks } from '../../hooks/useEmployeeRegisterTabletUiTweaks';
 import { useEmployeeRegisterDerivedState } from './useEmployeeRegisterDerivedState';
 import { useAddOnSaleState } from './slices/useAddOnSaleState';
@@ -88,6 +88,7 @@ export function useEmployeeRegisterStateValue() {
   const { health } = useHealthStatus(lane);
   const addOnState = useAddOnSaleState();
 
+
   const laneSessionCustomerId = laneBindings.customerId ?? null;
   const navState = useNavigationState({
     setManualEntry,
@@ -131,10 +132,11 @@ export function useEmployeeRegisterStateValue() {
     setIsSubmitting,
     setPaymentDeclineError: laneBindings.setPaymentDeclineError,
     notifications: notifier,
-    onUnauthorized: () => {
+    onUnauthorized: useCallback(() => {
       staffSessionState.setSession(null);
       staffSessionState.setRegisterSession(null);
-    },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [staffSessionState.setSession, staffSessionState.setRegisterSession]),
   });
 
   const documentsState = useDocumentsState(session);
@@ -252,9 +254,9 @@ export function useEmployeeRegisterStateValue() {
     pollOnce,
     setSelectionConfirmed: laneBindings.setSelectionConfirmed,
     setCustomerSelectedType: laneBindings.setCustomerSelectedType,
-    laneSessionActions: {
+    laneSessionActions: useMemo(() => ({
       patch: laneBindings.laneSessionActions.patch,
-    },
+    }), [laneBindings.laneSessionActions.patch]),
     notifications: notifier,
   });
 

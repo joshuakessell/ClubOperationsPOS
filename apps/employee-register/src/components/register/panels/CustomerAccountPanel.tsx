@@ -130,10 +130,8 @@ export function CustomerAccountPanel(props: {
     if (!props.sessionToken) return;
     if (customerNotesState.isLoading(props.customerId)) return;
     if (customerSpendLedgerState.isLoading(props.customerId)) return;
-    if (customerNotesState.getNotes(props.customerId).length > 0) return;
-    if (customerNotesState.getError(props.customerId)) return;
-    if (customerSpendLedgerState.getGroups(props.customerId).length > 0) return;
-    if (customerSpendLedgerState.getError(props.customerId)) return;
+    if (customerNotesState.hasLoaded(props.customerId)) return;
+    if (customerSpendLedgerState.hasLoaded(props.customerId)) return;
 
     void customerNotesState.loadNotes(props.customerId);
     void customerSpendLedgerState.loadSpendLedger(props.customerId);
@@ -178,220 +176,227 @@ export function CustomerAccountPanel(props: {
     (state.errorCode === 'UNDERAGE' || state.errorCode === 'ID_EXPIRED');
   const renderProfileCard = (footer: JSX.Element | null) => (
     <CustomerProfileCard
-      name={displayName}
-      preferredLanguage={props.customerPrimaryLanguage || profile?.preferredLanguage || null}
-      dob={props.customerDob || profile?.dob || null}
-      dobMonthDay={displayDob}
-      idNumber={props.customerIdNumber || profile?.idNumber || null}
-      idExpirationDate={props.customerIdExpirationDate || profile?.idExpirationDate || null}
-      idType={props.customerIdType || profile?.idType || null}
-      idTypeOther={props.customerIdTypeOther || profile?.idTypeOther || null}
-      membershipNumber={displayMembership}
-      membershipValidUntil={props.customerMembershipValidUntil || profile?.membershipValidUntil || null}
-      lastVisitAt={props.customerLastVisitAt || profile?.lastVisitAt || null}
-      hasEncryptedLookupMarker={Boolean(props.hasEncryptedLookupMarker || profile?.hasEncryptedLookupMarker)}
-      checkinStage={hasActiveSession ? props.checkinStage : null}
-      waitlistDesiredTier={hasActiveSession ? props.waitlistDesiredTier : null}
-      waitlistBackupType={hasActiveSession ? props.waitlistBackupType : null}
-      footer={footer ?? undefined}
+      name= { displayName }
+  preferredLanguage = { props.customerPrimaryLanguage || profile?.preferredLanguage || null }
+  dob = { props.customerDob || profile?.dob || null }
+  dobMonthDay = { displayDob }
+  idNumber = { props.customerIdNumber || profile?.idNumber || null }
+  idExpirationDate = { props.customerIdExpirationDate || profile?.idExpirationDate || null }
+  idType = { props.customerIdType || profile?.idType || null }
+  idTypeOther = { props.customerIdTypeOther || profile?.idTypeOther || null }
+  membershipNumber = { displayMembership }
+  membershipValidUntil = { props.customerMembershipValidUntil || profile?.membershipValidUntil || null }
+  lastVisitAt = { props.customerLastVisitAt || profile?.lastVisitAt || null }
+  hasEncryptedLookupMarker = { Boolean(props.hasEncryptedLookupMarker || profile?.hasEncryptedLookupMarker) }
+  checkinStage = { hasActiveSession? props.checkinStage : null}
+  waitlistDesiredTier = { hasActiveSession? props.waitlistDesiredTier : null}
+  waitlistBackupType = { hasActiveSession? props.waitlistBackupType : null}
+  footer = { footer ?? undefined
+}
     />
   );
-  const beginCheckinButton = (
-    <button
-      type="button"
-      className="cs-liquid-button"
-      onClick={start}
-      disabled={manualStartPending}
-      style={{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
+const beginCheckinButton = (
+  <button
+      type= "button"
+className = "cs-liquid-button"
+onClick = { start }
+disabled = { manualStartPending }
+style = {{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
     >
-      {manualStartPending ? 'Starting Check-in…' : 'Start Checkin'}
-    </button>
+  { manualStartPending? 'Starting Check-in…': 'Start Checkin' }
+  </button>
   );
-  const headerAction = props.customerLabel ? (
-    <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-      {props.customerLabel}
+const headerAction = props.customerLabel ? (
+  <div className= "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
+    { props.customerLabel }
     </div>
   ) : null;
-  const tabs = (
-    <div style={{ display: 'flex', gap: '0.5rem' }}>
-      <button
+const tabs = (
+  <div style= {{ display: 'flex', gap: '0.5rem' }}>
+    <button
         type="button"
-        className={
-          activeTab === 'profile'
-            ? 'cs-liquid-button'
-            : 'cs-liquid-button cs-liquid-button--secondary'
+className = {
+  activeTab === 'profile'
+  ? 'cs-liquid-button'
+  : 'cs-liquid-button cs-liquid-button--secondary'
         }
-        onClick={() => setActiveTab('profile')}
+onClick = {() => setActiveTab('profile')}
       >
-        Profile
-      </button>
-      <button
-        type="button"
-        className={
-          activeTab === 'guided'
-            ? 'cs-liquid-button'
-            : 'cs-liquid-button cs-liquid-button--secondary'
+  Profile
+  </button>
+  < button
+type = "button"
+className = {
+  activeTab === 'guided'
+  ? 'cs-liquid-button'
+  : 'cs-liquid-button cs-liquid-button--secondary'
         }
-        onClick={() => setActiveTab('guided')}
+onClick = {() => setActiveTab('guided')}
       >
-        Guided Access
-      </button>
+  Guided Access
+    </button>
     </div>
   );
-  return (
-    <PanelShell align="top" scroll="hidden">
-      <PanelHeader title="Customer Account" spacing="none" action={headerAction} />
-      {state.mode === 'ALREADY_VISITING' ? (
+return (
+  <PanelShell align= "top" scroll = "hidden" >
+    <PanelHeader title="Customer Account" spacing = "none" action = { headerAction } />
+    {
+      state.mode === 'ALREADY_VISITING' ? (
         <div
-          className="er-account-already-visiting"
+          className= "er-account-already-visiting"
           style={{ marginTop: '0.75rem', display: 'grid', gap: '0.75rem' }}
         >
-          <div
+  <div
             className="cs-liquid-card"
-            style={{
-              padding: '0.85rem',
-              border: '1px solid rgba(34, 197, 94, 0.35)',
-              background: 'rgba(34, 197, 94, 0.10)',
+style = {{
+  padding: '0.85rem',
+    border: '1px solid rgba(34, 197, 94, 0.35)',
+      background: 'rgba(34, 197, 94, 0.10)',
             }}
           >
-            <div style={{ fontWeight: 950, marginBottom: '0.35rem' }}>Currently Checked In</div>
-            <div
-              className="er-text-sm"
-              style={{ color: '#cbd5e1', fontWeight: 700, lineHeight: 1.45 }}
+  <div style={ { fontWeight: 950, marginBottom: '0.35rem' } }> Currently Checked In </div>
+    < div
+className = "er-text-sm"
+style = {{ color: '#cbd5e1', fontWeight: 700, lineHeight: 1.45 }}
             >
-              This customer already has an active visit.
+  This customer already has an active visit.
             </div>
-          </div>
-          <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
-            <ActiveVisitSummary
-              activeCheckin={state.activeCheckin}
-              sessionToken={props.sessionToken}
-              onStartCheckout={props.onStartCheckout}
-              onStartRenewal={props.onStartRenewal}
-              onRefetch={props.onRefetchAccountState ?? (() => retry())}
-            />
-          </div>
-        </div>
+    </div>
+    < div className = "cs-liquid-card" style = {{ padding: '0.85rem' }}>
+      <ActiveVisitSummary
+              activeCheckin={ state.activeCheckin }
+sessionToken = { props.sessionToken }
+onStartCheckout = { props.onStartCheckout }
+onStartRenewal = { props.onStartRenewal }
+onRefetch = { props.onRefetchAccountState ?? (() => retry()) }
+  />
+  </div>
+  </div>
       ) : state.mode === 'ERROR' ? (
-        <div style={{ marginTop: '0.75rem' }}>
-          <div
+  <div style= {{ marginTop: '0.75rem' }}>
+    <div
             className="cs-liquid-card"
-            style={{
-              padding: '0.85rem',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              background: 'rgba(239, 68, 68, 0.12)',
-              color: '#fecaca',
-              fontWeight: 800,
+style = {{
+  padding: '0.85rem',
+    border: '1px solid rgba(239, 68, 68, 0.35)',
+      background: 'rgba(239, 68, 68, 0.12)',
+        color: '#fecaca',
+          fontWeight: 800,
             }}
           >
-            {state.errorMessage}
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              if (showGoBack && props.onGoBack) {
-                props.onGoBack();
-                return;
-              }
-              retry();
-            }}
-            className="cs-liquid-button"
-            style={{ marginTop: '0.75rem', width: '100%', padding: '0.75rem', fontWeight: 900 }}
+  { state.errorMessage }
+  </div>
+  < button
+type = "button"
+onClick = {() => {
+  if (showGoBack && props.onGoBack) {
+    props.onGoBack();
+    return;
+  }
+  retry();
+}}
+className = "cs-liquid-button"
+style = {{ marginTop: '0.75rem', width: '100%', padding: '0.75rem', fontWeight: 900 }}
           >
-            {showGoBack ? 'Go Back' : 'Retry'}
-          </button>
-        </div>
+  { showGoBack? 'Go Back': 'Retry' }
+  </button>
+  </div>
       ) : (
-        <div
-          style={{
-            marginTop: '0.75rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-            minHeight: 0,
+  <div
+          style= {{
+  marginTop: '0.75rem',
+    display: 'flex',
+      flexDirection: 'column',
+        gap: '0.75rem',
+          minHeight: 0,
           }}
         >
-          {hasActiveSession ? (
-            <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem' }}>
-                <div style={{ fontWeight: 900, fontSize: '1.05rem' }}>Customer Profile</div>
-                {tabs}
-              </div>
-              <div style={{ marginTop: '0.75rem' }}>
-                {activeTab === 'profile' ? (
-                  <CustomerAccountDetailsCard
-                    customerId={props.customerId}
-                    profileCard={renderProfileCard(null)}
-                    customerNotesState={customerNotesState}
-                    customerSpendLedgerState={customerSpendLedgerState}
-                    customerDocumentsState={registerState.customerDocumentsState}
-                  />
+{
+  hasActiveSession?(
+            <div className = "cs-liquid-card" style = {{ padding: '0.85rem' }} >
+  <div style={ { display: 'flex', justifyContent: 'space-between', gap: '1rem' } }>
+    <div style={ { fontWeight: 900, fontSize: '1.05rem' } }> Customer Profile </div>
+{ tabs }
+</div>
+  < div style = {{ marginTop: '0.75rem' }}>
+    { activeTab === 'profile' ? (
+      <CustomerAccountDetailsCard
+                    customerId= { props.customerId }
+                    profileCard = { renderProfileCard(null) }
+customerNotesState = { customerNotesState }
+customerSpendLedgerState = { customerSpendLedgerState }
+customerDocumentsState = { registerState.customerDocumentsState }
+  />
                 ) : (
-                  <div style={{ maxHeight: '28rem', overflow: 'auto' }}>
-                    <EmployeeAssistPanel
-                      sessionId={props.currentSessionId!}
-                      customerName={props.customerName}
-                      customerPrimaryLanguage={props.customerPrimaryLanguage}
-                      membershipNumber={props.membershipNumber || null}
-                      customerMembershipValidUntil={props.customerMembershipValidUntil}
-                      membershipPurchaseIntent={props.membershipPurchaseIntent}
-                      membershipChoice={props.membershipChoice}
-                      allowedRentals={props.allowedRentals}
-                      proposedRentalType={props.proposedRentalType}
-                      proposedBy={props.proposedBy}
-                      selectionConfirmed={props.selectionConfirmed}
-                      waitlistDesiredTier={props.waitlistDesiredTier}
-                      waitlistDesiredTypes={props.waitlistDesiredTypes}
-                      waitlistBackupType={props.waitlistBackupType}
-                      waitlistRequestedResourceNumber={props.waitlistRequestedResourceNumber}
-                      waitlistRequestedResourceType={props.waitlistRequestedResourceType}
-                      inventoryAvailable={props.inventoryAvailable}
-                      waitlistUnavailableOptions={props.waitlistUnavailableOptions}
-                      isSubmitting={props.isSubmitting}
-                      directSelect={props.directSelect}
-                      onHighlightLanguage={props.onHighlightLanguage}
-                      onConfirmLanguage={props.onConfirmLanguage}
-                      onHighlightMembership={props.onHighlightMembership}
-                      onConfirmMembershipOneTime={props.onConfirmMembershipOneTime}
-                      onConfirmMembershipSixMonth={props.onConfirmMembershipSixMonth}
-                      onHighlightRental={props.onHighlightRental}
-                      onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
-                      onDirectSelectRental={props.onDirectSelectRental}
-                      onHighlightWaitlistBackup={props.onHighlightWaitlistBackup}
-                      onSelectWaitlistBackupAsCustomer={props.onSelectWaitlistBackupAsCustomer}
-                      onClearSession={props.onClearSession}
-                      onDirectSelectWaitlistBackup={props.onDirectSelectWaitlistBackup}
-                      onApproveRental={props.onApproveRental}
-                    />
-                  </div>
+  <div style= {{ maxHeight: '28rem', overflow: 'auto' }}>
+    <EmployeeAssistPanel
+                      sessionId={ props.currentSessionId! }
+customerName = { props.customerName }
+customerPrimaryLanguage = { props.customerPrimaryLanguage }
+membershipNumber = { props.membershipNumber || null }
+customerMembershipValidUntil = { props.customerMembershipValidUntil }
+membershipPurchaseIntent = { props.membershipPurchaseIntent }
+membershipChoice = { props.membershipChoice }
+allowedRentals = { props.allowedRentals }
+proposedRentalType = { props.proposedRentalType }
+proposedBy = { props.proposedBy }
+selectionConfirmed = { props.selectionConfirmed }
+waitlistDesiredTier = { props.waitlistDesiredTier }
+waitlistDesiredTypes = { props.waitlistDesiredTypes }
+waitlistBackupType = { props.waitlistBackupType }
+waitlistRequestedResourceNumber = { props.waitlistRequestedResourceNumber }
+waitlistRequestedResourceType = { props.waitlistRequestedResourceType }
+inventoryAvailable = { props.inventoryAvailable }
+waitlistUnavailableOptions = { props.waitlistUnavailableOptions }
+isSubmitting = { props.isSubmitting }
+directSelect = { props.directSelect }
+onHighlightLanguage = { props.onHighlightLanguage }
+onConfirmLanguage = { props.onConfirmLanguage }
+onHighlightMembership = { props.onHighlightMembership }
+onConfirmMembershipOneTime = { props.onConfirmMembershipOneTime }
+onConfirmMembershipSixMonth = { props.onConfirmMembershipSixMonth }
+onHighlightRental = { props.onHighlightRental }
+onSelectRentalAsCustomer = { props.onSelectRentalAsCustomer }
+onDirectSelectRental = { props.onDirectSelectRental }
+onHighlightWaitlistBackup = { props.onHighlightWaitlistBackup }
+onSelectWaitlistBackupAsCustomer = { props.onSelectWaitlistBackupAsCustomer }
+onClearSession = { props.onClearSession }
+onDirectSelectWaitlistBackup = { props.onDirectSelectWaitlistBackup }
+onApproveRental = { props.onApproveRental }
+  />
+  </div>
                 )}
-              </div>
-            </div>
+</div>
+  </div>
           ) : showManualStart ? (
-            <>
-              {renderProfileCard(beginCheckinButton)}
-              <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                {hasAttemptedStart
-                  ? 'Waiting for the customer kiosk to begin check-in…'
-                  : 'Review the customer details, then start the check-in.'}
-              </div>
-            </>
+  <>
+  { renderProfileCard(beginCheckinButton) }
+  < div className = "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
+  {
+    hasAttemptedStart
+    ? 'Waiting for the customer kiosk to begin check-in…'
+      : 'Review the customer details, then start the check-in.'
+  }
+    </div>
+    </>
           ) : hasSelectedCustomerProfile ? (
-            <>
-              {renderProfileCard(beginCheckinButton)}
-              <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-                {state.isStarting
-                  ? 'Starting check-in…'
-                  : 'Syncing lane session… customer account is loaded.'}
-              </div>
-            </>
+  <>
+  { renderProfileCard(beginCheckinButton) }
+  < div className = "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
+  {
+    state.isStarting
+      ? 'Starting check-in…'
+      : 'Syncing lane session… customer account is loaded.'
+  }
+    </div>
+    </>
           ) : (
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              {state.isStarting ? 'Starting check-in…' : 'Waiting for lane session…'}
-            </div>
+  <div className= "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
+    { state.isStarting ? 'Starting check-in…' : 'Waiting for lane session…' }
+    </div>
           )}
-        </div>
+</div>
       )}
-    </PanelShell>
+</PanelShell>
   );
 }

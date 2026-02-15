@@ -239,12 +239,16 @@ export function setupRegisterAppTest() {
       }
     );
 
-    // Tests rely on realtime handlers; the app now fail-fast disables realtime init without a kiosk token.
+    // Disable realtime in tests to prevent the transport layer's window.setInterval
+    // polling loop. This interval uses real timers that vi.clearAllTimers() cannot clear,
+    // causing infinite state updates (setConnected/setMode) that hang the test runner.
+    // Tests that need realtime messages use emitRealtime() / emitRealtimeEvent() helpers
+    // which directly invoke onmessage without needing a live connection.
     const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
       .process?.env;
     if (processEnv) {
       processEnv.VITE_KIOSK_TOKEN = 'test-kiosk-token';
-      processEnv.VITE_DISABLE_REALTIME = 'false';
+      processEnv.VITE_DISABLE_REALTIME = 'true';
     }
 
     // Import App module. With isolate: true in vitest config, each test gets a fresh module context anyway.

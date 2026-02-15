@@ -51,7 +51,5 @@ jobs:
         run: pnpm lint
 
       - name: Test
-        # We only run unit tests that don't satisfy dependencies (like DB)
-        # Integration tests requiring DB will naturally be skipped or fail if not configured
-        # But we want to ensure at least unit tests pass.
+        timeout-minutes: 5
         run: pnpm test
