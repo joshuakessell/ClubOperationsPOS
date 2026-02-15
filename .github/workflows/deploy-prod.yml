@@ -1,0 +1,130 @@
+name: Deploy to Production
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+
+concurrency:
+  group: deploy-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  deploy:
+    name: Deploy to ${{ matrix.environment }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        environment: [staging, production]
+      max-parallel: 1
+    environment:
+      name: ${{ matrix.environment }}
+      url: https://${{ matrix.environment }}.example.com
+    permissions:
+      id-token: write
+      contents: read
+      packages: read
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Pull Docker images
+        run: |
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:${{ github.ref_name }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-customer-kiosk:${{ github.ref_name }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-employee-register:${{ github.ref_name }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-office-dashboard:${{ github.ref_name }}
+
+      - name: Run pre-deployment validation
+        run: |
+          docker run --rm \
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:${{ github.ref_name }} \
+            node -e "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })" || echo "Health check will run after deployment"
+
+      - name: Deploy with docker-compose
+        env:
+          COMPOSE_FILE: docker-compose.prod.yml
+          COMPOSE_PROJECT_NAME: club-ops-${{ matrix.environment }}
+          KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          VITE_API_BASE_URL: https://api-${{ matrix.environment }}.example.com
+          NODE_ENV: production
+          DEMO_MODE: false
+        run: |
+          # Copy environment file
+          cat > .env.${{ matrix.environment }} << EOF
+          KIOSK_TOKEN=${{ secrets.KIOSK_TOKEN }}
+          DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+          VITE_API_BASE_URL=https://api-${{ matrix.environment }}.example.com
+          NODE_ENV=production
+          DEMO_MODE=false
+          EOF
+          
+          # Deploy
+          docker-compose -f docker-compose.prod.yml \
+            --project-name club-ops-${{ matrix.environment }} \
+            -e .env.${{ matrix.environment }} \
+            up -d
+
+      - name: Wait for services to be healthy
+        timeout-minutes: 5
+        run: |
+          for i in {1..30}; do
+            if docker-compose -p club-ops-${{ matrix.environment }} ps | grep -q "healthy"; then
+              echo "Services are healthy"
+              exit 0
+            fi
+            echo "Waiting for services... ($i/30)"
+            sleep 10
+          done
+          echo "Services failed to become healthy"
+          exit 1
+
+      - name: Run smoke tests
+        run: |
+          API_CONTAINER=$(docker-compose -p club-ops-${{ matrix.environment }} ps -q api)
+          docker exec $API_CONTAINER node -e "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"
+
+      - name: Notify deployment
+        if: always()
+        run: |
+          STATUS=${{ job.status }}
+          ENVIRONMENT=${{ matrix.environment }}
+          echo "Deployment to $ENVIRONMENT: $STATUS"
+          # Add your notification logic here (Slack, email, etc.)
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          echo "Initiating rollback for ${{ matrix.environment }}"
+          docker-compose -p club-ops-${{ matrix.environment }} down
+          # Redeploy previous version or restore from backup

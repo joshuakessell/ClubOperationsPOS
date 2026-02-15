@@ -291,8 +291,11 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
     // Wipe member/customer-related data (keep staff/employees)
     setMessage('Clearing demo data');
     const deleteStatements = [
+      'DELETE FROM customer_spend_ledger_entries',
       'DELETE FROM checkout_requests',
       'DELETE FROM late_checkout_events',
+      'DELETE FROM customer_notes',
+      'DELETE FROM customer_activity_events',
       'DELETE FROM inventory_reservations',
       'DELETE FROM waitlist',
       'DELETE FROM agreement_signatures',
@@ -585,31 +588,26 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       key: string;
       name: string;
       dob: Date;
-      notes: string;
     }> = [
       {
         key: 'lockerShort',
         name: 'Carlos Ramirez',
         dob: new Date('1992-03-12'),
-        notes: 'Demo: locker short-stay (2h) completed',
       },
       {
         key: 'roomRenew2h',
         name: 'Miguel Hernandez',
         dob: new Date('1986-09-08'),
-        notes: 'Demo: room renewal (2h) completed 30 min before checkout',
       },
       {
         key: 'roomRenew6h',
         name: 'Anthony Lopez',
         dob: new Date('1979-11-21'),
-        notes: 'Demo: room renewal (6h) completed 30 min before checkout',
       },
       {
         key: 'retailAddon',
         name: 'David Martinez',
         dob: new Date('1995-06-17'),
-        notes: 'Demo: retail add-on order tied to visit',
       },
     ];
     const demoCustomerIds = new Map<string, string>();
@@ -620,8 +618,8 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
       const idProfile = buildSeedIdProfile(MEMBER_COUNT + EXTRA_GUEST_COUNT + index + 1);
       await client.query(
         `INSERT INTO customers
-           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_state, id_type, id_type_other, primary_language, past_due_balance, notes, created_at, updated_at)
-           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, $8, 'EN', 0, $9, NOW(), NOW())`,
+           (id, name, dob, membership_number, membership_card_type, membership_valid_until, id_expiration_date, id_number, id_state, id_type, id_type_other, primary_language, past_due_balance, created_at, updated_at)
+           VALUES ($1, $2, $3, NULL, NULL, NULL, $4, $5, $6, $7, $8, 'EN', 0, NOW(), NOW())`,
         [
           id,
           seed.name,
@@ -631,7 +629,6 @@ export async function seedBusySaturdayDemo(now: Date, progress?: ProgressReporte
           idProfile.idState,
           idProfile.idType,
           idProfile.idTypeOther,
-          seed.notes,
         ]
       );
       customerIds.push(id);

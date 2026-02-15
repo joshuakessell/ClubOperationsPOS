@@ -7,6 +7,7 @@ import {
   verifyReauthAuthentication,
 } from '@club-ops/ui';
 import { getApiUrl } from '@club-ops/shared';
+import { reauthPin } from './api/reauth';
 
 const API_BASE = getApiUrl('/api');
 
@@ -78,21 +79,7 @@ export function ReAuthModal({ sessionToken, onSuccess, onCancel }: ReAuthModalPr
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/auth/reauth-pin`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${sessionToken}`,
-        },
-        body: JSON.stringify({
-          pin: pin.trim(),
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || 'Re-authentication failed');
-      }
+      await reauthPin(sessionToken, pin.trim());
 
       onSuccess();
       setPin('');

@@ -79,10 +79,15 @@ const WaitlistUpdateCommandSchema = FlowCommandRequestSchema.extend({
   payload: z
     .object({
       waitlistDesiredType: z.string().min(1).optional(),
+      desiredTier: z.string().min(1).optional(),
       waitlistDesiredTypes: z.array(z.string().min(1)).optional(),
+      desiredTypes: z.array(z.string().min(1)).optional(),
       backupRentalType: z.string().min(1).optional(),
+      backupTier: z.string().min(1).optional(),
       waitlistRequestedResourceNumber: z.string().min(1).optional(),
+      requestedResourceNumber: z.string().min(1).optional(),
       waitlistRequestedResourceType: z.union([z.literal('room'), z.literal('locker')]).optional(),
+      requestedResourceType: z.union([z.literal('room'), z.literal('locker')]).optional(),
     })
     .refine(
       (p) => Object.keys(p).length > 0,
@@ -92,10 +97,10 @@ const WaitlistUpdateCommandSchema = FlowCommandRequestSchema.extend({
 
 const FlowCommandRequestByTypeSchema = z.discriminatedUnion('type', [
   SetStepCommandSchema,
-  BackStepCommandSchema,
-  CancelStepCommandSchema,
+  BackStepCommandSchema.extend({ payload: z.record(z.unknown()).optional() }),
+  CancelStepCommandSchema.extend({ payload: z.record(z.unknown()).optional() }),
   ProposeSelectionCommandSchema,
-  ConfirmSelectionCommandSchema,
+  ConfirmSelectionCommandSchema.extend({ payload: z.record(z.unknown()).optional() }),
   WaitlistUpdateCommandSchema,
 ]);
 
@@ -173,6 +178,12 @@ function assertAllowedStepTransition(params: {
 
 function assertStepIsValidForFlow(params: { currentStep: FlowStep; nextStep: FlowStep }): void {
   const { currentStep, nextStep } = params;
+  const currentIndex = FLOW_STEP_INDEX[currentStep];
+  const nextIndex = FLOW_STEP_INDEX[nextStep];
+
+  // Backwards jumps are always valid.
+  if (nextIndex < currentIndex) return;
+
   const allowed = ALLOWED_STEP_TRANSITIONS[currentStep];
   if (!allowed.has(nextStep)) {
     throw {
@@ -210,18 +221,6 @@ function computeFlowUpdate(input: {
 } {
   const { currentStep, type, payload } = input;
 
-  if (type === 'PROPOSE_SELECTION' || type === 'CONFIRM_SELECTION' || type === 'WAITLIST_UPDATE') {
-    return {
-      nextStep: currentStep,
-      clear: {
-        rental: false,
-        waitlistPreferences: false,
-        waitlistBackup: false,
-        paymentIntent: false,
-        agreement: false,
-      },
-    };
-  }
 
   if (type === 'SET_STEP') {
     const requested = parseFlowStep(payload?.['step']);
@@ -235,12 +234,12 @@ function computeFlowUpdate(input: {
 
     const movingBackwards = requestedIndex < currentIndex;
     const clear = {
-      rental: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('RENTAL'),
+      rental: movingBackwards && requestedIndex <= FLOW_STEPS.indexOf('RENTAL'),
       waitlistPreferences:
-        movingBackwards && requestedIndex < FLOW_STEPS.indexOf('WAITLIST_PREFERENCES'),
-      waitlistBackup: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('WAITLIST_BACKUP'),
-      paymentIntent: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('PAYMENT'),
-      agreement: movingBackwards && requestedIndex < FLOW_STEPS.indexOf('AGREEMENT'),
+        movingBackwards && requestedIndex <= FLOW_STEPS.indexOf('WAITLIST_PREFERENCES'),
+      waitlistBackup: movingBackwards && requestedIndex <= FLOW_STEPS.indexOf('WAITLIST_BACKUP'),
+      paymentIntent: movingBackwards && requestedIndex <= FLOW_STEPS.indexOf('PAYMENT'),
+      agreement: movingBackwards && requestedIndex <= FLOW_STEPS.indexOf('AGREEMENT'),
     };
 
     assertAllowedStepTransition({ currentStep, nextStep: requested, type });
@@ -254,7 +253,56 @@ function computeFlowUpdate(input: {
     assertAllowedStepTransition({ currentStep, nextStep, type });
     assertStepIsValidForFlow({ currentStep, nextStep });
 
-    // Back clears the step we are leaving.
+    const requestedIndex = FLOW_STEPS.indexOf(nextStep);
+
+    // Back clears LEAVING step AND anything after it (should be same as jumping back)
+    const clear = {
+      rental: requestedIndex <= FLOW_STEPS.indexOf('RENTAL'),
+      waitlistPreferences: requestedIndex <= FLOW_STEPS.indexOf('WAITLIST_PREFERENCES'),
+      waitlistBackup: requestedIndex <= FLOW_STEPS.indexOf('WAITLIST_BACKUP'),
+      paymentIntent: requestedIndex <= FLOW_STEPS.indexOf('PAYMENT'),
+      agreement: requestedIndex <= FLOW_STEPS.indexOf('AGREEMENT'),
+    };
+
+    return { nextStep, clear };
+  }
+
+  // For command-specific step transitions (Propose/Confirm typically advance step)
+  const typeStr = type as string;
+  let nextTargetStep = currentStep;
+  if (typeStr === 'PROPOSE_SELECTION' || typeStr === 'CONFIRM_SELECTION') {
+    if (typeStr === 'CONFIRM_SELECTION' && currentStep === 'RENTAL') {
+      nextTargetStep = 'WAITLIST_PREFERENCES';
+    }
+    // No clearing for these; they are purely additive.
+    return {
+      nextStep: nextTargetStep,
+      clear: {
+        rental: false,
+        waitlistPreferences: false,
+        waitlistBackup: false,
+        paymentIntent: false,
+        agreement: false,
+      },
+    };
+  }
+
+  if (typeStr === 'WAITLIST_UPDATE') {
+    // Purely additive update to draft fields.
+    return {
+      nextStep: currentStep,
+      clear: {
+        rental: false,
+        waitlistPreferences: false,
+        waitlistBackup: false,
+        paymentIntent: false,
+        agreement: false,
+      },
+    };
+  }
+
+  if (typeStr === 'CANCEL_STEP') {
+    // CANCEL_STEP clears the step we are currently on, without changing step.
     const clear = {
       rental: currentStep === 'RENTAL',
       waitlistPreferences: currentStep === 'WAITLIST_PREFERENCES',
@@ -263,19 +311,20 @@ function computeFlowUpdate(input: {
       agreement: currentStep === 'AGREEMENT',
     };
 
-    return { nextStep, clear };
+    return { nextStep: currentStep, clear };
   }
 
-  // CANCEL_STEP clears the step we are currently on, without changing step.
-  const clear = {
-    rental: currentStep === 'RENTAL',
-    waitlistPreferences: currentStep === 'WAITLIST_PREFERENCES',
-    waitlistBackup: currentStep === 'WAITLIST_BACKUP',
-    paymentIntent: currentStep === 'PAYMENT',
-    agreement: currentStep === 'AGREEMENT',
+  // Fallback for any other types
+  return {
+    nextStep: currentStep,
+    clear: {
+      rental: false,
+      waitlistPreferences: false,
+      waitlistBackup: false,
+      paymentIntent: false,
+      agreement: false,
+    },
   };
-
-  return { nextStep: currentStep, clear };
 }
 
 async function isFlowCommandsEnabled(params: {
@@ -307,23 +356,23 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
       payload?: Record<string, unknown>;
     };
     Reply:
-      | {
-          applied: true;
-          deduped: false;
-          flowVersion: number;
-          session: LaneSessionRow;
-        }
-      | {
-          applied: true;
-          deduped: true;
-          flowVersion: number;
-          session: LaneSessionRow;
-        }
-      | {
-          applied: false;
-          error: string;
-          message?: string;
-        };
+    | {
+      applied: true;
+      deduped: false;
+      flowVersion: number;
+      session: LaneSessionRow;
+    }
+    | {
+      applied: true;
+      deduped: true;
+      flowVersion: number;
+      session: LaneSessionRow;
+    }
+    | {
+      applied: false;
+      error: string;
+      message?: string;
+    };
   }>(
     '/v1/checkin/lane/:laneId/flow-command',
     {
@@ -369,14 +418,6 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           const session = locked.rows[0]!;
           const currentVersion = session.flow_version ?? 0;
 
-          if (typeof expectedFlowVersion === 'number' && expectedFlowVersion !== currentVersion) {
-            throw {
-              statusCode: 409,
-              error: 'VersionMismatch',
-              message: `expectedFlowVersion ${expectedFlowVersion} does not match current ${currentVersion}`,
-            };
-          }
-
           const dedupe = await client.query<{ session_id: string; command_id: string }>(
             `SELECT session_id, command_id
              FROM lane_session_commands
@@ -387,6 +428,14 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
 
           if (dedupe.rows.length > 0) {
             return { applied: true as const, deduped: true as const, session };
+          }
+
+          if (typeof expectedFlowVersion === 'number' && expectedFlowVersion !== currentVersion) {
+            throw {
+              statusCode: 409,
+              error: 'VersionMismatch',
+              message: `expectedFlowVersion ${expectedFlowVersion} does not match current ${currentVersion}`,
+            };
           }
 
           await client.query(
@@ -406,7 +455,20 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
             });
           }
 
-          // Domain-specific command mutations.
+          // Domain-specific command mutations (accumulated).
+          let nextStatus = session.status;
+          let nextDesiredRentalType = session.desired_rental_type;
+          let nextProposedRentalType = session.proposed_rental_type;
+          let nextProposedBy = session.proposed_by;
+          let nextSelectionConfirmed = session.selection_confirmed;
+          let nextSelectionConfirmedBy = session.selection_confirmed_by;
+          let nextSelectionLockedAt = session.selection_locked_at;
+          let nextWaitlistDesiredType = session.waitlist_desired_type;
+          let nextWaitlistDesiredTypesJson = session.waitlist_desired_types_json;
+          let nextBackupRentalType = session.backup_rental_type;
+          let nextWaitlistRequestedResourceNumber = session.waitlist_requested_resource_number;
+          let nextWaitlistRequestedResourceType = session.waitlist_requested_resource_type;
+
           if (type === 'PROPOSE_SELECTION') {
             const rentalType = typeof payload?.['rentalType'] === 'string' ? payload['rentalType'] : null;
             if (!rentalType) {
@@ -419,120 +481,124 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
               throw { statusCode: 400, error: 'SelectionLocked', message: 'Selection is already locked' };
             }
 
-            await client.query(
-              `UPDATE lane_sessions
-               SET proposed_rental_type = $1,
-                   proposed_by = $2,
-                   updated_at = NOW()
-               WHERE id = $3`,
-              [rentalType, actor === 'CUSTOMER' ? 'CUSTOMER' : 'EMPLOYEE', sessionId]
-            );
+            nextProposedRentalType = rentalType;
+            nextProposedBy = actor === 'CUSTOMER' ? 'CUSTOMER' : 'EMPLOYEE';
           }
 
           if (type === 'CONFIRM_SELECTION') {
             await assertCustomerLanguageSelected(client, session);
 
-            if (!session.proposed_rental_type) {
+            if (!session.proposed_rental_type && !nextProposedRentalType) {
               throw { statusCode: 400, error: 'NoProposal', message: 'No selection proposed yet' };
             }
 
-            if (!session.selection_confirmed) {
-              await client.query(
-                `UPDATE lane_sessions
-                 SET selection_confirmed = true,
-                     selection_confirmed_by = $1,
-                     selection_locked_at = NOW(),
-                     status = CASE
-                       WHEN status = 'ACTIVE' THEN 'AWAITING_PAYMENT'
-                       ELSE status
-                     END,
-                     updated_at = NOW()
-                 WHERE id = $2`,
-                [actor === 'CUSTOMER' ? 'CUSTOMER' : 'EMPLOYEE', sessionId]
-              );
+            nextSelectionConfirmed = true;
+            nextSelectionConfirmedBy = actor === 'CUSTOMER' ? 'CUSTOMER' : 'EMPLOYEE';
+            nextSelectionLockedAt = new Date();
+
+            // Promotion rule: confirm sets desired to the proposed one if not already set.
+            // Tests expect desired_rental_type to match proposed upon confirmation.
+            if (nextProposedRentalType) {
+              nextDesiredRentalType = nextProposedRentalType;
+            } else if (session.proposed_rental_type) {
+              nextDesiredRentalType = session.proposed_rental_type;
+            }
+
+            if (nextStatus === 'ACTIVE') {
+              nextStatus = 'AWAITING_PAYMENT';
             }
           }
 
           if (type === 'WAITLIST_UPDATE') {
-            const normalizeString = (value: unknown): string | null => {
+            const normalizeString = (value: unknown) => {
               if (value === null || value === undefined) return null;
               if (typeof value !== 'string') return null;
               const trimmed = value.trim();
               return trimmed.length > 0 ? trimmed : null;
             };
 
-            const desired = normalizeString(payload?.['waitlistDesiredType']);
-            const backup = normalizeString(payload?.['backupRentalType']);
-            const requestedNumber = normalizeString(payload?.['waitlistRequestedResourceNumber']);
-            const requestedTypeRaw = payload?.['waitlistRequestedResourceType'];
+            const p = payload as Record<string, any>;
+            const desired = normalizeString(p?.['waitlistDesiredType'] ?? p?.['desiredTier']);
+            const backup = normalizeString(p?.['backupRentalType'] ?? p?.['backupTier']);
+            const requestedNumber = normalizeString(p?.['waitlistRequestedResourceNumber'] ?? p?.['requestedResourceNumber']);
+            const requestedTypeRaw = p?.['waitlistRequestedResourceType'] ?? p?.['requestedResourceType'];
             const requestedType =
               requestedTypeRaw === 'room' || requestedTypeRaw === 'locker' ? requestedTypeRaw : null;
 
-            const desiredTypesRaw = payload?.['waitlistDesiredTypes'];
+            const desiredTypesRaw = p?.['waitlistDesiredTypes'] ?? p?.['desiredTypes'];
             const desiredTypes = Array.isArray(desiredTypesRaw)
               ? desiredTypesRaw
-                  .filter((entry): entry is string => typeof entry === 'string')
-                  .map((entry) => entry.trim())
-                  .filter((entry) => entry.length > 0)
-              : [];
-            const desiredTypesJson = desiredTypes.length > 0 ? JSON.stringify(desiredTypes) : null;
+                .filter((entry): entry is string => typeof entry === 'string')
+                .map((s) => s.trim())
+                .filter((s) => s.length > 0)
+              : undefined;
 
-            await client.query(
-              `UPDATE lane_sessions
-               SET waitlist_desired_type = $1,
-                   waitlist_desired_types_json = $2,
-                   backup_rental_type = $3,
-                   waitlist_requested_resource_number = $4,
-                   waitlist_requested_resource_type = $5,
-                   updated_at = NOW()
-               WHERE id = $6`,
-              [desired, desiredTypesJson, backup, requestedNumber, requestedType, sessionId]
-            );
+            nextWaitlistDesiredType = desired;
+            nextWaitlistDesiredTypesJson = desiredTypes ? JSON.stringify(desiredTypes) : nextWaitlistDesiredTypesJson;
+            nextBackupRentalType = backup;
+            nextWaitlistRequestedResourceNumber = requestedNumber;
+            nextWaitlistRequestedResourceType = requestedType;
           }
 
           const currentStep = parseFlowStep(session.flow_step) ?? 'LANGUAGE';
           const { nextStep, clear } = computeFlowUpdate({ currentStep, type, payload });
           const nextVersion = currentVersion + 1;
 
-          const shouldClearRentalSelection = clear.rental;
-          const shouldClearWaitlist = clear.waitlistPreferences || clear.waitlistBackup;
-          const shouldClearPaymentIntent = clear.paymentIntent;
-          const shouldClearAgreement = clear.agreement;
+          const stringifyIfObject = (val: any) => {
+            if (val === null || val === undefined) return null;
+            if (typeof val === 'string') return val;
+            return JSON.stringify(val);
+          };
+
+          const params = [
+            nextStatus,
+            nextStep,
+            nextVersion,
+            commandId,
+            actor,
+            clear.rental,
+            nextDesiredRentalType,
+            nextProposedRentalType,
+            nextProposedBy,
+            nextSelectionConfirmed,
+            nextSelectionConfirmedBy,
+            nextSelectionLockedAt,
+            clear.waitlistPreferences || clear.waitlistBackup,
+            nextWaitlistDesiredType,
+            stringifyIfObject(nextWaitlistDesiredTypesJson),
+            nextBackupRentalType,
+            nextWaitlistRequestedResourceNumber,
+            nextWaitlistRequestedResourceType,
+            clear.paymentIntent,
+            clear.agreement,
+            sessionId,
+          ];
 
           await client.query(
             `UPDATE lane_sessions
-             SET flow_step = $1,
-                 flow_version = $2,
-                 flow_last_command_id = $3,
-                 flow_last_actor = $4,
-                 desired_rental_type = CASE WHEN $5 THEN NULL ELSE desired_rental_type END,
-                 proposed_rental_type = CASE WHEN $5 THEN NULL ELSE proposed_rental_type END,
-                 proposed_by = CASE WHEN $5 THEN NULL ELSE proposed_by END,
-                 selection_confirmed = CASE WHEN $5 THEN false ELSE selection_confirmed END,
-                 selection_confirmed_by = CASE WHEN $5 THEN NULL ELSE selection_confirmed_by END,
-                 selection_locked_at = CASE WHEN $5 THEN NULL ELSE selection_locked_at END,
-                 waitlist_desired_type = CASE WHEN $6 THEN NULL ELSE waitlist_desired_type END,
-                 waitlist_desired_types_json = CASE WHEN $6 THEN NULL ELSE waitlist_desired_types_json END,
-                 backup_rental_type = CASE WHEN $6 THEN NULL ELSE backup_rental_type END,
-                 waitlist_requested_resource_number = CASE WHEN $6 THEN NULL ELSE waitlist_requested_resource_number END,
-                 waitlist_requested_resource_type = CASE WHEN $6 THEN NULL ELSE waitlist_requested_resource_type END,
-                 payment_intent_id = CASE WHEN $7 THEN NULL ELSE payment_intent_id END,
-                 price_quote_json = CASE WHEN $7 THEN NULL ELSE price_quote_json END,
-                 disclaimers_ack_json = CASE WHEN $7 THEN NULL ELSE disclaimers_ack_json END,
-                 agreement_bypass_pending = CASE WHEN $8 THEN false ELSE agreement_bypass_pending END,
+             SET status = $1::public.lane_session_status,
+                 flow_step = $2,
+                 flow_version = $3,
+                 flow_last_command_id = $4,
+                 flow_last_actor = $5,
+                 desired_rental_type = CASE WHEN $6 THEN NULL ELSE $7::public.rental_type END,
+                 proposed_rental_type = CASE WHEN $6 THEN NULL ELSE $8::public.rental_type END,
+                 proposed_by = CASE WHEN $6 THEN NULL ELSE $9 END,
+                 selection_confirmed = CASE WHEN $6 THEN false ELSE $10 END,
+                 selection_confirmed_by = CASE WHEN $6 THEN NULL ELSE $11 END,
+                 selection_locked_at = CASE WHEN $6 THEN NULL ELSE $12::timestamptz END,
+                 waitlist_desired_type = CASE WHEN $13 THEN NULL ELSE $14::public.rental_type END,
+                 waitlist_desired_types_json = CASE WHEN $13 THEN NULL ELSE $15::jsonb END,
+                 backup_rental_type = CASE WHEN $13 THEN NULL ELSE $16::public.rental_type END,
+                 waitlist_requested_resource_number = CASE WHEN $13 THEN NULL ELSE $17 END,
+                 waitlist_requested_resource_type = CASE WHEN $13 THEN NULL ELSE $18::public.inventory_resource_type END,
+                 payment_intent_id = CASE WHEN $19 THEN NULL ELSE payment_intent_id END,
+                 price_quote_json = CASE WHEN $19 THEN NULL ELSE price_quote_json END,
+                 disclaimers_ack_json = CASE WHEN $19 THEN NULL ELSE disclaimers_ack_json END,
+                 agreement_bypass_pending = CASE WHEN $20 THEN false ELSE agreement_bypass_pending END,
                  updated_at = NOW()
-             WHERE id = $9`,
-            [
-              nextStep,
-              nextVersion,
-              commandId,
-              actor,
-              shouldClearRentalSelection,
-              shouldClearWaitlist,
-              shouldClearPaymentIntent,
-              shouldClearAgreement,
-              sessionId,
-            ]
+             WHERE id = $21`,
+            params
           );
 
           const updated = await client.query<LaneSessionRow>(
@@ -556,21 +622,12 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           flowVersion: result.session.flow_version ?? 0,
           session: result.session,
         });
-      } catch (error: unknown) {
-        request.log.error(error, 'Failed to apply flow command');
-        if (error && typeof error === 'object' && 'statusCode' in error) {
-          const err = error as { statusCode: number; error?: string; message?: string };
-          return reply.status(err.statusCode).send({
-            applied: false,
-            error: err.error || 'FlowCommandFailed',
-            message: err.message,
-          });
-        }
-
-        return reply.status(500).send({
+      } catch (err: any) {
+        request.log.error(err, 'Failed to apply flow command');
+        return reply.status(err.statusCode ?? 500).send({
           applied: false,
-          error: 'InternalServerError',
-          message: 'Failed to apply flow command',
+          error: err.error ?? 'InternalServerError',
+          message: err.message ?? 'An unexpected error occurred',
         });
       }
     }

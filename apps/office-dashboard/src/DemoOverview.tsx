@@ -5,7 +5,11 @@ import { safeJsonParse } from '@club-ops/ui';
 import type { StaffSession } from './LockScreen';
 import { apiJson } from './api';
 import { useNavigate } from 'react-router-dom';
-import { getApiUrl } from '@club-ops/shared';
+import {
+  downloadCustomerDocumentPdf,
+  fetchDocumentCustomersByName,
+  fetchDocumentsByCustomerId,
+} from './api/customerDocuments';
 import { PanelContent } from './views/PanelContent';
 import { PanelHeader } from './views/PanelHeader';
 import { PanelShell } from './views/PanelShell';
@@ -135,10 +139,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
       lastSearchTermRef.current = trimmed;
       setDocLookupBusy(true);
       setDocLookupError(null);
-      apiJson<{ customers: any[] }>(`/v1/documents/customers?name=${encodeURIComponent(trimmed)}`, {
-        sessionToken: session.sessionToken,
-        signal: controller.signal,
-      })
+      fetchDocumentCustomersByName(session.sessionToken, trimmed, controller.signal)
         .then((data) => {
           if (searchSeqRef.current !== seq) return;
           setDocLookup({
@@ -272,12 +273,8 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                                   className="cs-liquid-button"
                                   disabled={!d.has_pdf}
                                   onClick={() => {
-                                    fetch(getApiUrl(`/api/v1/documents/${d.id}/download`), {
-                                      headers: { Authorization: `Bearer ${session.sessionToken}` },
-                                    })
-                                      .then(async (res) => {
-                                        if (!res.ok) throw new Error('Download failed');
-                                        const blob = await res.blob();
+                                    downloadCustomerDocumentPdf(session.sessionToken, d.id)
+                                      .then(async (blob) => {
                                         const obj = URL.createObjectURL(blob);
                                         window.open(obj, '_blank', 'noopener,noreferrer');
                                         window.setTimeout(() => URL.revokeObjectURL(obj), 60_000);
@@ -348,13 +345,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                         lastSearchTermRef.current = name;
                         setDocLookupBusy(true);
                         setDocLookupError(null);
-                        apiJson<{ customers: any[] }>(
-                          `/v1/documents/customers?name=${encodeURIComponent(name)}`,
-                          {
-                            sessionToken: session.sessionToken,
-                            signal: controller.signal,
-                          }
-                        )
+                        fetchDocumentCustomersByName(session.sessionToken, name, controller.signal)
                           .then((data) => {
                             if (searchSeqRef.current !== seq) return;
                             setDocLookup({
@@ -417,10 +408,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                                       setCustomerDocs(null);
                                       setDocHistoryBusy(true);
                                       setDocLookupError(null);
-                                      apiJson<{ documents: any[] }>(
-                                        `/v1/documents/by-customer/${c.id}`,
-                                        { sessionToken: session.sessionToken }
-                                      )
+                                      fetchDocumentsByCustomerId(session.sessionToken, c.id)
                                         .then((data) =>
                                           setCustomerDocs({
                                             documents: Array.isArray(data.documents)
@@ -453,7 +441,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
             <RaisedCard>
               <div style={{ fontWeight: 700, marginBottom: '0.25rem' }}>Customer Admin Tools</div>
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                Search customers; admin can clear notes and waive past-due balance.
+                Search customers; admin can waive past-due balance.
               </div>
               <button className="cs-liquid-button" onClick={() => navigate('/customers')}>
                 Open Customer Tools

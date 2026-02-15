@@ -28,6 +28,7 @@ export function useCustomerNotesState({ session, notifications }: Params) {
   const [notesByCustomerId, setNotesByCustomerId] = useState<Record<string, CustomerNote[]>>({});
   const [loadingByCustomerId, setLoadingByCustomerId] = useState<Record<string, boolean>>({});
   const [errorByCustomerId, setErrorByCustomerId] = useState<Record<string, string | null>>({});
+  const [loadedByCustomerId, setLoadedByCustomerId] = useState<Record<string, boolean>>({});
 
   const loadNotes = useCallback(
     async (customerId: string) => {
@@ -55,15 +56,19 @@ export function useCustomerNotesState({ session, notifications }: Params) {
         setErrorByCustomerId((p) => ({ ...p, [customerId]: msg }));
       } finally {
         setLoadingByCustomerId((p) => ({ ...p, [customerId]: false }));
+        setLoadedByCustomerId((p) => ({ ...p, [customerId]: true }));
       }
     },
     [session?.sessionToken]
   );
 
   const createNote = useCallback(
-    async (customerId: string, note: string, isImportant: boolean) => {
+    async (
+      customerId: string,
+      note: { note: string; isImportant?: boolean; sourceApp?: string }
+    ) => {
       if (!session?.sessionToken) return;
-      const trimmed = note.trim();
+      const trimmed = note.note.trim();
       if (!trimmed) return;
 
       try {
@@ -75,8 +80,8 @@ export function useCustomerNotesState({ session, notifications }: Params) {
           },
           body: JSON.stringify({
             note: trimmed,
-            isImportant,
-            sourceApp: 'EMPLOYEE_REGISTER',
+            isImportant: note.isImportant ?? false,
+            sourceApp: note.sourceApp ?? 'EMPLOYEE_REGISTER',
           }),
         });
 
@@ -108,14 +113,20 @@ export function useCustomerNotesState({ session, notifications }: Params) {
     [errorByCustomerId]
   );
 
+  const hasLoaded = useCallback(
+    (customerId: string) => Boolean(loadedByCustomerId[customerId]),
+    [loadedByCustomerId]
+  );
+
   return useMemo(
     () => ({
       loadNotes,
       createNote,
       getNotes,
       isLoading,
+      hasLoaded,
       getError,
     }),
-    [createNote, getError, getNotes, isLoading, loadNotes]
+    [createNote, getError, getNotes, hasLoaded, isLoading, loadNotes]
   );
 }

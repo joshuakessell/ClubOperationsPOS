@@ -32,6 +32,24 @@ export async function insertCustomerSpendLedgerEntry(
   const currency = input.currency ?? 'USD';
   const metadata = input.metadata ?? {};
 
+  const dedupeKey = (input.dedupeKey ?? '').trim() || null;
+
+  // NOTE: We intentionally avoid `ON CONFLICT (dedupe_key)` here.
+  // In some CI/database-init paths, the unique index on dedupe_key may not be
+  // created yet, and Postgres will hard-fail the insert with:
+  // "there is no unique or exclusion constraint matching the ON CONFLICT specification".
+  //
+  // This keeps idempotency semantics without requiring the index.
+  if (dedupeKey) {
+    const existing = await client.query<{ id: string }>(
+      `SELECT id FROM customer_spend_ledger_entries WHERE dedupe_key = $1 LIMIT 1`,
+      [dedupeKey]
+    );
+    if (existing.rows.length > 0) {
+      return { id: existing.rows[0]!.id, deduped: true };
+    }
+  }
+
   const inserted = await client.query<{ id: string }>(
     `
     INSERT INTO customer_spend_ledger_entries
@@ -39,7 +57,6 @@ export async function insertCustomerSpendLedgerEntry(
        source_app, actor_type, actor_staff_id, actor_staff_name, summary, metadata, dedupe_key)
     VALUES
       ($1, $2::uuid, $3::uuid, $4, $5::bigint, $6, $7, $8, $9::uuid, $10, $11, $12::jsonb, $13)
-    ON CONFLICT (dedupe_key) DO NOTHING
     RETURNING id
     `,
     [
@@ -55,26 +72,15 @@ export async function insertCustomerSpendLedgerEntry(
       input.actorStaffName ?? null,
       input.summary,
       metadata,
-      input.dedupeKey ?? null,
+      dedupeKey,
     ]
   );
 
-  if (inserted.rows.length > 0) {
-    return { id: inserted.rows[0]!.id, deduped: false };
-  }
-
-  if (!input.dedupeKey) {
+  if (inserted.rows.length === 0) {
     throw new Error('Failed to insert customer spend ledger entry');
   }
 
-  const existing = await client.query<{ id: string }>(
-    `SELECT id FROM customer_spend_ledger_entries WHERE dedupe_key = $1 LIMIT 1`,
-    [input.dedupeKey]
-  );
-  if (existing.rows.length === 0) {
-    throw new Error('Customer spend ledger entry insert deduped but row not found');
-  }
-  return { id: existing.rows[0]!.id, deduped: true };
+  return { id: inserted.rows[0]!.id, deduped: false };
 }
 
 export type SpendLedgerVisitGroup = {
@@ -274,4 +280,3 @@ export async function listVisitSpendLedgerEntries(
     },
   };
 }
-

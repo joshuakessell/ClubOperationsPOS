@@ -47,7 +47,6 @@ export type RegisterLaneSessionState = {
   customerDobMonthDay: string | undefined;
   customerIdNumber: string | null;
   customerLastVisitAt: string | undefined;
-  customerNotes: string | undefined;
   customerIdExpirationDate: string | null;
   customerIdType: CustomerIdType | null;
   customerIdTypeOther: string | null;
@@ -68,14 +67,14 @@ export type RegisterLaneSessionState = {
 
   flowVersion: number | null;
   flowStep:
-    | 'LANGUAGE'
-    | 'RENTAL'
-    | 'WAITLIST_PREFERENCES'
-    | 'WAITLIST_BACKUP'
-    | 'PAYMENT'
-    | 'AGREEMENT'
-    | 'COMPLETE'
-    | null;
+  | 'LANGUAGE'
+  | 'RENTAL'
+  | 'WAITLIST_PREFERENCES'
+  | 'WAITLIST_BACKUP'
+  | 'PAYMENT'
+  | 'AGREEMENT'
+  | 'COMPLETE'
+  | null;
 };
 
 export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
@@ -114,7 +113,6 @@ export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
   customerDobMonthDay: undefined,
   customerIdNumber: null,
   customerLastVisitAt: undefined,
-  customerNotes: undefined,
   customerIdExpirationDate: null,
   customerIdType: null,
   customerIdTypeOther: null,
@@ -139,24 +137,24 @@ export const initialRegisterLaneSessionState: RegisterLaneSessionState = {
 
 type RegisterLaneSessionAction =
   | {
-      type: 'start_or_replace';
-      payload: {
-        sessionId?: string | null;
-        customerId?: string | null;
-        customerName?: string;
-        membershipNumber?: string;
-      };
-    }
+    type: 'start_or_replace';
+    payload: {
+      sessionId?: string | null;
+      customerId?: string | null;
+      customerName?: string;
+      membershipNumber?: string;
+    };
+  }
   | { type: 'patch'; payload: Partial<RegisterLaneSessionState> }
   | { type: 'apply_session_updated'; payload: SessionUpdatedPayload }
   | {
-      type: 'apply_selection_proposed';
-      payload: { rentalType: string; proposedBy: 'CUSTOMER' | 'EMPLOYEE' };
-    }
+    type: 'apply_selection_proposed';
+    payload: { rentalType: string; proposedBy: 'CUSTOMER' | 'EMPLOYEE' };
+  }
   | {
-      type: 'apply_selection_locked';
-      payload: { rentalType: string; confirmedBy: 'CUSTOMER' | 'EMPLOYEE' };
-    }
+    type: 'apply_selection_locked';
+    payload: { rentalType: string; confirmedBy: 'CUSTOMER' | 'EMPLOYEE' };
+  }
   | { type: 'apply_selection_forced'; payload: { rentalType: string } }
   | { type: 'selection_acknowledged' }
   | { type: 'reset_cleared' }
@@ -233,12 +231,12 @@ export function registerLaneSessionReducer(
       if (p.flowStep !== undefined) {
         next.flowStep =
           p.flowStep === 'LANGUAGE' ||
-          p.flowStep === 'RENTAL' ||
-          p.flowStep === 'WAITLIST_PREFERENCES' ||
-          p.flowStep === 'WAITLIST_BACKUP' ||
-          p.flowStep === 'PAYMENT' ||
-          p.flowStep === 'AGREEMENT' ||
-          p.flowStep === 'COMPLETE'
+            p.flowStep === 'RENTAL' ||
+            p.flowStep === 'WAITLIST_PREFERENCES' ||
+            p.flowStep === 'WAITLIST_BACKUP' ||
+            p.flowStep === 'PAYMENT' ||
+            p.flowStep === 'AGREEMENT' ||
+            p.flowStep === 'COMPLETE'
             ? p.flowStep
             : null;
       }
@@ -294,9 +292,9 @@ export function registerLaneSessionReducer(
       if (hasKey('waitlistDesiredTypes')) {
         next.waitlistDesiredTypes = Array.isArray(p.waitlistDesiredTypes)
           ? p.waitlistDesiredTypes.filter(
-              (value): value is 'STANDARD' | 'DOUBLE' | 'SPECIAL' =>
-                value === 'STANDARD' || value === 'DOUBLE' || value === 'SPECIAL'
-            )
+            (value): value is 'STANDARD' | 'DOUBLE' | 'SPECIAL' =>
+              value === 'STANDARD' || value === 'DOUBLE' || value === 'SPECIAL'
+          )
           : [];
       }
       if (hasKey('backupRentalType')) {
@@ -334,9 +332,6 @@ export function registerLaneSessionReducer(
       }
       if (p.customerLastVisitAt !== undefined) {
         next.customerLastVisitAt = p.customerLastVisitAt || undefined;
-      }
-      if (p.customerNotes !== undefined) {
-        next.customerNotes = p.customerNotes || undefined;
       }
       if (p.customerIdExpirationDate !== undefined) {
         next.customerIdExpirationDate = p.customerIdExpirationDate || null;

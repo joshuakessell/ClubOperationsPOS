@@ -181,7 +181,6 @@ export interface SessionUpdatedPayload {
    */
   customerIdNumber?: string;
   customerLastVisitAt?: string;
-  customerNotes?: string;
   /**
    * Customer ID expiration date (YYYY-MM-DD), if known.
    */

@@ -38,6 +38,12 @@ type SwitchHttpError = {
   additionalFee?: number;
   currentRentalType?: RentalTier;
   targetRentalType?: RentalTier;
+  // Optional context for secondary effects outside the aborted transaction.
+  visitId?: string;
+  checkinBlockId?: string;
+  targetResourceType?: 'room' | 'locker';
+  targetResourceId?: string;
+  targetResourceNumber?: string;
 };
 
 export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): void {
@@ -272,24 +278,6 @@ export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): v
             }
 
             if (paymentOutcome === 'CREDIT_DECLINE') {
-              await client.query(
-                `INSERT INTO payment_intents (amount, status, quote_json)
-                 VALUES ($1, 'CANCELLED', $2)`,
-                [
-                  additionalFee,
-                  JSON.stringify({
-                    type: 'SWITCH_UPCHARGE',
-                    visitId,
-                    checkinBlockId: block.id,
-                    currentRentalType,
-                    targetRentalType,
-                    targetResourceType,
-                    targetResourceId,
-                    targetResourceNumber,
-                    declineReason: declineReason ?? 'Credit declined',
-                  }),
-                ]
-              );
               throw {
                 statusCode: 402,
                 code: 'PAYMENT_DECLINED',
@@ -297,6 +285,13 @@ export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): v
                 additionalFee,
                 currentRentalType,
                 targetRentalType,
+                // Pass through context so we can persist a cancelled intent outside this transaction.
+                // (The serializableTransaction will roll back all writes when we throw.)
+                visitId,
+                checkinBlockId: block.id,
+                targetResourceType,
+                targetResourceId,
+                targetResourceNumber,
               } satisfies SwitchHttpError;
             }
 
@@ -488,6 +483,43 @@ export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): v
       } catch (error: unknown) {
         if (error && typeof error === 'object' && 'statusCode' in error) {
           const err = error as SwitchHttpError;
+
+          // If a card was declined, record a cancelled payment_intent for auditability.
+          // This must happen outside the aborted serializable transaction.
+          if (err.code === 'PAYMENT_DECLINED' && 'checkinBlockId' in err && 'visitId' in err) {
+            const checkinBlockId = (err as unknown as { checkinBlockId?: string }).checkinBlockId;
+            const declinedVisitId = (err as unknown as { visitId?: string }).visitId;
+            if (checkinBlockId && declinedVisitId) {
+              try {
+                await transaction(async (client) => {
+                  await client.query(
+                    `INSERT INTO payment_intents (amount, status, quote_json)
+                     VALUES ($1, 'CANCELLED', $2)`,
+                    [
+                      err.additionalFee ?? 0,
+                      JSON.stringify({
+                        type: 'SWITCH_UPCHARGE',
+                        visitId: declinedVisitId,
+                        checkinBlockId,
+                        currentRentalType: err.currentRentalType,
+                        targetRentalType: err.targetRentalType,
+                        targetResourceType: (err as unknown as { targetResourceType?: string })
+                          .targetResourceType,
+                        targetResourceId: (err as unknown as { targetResourceId?: string })
+                          .targetResourceId,
+                        targetResourceNumber: (err as unknown as { targetResourceNumber?: string })
+                          .targetResourceNumber,
+                        declineReason: err.message,
+                      }),
+                    ]
+                  );
+                });
+              } catch (persistError) {
+                request.log.warn(persistError, 'Failed to persist cancelled switch payment_intent');
+              }
+            }
+          }
+
           return reply.status(err.statusCode).send({
             error: err.message,
             code: err.code,

@@ -5,6 +5,7 @@ export type NavTab =
   | 'inventory'
   | 'upgrades'
   | 'checkout'
+  | 'clubLog'
   | 'roomCleaning'
   | 'firstTime'
   | 'retail';

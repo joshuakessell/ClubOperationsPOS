@@ -118,6 +118,19 @@ aws cloudformation update-stack \
 
 ## Docker Configuration
 
+### Local dev vs edge (LAN) env files
+
+The repo supports two common local modes for the API:
+
+- **Local dev**: `services/api/docker-compose.yml` (Postgres exposed on host port `5433`).
+- **Edge / LAN fallback stack**: `docker-compose.edge.yml` (Postgres exposed on host port `5434`).
+
+Keep `services/api/.env` configured for **local dev**.
+
+For the edge stack, use `services/api/.env.edge` (or copy from `services/api/.env.edge.example`).
+
+This avoids constantly rewriting `DB_PORT` / `DB_PASSWORD` when switching between local dev and edge mode.
+
 ### Multi-Stage Builds
 All services use optimized multi-stage Dockerfiles:
 
@@ -259,9 +272,18 @@ Transports are enabled by default; the rollback lever is `VITE_REALTIME_TRANSPOR
   - `LAN_FALLBACK=true`
 - Apps:
   - `VITE_LAN_FALLBACK=1`
-  - Configure `VITE_LAN_API_BASE_URL` and `VITE_LAN_REALTIME_WS_URL`
+ - Configure `VITE_LAN_API_BASE_URL` and `VITE_LAN_REALTIME_WS_URL`
 
 If only some lanes should participate, prefer `lane_feature_flags` overrides.
+
+### Office Dashboard Activity Analytics
+
+The Reports view pulls aggregated traffic + revenue data from:
+
+- `GET /v1/admin/activity-analytics?from=<ISO>&to=<ISO>&tz=<IANA>`
+
+If `from`/`to` are omitted, the endpoint defaults to the last 7 days. Use the club's
+local timezone (e.g. `America/Chicago`) to align hourly heatmaps with operations.
 
 ### Pre-Deployment
 - [ ] All tests passing (`pnpm test`)
@@ -346,6 +368,28 @@ aws logs filter-log-events \
 - **Kiosk Token**: Shared secret for kiosk authentication (rotate periodically)
 
 ## Troubleshooting
+
+### Dev deploy fails during API image push (ECR 403 on manifest HEAD)
+
+Symptom: GitHub Actions fails in `Deploy API (App Runner)` with an error like:
+
+`unexpected status from HEAD request .../v2/<repo>/manifests/<tag>: 403 Forbidden`
+
+Root cause: the GitHub Actions assumed role is missing `ecr:BatchGetImage` for the API ECR repository.
+Docker performs a manifest fetch (HEAD/GET) as part of the push flow, and ECR authorizes that via
+`ecr:BatchGetImage`.
+
+Fix: ensure the role used by the `aws-actions/configure-aws-credentials` step has, at minimum, these
+permissions on the API ECR repo:
+
+- `ecr:BatchCheckLayerAvailability`
+- `ecr:InitiateLayerUpload`
+- `ecr:UploadLayerPart`
+- `ecr:CompleteLayerUpload`
+- `ecr:PutImage`
+- `ecr:BatchGetImage`
+
+Optional (but useful for tooling/debugging): `ecr:DescribeImages`, `ecr:ListImages`, `ecr:GetDownloadUrlForLayer`.
 
 ### Build Failures
 1. Check GitHub Actions logs

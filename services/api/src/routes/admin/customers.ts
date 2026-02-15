@@ -34,10 +34,9 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
           name: string;
           membership_number: string | null;
           primary_language: string | null;
-          notes: string | null;
           past_due_balance: string | number | null;
         }>(
-          `SELECT id, name, membership_number, primary_language, notes, past_due_balance
+          `SELECT id, name, membership_number, primary_language, past_due_balance
          FROM customers
          WHERE name ILIKE $1 OR membership_number ILIKE $1
          ORDER BY name ASC
@@ -51,7 +50,6 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
             name: r.name,
             membershipNumber: r.membership_number,
             primaryLanguage: (r.primary_language as 'EN' | 'ES' | null) || null,
-            notes: r.notes,
             pastDueBalance: parseFloat(String(r.past_due_balance || 0)),
           })),
         });
@@ -67,13 +65,11 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
    *
    * Admin-only and requires step-up re-auth (PIN or WebAuthn).
    * Supported edits (demo):
-   * - notes (clear/remove)
    * - pastDueBalance (waive)
    */
   fastify.patch<{
     Params: { id: string };
     Body: {
-      notes?: string | null;
       pastDueBalance?: number;
     };
   }>(
@@ -90,10 +86,9 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
 
       const UpdateSchema = z
         .object({
-          notes: z.string().nullable().optional(),
           pastDueBalance: z.number().min(0).optional(),
         })
-        .refine((b) => b.notes !== undefined || b.pastDueBalance !== undefined, {
+        .refine((b) => b.pastDueBalance !== undefined, {
           message: 'At least one field is required',
         });
 
@@ -111,13 +106,12 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
         const result = await transaction(async (client) => {
           const existing = await client.query<{
             id: string;
-            notes: string | null;
             past_due_balance: string | number | null;
             primary_language: string | null;
             name: string;
             membership_number: string | null;
           }>(
-            `SELECT id, name, membership_number, primary_language, notes, past_due_balance
+            `SELECT id, name, membership_number, primary_language, past_due_balance
            FROM customers
            WHERE id = $1
            FOR UPDATE`,
@@ -133,13 +127,6 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
           const params: unknown[] = [];
           let idx = 1;
 
-          if (body.notes !== undefined) {
-            const normalized = body.notes && body.notes.trim() ? body.notes : null;
-            updates.push(`notes = $${idx}`);
-            params.push(normalized);
-            idx++;
-          }
-
           if (body.pastDueBalance !== undefined) {
             updates.push(`past_due_balance = $${idx}`);
             params.push(body.pastDueBalance);
@@ -153,13 +140,12 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
             name: string;
             membership_number: string | null;
             primary_language: string | null;
-            notes: string | null;
             past_due_balance: string | number | null;
           }>(
             `UPDATE customers
            SET ${updates.join(', ')}, updated_at = NOW()
            WHERE id = $${idx}
-           RETURNING id, name, membership_number, primary_language, notes, past_due_balance`,
+           RETURNING id, name, membership_number, primary_language, past_due_balance`,
             params
           );
 
@@ -173,11 +159,9 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
             entityType: 'customer',
             entityId: request.params.id,
             oldValue: {
-              notes: before.notes,
               pastDueBalance: parseFloat(String(before.past_due_balance || 0)),
             },
             newValue: {
-              notes: after.notes,
               pastDueBalance: parseFloat(String(after.past_due_balance || 0)),
             },
           });
@@ -190,7 +174,6 @@ export function registerAdminCustomerRoutes(fastify: FastifyInstance): void {
           name: result.name,
           membershipNumber: result.membership_number,
           primaryLanguage: (result.primary_language as 'EN' | 'ES' | null) || null,
-          notes: result.notes,
           pastDueBalance: parseFloat(String(result.past_due_balance || 0)),
         });
       } catch (error: unknown) {

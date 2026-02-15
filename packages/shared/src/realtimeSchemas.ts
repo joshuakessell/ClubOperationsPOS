@@ -132,7 +132,6 @@ export const SessionUpdatedPayloadSchema: z.ZodType<SessionUpdatedPayload, z.Zod
       customerDobMonthDay: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerIdNumber: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerLastVisitAt: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
-      customerNotes: z.preprocess((v) => (v === null ? undefined : v), z.string().optional()),
       customerIdExpirationDate: z.preprocess(
         (v) => (v === null ? undefined : v),
         z.string().optional()

@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { PasskeyCredential, StaffMember } from './types';
 import { UploadDocumentModal } from './UploadDocumentModal';
+import { fetchStaffDocuments, uploadStaffDocument, type StaffDocument } from '../api/staffDocuments';
+import { getAdminDocumentDownloadUrl } from '../api/documents';
 
 interface StaffDetailModalProps {
   staff: StaffMember;
@@ -9,7 +11,6 @@ interface StaffDetailModalProps {
   onRevokePasskey: (credentialId: string) => void;
   onPinReset: () => void;
   sessionToken: string;
-  apiBase: string;
 }
 
 export function StaffDetailModal({
@@ -19,38 +20,23 @@ export function StaffDetailModal({
   onRevokePasskey,
   onPinReset,
   sessionToken,
-  apiBase,
 }: StaffDetailModalProps) {
   const [activeTab, setActiveTab] = useState<'details' | 'passkeys' | 'documents'>('details');
-  const [documents, setDocuments] = useState<
-    Array<{
-      id: string;
-      docType: string;
-      filename: string;
-      mimeType: string;
-      uploadedAt: string;
-      notes: string | null;
-    }>
-  >([]);
+  const [documents, setDocuments] = useState<StaffDocument[]>([]);
   const [loadingDocs, setLoadingDocs] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
 
   const fetchDocuments = useCallback(async () => {
     setLoadingDocs(true);
     try {
-      const response = await fetch(`${apiBase}/v1/admin/employees/${staff.id}/documents`, {
-        headers: { Authorization: `Bearer ${sessionToken}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDocuments(data);
-      }
+      const data = await fetchStaffDocuments(sessionToken, staff.id);
+      setDocuments(data);
     } catch (error) {
       console.error('Failed to fetch documents:', error);
     } finally {
       setLoadingDocs(false);
     }
-  }, [apiBase, sessionToken, staff.id]);
+  }, [sessionToken, staff.id]);
 
   useEffect(() => {
     if (activeTab === 'documents') {
@@ -62,25 +48,19 @@ export function StaffDetailModal({
     try {
       const reader = new FileReader();
       reader.onload = async () => {
-        const base64 = (reader.result as string).split(',')[1];
-        const response = await fetch(`${apiBase}/v1/admin/employees/${staff.id}/documents`, {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${sessionToken}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
+        const base64 = (reader.result as string).split(',')[1] ?? '';
+        try {
+          await uploadStaffDocument(sessionToken, staff.id, {
             docType,
             filename: file.name,
             mimeType: file.type,
             fileData: base64,
             notes,
-          }),
-        });
-        if (response.ok) {
+          });
           await fetchDocuments();
           setShowUploadModal(false);
-        } else {
+        } catch (error) {
+          console.error('Failed to upload document:', error);
           alert('Failed to upload document');
         }
       };
@@ -334,7 +314,7 @@ export function StaffDetailModal({
                       </td>
                       <td style={{ padding: '0.75rem' }}>
                         <a
-                          href={`${apiBase}/v1/admin/documents/${doc.id}`}
+                          href={getAdminDocumentDownloadUrl(doc.id)}
                           target="_blank"
                           rel="noopener noreferrer"
                           style={{

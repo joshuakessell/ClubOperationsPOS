@@ -86,6 +86,23 @@ export {
   type IdScanPayload,
 } from './schemas.js';
 
+// Customer activity + notes schemas
+export {
+  CustomerActivityActorSchema,
+  CustomerActivityActorTypeSchema,
+  CustomerActivitySourceAppSchema,
+  CustomerActivityActionCategorySchema,
+  CustomerActivityActionTypeSchema,
+  CustomerActivityEventSchema,
+  CustomerActivityMetadataSchemas,
+  CustomerActivityResourceRefSchema,
+  CustomerNotesListSchema,
+  CreateCustomerNoteSchema,
+  type CustomerActivityEvent,
+  type CustomerNotesList,
+  type CreateCustomerNote,
+} from './customerActivitySchemas.js';
+
 // Realtime runtime validation
 export {
   safeParseRealtimeEvent,

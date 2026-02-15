@@ -862,55 +862,65 @@ describe('Check-in Flow', () => {
     it(
       'should broadcast a full, stable SessionUpdated payload including customer + payment fields',
       runIfDbAvailable(async () => {
+        const savedFlowCommands = process.env.FLOW_COMMANDS;
         process.env.FLOW_COMMANDS = 'true';
-        // Seed DOB so the payload can include customerDobMonthDay
-        await query(`UPDATE customers SET dob = '1980-01-15'::date WHERE id = $1`, [customerId]);
+        try {
+          // Seed DOB so the payload can include customerDobMonthDay
+          await query(`UPDATE customers SET dob = '1980-01-15'::date WHERE id = $1`, [customerId]);
 
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/start`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-          payload: { idScanValue: 'ID123456', membershipScanValue: '12345' },
-        });
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/start`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+            payload: { idScanValue: 'ID123456', membershipScanValue: '12345' },
+          });
 
-        // Language selection should persist on customer and be present in subsequent payloads
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/set-language`,
-          headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
-          payload: { language: 'ES' },
-        });
+          // Language selection should persist on customer and be present in subsequent payloads
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/set-language`,
+            headers: { 'x-kiosk-token': TEST_KIOSK_TOKEN },
+            payload: { language: 'ES' },
+          });
 
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/propose-selection`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-          payload: { rentalType: 'STANDARD', proposedBy: 'EMPLOYEE' },
-        });
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/confirm-selection`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-          payload: { confirmedBy: 'EMPLOYEE' },
-        });
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/propose-selection`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+            payload: { rentalType: 'STANDARD', proposedBy: 'EMPLOYEE' },
+          });
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/confirm-selection`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+            payload: { confirmedBy: 'EMPLOYEE' },
+          });
 
-        await app.inject({
-          method: 'POST',
-          url: `/v1/checkin/lane/${laneId}/create-payment-intent`,
-          headers: { Authorization: `Bearer ${staffToken}` },
-        });
+          await app.inject({
+            method: 'POST',
+            url: `/v1/checkin/lane/${laneId}/create-payment-intent`,
+            headers: { Authorization: `Bearer ${staffToken}` },
+          });
 
-        const last = sessionUpdatedEvents.filter((e) => e.lane === laneId).at(-1)?.payload;
-        expect(last).toBeTruthy();
-        expect(last!.customerName).toBe('Test Customer');
-        expect(last!.customerPrimaryLanguage).toBe('ES');
-        expect(last!.customerDobMonthDay).toBe('01/15');
-        expect(last!.paymentIntentId).toBeTruthy();
-        expect(last!.paymentStatus).toBe('DUE');
-        expect(typeof last!.paymentTotal).toBe('number');
+          const last = sessionUpdatedEvents.filter((e) => e.lane === laneId).at(-1)?.payload;
+          expect(last).toBeTruthy();
+          expect(last!.customerName).toBe('Test Customer');
+          expect(last!.customerPrimaryLanguage).toBe('ES');
+          expect(last!.customerDobMonthDay).toBe('01/15');
+          expect(last!.paymentIntentId).toBeTruthy();
+          expect(last!.paymentStatus).toBe('DUE');
+          expect(typeof last!.paymentTotal).toBe('number');
 
-        expect(typeof last!.flowVersion).toBe('number');
-        expect(last!.flowStep).toBe('PAYMENT');
+          expect(typeof last!.flowVersion).toBe('number');
+          expect(last!.flowStep).toBe('PAYMENT');
+        } finally {
+          // Restore to prevent leaking into subsequent test files
+          if (savedFlowCommands === undefined) {
+            delete process.env.FLOW_COMMANDS;
+          } else {
+            process.env.FLOW_COMMANDS = savedFlowCommands;
+          }
+        }
       })
     );
   });

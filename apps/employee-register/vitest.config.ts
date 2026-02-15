@@ -29,11 +29,16 @@ export default defineConfig({
     // Avoid flaky OOMs:
     // - Node worker threads often have a lower heap limit than the parent process.
     // - Use a single forked process instead of threads to get a normal Node heap.
+    // Vitest 4.x: singleFork → maxWorkers: 1, isolate: false; poolOptions removed.
     pool: 'forks',
-    poolOptions: {
-      forks: {
-        singleFork: true,
-      },
-    },
+    maxWorkers: 1,
+    isolate: false,
+    teardownTimeout: 10000,
+    forceExit: true,
+    // Note: tests should clean up any background intervals/sockets they start.
+    // The mock WebSocket in registerAppTestUtils.ts simulates proper close() behavior
+    // to ensure React cleanup effects cancel reconnection timers and intervals.
+    // The CI step also has a timeout-minutes safety net.
+    reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
   },
 });

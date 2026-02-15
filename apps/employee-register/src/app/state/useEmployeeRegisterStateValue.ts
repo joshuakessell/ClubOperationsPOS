@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useEmployeeRegisterTabletUiTweaks } from '../../hooks/useEmployeeRegisterTabletUiTweaks';
 import { useEmployeeRegisterDerivedState } from './useEmployeeRegisterDerivedState';
 import { useAddOnSaleState } from './slices/useAddOnSaleState';
@@ -16,6 +16,7 @@ import { useMembershipActions } from './slices/useMembershipActions';
 import { useMembershipPromptState } from './slices/useMembershipPromptState';
 import { useNotesState } from './slices/useNotesState';
 import { useCustomerNotesState } from './slices/useCustomerNotesState';
+import { useCustomerDocumentsState } from './slices/useCustomerDocumentsState';
 import { useCustomerSpendLedgerState } from './slices/useCustomerSpendLedgerState';
 import { usePastDueState } from './slices/usePastDueState';
 import { usePaymentActions } from './slices/usePaymentActions';
@@ -87,6 +88,7 @@ export function useEmployeeRegisterStateValue() {
   const { health } = useHealthStatus(lane);
   const addOnState = useAddOnSaleState();
 
+
   const laneSessionCustomerId = laneBindings.customerId ?? null;
   const navState = useNavigationState({
     setManualEntry,
@@ -130,10 +132,11 @@ export function useEmployeeRegisterStateValue() {
     setIsSubmitting,
     setPaymentDeclineError: laneBindings.setPaymentDeclineError,
     notifications: notifier,
-    onUnauthorized: () => {
+    onUnauthorized: useCallback(() => {
       staffSessionState.setSession(null);
       staffSessionState.setRegisterSession(null);
-    },
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [staffSessionState.setSession, staffSessionState.setRegisterSession]),
   });
 
   const documentsState = useDocumentsState(session);
@@ -171,6 +174,21 @@ export function useEmployeeRegisterStateValue() {
 
   const customerNotesState = useCustomerNotesState({ session, notifications: notifier });
   const customerSpendLedgerState = useCustomerSpendLedgerState({ session, notifications: notifier });
+  const customerDocumentsState = useCustomerDocumentsState({ session, notifications: notifier });
+
+  const realtimeLaneSessionActions = useMemo(() => ({
+    applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
+    applySelectionProposed: laneBindings.laneSessionActions.applySelectionProposed,
+    applySelectionLocked: laneBindings.laneSessionActions.applySelectionLocked,
+    applySelectionForced: laneBindings.laneSessionActions.applySelectionForced,
+    selectionAcknowledged: laneBindings.laneSessionActions.selectionAcknowledged,
+  }), [
+    laneBindings.laneSessionActions.applySessionUpdated,
+    laneBindings.laneSessionActions.applySelectionProposed,
+    laneBindings.laneSessionActions.applySelectionLocked,
+    laneBindings.laneSessionActions.applySelectionForced,
+    laneBindings.laneSessionActions.selectionAcknowledged,
+  ]);
 
   const realtimeState = useRegisterRealtimeState({
     lane,
@@ -178,13 +196,7 @@ export function useEmployeeRegisterStateValue() {
     currentSessionId,
     selectedCheckoutRequest: checkoutState.selectedCheckoutRequest,
     customerSelectedType,
-    laneSessionActions: {
-      applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
-      applySelectionProposed: laneBindings.laneSessionActions.applySelectionProposed,
-      applySelectionLocked: laneBindings.laneSessionActions.applySelectionLocked,
-      applySelectionForced: laneBindings.laneSessionActions.applySelectionForced,
-      selectionAcknowledged: laneBindings.laneSessionActions.selectionAcknowledged,
-    },
+    laneSessionActions: realtimeLaneSessionActions,
     setCheckoutRequests: checkoutState.setCheckoutRequests,
     setCheckoutItemsConfirmed: checkoutState.setCheckoutItemsConfirmed,
     setCheckoutFeePaid: checkoutState.setCheckoutFeePaid,
@@ -206,15 +218,17 @@ export function useEmployeeRegisterStateValue() {
     setCustomerConfirmationType: inventorySelectionState.setCustomerConfirmationType,
   });
 
+  const pollingLaneSessionActions = useMemo(() => ({
+    applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
+    resetCleared: laneBindings.laneSessionActions.resetCleared,
+  }), [laneBindings.laneSessionActions.applySessionUpdated, laneBindings.laneSessionActions.resetCleared]);
+
   const { pollOnce } = usePollingFallback({
     lane,
     realtimeConnected: realtimeState.realtimeConnected,
     staffToken: session?.sessionToken,
     currentSessionId,
-    laneSessionActions: {
-      applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
-      resetCleared: laneBindings.laneSessionActions.resetCleared,
-    },
+    laneSessionActions: pollingLaneSessionActions,
   });
 
   const membershipActions = useMembershipActions({
@@ -240,9 +254,9 @@ export function useEmployeeRegisterStateValue() {
     pollOnce,
     setSelectionConfirmed: laneBindings.setSelectionConfirmed,
     setCustomerSelectedType: laneBindings.setCustomerSelectedType,
-    laneSessionActions: {
+    laneSessionActions: useMemo(() => ({
       patch: laneBindings.laneSessionActions.patch,
-    },
+    }), [laneBindings.laneSessionActions.patch]),
     notifications: notifier,
   });
 
@@ -398,7 +412,13 @@ export function useEmployeeRegisterStateValue() {
     selectionActions,
   });
 
-  return { ...coreValue, ...modalValue, customerNotesState, customerSpendLedgerState };
+  return {
+    ...coreValue,
+    ...modalValue,
+    customerNotesState,
+    customerSpendLedgerState,
+    customerDocumentsState,
+  };
 }
 
 export type EmployeeRegisterStateValue = ReturnType<typeof useEmployeeRegisterStateValue>;

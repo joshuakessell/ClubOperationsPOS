@@ -10,6 +10,7 @@ import { CheckoutPanel } from './CheckoutPanel';
 import { RoomCleaningPanel } from './RoomCleaningPanel';
 import { ManualEntryPanel } from './ManualEntryPanel';
 import { RetailPanel } from './RetailPanel';
+import { ClubLogPanel } from './ClubLogPanel';
 import type { NavTab } from '../../app/state/shared/types';
 import { RegisterShell, type ShellNavKey, type ShellNavItem } from '../shell/RegisterShell';
 import { CheckoutWorkspace } from '../workspace/CheckoutWorkspace';
@@ -77,6 +78,7 @@ export function NavigationRoot() {
       icon: <span aria-hidden="true">👤</span>,
       disabled: !canOpenAccountTab,
     },
+    { key: 'clubLog', label: 'Club Log', icon: <span aria-hidden="true">📜</span> },
     { key: 'manual', label: 'Manual Entry', icon: <span aria-hidden="true">📝</span> },
     { key: 'roomCleaning', label: 'Room Cleaning', icon: <span aria-hidden="true">🧹</span> },
   ];
@@ -134,6 +136,7 @@ export function NavigationRoot() {
               {navTab === 'checkout' && (
                 <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />
               )}
+              {navTab === 'clubLog' && <ClubLogPanel />}
               {navTab === 'roomCleaning' && <RoomCleaningPanel />}
               {navTab === 'firstTime' && <ManualEntryPanel />}
               {navTab === 'retail' && <RetailPanel />}

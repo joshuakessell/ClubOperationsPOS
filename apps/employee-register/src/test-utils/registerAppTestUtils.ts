@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, expect, vi } from 'vitest';
+import { beforeEach, afterEach, expect, vi, type Mock } from 'vitest';
 import { waitFor } from '@testing-library/react';
 
 if (!global.fetch) {
@@ -61,17 +61,30 @@ const RealtimeSocketMock = vi.fn((url?: string) => {
         listeners[type] = listeners[type].filter((h) => h !== handler);
       }
     ),
-    close: vi.fn(),
+    close: vi.fn(() => {
+      if (ws.readyState === 3) return; // already closed
+      ws.readyState = 3;
+      // Note: do NOT fire onclose listeners here. In a real WebSocket the 'close'
+      // event fires asynchronously, but during test teardown the React component is
+      // already unmounted. Firing onclose would trigger scheduleReconnect() in
+      // useLaneSession which creates new real timers that keep the process alive.
+    }) as ReturnType<typeof vi.fn>,
     send: vi.fn(),
   };
 
   // Keep `.onmessage` usable by tests even if production code overwrites it:
   // calling `ws.onmessage(...)` should dispatch to both the assigned handler and any addEventListener handlers.
+  //
+  // Important: when production code does `const original = socket.onmessage` then `socket.onmessage = ...`,
+  // our getter must NOT return a wrapper that calls `assignedOnMessage`, otherwise `original` becomes
+  // self-referential and we recurse forever.
   Object.defineProperty(ws, 'onmessage', {
     configurable: true,
     get() {
+      // If the app assigned an onmessage handler, return it directly.
+      if (assignedOnMessage) return assignedOnMessage;
+      // Otherwise, provide a dispatcher that only targets addEventListener handlers.
       return (ev: { data: string }) => {
-        assignedOnMessage?.(ev);
         for (const fn of listeners.message) fn(ev);
       };
     },
@@ -167,12 +180,15 @@ export function setupRegisterAppTest() {
   let App: (typeof import('../App'))['default'];
 
   beforeEach(async () => {
+    // Clear all mocks and state between tests, but DON'T call vi.resetModules().
+    // resetModules() causes re-imports that can trigger module-level initialization
+    // code creating timers that don't always get cleaned up properly.
     vi.clearAllMocks();
-    // Prevent cross-test contamination from module singletons (event buses, cached clients, etc).
-    // This also helps avoid memory growth across the suite.
-    vi.resetModules();
+    vi.clearAllTimers();
     vi.useRealTimers();
     createdSockets.length = 0;
+    lastSocket = null;
+
     const fetchMock = vi.fn();
     Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
@@ -194,7 +210,7 @@ export function setupRegisterAppTest() {
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
     localStorage.clear();
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const u =
           typeof url === 'string'
@@ -223,16 +239,20 @@ export function setupRegisterAppTest() {
       }
     );
 
-    // Tests rely on realtime handlers; the app now fail-fast disables realtime init without a kiosk token.
+    // Disable realtime in tests to prevent the transport layer's window.setInterval
+    // polling loop from causing infinite state updates that hang the test runner.
+    // Tests that need session updates use mockSessionSnapshot + direct rendering.
     const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
       .process?.env;
     if (processEnv) {
       processEnv.VITE_KIOSK_TOKEN = 'test-kiosk-token';
-      processEnv.VITE_DISABLE_REALTIME = 'false';
+      processEnv.VITE_DISABLE_REALTIME = 'true';
     }
 
-    // Import after env + realtime socket mocks are in place (Vite can inline import.meta.env at load time).
-    App = (await import('../App')).default;
+    // Import App module. With isolate: true in vitest config, each test gets a fresh module context anyway.
+    if (!App) {
+      App = (await import('../App')).default;
+    }
   });
 
   afterEach(() => {

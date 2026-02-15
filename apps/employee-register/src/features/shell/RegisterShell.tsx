@@ -9,6 +9,7 @@ export type ShellNavKey =
   | 'retail'
   | 'checkout'
   | 'account'
+  | 'clubLog'
   | 'manual'
   | 'roomCleaning';
 

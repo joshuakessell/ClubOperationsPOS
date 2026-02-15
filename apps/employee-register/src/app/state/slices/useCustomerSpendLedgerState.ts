@@ -44,6 +44,7 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
   const [entriesByVisitKey, setEntriesByVisitKey] = useState<Record<string, SpendLedgerEntry[]>>({});
   const [loadingByCustomerId, setLoadingByCustomerId] = useState<Record<string, boolean>>({});
   const [errorByCustomerId, setErrorByCustomerId] = useState<Record<string, string | null>>({});
+  const [loadedByCustomerId, setLoadedByCustomerId] = useState<Record<string, boolean>>({});
 
   const loadSpendLedger = useCallback(
     async (customerId: string) => {
@@ -67,6 +68,7 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
         notifications.warn(msg);
       } finally {
         setLoadingByCustomerId((p) => ({ ...p, [customerId]: false }));
+        setLoadedByCustomerId((p) => ({ ...p, [customerId]: true }));
       }
     },
     [session?.sessionToken, notifications]
@@ -116,6 +118,11 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
     [errorByCustomerId]
   );
 
+  const hasLoaded = useCallback(
+    (customerId: string) => Boolean(loadedByCustomerId[customerId]),
+    [loadedByCustomerId]
+  );
+
   return useMemo(
     () => ({
       loadSpendLedger,
@@ -123,8 +130,9 @@ export function useCustomerSpendLedgerState({ session, notifications }: Params) 
       getGroups,
       getVisitEntries,
       isLoading,
+      hasLoaded,
       getError,
     }),
-    [getError, getGroups, getVisitEntries, isLoading, loadSpendLedger, loadVisitLedger]
+    [getError, getGroups, getVisitEntries, hasLoaded, isLoading, loadSpendLedger, loadVisitLedger]
   );
 }

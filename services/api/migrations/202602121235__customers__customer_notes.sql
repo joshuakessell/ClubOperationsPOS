@@ -1,7 +1,7 @@
 -- up migration
 CREATE TABLE IF NOT EXISTS public.customer_notes (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE RESTRICT,
+  customer_id uuid NOT NULL REFERENCES public.customers(id) ON DELETE CASCADE,
   created_at timestamptz NOT NULL DEFAULT now(),
   created_by_staff_id uuid REFERENCES public.staff(id) ON DELETE SET NULL,
   created_by_staff_name text NOT NULL,
@@ -20,4 +20,3 @@ CREATE INDEX IF NOT EXISTS idx_customer_notes_customer_important
 
 -- down migration
 DROP TABLE IF EXISTS public.customer_notes;
-

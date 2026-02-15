@@ -8,13 +8,12 @@ import { PanelContent } from './views/PanelContent';
 import { PanelHeader } from './views/PanelHeader';
 import { PanelShell } from './views/PanelShell';
 import { RaisedCard } from './views/RaisedCard';
-
+import { ActivityAnalyticsPanel, type ActivityAnalytics } from './ActivityAnalyticsPanel';
 type InventorySummaryResponse = {
   byType: Record<string, { clean: number; cleaning: number; dirty: number; total: number }>;
   overall: { clean: number; cleaning: number; dirty: number; total: number };
   lockers: { clean: number; cleaning: number; dirty: number; total: number };
 };
-
 type CashTotals = {
   date: string;
   total: number;
@@ -25,21 +24,34 @@ type CashTotals = {
 export function ReportsDemoView({ session }: { session: StaffSession }) {
   const [inventory, setInventory] = useState<InventorySummaryResponse | null>(null);
   const [cash, setCash] = useState<CashTotals | null>(null);
+  const [analytics, setAnalytics] = useState<ActivityAnalytics | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [rangeDays, setRangeDays] = useState('7');
 
   const load = async () => {
-    const [inv, cashTotals] = await Promise.all([
+    const to = new Date();
+    const from = new Date(to.getTime() - Number(rangeDays) * 86400000);
+    const params = new URLSearchParams({
+      from: from.toISOString(),
+      to: to.toISOString(),
+      tz: 'America/Chicago',
+    });
+    const [inv, cashTotals, activity] = await Promise.all([
       apiJson<InventorySummaryResponse>('/v1/inventory/summary'),
       apiJson<CashTotals>('/v1/admin/reports/cash-totals', { sessionToken: session.sessionToken }),
+      apiJson<ActivityAnalytics>(`/v1/admin/activity-analytics?${params.toString()}`, {
+        sessionToken: session.sessionToken,
+      }),
     ]);
     setInventory(inv);
     setCash(cashTotals);
+    setAnalytics(activity);
   };
 
   useEffect(() => {
     load().catch((e) => setError(e instanceof Error ? e.message : 'Failed to load reports'));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.sessionToken]);
+  }, [session.sessionToken, rangeDays]);
 
   const rawEnv = import.meta.env as unknown as Record<string, unknown>;
   const kioskToken =
@@ -69,6 +81,7 @@ export function ReportsDemoView({ session }: { session: StaffSession }) {
       .map((t) => ({ tier: t, available: byType[t]?.clean ?? 0 }))
       .filter((x) => x.available < 5);
   }, [inventory]);
+
 
   return (
     <div style={{ maxWidth: 1400, margin: '0 auto' }}>
@@ -116,6 +129,19 @@ export function ReportsDemoView({ session }: { session: StaffSession }) {
       <PanelShell spacing="md">
         <PanelHeader title="Low Availability Alerts" />
         <PanelContent padding="md">
+          <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
+            <span style={{ color: 'var(--text-muted)' }}>Range:</span>
+            <select
+              className="cs-liquid-input"
+              value={rangeDays}
+              onChange={(e) => setRangeDays(e.target.value)}
+              style={{ minWidth: 120 }}
+            >
+              <option value="1">Last 24h</option>
+              <option value="7">Last 7 days</option>
+              <option value="30">Last 30 days</option>
+            </select>
+          </div>
           {lowTiers.length === 0 ? (
             <div style={{ color: 'var(--text-muted)' }}>No tiers under 5 available.</div>
           ) : (
@@ -206,6 +232,8 @@ export function ReportsDemoView({ session }: { session: StaffSession }) {
           )}
         </PanelContent>
       </PanelShell>
+
+      <ActivityAnalyticsPanel analytics={analytics} />
     </div>
   );
 }

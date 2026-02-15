@@ -8,6 +8,26 @@ export type CustomerActivitySourceApp =
 
 export type CustomerActivityActorType = 'STAFF' | 'CUSTOMER' | 'SYSTEM';
 
+export const SEARCHABLE_METADATA_KEYS = [
+  'visitId',
+  'checkinBlockId',
+  'laneId',
+  'laneSessionId',
+  'orderId',
+  'paymentIntentId',
+  'checkoutRequestId',
+  'waitlistId',
+  'roomNumber',
+  'lockerNumber',
+  'fromRoomNumber',
+  'toRoomNumber',
+  'fromLockerNumber',
+  'toLockerNumber',
+] as const;
+
+export type CustomerActivityMetadataKey = typeof SEARCHABLE_METADATA_KEYS[number];
+export type CustomerActivityMetadata = Partial<Record<CustomerActivityMetadataKey, unknown>> & Record<string, unknown>;
+
 export type InsertCustomerActivityEventInput = {
   occurredAt?: Date;
   customerId: string;
@@ -18,7 +38,7 @@ export type InsertCustomerActivityEventInput = {
   actorStaffId?: string | null;
   actorStaffName?: string | null;
   summary: string;
-  metadata?: Record<string, unknown>;
+  metadata?: CustomerActivityMetadata;
   searchParts?: string[];
   dedupeKey?: string | null;
 };
@@ -30,7 +50,8 @@ function coerceString(value: unknown): string | null {
   return null;
 }
 
-function buildSearchBlob(input: InsertCustomerActivityEventInput): string {
+// Exported for testing
+export function buildSearchBlob(input: InsertCustomerActivityEventInput): string {
   const parts: string[] = [];
   parts.push(input.summary);
   if (input.actorStaffName) parts.push(input.actorStaffName);
@@ -42,24 +63,8 @@ function buildSearchBlob(input: InsertCustomerActivityEventInput): string {
   }
 
   const meta = input.metadata ?? {};
-  const candidateKeys = [
-    'visitId',
-    'checkinBlockId',
-    'laneId',
-    'laneSessionId',
-    'orderId',
-    'paymentIntentId',
-    'checkoutRequestId',
-    'waitlistId',
-    'roomNumber',
-    'lockerNumber',
-    'fromRoomNumber',
-    'toRoomNumber',
-    'fromLockerNumber',
-    'toLockerNumber',
-  ];
-  for (const k of candidateKeys) {
-    const v = coerceString((meta as any)[k]);
+  for (const k of SEARCHABLE_METADATA_KEYS) {
+    const v = coerceString(meta[k]);
     if (v) parts.push(v);
   }
 
@@ -84,7 +89,7 @@ export async function insertCustomerActivityEvent(
        actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
     VALUES
       ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
-    ON CONFLICT (dedupe_key) DO NOTHING
+    ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
     RETURNING id
     `,
     [

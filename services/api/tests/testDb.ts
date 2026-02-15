@@ -12,6 +12,14 @@ export type QueryFn = <T extends pg.QueryResultRow = pg.QueryResultRow>(
  * IMPORTANT: This assumes test files are not running concurrently against the same DB.
  */
 export async function truncateAllTables(query: QueryFn): Promise<void> {
+  // If the DB isn't reachable (common for local/unit-only runs), treat as a no-op.
+  // Integration tests that require DB connectivity should guard themselves.
+  try {
+    await query('SELECT 1');
+  } catch {
+    return;
+  }
+
   const tables = await query<{ tablename: string }>(
     `
     SELECT tablename

@@ -223,7 +223,11 @@ export function useStaffSessionState({
     await handleLogout({ signOutAll: true });
   }, [handleLogout]);
 
+  // Hydrate from localStorage on mount. Skip if the useState lazy initializer
+  // already produced a session — calling setSession() with a structurally-equal
+  // but referentially-new object triggers an unnecessary re-render.
   useEffect(() => {
+    if (session) return;          // lazy init already succeeded
     const stored = readStorageValueWithMigration(
       localStorage,
       CLUBOPS_STORAGE_KEYS.staffSession,
@@ -237,6 +241,7 @@ export function useStaffSessionState({
         setSession(null);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return {

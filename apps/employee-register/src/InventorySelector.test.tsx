@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { InventorySelector } from './InventorySelector';
 
@@ -75,7 +75,7 @@ describe('InventorySelector', () => {
     } catch {
       // ignore
     }
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(() =>
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(() =>
       Promise.resolve({
         ok: true,
         headers: new Headers({ 'content-type': 'application/json' }),
@@ -85,24 +85,24 @@ describe('InventorySelector', () => {
   });
 
   it('should render loading state initially', () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
-    });
+    } as unknown as Response);
 
-    render(<InventorySelector {...mockProps} />);
+    render(<InventorySelector { ...mockProps } />);
     expect(screen.getByText(/loading inventory/i)).toBeDefined();
   });
 
   it('should group and sort rooms correctly', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
-    });
+    } as unknown as Response);
 
-    render(<InventorySelector {...mockProps} customerSelectedType="STANDARD" />);
+    render(<InventorySelector { ...mockProps } customerSelectedType = "STANDARD" />);
 
     // Wait for data to load
     await screen.findByRole('heading', { name: 'Rentals' });
@@ -112,13 +112,13 @@ describe('InventorySelector', () => {
   });
 
   it('should auto-expand section when customer selects type', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
-    });
+    } as unknown as Response);
 
-    render(<InventorySelector {...mockProps} customerSelectedType="STANDARD" />);
+    render(<InventorySelector { ...mockProps } customerSelectedType = "STANDARD" />);
 
     await screen.findByRole('heading', { name: 'Rentals' });
     expect(screen.getByRole('button', { name: /standard/i })).toBeDefined();
@@ -128,15 +128,15 @@ describe('InventorySelector', () => {
   });
 
   it('should auto-select first available item', async () => {
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-type': 'application/json' }),
       json: () => Promise.resolve(mockApiResponse),
-    });
+    } as unknown as Response);
 
     const onSelect = vi.fn();
     render(
-      <InventorySelector {...mockProps} customerSelectedType="STANDARD" onSelect={onSelect} />
+      <InventorySelector { ...mockProps } customerSelectedType = "STANDARD" onSelect = { onSelect } />
     );
 
     await screen.findByRole('heading', { name: 'Rentals' });
@@ -150,7 +150,7 @@ describe('InventorySelector', () => {
     const occupiedCheckin = '2026-01-01T12:00:00.000Z';
     const occupiedCheckout = '2026-01-01T18:00:00.000Z';
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockResolvedValue({
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-type': 'application/json' }),
       json: () =>
@@ -174,18 +174,18 @@ describe('InventorySelector', () => {
           ],
           lockers: [],
         }),
-    });
+    } as unknown as Response);
 
     render(
       <InventorySelector
         customerSelectedType="STANDARD"
-        waitlistDesiredTier={null}
-        waitlistBackupType={null}
-        onSelect={onSelect}
-        selectedItem={null}
-        sessionId={null}
-        lane="lane-1"
-        sessionToken="test-token"
+        waitlistDesiredTier = { null}
+        waitlistBackupType = { null}
+        onSelect = { onSelect }
+        selectedItem = { null}
+        sessionId = { null}
+        lane = "lane-1"
+        sessionToken = "test-token"
       />
     );
 

@@ -260,13 +260,13 @@ export function useLaneSession({
 
   useEffect(() => {
     if (transportAbstractionEnabled) {
-      setMode('cloud');
+      setMode(prev => prev === 'cloud' ? prev : 'cloud');
       if (!effectiveEnabled || laneId === undefined) {
         transportRef.current?.disconnect();
         transportRef.current = null;
         closedIntentionallyRef.current = true;
-        setConnected(false);
-        setMode('cloud');
+        setConnected(prev => prev === false ? prev : false);
+        setMode(prev => prev === 'cloud' ? prev : 'cloud');
         return;
       }
 
@@ -298,19 +298,19 @@ export function useLaneSession({
 
       const lanTransport =
         env?.VITE_LAN_FALLBACK === '1' &&
-        typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' &&
-        env.VITE_LAN_REALTIME_WS_URL
+          typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' &&
+          env.VITE_LAN_REALTIME_WS_URL
           ? new LanWebSocketTransport({
-              url: env.VITE_LAN_REALTIME_WS_URL as string,
-              options: {
-                debug: realtimeDebug,
-                onEvent,
-                onError: () => {
-                  setLastError(new Event('transport_error'));
-                },
-                onStatus: (status) => setConnected(status === 'connected'),
+            url: env.VITE_LAN_REALTIME_WS_URL as string,
+            options: {
+              debug: realtimeDebug,
+              onEvent,
+              onError: () => {
+                setLastError(new Event('transport_error'));
               },
-            })
+              onStatus: (status) => setConnected(status === 'connected'),
+            },
+          })
           : null;
 
       const buildHybrid = (transports: Array<AppSyncTransport | LanWebSocketTransport>) =>
@@ -327,8 +327,8 @@ export function useLaneSession({
       const lanOnlyTransport = lanTransport ? buildHybrid([lanTransport]) : null;
 
       // Mode controller with hysteresis.
-      const pollIntervalMs = 5000;
-      const cloudFailToLanThreshold = 3;
+      const pollIntervalMs = 2000;
+      const cloudFailToLanThreshold = 2;
       const cloudSuccessToFailbackThreshold = 6;
       const lanSuccessThreshold = 2;
 
@@ -658,6 +658,14 @@ export function useLaneSession({
       if (reconnectTimerRef.current) {
         clearTimeout(reconnectTimerRef.current);
         reconnectTimerRef.current = null;
+      }
+      if (cooldownTimerRef.current) {
+        clearTimeout(cooldownTimerRef.current);
+        cooldownTimerRef.current = null;
+      }
+      if (flushTimerRef.current) {
+        clearTimeout(flushTimerRef.current);
+        flushTimerRef.current = null;
       }
     };
   }, [

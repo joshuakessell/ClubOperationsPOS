@@ -398,7 +398,7 @@ export async function upgradeRoutes(fastify: FastifyInstance): Promise<void> {
           });
         }
         fastify.log.error(error, 'Failed to fulfill upgrade');
-        return reply.status(500).send({ error: 'Internal server error' });
+        return reply.status(500).send({ error: 'Internal server error', message: error instanceof Error ? error.message : String(error) });
       }
     }
   );
