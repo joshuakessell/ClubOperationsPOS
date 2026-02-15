@@ -52,17 +52,7 @@ jobs:
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
-        
-      # --- Secret Fetching (for Frontend Builds) ---
-      # Frontends need the TOKEN value at build time, not the ARN.
-      - name: Fetch Kiosk Token Secret
-        id: fetch-token
-        run: |
-          TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.KIOSK_TOKEN_SECRET_ARN }}" --query SecretString --output text)
-          # Mask the token in logs
-          echo "::add-mask::$TOKEN"
-          # Export to GITHUB_ENV for subsequent steps
-          echo "VITE_KIOSK_TOKEN=$TOKEN" >> $GITHUB_ENV
+  
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -115,15 +105,11 @@ jobs:
       # --- Frontend Build ---
       - name: Build Frontends
         env:
-          # Shared build env vars
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
           VITE_REALTIME_PROVIDER: appsync-events
           VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
           VITE_DISABLE_REALTIME: 'false'
-          # VITE_KIOSK_TOKEN is already set in env from previous step
         run: |
-          # Ensure env var is available
-          export VITE_KIOSK_TOKEN="${{ env.VITE_KIOSK_TOKEN }}"
           pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-register --force
 
       # --- Employee Register Deployment ---
