@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useEmployeeRegisterTabletUiTweaks } from '../../hooks/useEmployeeRegisterTabletUiTweaks';
 import { useEmployeeRegisterDerivedState } from './useEmployeeRegisterDerivedState';
 import { useAddOnSaleState } from './slices/useAddOnSaleState';
@@ -174,19 +174,27 @@ export function useEmployeeRegisterStateValue() {
   const customerSpendLedgerState = useCustomerSpendLedgerState({ session, notifications: notifier });
   const customerDocumentsState = useCustomerDocumentsState({ session, notifications: notifier });
 
+  const realtimeLaneSessionActions = useMemo(() => ({
+    applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
+    applySelectionProposed: laneBindings.laneSessionActions.applySelectionProposed,
+    applySelectionLocked: laneBindings.laneSessionActions.applySelectionLocked,
+    applySelectionForced: laneBindings.laneSessionActions.applySelectionForced,
+    selectionAcknowledged: laneBindings.laneSessionActions.selectionAcknowledged,
+  }), [
+    laneBindings.laneSessionActions.applySessionUpdated,
+    laneBindings.laneSessionActions.applySelectionProposed,
+    laneBindings.laneSessionActions.applySelectionLocked,
+    laneBindings.laneSessionActions.applySelectionForced,
+    laneBindings.laneSessionActions.selectionAcknowledged,
+  ]);
+
   const realtimeState = useRegisterRealtimeState({
     lane,
     staffToken: session?.sessionToken,
     currentSessionId,
     selectedCheckoutRequest: checkoutState.selectedCheckoutRequest,
     customerSelectedType,
-    laneSessionActions: {
-      applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
-      applySelectionProposed: laneBindings.laneSessionActions.applySelectionProposed,
-      applySelectionLocked: laneBindings.laneSessionActions.applySelectionLocked,
-      applySelectionForced: laneBindings.laneSessionActions.applySelectionForced,
-      selectionAcknowledged: laneBindings.laneSessionActions.selectionAcknowledged,
-    },
+    laneSessionActions: realtimeLaneSessionActions,
     setCheckoutRequests: checkoutState.setCheckoutRequests,
     setCheckoutItemsConfirmed: checkoutState.setCheckoutItemsConfirmed,
     setCheckoutFeePaid: checkoutState.setCheckoutFeePaid,
@@ -208,15 +216,17 @@ export function useEmployeeRegisterStateValue() {
     setCustomerConfirmationType: inventorySelectionState.setCustomerConfirmationType,
   });
 
+  const pollingLaneSessionActions = useMemo(() => ({
+    applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
+    resetCleared: laneBindings.laneSessionActions.resetCleared,
+  }), [laneBindings.laneSessionActions.applySessionUpdated, laneBindings.laneSessionActions.resetCleared]);
+
   const { pollOnce } = usePollingFallback({
     lane,
     realtimeConnected: realtimeState.realtimeConnected,
     staffToken: session?.sessionToken,
     currentSessionId,
-    laneSessionActions: {
-      applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
-      resetCleared: laneBindings.laneSessionActions.resetCleared,
-    },
+    laneSessionActions: pollingLaneSessionActions,
   });
 
   const membershipActions = useMembershipActions({

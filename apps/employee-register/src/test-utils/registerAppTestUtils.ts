@@ -189,7 +189,7 @@ export function setupRegisterAppTest() {
     createdSockets.length = 0;
     lastSocket = null;
 
-    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
+    const fetchMock = vi.fn();
     Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(global, 'fetch', { value: fetchMock, writable: true, configurable: true });
