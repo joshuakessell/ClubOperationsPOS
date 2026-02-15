@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, expect, vi } from 'vitest';
+import { beforeEach, afterEach, expect, vi, type Mock } from 'vitest';
 import { waitFor } from '@testing-library/react';
 
 if (!global.fetch) {
@@ -189,7 +189,7 @@ export function setupRegisterAppTest() {
     createdSockets.length = 0;
     lastSocket = null;
 
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
     Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(global, 'fetch', { value: fetchMock, writable: true, configurable: true });
@@ -210,7 +210,7 @@ export function setupRegisterAppTest() {
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
     localStorage.clear();
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const u =
           typeof url === 'string'

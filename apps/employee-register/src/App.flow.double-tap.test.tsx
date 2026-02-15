@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import {
@@ -24,7 +24,7 @@ describe('App flow: double tap proposal', () => {
       })
     );
 
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>;
     let proposedRental: string | null = null;
 
     fetchMock.mockImplementation((url: RequestInfo | URL, _init?: RequestInit) => {
@@ -234,7 +234,13 @@ describe('App flow: double tap proposal', () => {
 
     // Confirmation triggers /confirm-selection and then payment intent creation.
     await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      const urls = fetchMock.mock.calls.map((c) => {
+        const arg = c[0];
+        if (typeof arg === 'string') return arg;
+        if (arg instanceof URL) return arg.toString();
+        if (arg instanceof Request) return arg.url;
+        return '';
+      });
       expect(urls.some((u) => u.includes('/v1/checkin/lane/lane-1/confirm-selection'))).toBe(true);
       expect(urls.some((u) => u.includes('/v1/checkin/lane/lane-1/create-payment-intent'))).toBe(
         true

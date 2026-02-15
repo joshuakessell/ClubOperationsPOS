@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, type Mock } from 'vitest';
 import { render, screen, waitFor, act, fireEvent } from '@testing-library/react';
 import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import {
@@ -15,7 +15,7 @@ let mockSessionSnapshot: unknown = null;
 
 const mockRegisterFetch = () => {
   mockSessionSnapshot = null;
-  (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+  (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
     (url: RequestInfo | URL, init?: RequestInit) => {
       const u =
         typeof url === 'string'
@@ -188,7 +188,7 @@ describe('App', () => {
       })
     );
 
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const u =
           typeof url === 'string'
