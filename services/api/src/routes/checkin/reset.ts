@@ -71,6 +71,8 @@ export function registerCheckinResetRoutes(fastify: FastifyInstance): void {
                selection_confirmed_by = NULL,
                selection_locked_at = NULL,
                disclaimers_ack_json = NULL,
+               flow_step = NULL,
+               flow_version = NULL,
                updated_at = NOW()
            WHERE id = $1`,
             [session.id]
