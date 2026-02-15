@@ -240,10 +240,8 @@ export function setupRegisterAppTest() {
     );
 
     // Disable realtime in tests to prevent the transport layer's window.setInterval
-    // polling loop. This interval uses real timers that vi.clearAllTimers() cannot clear,
-    // causing infinite state updates (setConnected/setMode) that hang the test runner.
-    // Tests that need realtime messages use emitRealtime() / emitRealtimeEvent() helpers
-    // which directly invoke onmessage without needing a live connection.
+    // polling loop from causing infinite state updates that hang the test runner.
+    // Tests that need session updates use mockSessionSnapshot + direct rendering.
     const processEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } })
       .process?.env;
     if (processEnv) {

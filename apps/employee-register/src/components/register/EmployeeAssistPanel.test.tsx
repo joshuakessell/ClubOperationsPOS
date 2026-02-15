@@ -35,7 +35,7 @@ function baseProps() {
 describe('EmployeeAssistPanel', () => {
   it('LANGUAGE step: tap highlights and confirms immediately', () => {
     const props = baseProps();
-    render(<EmployeeAssistPanel {...props} />);
+    render(<EmployeeAssistPanel { ...props } />);
 
     const english = screen.getByRole('button', { name: 'English' });
     fireEvent.click(english);
@@ -51,7 +51,7 @@ describe('EmployeeAssistPanel', () => {
       customerMembershipValidUntil: '2999-01-01',
       membershipChoice: null,
     };
-    render(<EmployeeAssistPanel {...props} />);
+    render(<EmployeeAssistPanel { ...props } />);
     expect(screen.queryByRole('button', { name: 'Add 6-Month Membership' })).toBeNull();
     expect(screen.getByText('Step: RENTAL')).toBeTruthy();
   });
@@ -61,7 +61,7 @@ describe('EmployeeAssistPanel', () => {
       ...baseProps(),
       customerPrimaryLanguage: 'EN' as const,
     };
-    render(<EmployeeAssistPanel {...props} />);
+    render(<EmployeeAssistPanel { ...props } />);
 
     const addMembership = screen.getByRole('button', { name: 'Add 6-Month Membership' });
     fireEvent.click(addMembership);
@@ -79,16 +79,16 @@ describe('EmployeeAssistPanel', () => {
       customerPrimaryLanguage: 'EN' as const,
       membershipChoice: 'ONE_TIME' as const,
     };
-    render(<EmployeeAssistPanel {...props} />);
+    render(<EmployeeAssistPanel { ...props } />);
 
     const buttons = screen.getAllByRole('button');
     const rentalButtons = buttons.filter((b) =>
-      /Propose (Locker|Standard|Double|Special)/.test(b.textContent || '')
+      /Propose (Locker|Private|Double|Special)/.test(b.textContent || '')
     );
 
     expect(rentalButtons.map((b) => b.textContent)).toEqual([
       expect.stringContaining('Propose Locker'),
-      expect.stringContaining('Propose Standard'),
+      expect.stringContaining('Propose Private'),
       expect.stringContaining('Propose Double'),
       expect.stringContaining('Propose Special'),
     ]);
@@ -107,18 +107,19 @@ describe('EmployeeAssistPanel', () => {
       membershipChoice: 'ONE_TIME' as const,
       inventoryAvailable: { rooms: { STANDARD: 0, DOUBLE: 8, SPECIAL: 2 }, lockers: 12 },
     };
-    render(<EmployeeAssistPanel {...props} />);
+    render(<EmployeeAssistPanel { ...props } />);
 
-    const standard = screen.getByRole('button', { name: /Propose Standard/i });
-    expect(standard.hasAttribute('disabled')).toBe(true);
+    // When STANDARD count is 0, the button is not rendered at all (filtered out).
+    expect(screen.queryByRole('button', { name: /Propose Private/i })).toBeNull();
 
     const joinWaitlist = screen.getByRole('button', { name: 'Join the Waiting List' });
     fireEvent.click(joinWaitlist);
     expect(props.onHighlightRental).toHaveBeenCalledWith('STANDARD');
     expect(props.onApproveRental).not.toHaveBeenCalled();
 
+    // Second click on waitlist calls onSelectRentalAsCustomer (not onApproveRental)
     fireEvent.click(joinWaitlist);
-    expect(props.onApproveRental).toHaveBeenCalled();
+    expect(props.onSelectRentalAsCustomer).toHaveBeenCalledWith('STANDARD');
   });
 
   it('RENTAL step: first tap proposes, second tap confirms', () => {
@@ -127,7 +128,7 @@ describe('EmployeeAssistPanel', () => {
       customerPrimaryLanguage: 'EN' as const,
       membershipChoice: 'ONE_TIME' as const,
     };
-    render(<EmployeeAssistPanel {...props} />);
+    render(<EmployeeAssistPanel { ...props } />);
 
     const locker = screen.getByRole('button', { name: /Propose Locker/i });
     fireEvent.click(locker);
@@ -147,7 +148,7 @@ describe('EmployeeAssistPanel', () => {
       proposedRentalType: 'LOCKER',
       selectionConfirmed: false,
     };
-    render(<EmployeeAssistPanel {...props} />);
+    render(<EmployeeAssistPanel { ...props } />);
 
     expect(screen.getByText('Step: DONE')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'OK' })).toBeNull();

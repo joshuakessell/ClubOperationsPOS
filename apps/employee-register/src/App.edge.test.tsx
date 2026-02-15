@@ -209,6 +209,24 @@ function mockAuthenticatedFetch() {
       } as unknown as Response);
     }
 
+    if (u.includes('/v1/customers/')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            customer: {
+              id: 'c0ffee00-0000-4000-8000-000000000001',
+              name: 'Alex Rivera',
+              firstName: 'Alex',
+              lastName: 'Rivera',
+              dobMonthDay: '03/14',
+              membershipNumber: '700001',
+            },
+          }),
+      } as unknown as Response);
+    }
+
+
     if (u.includes('/api/v1/inventory/detailed')) {
       return Promise.resolve({
         ok: true,
@@ -330,7 +348,9 @@ describe('App edge flows', () => {
     });
 
     expect(await screen.findByText('Customer Profile')).toBeDefined();
-    expect(await screen.findByText('Alex Rivera')).toBeDefined();
+    // After check-in, activeTab='guided' shows EmployeeAssistPanel (not CustomerProfileCard).
+    // 'Alex Rivera' only appears in the profile card; the header label 'Rivera, Alex' persists.
+    expect(await screen.findByText('Rivera, Alex')).toBeDefined();
   });
 
   it('keeps the active account after jumping to Checkout and back', async () => {
@@ -355,7 +375,7 @@ describe('App edge flows', () => {
     });
 
     expect(await screen.findByText('Customer Profile')).toBeDefined();
-    expect(await screen.findByText('Alex Rivera')).toBeDefined();
+    expect(await screen.findByText('Rivera, Alex')).toBeDefined();
   });
 
   it('keeps the active account after jumping to Manual Entry and back', async () => {
@@ -380,6 +400,6 @@ describe('App edge flows', () => {
     });
 
     expect(await screen.findByText('Customer Profile')).toBeDefined();
-    expect(await screen.findByText('Alex Rivera')).toBeDefined();
+    expect(await screen.findByText('Rivera, Alex')).toBeDefined();
   });
 });
