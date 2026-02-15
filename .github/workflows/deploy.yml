@@ -58,6 +58,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       # --- API Deployment ---
+      - name: Build API & shared packages
+        run: pnpm turbo run build --filter @club-ops/api --force
+
       - name: Build & Push API Docker Image
         env:
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
