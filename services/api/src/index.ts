@@ -33,6 +33,7 @@ import {
   cashDrawerRoutes,
   breakRoutes,
   orderRoutes,
+  customerSpendLedgerRoutes,
 } from './routes';
 import { createBroadcaster, type Broadcaster } from './realtime/broadcaster';
 import { LocalLaneSockets } from './realtime/localSockets';
@@ -70,13 +71,17 @@ async function main() {
   const fastify = Fastify({
     logger: {
       level: process.env.LOG_LEVEL || 'info',
-      transport: {
-        target: 'pino-pretty',
-        options: {
-          translateTime: 'HH:MM:ss Z',
-          ignore: 'pid,hostname',
-        },
-      },
+      ...(process.env.NODE_ENV === 'production'
+        ? {}
+        : {
+            transport: {
+              target: 'pino-pretty',
+              options: {
+                translateTime: 'HH:MM:ss Z',
+                ignore: 'pid,hostname',
+              },
+            },
+          }),
     },
   });
 
@@ -183,6 +188,7 @@ async function main() {
   await fastify.register(cashDrawerRoutes);
   await fastify.register(breakRoutes);
   await fastify.register(orderRoutes);
+  await fastify.register(customerSpendLedgerRoutes);
 
   // Graceful shutdown
   const shutdown = async () => {

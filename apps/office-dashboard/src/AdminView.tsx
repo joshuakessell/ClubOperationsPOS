@@ -4,45 +4,17 @@ import type { StaffSession } from './LockScreen';
 import type { RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
-import { getApiUrl } from '@club-ops/shared';
 import { RaisedCard } from './views/RaisedCard';
-
-const API_BASE = getApiUrl('/api');
-
-interface KPI {
-  roomsOccupied: number;
-  roomsUnoccupied: number;
-  roomsDirty: number;
-  roomsCleaning: number;
-  roomsClean: number;
-  lockersOccupied: number;
-  lockersAvailable: number;
-  waitingListCount: number;
-}
-
-interface RoomExpiration {
-  roomId: string;
-  roomNumber: string;
-  roomTier: string;
-  sessionId: string;
-  customerName: string;
-  membershipNumber: string | null;
-  checkoutAt: string;
-  minutesPast: number | null;
-  minutesRemaining: number | null;
-  isExpired: boolean;
-  isExpiringSoon: boolean;
-}
-
-interface MetricsSummary {
-  from: string;
-  to: string;
-  averageDirtyTimeMinutes: number | null;
-  dirtyTimeSampleCount: number;
-  averageCleaningDurationMinutes: number | null;
-  cleaningDurationSampleCount: number;
-  totalRoomsCleaned: number;
-}
+import {
+  fetchAdminKpi,
+  fetchMetricsByStaff,
+  fetchMetricsSummary,
+  fetchRoomExpirations,
+  type KPI,
+  type MetricsSummary,
+  type RoomExpiration,
+} from './api/admin';
+import { fetchStaff } from './api/staffAdmin';
 
 interface MetricsByStaff extends MetricsSummary {
   staffId: string;
@@ -92,23 +64,13 @@ export function AdminView({ session }: AdminViewProps) {
   const loadOperationsData = async () => {
     if (!session.sessionToken) return;
 
-    const headers = {
-      Authorization: `Bearer ${session.sessionToken}`,
-    };
+    const [kpiData, expData] = await Promise.all([
+      fetchAdminKpi(session.sessionToken),
+      fetchRoomExpirations(session.sessionToken),
+    ]);
 
-    // Load KPI
-    const kpiRes = await fetch(`${API_BASE}/v1/admin/kpi`, { headers });
-    if (kpiRes.ok) {
-      const kpiData = await kpiRes.json();
-      setKpi(kpiData);
-    }
-
-    // Load expirations
-    const expRes = await fetch(`${API_BASE}/v1/admin/rooms/expirations`, { headers });
-    if (expRes.ok) {
-      const expData = await expRes.json();
-      setExpirations(expData.expirations || []);
-    }
+    setKpi(kpiData);
+    setExpirations(expData.expirations || []);
   };
 
   const loadOperationsDataRef = useRef(loadOperationsData);
@@ -121,16 +83,9 @@ export function AdminView({ session }: AdminViewProps) {
 
     setIsLoading(true);
     try {
-      const headers = {
-        Authorization: `Bearer ${session.sessionToken}`,
-      };
-
       // Load staff members (needed for both tabs)
-      const staffRes = await fetch(`${API_BASE}/v1/admin/staff`, { headers }).catch(() => null);
-      if (staffRes?.ok) {
-        const staffData = await staffRes.json();
-        setStaffMembers(staffData.staff || []);
-      }
+      const staffData = await fetchStaff(session.sessionToken, new URLSearchParams());
+      setStaffMembers(staffData.staff || []);
 
       if (activeTab === 'operations') {
         await loadOperationsData();
@@ -162,31 +117,18 @@ export function AdminView({ session }: AdminViewProps) {
       const to = new Date(dateTo).toISOString();
       const params = new URLSearchParams({ from, to });
 
-      const headers = {
-        Authorization: `Bearer ${session.sessionToken}`,
-      };
-
-      // Load overall summary
-      const res = await fetch(`${API_BASE}/v1/admin/metrics/summary?${params}`, { headers });
-      if (res.ok) {
-        const data = await res.json();
-        setMetricsSummary(data);
-      }
+      const data = await fetchMetricsSummary(session.sessionToken, params);
+      setMetricsSummary(data);
 
       // Load per-staff breakdown
       const perStaffData: MetricsByStaff[] = [];
       for (const staff of staffMembers) {
         const byStaffParams = new URLSearchParams({ from, to, staffId: staff.id });
-        const byStaffRes = await fetch(`${API_BASE}/v1/admin/metrics/by-staff?${byStaffParams}`, {
-          headers,
+        const byStaffData = await fetchMetricsByStaff(session.sessionToken, byStaffParams);
+        perStaffData.push({
+          ...byStaffData,
+          staffName: staff.name,
         });
-        if (byStaffRes.ok) {
-          const byStaffData = await byStaffRes.json();
-          perStaffData.push({
-            ...byStaffData,
-            staffName: staff.name,
-          });
-        }
       }
       setMetricsByStaff(perStaffData);
 

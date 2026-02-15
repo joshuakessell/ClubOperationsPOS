@@ -2,12 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../../auth/middleware';
 import { serializableTransaction, transaction } from '../../db';
-import type {
-  CheckoutRequestRow,
-  CheckinBlockRow,
-  WaitlistStatusRow,
-  VisitDateRow,
-} from '../../checkout/types';
+import type { CheckoutRequestRow, CheckinBlockRow, WaitlistStatusRow } from '../../checkout/types';
 import { MarkFeePaidSchema, type MarkFeePaidInput } from '../../checkout/schemas';
 import type {
   CheckoutClaimedPayload,
@@ -17,8 +12,9 @@ import type {
 import { RoomStatus } from '@club-ops/shared';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { insertAuditLog } from '../../audit/auditLog';
+import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
+import { insertCustomerSpendLedgerEntry } from '../../ledger/customerSpendLedger';
 import { looksLikeUuid } from '../../checkout/utils';
-import { buildSystemLateFeeNote } from '../../utils/lateFeeNotes';
 import { computeOrderTotals, ensureOrderWithReceipt, toCents } from '../../money/orderAudit';
 
 export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
@@ -260,7 +256,7 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
               ];
               const totals = computeOrderTotals(lineItems, feeCents, intent.tip_cents ?? 0);
 
-              await ensureOrderWithReceipt(client, {
+              const ensured = await ensureOrderWithReceipt(client, {
                 dedupeKey: { field: 'checkoutRequestId', value: request.params.requestId },
                 customerId: checkoutRequest.customer_id ?? null,
                 registerSessionId: activeRegister?.id ?? null,
@@ -281,6 +277,67 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
                   registerNumber: intent.register_number ?? null,
                 },
               });
+
+              if (checkoutRequest.customer_id) {
+                const blockRow = await client.query<{ visit_id: string }>(
+                  `SELECT visit_id FROM checkin_blocks WHERE id = $1 LIMIT 1`,
+                  [checkoutRequest.occupancy_id]
+                );
+                const visitId = blockRow.rows[0]?.visit_id ?? null;
+
+                const ledger = await insertCustomerSpendLedgerEntry(client, {
+                  customerId: checkoutRequest.customer_id,
+                  visitId,
+                  entryType: 'CHECKOUT_FEE_PAID',
+                  amountCents: ensured.order.total_cents,
+                  sourceApp: 'EMPLOYEE_REGISTER',
+                  actorType: 'STAFF',
+                  actorStaffId: staffId,
+                  actorStaffName: request.staff!.name,
+                  summary: 'Checkout fee paid',
+                  metadata: {
+                    checkoutRequestId: request.params.requestId,
+                    orderId: ensured.order.id,
+                    paymentIntentId: intent.id,
+                    totalCents: ensured.order.total_cents,
+                    visitId,
+                  },
+                  dedupeKey: `LEDGER:CHECKOUT_FEE_PAID:${request.params.requestId}`,
+                });
+
+                const event = await insertCustomerActivityEvent(client, {
+                  customerId: checkoutRequest.customer_id,
+                  actionType: 'CHECKOUT_FEE_PAID',
+                  actionCategory: 'CHECKOUT',
+                  sourceApp: 'EMPLOYEE_REGISTER',
+                  actorType: 'STAFF',
+                  actorStaffId: staffId,
+                  actorStaffName: request.staff!.name,
+                  summary: `Checkout fee paid ($${(ensured.order.total_cents / 100).toFixed(2)})`,
+                  metadata: {
+                    checkoutRequestId: request.params.requestId,
+                    orderId: ensured.order.id,
+                    paymentIntentId: intent.id,
+                    spendLedgerEntryId: ledger.id,
+                    visitId,
+                  },
+                  dedupeKey: `ACT:CHECKOUT_FEE_PAID:${request.params.requestId}`,
+                  searchParts: [request.params.requestId, ensured.order.id, intent.id],
+                });
+
+                request.log.info(
+                  {
+                    customerActivityEventId: event.id,
+                    customerId: checkoutRequest.customer_id,
+                    actionType: 'CHECKOUT_FEE_PAID',
+                    actionCategory: 'CHECKOUT',
+                    sourceApp: 'EMPLOYEE_REGISTER',
+                    actorType: 'STAFF',
+                    actorStaffId: staffId,
+                  },
+                  'customer_activity_event'
+                );
+              }
             }
           }
 
@@ -528,19 +585,35 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
           );
 
           // 6. Apply ban if needed
+          // Ban is manager-approval-based. If a ban is recommended, create a manager alert.
+          // (No immediate customer ban is applied here.)
           if (checkoutRequest.ban_applied) {
-            const banUntil = new Date();
-            banUntil.setDate(banUntil.getDate() + 30); // 30 days from now
             await client.query(
-              `UPDATE customers SET banned_until = $1, updated_at = NOW() WHERE id = $2`,
-              [banUntil, checkoutRequest.customer_id]
+              `
+              INSERT INTO late_checkout_ban_alerts
+                (customer_id, checkout_request_id, occupancy_id, visit_id,
+                 late_minutes, fee_amount_cents, recommended_ban_days,
+                 status, created_by_staff_id, created_by_staff_name)
+              VALUES
+                ($1, $2, $3, $4, $5, $6, 30, 'PENDING', $7, $8)
+              ON CONFLICT (checkout_request_id) DO NOTHING
+              `,
+              [
+                checkoutRequest.customer_id,
+                checkoutRequest.id,
+                checkoutRequest.occupancy_id,
+                block.visit_id,
+                checkoutRequest.late_minutes,
+                Number(checkoutRequest.late_fee_amount) || 0,
+                staffId,
+                request.staff!.name,
+              ]
             );
           }
 
           // 6b. Late fee bookkeeping (NO amount/rate changes):
           // - itemize as a charges row
           // - increment past_due_balance
-          // - append system note (auto-archived on next successful check-in)
           const feeAmount = Number(checkoutRequest.late_fee_amount) || 0;
           if (feeAmount > 0) {
             await client.query(
@@ -563,35 +636,61 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
               );
             }
 
-            const now = new Date();
-            const scheduledCheckoutAt =
-              block.ends_at instanceof Date ? block.ends_at : new Date(block.ends_at);
-            const lateMinutesActual = Math.max(
-              0,
-              Math.floor((now.getTime() - scheduledCheckoutAt.getTime()) / (1000 * 60))
-            );
-            const visitRow = await client.query<VisitDateRow>(
-              `SELECT started_at FROM visits WHERE id = $1 LIMIT 1`,
-              [block.visit_id]
-            );
-            const visitDate = visitRow.rows[0]?.started_at
-              ? visitRow.rows[0]!.started_at.toISOString().slice(0, 10)
-              : now.toISOString().slice(0, 10);
-            const noteLine = buildSystemLateFeeNote({
-              lateMinutes: lateMinutesActual,
-              visitDate,
-              feeAmount,
+            // Add the late fee to the customer's spend ledger so the running checkout ledger
+            // includes it and it can be collected now or next visit.
+            await insertCustomerSpendLedgerEntry(client, {
+              customerId: checkoutRequest.customer_id,
+              visitId: block.visit_id,
+              entryType: 'LATE_FEE',
+              amountCents: feeAmount,
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staffId,
+              actorStaffName: request.staff!.name,
+              summary: `Late fee assessed ($${(feeAmount / 100).toFixed(2)})`,
+              metadata: {
+                checkoutRequestId: checkoutRequest.id,
+                occupancyId: checkoutRequest.occupancy_id,
+                lateMinutes: checkoutRequest.late_minutes,
+                banApplied: checkoutRequest.ban_applied,
+              },
+              dedupeKey: `LEDGER:LATE_FEE:${checkoutRequest.id}`,
             });
-            await client.query(
-              `UPDATE customers
-               SET notes = CASE
-                 WHEN notes IS NULL OR notes = '' THEN $1
-                 ELSE notes || E'\\n' || $1
-               END,
-               updated_at = NOW()
-               WHERE id = $2`,
-              [noteLine, checkoutRequest.customer_id]
-            );
+          
+            // Record a customer note for late checkouts (common staff practice).
+            // This is separate from the activity log so it shows prominently on the account.
+            if (checkoutRequest.late_minutes >= 30) {
+              const noteText = `Late checkout: ${checkoutRequest.late_minutes} minutes late. Fee assessed: $${(
+                feeAmount / 100
+              ).toFixed(2)}${checkoutRequest.ban_applied ? ' (ban applied)' : ''}.`;
+              const noteResult = await client.query<{ id: string }>(
+                `INSERT INTO customer_notes
+                   (customer_id, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
+                 VALUES
+                   ($1, $2, $3, 'EMPLOYEE_REGISTER', $4, true)
+                 RETURNING id`,
+                [checkoutRequest.customer_id, staffId, request.staff!.name, noteText]
+              );
+
+              await insertCustomerActivityEvent(client, {
+                customerId: checkoutRequest.customer_id,
+                actionType: 'NOTE_ADDED',
+                actionCategory: 'NOTE',
+                sourceApp: 'EMPLOYEE_REGISTER',
+                actorType: 'STAFF',
+                actorStaffId: staffId,
+                actorStaffName: request.staff!.name,
+                summary: 'Note added (Late checkout)',
+                metadata: {
+                  noteId: noteResult.rows[0]?.id,
+                  isImportant: true,
+                  reason: 'LATE_CHECKOUT',
+                  checkoutRequestId: checkoutRequest.id,
+                },
+                dedupeKey: `ACT:NOTE_ADDED:LATE_CHECKOUT:${checkoutRequest.id}`,
+                searchParts: [checkoutRequest.id],
+              });
+            }
           }
 
           // 7. Log late checkout event if late >= 30 minutes
@@ -617,6 +716,37 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
            SET status = 'VERIFIED', completed_at = $1, updated_at = NOW()
            WHERE id = $2`,
             [now, checkoutRequest.id]
+          );
+
+          const event = await insertCustomerActivityEvent(client, {
+            customerId: checkoutRequest.customer_id,
+            actionType: 'CHECKOUT_COMPLETED',
+            actionCategory: 'CHECKOUT',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: staffId,
+            actorStaffName: request.staff!.name,
+            summary: 'Checkout completed',
+            metadata: {
+              checkoutRequestId: checkoutRequest.id,
+              visitId: block.visit_id,
+              checkinBlockId: block.id,
+            },
+            dedupeKey: `ACT:CHECKOUT_COMPLETED:${checkoutRequest.id}`,
+            searchParts: [checkoutRequest.id, block.visit_id, block.id],
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId: checkoutRequest.customer_id,
+              actionType: 'CHECKOUT_COMPLETED',
+              actionCategory: 'CHECKOUT',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staffId,
+            },
+            'customer_activity_event'
           );
 
           return {
@@ -685,7 +815,17 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
           const err = error as { statusCode: number; message: string };
           return reply.status(err.statusCode).send({ error: err.message });
         }
-        fastify.log.error(error, 'Failed to complete checkout');
+        // Ensure CI logs include the underlying exception even if fastify/pino output is filtered.
+        // eslint-disable-next-line no-console
+        console.error('Failed to complete checkout', error);
+        fastify.log.error(
+          {
+            err: error,
+            requestId: request.params.requestId,
+            staffId: request.staff?.staffId,
+          },
+          'Failed to complete checkout'
+        );
         return reply.status(500).send({ error: 'Internal server error' });
       }
     }

@@ -1,14 +1,28 @@
 import { defineConfig } from 'vitest/config';
+import path from 'path';
 
 export default defineConfig({
-  test: {
-    globals: true,
-    environment: 'node',
-    include: ['tests/**/*.test.ts'],
-    setupFiles: ['./tests/vitest.setup.ts'],
-    // Integration tests share a single Postgres instance; run serially to avoid cross-test DB interference.
-    minThreads: 1,
-    maxThreads: 1,
-    fileParallelism: false,
-  },
+    resolve: {
+        alias: [
+            {
+                find: '@club-ops/shared',
+                replacement: path.resolve(__dirname, '../../packages/shared/src'),
+            },
+            {
+                find: '@',
+                replacement: path.resolve(__dirname, './src'),
+            },
+        ],
+    },
+    test: {
+        globals: true,
+        environment: 'node',
+        include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
+        pool: 'forks',
+        maxWorkers: 1,
+        isolate: false,
+        teardownTimeout: 10000,
+        forceExit: true,
+        reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
+    },
 });

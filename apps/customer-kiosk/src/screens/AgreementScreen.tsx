@@ -1,4 +1,4 @@
-import { ReactNode, RefObject, useEffect, useMemo, useState } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { I18nProvider, t, type Language } from '../i18n';
 import { ScreenShell } from '../components/ScreenShell';
 import { KioskNoticeBanner } from '../views/KioskNoticeBanner';
@@ -14,16 +14,12 @@ export interface Agreement {
 export interface AgreementScreenProps {
   customerPrimaryLanguage: Language | null | undefined;
   agreement: Agreement | null;
-  agreed: boolean;
   signatureData: string | null;
-  hasScrolledAgreement: boolean;
   isSubmitting: boolean;
   orientationOverlay: ReactNode;
   welcomeOverlay: ReactNode;
   notice?: KioskNotice | null;
-  agreementScrollRef: RefObject<HTMLDivElement>;
-  signatureCanvasRef: RefObject<HTMLCanvasElement>;
-  onAgreeChange: (agreed: boolean) => void;
+  signatureCanvasRef: React.RefObject<HTMLCanvasElement>;
   onSignatureStart: (
     e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>
   ) => void;
@@ -38,16 +34,12 @@ export interface AgreementScreenProps {
 export function AgreementScreen({
   customerPrimaryLanguage,
   agreement,
-  agreed,
   signatureData,
-  hasScrolledAgreement,
   isSubmitting,
   orientationOverlay,
   welcomeOverlay,
   notice,
-  agreementScrollRef,
   signatureCanvasRef,
-  onAgreeChange,
   onSignatureStart,
   onSignatureMove,
   onSignatureEnd,
@@ -58,15 +50,13 @@ export function AgreementScreen({
 
   const pulseSignButton = useMemo(() => {
     if (isSubmitting) return false;
-    if (!hasScrolledAgreement) return false;
-    return agreed && !signatureData;
-  }, [agreed, hasScrolledAgreement, isSubmitting, signatureData]);
+    return !signatureData;
+  }, [isSubmitting, signatureData]);
 
   const pulseSubmitButton = useMemo(() => {
     if (isSubmitting) return false;
-    if (!hasScrolledAgreement) return false;
-    return agreed && Boolean(signatureData);
-  }, [agreed, hasScrolledAgreement, isSubmitting, signatureData]);
+    return Boolean(signatureData);
+  }, [isSubmitting, signatureData]);
 
   useEffect(() => {
     if (!signatureModalOpen) return;
@@ -98,85 +88,27 @@ export function AgreementScreen({
 
             {/* Scroll region (must flex) */}
             <div className="ck-agreement-scroll-region">
-              {!hasScrolledAgreement && (
-                <div className="ck-glow-text ck-agreement-helper-text">
-                  {t(customerPrimaryLanguage, 'agreement.readAndScrollToContinue')}
-                </div>
-              )}
-
-              <div className="ck-agreement-scroll-shell">
-                <div className="ck-arrow-slot" aria-hidden="true">
-                  {!hasScrolledAgreement && (
-                    <div className="ck-arrow ck-arrow--down ck-arrow--bounce-y">↓</div>
-                  )}
-                </div>
-
-                <div className="agreement-scroll-wrap">
-                  <div ref={agreementScrollRef} className="agreement-scroll-area">
-                    {agreement?.bodyText ? (
-                      <div
-                        className="agreement-body"
-                        dangerouslySetInnerHTML={{ __html: agreement.bodyText }}
-                      />
-                    ) : (
-                      <p className="agreement-placeholder">
-                        {t(customerPrimaryLanguage, 'agreementPlaceholder')}
-                      </p>
-                    )}
-                  </div>
-                </div>
-
-                <div className="ck-arrow-slot" aria-hidden="true">
-                  {!hasScrolledAgreement && (
-                    <div className="ck-arrow ck-arrow--down ck-arrow--bounce-y">↓</div>
+              <div className="agreement-scroll-wrap">
+                <div className="agreement-scroll-area agreement-scroll-area--static">
+                  {agreement?.bodyText ? (
+                    <div
+                      className="agreement-body"
+                      dangerouslySetInnerHTML={{ __html: agreement.bodyText }}
+                    />
+                  ) : (
+                    <p className="agreement-placeholder">
+                      {t(customerPrimaryLanguage, 'agreementPlaceholder')}
+                    </p>
                   )}
                 </div>
               </div>
-
-              {!hasScrolledAgreement && (
-                <div className="ck-glow-text ck-agreement-helper-text ck-agreement-helper-text--bottom">
-                  {t(customerPrimaryLanguage, 'agreement.readAndScrollToContinue')}
-                </div>
-              )}
             </div>
 
             <div className="agreement-actions">
-              {/* Checkbox step */}
+              {/* Signature step */}
               <div className="ck-action-row">
                 <div className="ck-action-indicator" aria-hidden="true">
-                  {hasScrolledAgreement && !agreed && (
-                    <div className="ck-arrow ck-arrow--checkbox ck-arrow--bounce-x">▶</div>
-                  )}
-                </div>
-                <div className="ck-action-content ck-action-content--checkbox">
-                  <label className="checkbox-label">
-                    <input
-                      type="checkbox"
-                      checked={agreed}
-                      onChange={(e) => onAgreeChange(e.target.checked)}
-                      disabled={!hasScrolledAgreement}
-                    />
-                    <span>{t(customerPrimaryLanguage, 'iAgree')}</span>
-                  </label>
-                </div>
-              </div>
-
-              {!hasScrolledAgreement && (
-                <p className="scroll-warning">{t(customerPrimaryLanguage, 'scrollRequired')}</p>
-              )}
-
-              {hasScrolledAgreement && !agreed && (
-                <div className="ck-glow-text ck-checkbox-helper-text">
-                  {t(customerPrimaryLanguage, 'agreement.pleaseCheckToContinue')}
-                </div>
-              )}
-
-              {/* Signature step (arrow moves here after checkbox is checked) */}
-              <div className="ck-action-row">
-                <div className="ck-action-indicator" aria-hidden="true">
-                  {hasScrolledAgreement && agreed && !signatureData && !isSubmitting && (
-                    <div className="ck-arrow ck-arrow--checkbox ck-arrow--bounce-x">▶</div>
-                  )}
+                  {/* intentionally empty */}
                 </div>
                 <div className="ck-action-content ck-action-content--center">
                   <button
@@ -189,7 +121,7 @@ export function AgreementScreen({
                       .filter(Boolean)
                       .join(' ')}
                     onClick={() => setSignatureModalOpen(true)}
-                    disabled={!hasScrolledAgreement || !!signatureData}
+                    disabled={!!signatureData}
                   >
                     {signatureData ? (
                       <span className="agreement-signature-button__content">
@@ -215,7 +147,7 @@ export function AgreementScreen({
                     .filter(Boolean)
                     .join(' ')}
                   onClick={onSubmit}
-                  disabled={!agreed || !signatureData || !hasScrolledAgreement || isSubmitting}
+                  disabled={!signatureData || isSubmitting}
                 >
                   {isSubmitting
                     ? t(customerPrimaryLanguage, 'submitting')

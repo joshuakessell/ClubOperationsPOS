@@ -1,20 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
-import { getApiUrl } from '@club-ops/shared';
+// Intentionally no direct `fetch` usage in this view; use `src/api/*` modules.
+import {
+  closeTimeclockSession,
+  fetchTimeclockSessions,
+  updateTimeclockSession,
+} from './api/timeclock';
 
-const API_BASE = getApiUrl('/api');
 
-interface TimeclockSession {
-  id: string;
-  employeeId: string;
-  employeeName: string;
-  shiftId: string | null;
-  clockInAt: string;
-  clockOutAt: string | null;
-  source: string;
-  notes: string | null;
-}
+import type { TimeclockSession } from './api/timeclock';
 
 interface TimeclockViewProps {
   session: StaffSession;
@@ -40,16 +35,9 @@ export function TimeclockView({ session }: TimeclockViewProps) {
 
   const fetchCurrentlyClockedIn = useCallback(async () => {
     try {
-      const response = await fetch(
-        `${API_BASE}/v1/admin/timeclock?from=${new Date().toISOString().split('T')[0]}`,
-        {
-          headers: { Authorization: `Bearer ${session.sessionToken}` },
-        }
-      );
-      if (response.ok) {
-        const data = await response.json();
-        setCurrentlyClockedIn(data.filter((s: TimeclockSession) => !s.clockOutAt));
-      }
+      const today = new Date().toISOString().split('T')[0]!;
+      const data = await fetchTimeclockSessions(session.sessionToken, `from=${today}`);
+      setCurrentlyClockedIn(data.sessions.filter((s) => !s.clockOutAt));
     } catch (error) {
       console.error('Failed to fetch currently clocked in:', error);
     }
@@ -62,13 +50,8 @@ export function TimeclockView({ session }: TimeclockViewProps) {
       if (dateFrom) params.append('from', `${dateFrom}T00:00:00Z`);
       if (dateTo) params.append('to', `${dateTo}T23:59:59Z`);
 
-      const response = await fetch(`${API_BASE}/v1/admin/timeclock?${params}`, {
-        headers: { Authorization: `Bearer ${session.sessionToken}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setSessions(data);
-      }
+      const data = await fetchTimeclockSessions(session.sessionToken, params.toString());
+      setSessions(data.sessions);
       await fetchCurrentlyClockedIn();
     } catch (error) {
       console.error('Failed to fetch timeclock sessions:', error);
@@ -88,19 +71,8 @@ export function TimeclockView({ session }: TimeclockViewProps) {
 
   const handleCloseSession = async (sessionId: string) => {
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/timeclock/${sessionId}/close`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ notes: 'Closed by manager' }),
-      });
-      if (response.ok) {
-        await fetchSessions();
-      } else {
-        alert('Failed to close session');
-      }
+      await closeTimeclockSession(session.sessionToken, sessionId);
+      await fetchSessions();
     } catch (error) {
       console.error('Failed to close session:', error);
       alert('Failed to close session');
@@ -415,21 +387,10 @@ export function TimeclockView({ session }: TimeclockViewProps) {
           }}
           onSave={async (updates) => {
             try {
-              const response = await fetch(`${API_BASE}/v1/admin/timeclock/${selectedSession.id}`, {
-                method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${session.sessionToken}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(updates),
-              });
-              if (response.ok) {
-                await fetchSessions();
-                setShowEditModal(false);
-                setSelectedSession(null);
-              } else {
-                alert('Failed to update session');
-              }
+              await updateTimeclockSession(session.sessionToken, selectedSession.id, updates);
+              await fetchSessions();
+              setShowEditModal(false);
+              setSelectedSession(null);
             } catch (error) {
               console.error('Failed to update session:', error);
               alert('Failed to update session');

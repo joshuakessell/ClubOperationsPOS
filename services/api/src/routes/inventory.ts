@@ -162,7 +162,6 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
                status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
                OR assigned_to_customer_id IS NOT NULL
              )
-             AND status != 'OUT_OF_SERVICE'
            ORDER BY number`
         );
 
@@ -176,7 +175,6 @@ export async function inventoryRoutes(fastify: FastifyInstance): Promise<void> {
              status IN ('OCCUPIED', 'DIRTY', 'CLEANING')
              OR assigned_to_customer_id IS NOT NULL
            )
-             AND status != 'OUT_OF_SERVICE'
            ORDER BY number`
         );
 

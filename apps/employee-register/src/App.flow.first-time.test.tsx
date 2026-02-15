@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import { buildRealtimeAuthResponse, setupRegisterAppTest } from './test-utils/registerAppTestUtils';
@@ -19,7 +19,7 @@ describe('App flow: first time customer', () => {
     );
 
     const calls: Array<{ url: string; body?: unknown }> = [];
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const u =
           typeof url === 'string'

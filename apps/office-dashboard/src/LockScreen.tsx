@@ -1,15 +1,8 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { LiquidGlassPinInput } from '@club-ops/ui';
-import { getApiUrl } from '@club-ops/shared';
-
-const API_BASE = getApiUrl('/api');
-
-export interface StaffSession {
-  staffId: string;
-  name: string;
-  role: 'STAFF' | 'ADMIN';
-  sessionToken: string;
-}
+import type { StaffSession } from './api/staffAuth';
+export type { StaffSession } from './api/staffAuth';
+import { fetchAuthStaff, loginPin } from './api/staffAuth';
 
 interface LockScreenProps {
   onLogin: (session: StaffSession) => void;
@@ -35,24 +28,17 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
   useEffect(() => {
     const loadEmployees = async () => {
       try {
-        const response = await fetch(`${API_BASE}/v1/auth/staff`);
-        if (response.ok) {
-          const data = await response.json();
-          const staffList: Employee[] = (data.staff || []).map(
-            (staff: { id: string; name: string; role: 'STAFF' | 'ADMIN' }) => ({
-              id: staff.id,
-              name: staff.name,
-              role: staff.role,
-              description:
-                staff.role === 'ADMIN'
-                  ? 'Admin — Monitor, Waitlist, Reports, Customer Tools'
-                  : 'Staff — Schedule, Messages (stub)',
-            })
-          );
-          setEmployees(staffList);
-        } else {
-          setError('Failed to load staff list');
-        }
+        const data = await fetchAuthStaff();
+        const staffList: Employee[] = (data.staff || []).map((staff) => ({
+          id: staff.id,
+          name: staff.name,
+          role: staff.role,
+          description:
+            staff.role === 'ADMIN'
+              ? 'Admin — Monitor, Waitlist, Reports, Customer Tools'
+              : 'Staff — Schedule, Messages (stub)',
+        }));
+        setEmployees(staffList);
       } catch (error) {
         console.error('Failed to load employees:', error);
         setError('Failed to load staff list');
@@ -88,31 +74,12 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
     setError(null);
 
     try {
-      const response = await fetch(`${API_BASE}/v1/auth/login-pin`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          staffLookup: selectedEmployee.name,
-          deviceId,
-          pin: pin.trim(),
-          deviceType: deviceType,
-        }),
+      const session = await loginPin({
+        staffLookup: selectedEmployee.name,
+        deviceId,
+        pin: pin.trim(),
+        deviceType: deviceType,
       });
-
-      if (!response.ok) {
-        let errorMessage = 'Login failed';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorData.error || 'Login failed';
-          console.error('Login API error:', errorData);
-        } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
-          errorMessage = `Login failed (${response.status} ${response.statusText})`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      const session: StaffSession = await response.json();
 
       onLogin(session);
       setPin('');

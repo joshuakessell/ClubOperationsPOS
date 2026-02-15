@@ -1,20 +1,20 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { StaffSession } from './LockScreen';
 import { ApiError, apiJson } from './api';
 import { ReAuthModal } from './ReAuthModal';
 import { PanelContent } from './views/PanelContent';
 import { PanelHeader } from './views/PanelHeader';
 import { PanelShell } from './views/PanelShell';
-import { RaisedCard } from './views/RaisedCard';
+import {
+  CustomerAdminDetailPanel,
+  type ActivityEvent,
+  type AgreementVisit,
+  type CustomerAdminSummary,
+  type CustomerNote,
+  type SpendGroup,
+} from './CustomerAdminDetailPanel';
 
-type Customer = {
-  id: string;
-  name: string;
-  membershipNumber: string | null;
-  primaryLanguage: 'EN' | 'ES' | null;
-  notes: string | null;
-  pastDueBalance: number;
-};
+type Customer = CustomerAdminSummary;
 
 export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
   const [q, setQ] = useState('');
@@ -24,8 +24,22 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
   const [error, setError] = useState<string | null>(null);
   const [reauthOpen, setReauthOpen] = useState(false);
   const [pendingAction, setPendingAction] = useState<null | {
-    type: 'clearNotes' | 'waivePastDue';
+    type: 'waivePastDue';
   }>(null);
+
+  const [structuredNotes, setStructuredNotes] = useState<CustomerNote[]>([]);
+  const [structuredNotesBusy, setStructuredNotesBusy] = useState(false);
+  const [newNoteText, setNewNoteText] = useState('');
+  const [newNoteImportant, setNewNoteImportant] = useState(false);
+
+  const [activityEvents, setActivityEvents] = useState<ActivityEvent[]>([]);
+  const [activityBusy, setActivityBusy] = useState(false);
+
+  const [spendGroups, setSpendGroups] = useState<SpendGroup[]>([]);
+  const [spendBusy, setSpendBusy] = useState(false);
+
+  const [agreementVisits, setAgreementVisits] = useState<AgreementVisit[]>([]);
+  const [agreementsBusy, setAgreementsBusy] = useState(false);
 
   const canSearch = q.trim().length >= 2;
 
@@ -51,9 +65,101 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
     setError(null);
   };
 
-  const performAdminUpdate = async (action: 'clearNotes' | 'waivePastDue') => {
+  const loadPanels = async (customerId: string, centerEventId?: string | null) => {
+    setStructuredNotesBusy(true);
+    setActivityBusy(true);
+    setSpendBusy(true);
+    setAgreementsBusy(true);
+    try {
+      const [notesRes, activityRes, spendRes, agreementsRes] = await Promise.all([
+        apiJson<{ notes: CustomerNote[] }>(`/v1/customers/${customerId}/notes?limit=50`, {
+          sessionToken: session.sessionToken,
+        }),
+        apiJson<{ events: ActivityEvent[]; centerEventId: string | null }>(
+          `/v1/admin/customers/${customerId}/activity-log?limit=41${
+            centerEventId ? `&centerEventId=${encodeURIComponent(centerEventId)}` : ''
+          }`,
+          { sessionToken: session.sessionToken }
+        ),
+        apiJson<{ groups: SpendGroup[] }>(`/v1/customers/${customerId}/spend-ledger?limit=50`, {
+          sessionToken: session.sessionToken,
+        }),
+        apiJson<{ visits: AgreementVisit[] }>(`/v1/admin/customers/${customerId}/agreements?limit=25`, {
+          sessionToken: session.sessionToken,
+        }),
+      ]);
+
+      setStructuredNotes(Array.isArray(notesRes.notes) ? notesRes.notes : []);
+      setActivityEvents(Array.isArray(activityRes.events) ? activityRes.events : []);
+      setSpendGroups(Array.isArray(spendRes.groups) ? spendRes.groups : []);
+      setAgreementVisits(Array.isArray(agreementsRes.visits) ? agreementsRes.visits : []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to load customer panels');
+    } finally {
+      setStructuredNotesBusy(false);
+      setActivityBusy(false);
+      setSpendBusy(false);
+      setAgreementsBusy(false);
+    }
+  };
+
+  const createStructuredNote = async () => {
     if (!selected) return;
-    const body = action === 'clearNotes' ? { notes: '' } : { pastDueBalance: 0 };
+    const trimmed = newNoteText.trim();
+    if (!trimmed) return;
+
+    try {
+      setStructuredNotesBusy(true);
+      await apiJson(`/v1/customers/${selected.id}/notes`, {
+        sessionToken: session.sessionToken,
+        method: 'POST',
+        body: { note: trimmed, isImportant: newNoteImportant, sourceApp: 'OFFICE_DASHBOARD' },
+      });
+      setNewNoteText('');
+      setNewNoteImportant(false);
+      await loadPanels(selected.id, null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to create note');
+    } finally {
+      setStructuredNotesBusy(false);
+    }
+  };
+
+  // Deep link support: /customers?customerId=...&centerEventId=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const customerId = params.get('customerId');
+    const centerEventId = params.get('centerEventId');
+    if (!customerId) return;
+
+    // If the customer is already selected, just load panels.
+    if (selected?.id === customerId) {
+      void loadPanels(customerId, centerEventId);
+      return;
+    }
+
+    // Fetch minimal customer for selection.
+    void (async () => {
+      try {
+        const data = await apiJson<{ customers: Customer[] }>(
+          `/v1/admin/customers?search=${encodeURIComponent(customerId)}&limit=1`,
+          { sessionToken: session.sessionToken }
+        );
+        const found = (data.customers || []).find((c) => c.id === customerId) ?? null;
+        if (found) {
+          setSelected(found);
+          await loadPanels(found.id, centerEventId);
+        }
+      } catch {
+        // Ignore deep-link failure.
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const performAdminUpdate = async (action: 'waivePastDue') => {
+    if (!selected) return;
+    const body = { pastDueBalance: 0 };
 
     try {
       setError(null);
@@ -155,7 +261,7 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
               {busy ? 'Searching…' : 'Search'}
             </button>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-              Admin can clear notes and waive past-due balance (requires re-auth).
+              Admin can waive past-due balance (requires re-auth).
             </div>
           </div>
         </PanelContent>
@@ -217,67 +323,27 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
                 <p>Select a customer to view/edit details.</p>
               </div>
             ) : (
-              <>
-                <table className="rooms-table" style={{ marginBottom: '1rem' }}>
-                  <tbody>
-                    <tr>
-                      <td style={{ color: 'var(--text-muted)' }}>Customer ID</td>
-                      <td style={{ fontFamily: 'monospace' }}>{selected.id}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ color: 'var(--text-muted)' }}>Primary Language</td>
-                      <td>{selected.primaryLanguage || '—'}</td>
-                    </tr>
-                    <tr>
-                      <td style={{ color: 'var(--text-muted)' }}>Past Due Balance</td>
-                      <td
-                        style={{
-                          fontWeight: 800,
-                          color: selected.pastDueBalance > 0 ? 'var(--warning)' : 'var(--text)',
-                        }}
-                      >
-                        ${selected.pastDueBalance.toFixed(2)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-
-                <RaisedCard style={{ marginBottom: '1rem' }}>
-                  <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Notes</div>
-                  <pre
-                    style={{
-                      whiteSpace: 'pre-wrap',
-                      margin: 0,
-                      color: selected.notes ? 'var(--text)' : 'var(--text-muted)',
-                    }}
-                  >
-                    {selected.notes?.trim() ? selected.notes : 'No notes.'}
-                  </pre>
-                  <div style={{ marginTop: '0.75rem' }}>
-                    <button
-                      className="cs-liquid-button cs-liquid-button--secondary"
-                      disabled={busy}
-                      onClick={() => performAdminUpdate('clearNotes')}
-                    >
-                      Clear Notes (admin)
-                    </button>
-                  </div>
-                </RaisedCard>
-
-                <RaisedCard>
-                  <div style={{ fontWeight: 700, marginBottom: '0.5rem' }}>Past Due</div>
-                  <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                    Waiving past due sets the customer’s past due balance to $0.00.
-                  </div>
-                  <button
-                    className="btn-secondary"
-                    disabled={busy || selected.pastDueBalance <= 0}
-                    onClick={() => performAdminUpdate('waivePastDue')}
-                  >
-                    Waive Past Due (admin)
-                  </button>
-                </RaisedCard>
-              </>
+              <CustomerAdminDetailPanel
+                customer={selected}
+                structuredNotes={structuredNotes}
+                structuredNotesBusy={structuredNotesBusy}
+                newNoteText={newNoteText}
+                newNoteImportant={newNoteImportant}
+                onNewNoteTextChange={setNewNoteText}
+                onNewNoteImportantChange={setNewNoteImportant}
+                onCreateStructuredNote={() => void createStructuredNote()}
+                activityEvents={activityEvents}
+                activityBusy={activityBusy}
+                spendGroups={spendGroups}
+                spendBusy={spendBusy}
+                agreementVisits={agreementVisits}
+                agreementsBusy={agreementsBusy}
+                onWaivePastDue={() => performAdminUpdate('waivePastDue')}
+                canWaivePastDue={selected.pastDueBalance > 0}
+                busy={busy}
+                sessionToken={session.sessionToken}
+                onError={(message) => setError(message)}
+              />
             )}
           </PanelContent>
         </PanelShell>

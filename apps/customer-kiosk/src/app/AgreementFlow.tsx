@@ -44,17 +44,12 @@ export function AgreementFlow({
   showNotice,
 }: AgreementFlowProps) {
   const [agreement, setAgreement] = useState<Agreement | null>(null);
-  const [agreed, setAgreed] = useState(false);
   const [signatureData, setSignatureData] = useState<string | null>(null);
-  const [hasScrolledAgreement, setHasScrolledAgreement] = useState(false);
   const signatureCanvasRef = useRef<HTMLCanvasElement>(null);
-  const agreementScrollRef = useRef<HTMLDivElement>(null);
   const isDrawingRef = useRef(false);
 
   useEffect(() => {
-    setAgreed(false);
     setSignatureData(null);
-    setHasScrolledAgreement(false);
   }, [session.sessionId]);
 
   useEffect(() => {
@@ -70,18 +65,6 @@ export function AgreementFlow({
     ctx.lineJoin = 'round';
   }, [session.sessionId]);
 
-  useEffect(() => {
-    const scrollArea = agreementScrollRef.current;
-    if (!scrollArea) return;
-    const handleScroll = () => {
-      const { scrollTop, scrollHeight, clientHeight } = scrollArea;
-      if (scrollTop + clientHeight >= scrollHeight - 10) {
-        setHasScrolledAgreement(true);
-      }
-    };
-    scrollArea.addEventListener('scroll', handleScroll);
-    return () => scrollArea.removeEventListener('scroll', handleScroll);
-  }, [session.sessionId]);
 
   useEffect(() => {
     if (!session.sessionId) return;
@@ -169,7 +152,7 @@ export function AgreementFlow({
   };
 
   const handleSubmitAgreement = async () => {
-    if (!agreed || !signatureData || !session.sessionId || !hasScrolledAgreement) {
+    if (!signatureData || !session.sessionId) {
       const lang = session.customerPrimaryLanguage;
       showNotice({ tone: 'warning', title: t(lang, 'signatureRequired') });
       return;
@@ -213,16 +196,12 @@ export function AgreementFlow({
     <AgreementScreen
       customerPrimaryLanguage={session.customerPrimaryLanguage}
       agreement={agreement}
-      agreed={agreed}
       signatureData={signatureData}
-      hasScrolledAgreement={hasScrolledAgreement}
       isSubmitting={isSubmitting}
       orientationOverlay={orientationOverlay}
       welcomeOverlay={welcomeOverlay}
       notice={notice}
-      agreementScrollRef={agreementScrollRef}
       signatureCanvasRef={signatureCanvasRef}
-      onAgreeChange={setAgreed}
       onSignatureStart={handleSignatureStart}
       onSignatureMove={handleSignatureMove}
       onSignatureEnd={handleSignatureEnd}

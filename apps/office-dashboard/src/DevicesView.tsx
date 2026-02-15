@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
-import { getApiUrl } from '@club-ops/shared';
-
-const API_BASE = getApiUrl('/api');
+import { createDevice, fetchDevices, updateDevice } from './api/devices';
 
 interface Device {
   deviceId: string;
@@ -25,17 +23,10 @@ export function DevicesView({ session }: DevicesViewProps) {
   const [adding, setAdding] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
 
-  const fetchDevices = useCallback(async () => {
+  const refreshDevices = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/devices`, {
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-        },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setDevices(data);
-      }
+      const data = await fetchDevices(session.sessionToken);
+      setDevices(data.devices);
     } catch (error) {
       console.error('Failed to fetch devices:', error);
     } finally {
@@ -44,8 +35,8 @@ export function DevicesView({ session }: DevicesViewProps) {
   }, [session.sessionToken]);
 
   useEffect(() => {
-    fetchDevices();
-  }, [fetchDevices]);
+    refreshDevices();
+  }, [refreshDevices]);
 
   const enabledCount = devices.filter((d) => d.enabled).length;
   const canAddMore = enabledCount < 2;
@@ -58,27 +49,14 @@ export function DevicesView({ session }: DevicesViewProps) {
 
     setAdding(true);
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/devices`, {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          deviceId: newDeviceId.trim(),
-          displayName: newDeviceName.trim(),
-        }),
+      await createDevice(session.sessionToken, {
+        deviceId: newDeviceId.trim(),
+        displayName: newDeviceName.trim(),
       });
-
-      if (response.ok) {
-        await fetchDevices();
-        setShowAddModal(false);
-        setNewDeviceId('');
-        setNewDeviceName('');
-      } else {
-        const error = await response.json();
-        alert(error.message || 'Failed to add device');
-      }
+      await refreshDevices();
+      setShowAddModal(false);
+      setNewDeviceId('');
+      setNewDeviceName('');
     } catch (error) {
       console.error('Failed to add device:', error);
       alert('Failed to add device');
@@ -95,23 +73,8 @@ export function DevicesView({ session }: DevicesViewProps) {
 
     setToggling(deviceId);
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/devices/${deviceId}`, {
-        method: 'PATCH',
-        headers: {
-          Authorization: `Bearer ${session.sessionToken}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          enabled: !currentEnabled,
-        }),
-      });
-
-      if (response.ok) {
-        await fetchDevices();
-      } else {
-        const error = await response.json();
-        alert(error.message || 'Failed to update device');
-      }
+      await updateDevice(session.sessionToken, deviceId, { enabled: !currentEnabled });
+      await refreshDevices();
     } catch (error) {
       console.error('Failed to toggle device:', error);
       alert('Failed to update device');

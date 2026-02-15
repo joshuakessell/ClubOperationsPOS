@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, vi } from 'vitest';
+import { beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
 const globalWithAct = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -62,28 +62,43 @@ const RealtimeSocketMock = vi.fn((url?: string) => {
         listeners[type] = listeners[type].filter((h) => h !== handler);
       }
     ),
-    close: vi.fn(),
+    close: vi.fn(() => {
+      if (ws.readyState === 3) return; // already closed
+      ws.readyState = 3;
+      // Note: do NOT fire onclose listeners here. In a real WebSocket the 'close'
+      // event fires asynchronously, but during test teardown the React component is
+      // already unmounted. Firing onclose would trigger reconnection logic creating
+      // new real timers that keep the process alive.
+    }) as ReturnType<typeof vi.fn>,
     send: vi.fn(),
   };
 
   Object.defineProperty(ws, 'onmessage', {
     configurable: true,
     get() {
-      return (ev: { data: string }) => {
-        assignedOnMessage?.(ev);
-        for (const fn of listeners.message) fn(ev);
-      };
+      return assignedOnMessage;
     },
     set(fn: ((ev: { data: string }) => unknown) | null) {
       assignedOnMessage = fn;
     },
   });
 
+  // Ensure message listeners added via addEventListener still fire even if the
+  // transport overwrites ws.onmessage.
+  (ws as unknown as { __emitMessage?: (ev: { data: string }) => void }).__emitMessage = (
+    ev: { data: string }
+  ) => {
+    assignedOnMessage?.(ev);
+    for (const fn of listeners.message) fn(ev);
+  };
+
   lastSocket = ws;
   createdSockets.push(ws);
   void Promise.resolve().then(() => {
     ws.onopen?.(new Event('open'));
-    ws.onmessage?.({ data: JSON.stringify({ type: 'connection_ack' }) });
+    (ws as unknown as { __emitMessage?: (ev: { data: string }) => void }).__emitMessage?.({
+      data: JSON.stringify({ type: 'connection_ack' }),
+    });
   });
   return ws;
 }) as unknown as typeof WebSocket;
@@ -174,6 +189,9 @@ export function setupKioskAppTest() {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    // Start with real timers; individual tests can opt into fake timers.
+    // Some app flows rely on real `fetch`/Promise timing and will hang if we
+    // globally fake timers without advancing them.
     vi.useRealTimers();
     lastSocket = null;
     createdSockets.length = 0;
@@ -208,7 +226,7 @@ export function setupKioskAppTest() {
     }
 
     App = (await import('../App')).default;
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const u =
           typeof url === 'string'
@@ -227,13 +245,14 @@ export function setupKioskAppTest() {
           );
         }
         if (u.includes('/v1/inventory/available')) {
+          // Default to a non-waitlist path so selection/membership CTAs are visible in tests.
           return Promise.resolve(
             makeJsonResponse({
-              rooms: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
-              rawRooms: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
+              rooms: { SPECIAL: 1, DOUBLE: 1, STANDARD: 1 },
+              rawRooms: { SPECIAL: 1, DOUBLE: 1, STANDARD: 1 },
               waitlistDemand: { SPECIAL: 0, DOUBLE: 0, STANDARD: 0 },
-              lockers: 0,
-              total: 0,
+              lockers: 10,
+              total: 13,
             })
           );
         }
@@ -265,6 +284,10 @@ export function setupKioskAppTest() {
 
   afterEach(() => {
     cleanup();
+    // Some kiosk hooks use polling/retry timers (setTimeout/setInterval).
+    // Ensure no timers leak across tests and keep the runner alive.
+    vi.clearAllTimers();
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 

@@ -2,6 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/middleware';
 import { query, transaction } from '../db';
+import { insertCustomerActivityEvent } from '../activity/customerActivityLog';
+import { insertCustomerSpendLedgerEntry } from '../ledger/customerSpendLedger';
 
 const CreateOrderSchema = z.object({
   customerId: z.string().uuid().optional().nullable(),
@@ -314,7 +316,61 @@ export async function orderRoutes(fastify: FastifyInstance): Promise<void> {
             [subtotalCents, discountCents, taxCents, tipCents, totalCents, order.id]
           );
 
-          return updated.rows[0]!;
+          const paidOrder = updated.rows[0]!;
+
+          if (paidOrder.customer_id) {
+            const ledger = await insertCustomerSpendLedgerEntry(client, {
+              customerId: paidOrder.customer_id,
+              visitId: (paidOrder.metadata_json as any)?.visitId ?? null,
+              entryType: 'ORDER_PAID',
+              amountCents: paidOrder.total_cents,
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: request.staff!.staffId,
+              actorStaffName: request.staff!.name,
+              summary: 'Order paid',
+              metadata: {
+                orderId: paidOrder.id,
+                registerSessionId: paidOrder.register_session_id,
+                totalCents: paidOrder.total_cents,
+                tipCents: paidOrder.tip_cents,
+              },
+              dedupeKey: `LEDGER:ORDER_PAID:${paidOrder.id}`,
+            });
+
+            const event = await insertCustomerActivityEvent(client, {
+              customerId: paidOrder.customer_id,
+              actionType: 'ORDER_PAID',
+              actionCategory: 'PURCHASE',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: request.staff!.staffId,
+              actorStaffName: request.staff!.name,
+              summary: `Order paid ($${(paidOrder.total_cents / 100).toFixed(2)})`,
+              metadata: {
+                orderId: paidOrder.id,
+                totalCents: paidOrder.total_cents,
+                spendLedgerEntryId: ledger.id,
+              },
+              dedupeKey: `ACT:ORDER_PAID:${paidOrder.id}`,
+              searchParts: [paidOrder.id],
+            });
+
+            request.log.info(
+              {
+                customerActivityEventId: event.id,
+                customerId: paidOrder.customer_id,
+                actionType: 'ORDER_PAID',
+                actionCategory: 'PURCHASE',
+                sourceApp: 'EMPLOYEE_REGISTER',
+                actorType: 'STAFF',
+                actorStaffId: request.staff!.staffId,
+              },
+              'customer_activity_event'
+            );
+          }
+
+          return paidOrder;
         });
 
         return reply.send({

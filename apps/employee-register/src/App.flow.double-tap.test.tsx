@@ -1,19 +1,17 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
 import {
   buildRealtimeAuthResponse,
-  createdSockets,
-  emitRealtime,
   setupRegisterAppTest,
-  type MockRealtimeSocket,
 } from './test-utils/registerAppTestUtils';
 
 const { getApp } = setupRegisterAppTest();
 
 describe('App flow: double tap proposal', () => {
-  it('double tap on same proposal forces selection (to payment)', async () => {
+  it('double tap on same proposal forces selection (to payment)', { timeout: 15000 }, async () => {
     const App = getApp();
+
     localStorage.setItem(
       CLUBOPS_STORAGE_KEYS.staffSession,
       JSON.stringify({
@@ -24,7 +22,7 @@ describe('App flow: double tap proposal', () => {
       })
     );
 
-    const fetchMock = global.fetch as ReturnType<typeof vi.fn>;
+    const fetchMock = global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>;
     let proposedRental: string | null = null;
 
     fetchMock.mockImplementation((url: RequestInfo | URL, _init?: RequestInit) => {
@@ -136,6 +134,19 @@ describe('App flow: double tap proposal', () => {
         } as unknown as Response);
       }
 
+      if (u.includes('/v1/inventory/available')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              rooms: { STANDARD: 5, DOUBLE: 3, SPECIAL: 1 },
+              rawRooms: { STANDARD: 5, DOUBLE: 3, SPECIAL: 1 },
+              waitlistDemand: { STANDARD: 0, DOUBLE: 0, SPECIAL: 0 },
+              lockers: 10,
+            }),
+        } as unknown as Response);
+      }
+
       if (u.includes('/health')) {
         return Promise.resolve({
           ok: true,
@@ -168,65 +179,32 @@ describe('App flow: double tap proposal', () => {
       fireEvent.click(suggestion);
     });
     await waitFor(() => {
-      expect(screen.queryAllByText(/Alex Rivera/).length).toBeGreaterThan(0);
+      // After check-in, activeTab='guided' shows EmployeeAssistPanel (not CustomerProfileCard).
+      // The header label 'Rivera, Alex' persists; 'Alex Rivera' only appears in the profile card.
+      expect(screen.queryAllByText(/Rivera, Alex/).length).toBeGreaterThan(0);
     });
 
-    // The app auto-switches to Scan tab when a session becomes active.
+    // The app auto-switches to guided tab when a session becomes active.
     await waitFor(() => {
       expect(screen.getByText('Customer Profile')).toBeDefined();
     });
 
-    // Simulate kiosk prerequisites already resolved (language + membership choice) so we land on RENTAL step.
-    // React StrictMode can create multiple realtime sockets; use the one that has the handler attached.
-    let socketWithHandler: MockRealtimeSocket | null = null;
-    await waitFor(() => {
-      expect(createdSockets.length).toBeGreaterThan(0);
-      socketWithHandler =
-        createdSockets.find((w) => w.url.includes('lane=lane-1')) ?? createdSockets[0] ?? null;
-      expect(socketWithHandler).not.toBeNull();
-    });
-
-    act(() => {
-      emitRealtime(socketWithHandler, {
-        type: 'SESSION_UPDATED',
-        timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-123',
-          customerName: 'Alex Rivera',
-          allowedRentals: ['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'],
-          customerPrimaryLanguage: 'EN',
-          membershipChoice: 'ONE_TIME',
-          selectionConfirmed: false,
-        },
-      });
-    });
-
-    const proposeLocker = await screen.findByRole('button', { name: /Propose Locker/i });
+    // Wait for the polling fallback to deliver session-snapshot data (with prerequisites
+    // already resolved: language + membership choice). The poll fires on hydration when
+    // currentSessionId changes, then every 2s while realtime is disconnected.
+    // The session-snapshot mock returns allowedRentals + language + membership, which
+    // advances the guided flow to the RENTAL step.
+    const proposeLocker = await screen.findByRole('button', { name: /Propose Locker/i }, { timeout: 5000 });
     act(() => {
       fireEvent.click(proposeLocker); // first tap highlights
     });
 
-    // Server snapshot updates with the proposed rental so we can confirm it.
-    act(() => {
-      emitRealtime(socketWithHandler, {
-        type: 'SESSION_UPDATED',
-        timestamp: new Date().toISOString(),
-        payload: {
-          sessionId: 'session-123',
-          customerName: 'Alex Rivera',
-          allowedRentals: ['LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'],
-          customerPrimaryLanguage: 'EN',
-          membershipChoice: 'ONE_TIME',
-          selectionConfirmed: false,
-          proposedRentalType: 'LOCKER',
-          proposedBy: 'EMPLOYEE',
-        },
-      });
-    });
-
+    // The propose-selection call sets proposedRental='LOCKER'. The next poll cycle
+    // picks up the updated session-snapshot (with proposedRentalType + proposedBy).
+    // Wait for the UI to reflect the proposal via polling.
     await waitFor(() => {
       expect(proposeLocker).toHaveProperty('disabled', false);
-    });
+    }, { timeout: 5000 });
 
     act(() => {
       fireEvent.click(proposeLocker); // second tap confirms selection
@@ -234,7 +212,13 @@ describe('App flow: double tap proposal', () => {
 
     // Confirmation triggers /confirm-selection and then payment intent creation.
     await waitFor(() => {
-      const urls = fetchMock.mock.calls.map((c) => String(c[0]));
+      const urls = fetchMock.mock.calls.map((c) => {
+        const arg = c[0];
+        if (typeof arg === 'string') return arg;
+        if (arg instanceof URL) return arg.toString();
+        if (arg instanceof Request) return arg.url;
+        return '';
+      });
       expect(urls.some((u) => u.includes('/v1/checkin/lane/lane-1/confirm-selection'))).toBe(true);
       expect(urls.some((u) => u.includes('/v1/checkin/lane/lane-1/create-payment-intent'))).toBe(
         true

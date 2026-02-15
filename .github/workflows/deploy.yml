@@ -52,100 +52,122 @@ jobs:
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
+  
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
-      - name: Install session-manager-plugin
+      # --- API Deployment ---
+      - name: Build API & shared packages
+        run: pnpm turbo run build --filter @club-ops/api --force
+
+      - name: Build & Push API Docker Image
+        env:
+          ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
         run: |
-          curl -sSL -o /tmp/session-manager-plugin.deb \
-            https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb
-          sudo dpkg -i /tmp/session-manager-plugin.deb
-          echo "/usr/local/sessionmanagerplugin/bin" >> $GITHUB_PATH
+          IMAGE_TAG="dev-${{ github.sha }}"
+          LATEST_TAG="dev-latest"
+          
+          docker build -t "$ECR_REPO_URI:$IMAGE_TAG" -f services/api/Dockerfile .
+          docker tag "$ECR_REPO_URI:$IMAGE_TAG" "$ECR_REPO_URI:$LATEST_TAG"
+          
+          docker push "$ECR_REPO_URI:$IMAGE_TAG"
+          docker push "$ECR_REPO_URI:$LATEST_TAG"
+          
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
-      - name: Seed demo DB via SSM tunnel
+      - name: Deploy API to App Runner
         env:
-          DEMO_INCREMENTAL: 'true'
-          DEMO_RESET_ON_STARTUP: 'true'
-          DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
-          LOG_PATH: /tmp/ssm-tunnel.log
-          TUNNEL_READY_TIMEOUT_SECONDS: '60'
-          KILL_PORT_LISTENER: 'true'
-          SKIP_PNPM_INSTALL: 'false'
-          SKIP_SHARED_BUILD: 'false'
-        run: scripts/aws/seed-demo-via-ssm.sh
-
-      - name: Deploy API (App Runner)
-        env:
-          AWS_REGION: us-east-1
           APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
           DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
           KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
-          APPSYNC_EVENTS_HTTP_ENDPOINT: https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event
-          APPSYNC_EVENTS_CHANNEL_NAMESPACE: club-ops
-          LOG_LEVEL: info
-          DEMO_MODE: 'true'
-          DEMO_RESET_ON_STARTUP: 'true'
-          DEMO_SHIFT_REGENERATE_PDFS: 'true'
-          SKIP_DB_MIGRATIONS: 'true'
-          SKIP_DEMO_SEED: 'true'
-          SKIP_DB_VERIFY: 'true'
-          SEED_ON_STARTUP: 'false'
-          DEMO_INCREMENTAL: 'true'
-          DEMO_FORCE_RESEED: 'false'
-          DB_SSL: 'true'
-          DB_SSL_CA_PATH: ''
-          DB_LOG_QUERIES: 'false'
-          SKIP_PNPM_INSTALL: 'false'
-          IMAGE_TAG: dev-${{ github.sha }}
-          PUSH_DEV_LATEST_TAG: 'false'
-        run: scripts/aws/deploy-api.sh
+        run: |
+          # Build JSON payload for update-service.
+          # RuntimeEnvironmentSecrets: App Runner resolves these ARNs to
+          # plaintext at container startup (e.g. DATABASE_URL, KIOSK_TOKEN).
+          # RuntimeEnvironmentVariables: plain config values.
+          cat > /tmp/apprunner-input.json <<JSONEOF
+          {
+            "ServiceArn": "$APP_RUNNER_SERVICE_ARN",
+            "SourceConfiguration": {
+              "ImageRepository": {
+                "ImageIdentifier": "$ECR_REPO_URI:$IMAGE_TAG",
+                "ImageRepositoryType": "ECR",
+                "ImageConfiguration": {
+                  "Port": "3000",
+                  "RuntimeEnvironmentVariables": {
+                    "PORT": "3000",
+                    "HOST": "0.0.0.0",
+                    "LOG_LEVEL": "info",
+                    "DEMO_MODE": "true",
+                    "SEED_ON_STARTUP": "false",
+                    "DEMO_INCREMENTAL": "true",
+                    "DEMO_FORCE_RESEED": "false",
+                    "DEMO_RESET_ON_STARTUP": "true",
+                    "DEMO_SHIFT_REGENERATE_PDFS": "true",
+                    "DB_SSL": "true",
+                    "DB_SSL_CA_PATH": "",
+                    "DB_LOG_QUERIES": "false",
+                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event",
+                    "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops"
+                  },
+                  "RuntimeEnvironmentSecrets": {
+                    "DATABASE_URL": "${DATABASE_URL_SECRET_ARN}:DATABASE_URL::",
+                    "KIOSK_TOKEN": "${KIOSK_TOKEN_SECRET_ARN}:KIOSK_TOKEN::"
+                  }
+                }
+              },
+              "AutoDeploymentsEnabled": false
+            }
+          }
+          JSONEOF
 
+          aws apprunner update-service --cli-input-json file:///tmp/apprunner-input.json
+
+      # --- Frontend Build ---
+      - name: Fetch Kiosk Token for frontend builds
+        id: fetch-token
+        run: |
+          RAW=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.KIOSK_TOKEN_SECRET_ARN }}" --query SecretString --output text)
+          # Secret may be JSON {"KIOSK_TOKEN":"value"} or plain text.
+          TOKEN=$(echo "$RAW" | jq -r '.KIOSK_TOKEN // empty' 2>/dev/null || echo "$RAW")
+          echo "::add-mask::$TOKEN"
+          echo "VITE_KIOSK_TOKEN=$TOKEN" >> $GITHUB_ENV
+
+      - name: Build Frontends
+        env:
+          VITE_API_BASE_URL: https://api-demo.joshuakessell.com
+          VITE_REALTIME_PROVIDER: appsync-events
+          VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
+          VITE_DISABLE_REALTIME: 'false'
+          VITE_KIOSK_TOKEN: ${{ env.VITE_KIOSK_TOKEN }}
+        run: |
+          pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-register --force
+
+      # --- Employee Register Deployment ---
       - name: Deploy employee-register
         env:
-          VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_LAN_FALLBACK: '1'
-          VITE_LAN_API_BASE_URL: http://192.168.50.215:3000
-          # NOTE: needs a real lane id; set per-kiosk/register device or via app-specific env.
-          VITE_LAN_REALTIME_WS_URL: ws://192.168.50.215:3000/v1/realtime/lan/lane/REPLACE_WITH_LANE_ID
-          VITE_REALTIME_TRANSPORTS: '1'
-          VITE_REALTIME_PROVIDER: appsync-events
-          VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
-          VITE_DISABLE_WS: 'false'
-          SKIP_PNPM_INSTALL: 'false'
-          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
           EMPLOYEE_BUCKET: ${{ vars.EMPLOYEE_BUCKET }}
           EMPLOYEE_DISTRIBUTION_ID: ${{ vars.EMPLOYEE_DISTRIBUTION_ID }}
-        run: scripts/aws/deploy-employee-register.sh
+        run: |
+          aws s3 sync apps/employee-register/dist "s3://$EMPLOYEE_BUCKET" --delete
+          aws cloudfront create-invalidation --distribution-id "$EMPLOYEE_DISTRIBUTION_ID" --paths "/*"
 
+      # --- Customer Kiosk Deployment ---
       - name: Deploy customer-kiosk
         env:
-          VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_LAN_FALLBACK: '1'
-          VITE_LAN_API_BASE_URL: http://192.168.50.215:3000
-          # NOTE: needs a real lane id; set per-kiosk/register device or via app-specific env.
-          VITE_LAN_REALTIME_WS_URL: ws://192.168.50.215:3000/v1/realtime/lan/lane/REPLACE_WITH_LANE_ID
-          VITE_REALTIME_TRANSPORTS: '1'
-          VITE_REALTIME_PROVIDER: appsync-events
-          VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
-          VITE_DISABLE_WS: 'false'
-          SKIP_PNPM_INSTALL: 'false'
-          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
           CUSTOMER_BUCKET: ${{ vars.CUSTOMER_BUCKET }}
           CUSTOMER_DISTRIBUTION_ID: ${{ vars.CUSTOMER_DISTRIBUTION_ID }}
-        run: scripts/aws/deploy-customer-kiosk.sh
+        run: |
+          aws s3 sync apps/customer-kiosk/dist "s3://$CUSTOMER_BUCKET" --delete
+          aws cloudfront create-invalidation --distribution-id "$CUSTOMER_DISTRIBUTION_ID" --paths "/*"
 
       - name: Deployment summary
+        if: always()
         run: |
           echo "## Dev deployment complete" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Services" >> $GITHUB_STEP_SUMMARY
           echo "- API: https://api-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
           echo "- Employee: https://employee-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
           echo "- Customer: https://customer-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### Docker Image" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          echo "${{ secrets.ECR_REPO_URI }}:dev-${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY

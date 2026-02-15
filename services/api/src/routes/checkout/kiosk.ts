@@ -292,6 +292,7 @@ export function registerCheckoutKioskRoutes(fastify: FastifyInstance): void {
               JSON.stringify(body.checklist),
               lateMinutes,
               feeAmount,
+              // "banApplied" here means "ban recommended" (manager approval required).
               banApplied,
             ]
           );

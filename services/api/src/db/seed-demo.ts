@@ -4,18 +4,28 @@ import { randomUUID } from 'crypto';
 import { seedBusySaturdayDemo } from './seed-demo/busy-saturday';
 import { SeedProgress } from './seed-demo/progress';
 import { generateAgreementPdf } from '../utils/pdf-generator';
+import { appendIncrementalDemoSimulation } from './seed-demo/incremental-simulator';
 
 loadEnvFromDotEnvIfPresent();
 
 const DEMO_STATE_KEY = 'busy_saturday_demo_v1';
-const DEMO_SNAPSHOT_VERSION = 3;
+// Bump whenever demo snapshot schema or seed behavior changes.
+// This forces the demo DB to rebuild the snapshot schema so restore doesn't
+// fail due to column mismatch between demo_snapshot.* and public.*.
+const DEMO_SNAPSHOT_VERSION = 6;
 const DEMO_FORCE_RESEED = process.env.DEMO_FORCE_RESEED === 'true';
 const DEMO_SHIFT_REGENERATE_PDFS = process.env.DEMO_SHIFT_REGENERATE_PDFS !== 'false';
 const DEMO_RESET_ON_STARTUP = process.env.DEMO_RESET_ON_STARTUP !== 'false';
-const DEMO_INCREMENTAL = process.env.DEMO_INCREMENTAL === 'true';
+// Demo seed behavior:
+// - DEMO_INCREMENTAL=true enables the incremental fast-forward simulation.
+// - If omitted, we default to true so demo data includes realistic time-series activity
+//   (customer_activity_events, customer_notes, cleaning_events, etc.).
+const DEMO_INCREMENTAL = process.env.DEMO_INCREMENTAL !== 'false';
 
 const DEMO_SNAPSHOT_TABLES = [
   'agreements',
+  'customer_activity_events',
+  'customer_notes',
   'customers',
   'rooms',
   'lockers',
@@ -27,7 +37,9 @@ const DEMO_SNAPSHOT_TABLES = [
   'inventory_reservations',
   'checkout_requests',
   'late_checkout_events',
+  'cleaning_events',
   'lane_sessions',
+  'demo_state',
   'payment_intents',
   'charges',
   'register_sessions',
@@ -55,6 +67,7 @@ const DEMO_TIMESTAMP_TABLES = [
   'inventory_reservations',
   'checkout_requests',
   'late_checkout_events',
+  'cleaning_events',
   'lane_sessions',
   'payment_intents',
   'charges',
@@ -84,9 +97,15 @@ async function loadDemoState(): Promise<{
   seedAnchorIso: string;
   snapshotVersion: number;
   lastShiftedIso?: string;
+  lastSimulatedIso?: string;
 } | null> {
   const res = await query<{
-    value_json: { seedAnchorIso?: string; snapshotVersion?: number; lastShiftedIso?: string };
+    value_json: {
+      seedAnchorIso?: string;
+      snapshotVersion?: number;
+      lastShiftedIso?: string;
+      lastSimulatedIso?: string;
+    };
   }>(`SELECT value_json FROM demo_state WHERE key = $1`, [DEMO_STATE_KEY]);
   if (res.rows.length === 0) return null;
   const value = res.rows[0]!.value_json || {};
@@ -95,11 +114,17 @@ async function loadDemoState(): Promise<{
     seedAnchorIso: value.seedAnchorIso,
     snapshotVersion: value.snapshotVersion,
     lastShiftedIso: value.lastShiftedIso,
+    lastSimulatedIso: value.lastSimulatedIso,
   };
 }
 
-async function saveDemoState(params: { seedAnchor: Date; lastShifted?: Date }): Promise<void> {
+async function saveDemoState(params: {
+  seedAnchor: Date;
+  lastShifted?: Date;
+  lastSimulated?: Date;
+}): Promise<void> {
   const lastShifted = params.lastShifted ?? params.seedAnchor;
+  const lastSimulated = params.lastSimulated ?? params.seedAnchor;
   await query(
     `INSERT INTO demo_state (key, value_json, updated_at)
      VALUES ($1, $2, NOW())
@@ -110,6 +135,7 @@ async function saveDemoState(params: { seedAnchor: Date; lastShifted?: Date }): 
       {
         seedAnchorIso: params.seedAnchor.toISOString(),
         lastShiftedIso: lastShifted.toISOString(),
+        lastSimulatedIso: lastSimulated.toISOString(),
         snapshotVersion: DEMO_SNAPSHOT_VERSION,
       },
     ]
@@ -157,12 +183,41 @@ async function restoreDemoSnapshot(client: DbClient): Promise<void> {
     await client.query(
       `TRUNCATE ${DEMO_SNAPSHOT_TABLES.map((t) => `public.${t}`).join(', ')} RESTART IDENTITY CASCADE`
     );
+
     for (const table of DEMO_SNAPSHOT_TABLES) {
-      await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
+      try {
+        await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
+      } catch (error) {
+        console.error(`❌ Failed restoring demo snapshot table: ${table}`, formatPgError(error));
+        // Snapshot schema can drift if migrations ran after snapshot creation.
+        // Auto-repair: rebuild the snapshot schema from public.* and retry once.
+        await resetSnapshotSchema(client);
+        await createDemoSnapshot(client);
+        await client.query(`INSERT INTO public.${table} SELECT * FROM demo_snapshot.${table}`);
+      }
     }
   } finally {
     await client.query('SET session_replication_role = origin');
   }
+}
+
+function formatPgError(error: unknown): Record<string, unknown> {
+  if (!error || typeof error !== 'object') {
+    return { message: String(error) };
+  }
+
+  const e = error as any;
+  return {
+    message: e?.message,
+    code: e?.code,
+    detail: e?.detail,
+    schema: e?.schema,
+    table: e?.table,
+    column: e?.column,
+    constraint: e?.constraint,
+    where: e?.where,
+    hint: e?.hint,
+  };
 }
 
 async function validateSeededCustomers(client: DbClient): Promise<void> {
@@ -287,27 +342,14 @@ type DemoCustomer = {
 type DemoLocker = { id: string; number: number };
 type DemoRoom = { id: string; number: string; type: string };
 
-function seededRng(seed: number): () => number {
-  return () => {
-    seed |= 0;
-    seed = (seed + 0x6d2b79f5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+type DemoStaff = { id: string; name: string };
 
-function floorTo15Min(d: Date): Date {
-  const ms = d.getTime();
-  const rounded = Math.floor(ms / (15 * 60 * 1000)) * 15 * 60 * 1000;
-  return new Date(rounded);
-}
-
-function ceilTo15Min(d: Date): Date {
-  const ms = d.getTime();
-  const rounded = Math.ceil(ms / (15 * 60 * 1000)) * 15 * 60 * 1000;
-  return new Date(rounded);
-}
+type DemoRegisterSession = {
+  id: string;
+  register_number: number;
+  employee_id: string;
+  device_id: string;
+};
 
 async function getActiveAgreement(): Promise<DemoAgreement> {
   const res = await query<DemoAgreement>(
@@ -339,7 +381,7 @@ async function appendIncrementalDemoVisits(params: { from: Date; to: Date }): Pr
   const windowMs = params.to.getTime() - params.from.getTime();
   if (windowMs <= 0) return 0;
 
-  const [agreement, customersRes, lockersRes, roomsRes] = await Promise.all([
+  const [agreement, customersRes, lockersRes, roomsRes, staffRes, registerRes] = await Promise.all([
     getActiveAgreement(),
     query<DemoCustomer>(
       `SELECT id, name, membership_number, dob
@@ -348,128 +390,40 @@ async function appendIncrementalDemoVisits(params: { from: Date; to: Date }): Pr
     ),
     query<DemoLocker>(`SELECT id, number FROM lockers ORDER BY number`),
     query<DemoRoom>(`SELECT id, number, type FROM rooms ORDER BY number`),
+    query<DemoStaff>(`SELECT id, name FROM staff WHERE active = true ORDER BY name`),
+    query<DemoRegisterSession>(
+      `SELECT id, register_number, employee_id, device_id
+       FROM register_sessions
+       WHERE signed_out_at IS NULL
+       ORDER BY created_at DESC`
+    ),
   ]);
 
   if (customersRes.rows.length === 0) return 0;
+  if (staffRes.rows.length === 0) return 0;
+  if (registerRes.rows.length === 0) return 0;
 
   const customers = customersRes.rows;
   const lockers = lockersRes.rows;
   const rooms = roomsRes.rows;
-  const useLockers = lockers.length > 0;
+  const staff = staffRes.rows;
+  const registerSessions = registerRes.rows;
 
-  const intervalMs = 6 * 60 * 60 * 1000;
-  const intervals = Math.max(1, Math.ceil(windowMs / intervalMs));
-  const maxVisits = Math.min(120, intervals * 2);
-  const rngSeed = Math.floor(params.from.getTime() / 60000) ^ Math.floor(windowMs / 60000);
-  const rng = seededRng(rngSeed);
+  const res = await transaction(async (client) =>
+    appendIncrementalDemoSimulation({
+      client,
+      from: params.from,
+      to: params.to,
+      agreement,
+      customers,
+      lockers,
+      rooms,
+      staff,
+      registerSessions,
+    })
+  );
 
-  let customerIndex = 0;
-  let lockerIndex = 0;
-  let roomIndex = 0;
-  let created = 0;
-
-  await transaction(async (client) => {
-    for (let i = 0; i < intervals && created < maxVisits; i += 1) {
-      const slotStart = new Date(params.from.getTime() + i * intervalMs);
-      const slotEnd = new Date(Math.min(slotStart.getTime() + intervalMs, params.to.getTime()));
-      const slotWindowMs = Math.max(0, slotEnd.getTime() - slotStart.getTime());
-      const visitsInSlot = Math.min(3, 1 + Math.floor(rng() * 2));
-
-      for (let j = 0; j < visitsInSlot && created < maxVisits; j += 1) {
-        const offsetMs = Math.floor(rng() * slotWindowMs);
-        let start = new Date(slotStart.getTime() + offsetMs);
-        if (start > params.to) continue;
-        start = floorTo15Min(start);
-
-        const durationMinutes = 45 + Math.floor(rng() * 120);
-        let end = new Date(start.getTime() + durationMinutes * 60 * 1000);
-        end = ceilTo15Min(end);
-        if (end > params.to) {
-          end = new Date(params.to.getTime());
-        }
-        if (end <= start) {
-          continue;
-        }
-
-        const customer = customers[customerIndex++ % customers.length]!;
-        const visitId = randomUUID();
-        const checkinBlockId = randomUUID();
-
-        let lockerId: string | null = null;
-        let roomId: string | null = null;
-        let rentalType = 'LOCKER';
-
-        if (useLockers) {
-          const locker = lockers[lockerIndex++ % lockers.length]!;
-          lockerId = locker.id;
-          rentalType = 'LOCKER';
-        } else if (rooms.length > 0) {
-          const room = rooms[roomIndex++ % rooms.length]!;
-          roomId = room.id;
-          rentalType =
-            room.type === 'DOUBLE' || room.type === 'SPECIAL' || room.type === 'STANDARD'
-              ? room.type
-              : 'STANDARD';
-        }
-
-        await client.query(
-          `INSERT INTO visits (id, started_at, ended_at, customer_id, created_at, updated_at)
-           VALUES ($1, $2, $3, $4, NOW(), NOW())`,
-          [visitId, start, end, customer.id]
-        );
-
-        const signedAt = new Date(start.getTime() + 5 * 60 * 1000);
-        await client.query(
-          `INSERT INTO checkin_blocks
-           (id, visit_id, block_type, starts_at, ends_at, locker_id, room_id,
-            agreement_signed, agreement_signed_at, rental_type)
-           VALUES ($1, $2, 'INITIAL', $3, $4, $5, $6, true, $7, $8)`,
-          [checkinBlockId, visitId, start, end, lockerId, roomId, signedAt, rentalType]
-        );
-
-        await client.query(
-          `INSERT INTO agreement_signatures
-           (id, agreement_id, customer_name, membership_number, signed_at,
-            agreement_text_snapshot, agreement_version, checkin_block_id)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-          [
-            randomUUID(),
-            agreement.id,
-            customer.name,
-            customer.membership_number,
-            signedAt,
-            agreement.body_text,
-            agreement.version,
-            checkinBlockId,
-          ]
-        );
-
-        try {
-          const pdfBuffer = await generateAgreementPdf({
-            agreementTitle: agreement.title,
-            agreementVersion: agreement.version,
-            agreementText: agreement.body_text,
-            customerName: customer.name,
-            customerDob: customer.dob,
-            membershipNumber: customer.membership_number ?? undefined,
-            checkinAt: start,
-            signedAt,
-            signatureText: customer.name,
-          });
-          await client.query(`UPDATE checkin_blocks SET agreement_pdf = $1 WHERE id = $2`, [
-            pdfBuffer,
-            checkinBlockId,
-          ]);
-        } catch (err) {
-          console.warn('⚠️  Failed to generate agreement PDF for incremental demo visit', err);
-        }
-
-        created += 1;
-      }
-    }
-  });
-
-  return created;
+  return res.visitsCreated;
 }
 
 /**
@@ -499,15 +453,22 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
       const deltaMs = now.getTime() - seedAnchor.getTime();
 
       await transaction(async (client) => {
-        await restoreDemoSnapshot(client);
-        await shiftDemoTimestamps(client, deltaMs);
-        if (DEMO_SHIFT_REGENERATE_PDFS) {
-          await regenerateAgreementPdfs(client);
+        try {
+          await restoreDemoSnapshot(client);
+          await shiftDemoTimestamps(client, deltaMs);
+          if (DEMO_SHIFT_REGENERATE_PDFS) {
+            await regenerateAgreementPdfs(client);
+          }
+        } catch (error) {
+          console.error('❌ Demo seed restore/shift failed:', formatPgError(error));
+          throw error;
         }
       });
 
-      if (DEMO_INCREMENTAL && existingState.lastShiftedIso) {
-        const from = new Date(existingState.lastShiftedIso);
+      if (DEMO_INCREMENTAL) {
+        const from = existingState.lastSimulatedIso
+          ? new Date(existingState.lastSimulatedIso)
+          : new Date(existingState.lastShiftedIso ?? existingState.seedAnchorIso);
         if (from.getTime() < now.getTime()) {
           const appended = await appendIncrementalDemoVisits({ from, to: now });
           if (appended > 0) {
@@ -521,7 +482,7 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
           await validateSeededCustomers(client);
           await createDemoSnapshot(client);
         });
-        await saveDemoState({ seedAnchor: now, lastShifted: now });
+        await saveDemoState({ seedAnchor: now, lastShifted: now, lastSimulated: now });
         console.log('✅ Demo snapshot refreshed with incremental data.');
       } else {
         await transaction(async (client) => {
@@ -542,6 +503,15 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
     const progress = new SeedProgress({ title: 'Demo seed' });
     progress.setMessage('Seeding busy Saturday data');
     await seedBusySaturdayDemo(now, progress);
+
+    if (DEMO_INCREMENTAL) {
+      progress.setMessage('Simulating incremental visits (last 14 days)');
+      const from = new Date(now);
+      from.setDate(from.getDate() - 14);
+      const appended = await appendIncrementalDemoVisits({ from, to: now });
+      progress.log(`✅ Added ${appended} incremental demo visit(s).`);
+      await saveDemoState({ seedAnchor: now, lastShifted: now, lastSimulated: now });
+    }
 
     progress.setMessage('Validating seeded customers');
     progress.addTotal(1);
@@ -575,7 +545,7 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
       await transaction(async (client) => {
         await createDemoSnapshot(client);
       });
-      await saveDemoState({ seedAnchor: now, lastShifted: now });
+      await saveDemoState({ seedAnchor: now, lastShifted: now, lastSimulated: now });
       progress.tick();
       progress.done('Demo seed complete');
       return;

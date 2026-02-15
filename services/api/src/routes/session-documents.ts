@@ -1,5 +1,5 @@
 import type { FastifyInstance } from 'fastify';
-import { requireAuth } from '../auth/middleware';
+import { requireAdmin, requireAuth } from '../auth/middleware';
 import { query } from '../db';
 import crypto from 'crypto';
 
@@ -28,7 +28,7 @@ export async function sessionDocumentsRoutes(fastify: FastifyInstance): Promise<
    */
   fastify.get<{ Querystring: { name?: string } }>(
     '/v1/documents/customers',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireAdmin] },
     async (request, reply) => {
       const name = request.query.name?.trim() ?? '';
       if (!name) {
@@ -77,7 +77,7 @@ export async function sessionDocumentsRoutes(fastify: FastifyInstance): Promise<
    */
   fastify.get<{ Params: { customerId: string } }>(
     '/v1/documents/by-customer/:customerId',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireAdmin] },
     async (request, reply) => {
       const { customerId } = request.params;
 
@@ -142,7 +142,7 @@ export async function sessionDocumentsRoutes(fastify: FastifyInstance): Promise<
    */
   fastify.get<{ Params: { sessionId: string } }>(
     '/v1/documents/by-session/:sessionId',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireAdmin] },
     async (request, reply) => {
       const { sessionId } = request.params;
 
@@ -200,7 +200,7 @@ export async function sessionDocumentsRoutes(fastify: FastifyInstance): Promise<
    */
   fastify.get<{ Params: { documentId: string } }>(
     '/v1/documents/:documentId/download',
-    { preHandler: [requireAuth] },
+    { preHandler: [requireAuth, requireAdmin] },
     async (request, reply) => {
       const { documentId } = request.params;
 

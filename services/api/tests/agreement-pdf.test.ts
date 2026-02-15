@@ -25,9 +25,9 @@ describe('Agreement PDF generation', () => {
       signatureImageBase64: signatureBase64,
     });
 
-    const outDir = path.resolve(process.cwd(), 'tests', '_artifacts');
-    const outPath = path.join(outDir, 'agreement.generated.pdf');
+    const outDir = path.resolve(process.cwd(), 'services/api/tests/_artifacts');
     await fs.mkdir(outDir, { recursive: true });
+    const outPath = path.join(outDir, 'test-agreement.pdf');
     await fs.writeFile(outPath, pdf);
 
     // Parse with a different library than the generator to confirm the PDF is readable.

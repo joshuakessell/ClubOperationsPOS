@@ -18,10 +18,10 @@ import {
 import { getHttpError } from '../../checkin/utils';
 import { getRoomTier } from '../../checkin/waitlist';
 import { generateAgreementPdf } from '../../utils/pdf-generator';
-import { stripSystemLateFeeNotes } from '../../utils/lateFeeNotes';
 import { roundUpToQuarterHour } from '../../time/rounding';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { insertAuditLog } from '../../audit/auditLog';
+import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
 import type {
   AssignmentCreatedPayload,
   CustomerConfirmedPayload,
@@ -690,22 +690,7 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
             ]
           );
 
-          // Auto-archive system late-fee notes after they have been shown on the next visit.
-          // Manual notes (staff-entered) must persist and are never auto-archived.
-          if (session.customer_id) {
-            const notesRes = await client.query<{ notes: string | null }>(
-              `SELECT notes FROM customers WHERE id = $1 LIMIT 1`,
-              [session.customer_id]
-            );
-            const existing = notesRes.rows[0]?.notes ?? null;
-            const cleaned = stripSystemLateFeeNotes(existing);
-            if (cleaned !== existing) {
-              await client.query(
-                `UPDATE customers SET notes = $1, updated_at = NOW() WHERE id = $2`,
-                [cleaned, session.customer_id]
-              );
-            }
-          }
+          // Legacy notes cleanup removed; structured notes live in customer_notes.
 
           // Update session status
           await client.query(
@@ -724,7 +709,41 @@ export function registerCheckinAgreementRoutes(fastify: FastifyInstance): void {
           };
           fastify.broadcaster.broadcastAssignmentCreated(assignmentPayload, laneId);
 
-          return { success: true, sessionId: session.id };
+          return { success: true, sessionId: session.id, customerId: session.customer_id, visitId, checkinBlockId };
+        });
+
+        await transaction(async (client) => {
+          const event = await insertCustomerActivityEvent(client, {
+            customerId: result.customerId,
+            actionType: 'CHECKIN_COMPLETED',
+            actionCategory: 'CHECKIN',
+            sourceApp: request.staff ? 'EMPLOYEE_REGISTER' : 'CUSTOMER_KIOSK',
+            actorType: request.staff ? 'STAFF' : 'CUSTOMER',
+            actorStaffId: request.staff?.staffId ?? null,
+            actorStaffName: request.staff?.name ?? null,
+            summary: 'Check-in completed',
+            metadata: {
+              visitId: result.visitId,
+              checkinBlockId: result.checkinBlockId,
+              laneId,
+              laneSessionId: result.sessionId,
+            },
+            dedupeKey: result.visitId ? `ACT:CHECKIN_COMPLETED:${result.visitId}` : null,
+            searchParts: [result.visitId ?? '', result.checkinBlockId ?? ''],
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId: result.customerId,
+              actionType: 'CHECKIN_COMPLETED',
+              actionCategory: 'CHECKIN',
+              sourceApp: request.staff ? 'EMPLOYEE_REGISTER' : 'CUSTOMER_KIOSK',
+              actorType: request.staff ? 'STAFF' : 'CUSTOMER',
+              actorStaffId: request.staff?.staffId ?? null,
+            },
+            'customer_activity_event'
+          );
         });
 
         const { payload } = await transaction((client) =>

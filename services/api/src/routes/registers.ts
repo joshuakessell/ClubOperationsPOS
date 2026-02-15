@@ -591,7 +591,25 @@ export async function registerRoutes(
           );
 
           if (existingDevice.rows.length > 0) {
-            throw new Error('Device already signed into a register');
+            const session = existingDevice.rows[0]!;
+            const ageMinutes =
+              session.last_activity_at instanceof Date
+                ? (Date.now() - session.last_activity_at.getTime()) / 60000
+                : 0;
+
+            // Safety valve: if the client got signed out / lost state, but the
+            // server session is clearly abandoned, release it immediately.
+            if (ageMinutes >= 2) {
+              await client.query(
+                `UPDATE register_sessions
+                 SET signed_out_at = NOW()
+                 WHERE id = $1
+                   AND signed_out_at IS NULL`,
+                [session.id]
+              );
+            } else {
+              throw new Error('Device already signed into a register');
+            }
           }
 
           // Get currently occupied registers
@@ -696,7 +714,23 @@ export async function registerRoutes(
           );
 
           if (existingDevice.rows.length > 0) {
-            throw new Error('Device already signed into a register');
+            const session = existingDevice.rows[0]!;
+            const ageMinutes =
+              session.last_activity_at instanceof Date
+                ? (Date.now() - session.last_activity_at.getTime()) / 60000
+                : 0;
+
+            if (ageMinutes >= 2) {
+              await client.query(
+                `UPDATE register_sessions
+                 SET signed_out_at = NOW()
+                 WHERE id = $1
+                   AND signed_out_at IS NULL`,
+                [session.id]
+              );
+            } else {
+              throw new Error('Device already signed into a register');
+            }
           }
 
           const existingRegister = await client.query<RegisterSessionRow>(

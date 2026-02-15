@@ -7,6 +7,8 @@ import { DemoOverview } from '../DemoOverview';
 import { LaneMonitorView } from '../LaneMonitorView';
 import { WaitlistManagementView } from '../WaitlistManagementView';
 import { CustomerAdminToolsView } from '../CustomerAdminToolsView';
+import { ActivityLogView } from '../ActivityLogView';
+import { LateCheckoutBanAlertsView } from '../LateCheckoutBanAlertsView';
 import { ReportsDemoView } from '../ReportsDemoView';
 import { MessagesView } from '../MessagesView';
 import { Box, Button, CircularProgress, Typography } from '@mui/material';
@@ -14,10 +16,10 @@ import {
   clearStorageValue,
   CLUBOPS_STORAGE_KEYS,
   CLUBOPS_STORAGE_LEGACY_KEYS,
-  getApiUrl,
   readStorageValueWithMigration,
   writeStorageValue,
 } from '@club-ops/shared';
+import { fetchAuthMe, logout } from '../api/auth';
 
 export function AppComposition() {
   const [session, setSession] = useState<StaffSession | null>(() => {
@@ -92,29 +94,15 @@ export function AppComposition() {
     const ac = new AbortController();
     (async () => {
       try {
-        const res = await fetch(getApiUrl('/api/v1/auth/me'), {
-          headers: { Authorization: `Bearer ${session.sessionToken}` },
-          signal: ac.signal,
-        });
-
-        if (res.ok) {
+        await fetchAuthMe(session.sessionToken, ac.signal);
+        if (!ac.signal.aborted) {
           setSessionValidationError(null);
           setIsValidatingSession(false);
-          return;
         }
-
-        // Most common case: stale localStorage token.
-        if (res.status === 401) {
-          clearSession();
-          return;
-        }
-
-        setSessionValidationError(`Failed to validate session (${res.status})`);
-        setIsValidatingSession(false);
       } catch {
         if (ac.signal.aborted) return;
-        setSessionValidationError('Could not reach the API to validate your session.');
-        setIsValidatingSession(false);
+        // Most common case: stale localStorage token.
+        clearSession();
       }
     })();
 
@@ -136,16 +124,7 @@ export function AppComposition() {
   const handleLogout = async () => {
     if (session?.sessionToken) {
       try {
-        const res = await fetch(getApiUrl('/api/v1/auth/logout'), {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.sessionToken}`,
-          },
-        });
-        // If the token is already invalid/expired, treat as logged out.
-        if (!res.ok && res.status !== 401) {
-          console.error('Logout failed:', res.status);
-        }
+        await logout(session.sessionToken);
       } catch (error) {
         console.error('Logout error:', error);
       }
@@ -267,6 +246,20 @@ export function AppComposition() {
           element={
             isAdmin ? (
               <CustomerAdminToolsView session={session} />
+            ) : (
+              <Navigate to="/schedule" replace />
+            )
+          }
+        />
+        <Route
+          path="/logs"
+          element={isAdmin ? <ActivityLogView session={session} /> : <Navigate to="/schedule" replace />}
+        />
+        <Route
+          path="/late-checkout-alerts"
+          element={
+            isAdmin ? (
+              <LateCheckoutBanAlertsView session={session} />
             ) : (
               <Navigate to="/schedule" replace />
             )

@@ -3,6 +3,7 @@ import { requireAuth } from '../../auth/middleware';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import type { CustomerRow, LaneSessionRow } from '../../checkin/types';
 import { transaction } from '../../db';
+import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
 
 export function registerCheckinNoteRoutes(fastify: FastifyInstance): void {
   /**
@@ -48,9 +49,8 @@ export function registerCheckinNoteRoutes(fastify: FastifyInstance): void {
             throw { statusCode: 400, message: 'Session has no customer' };
           }
 
-          // Get existing notes
           const customerResult = await client.query<CustomerRow>(
-            `SELECT notes FROM customers WHERE id = $1`,
+            `SELECT id FROM customers WHERE id = $1`,
             [session.customer_id]
           );
 
@@ -58,19 +58,36 @@ export function registerCheckinNoteRoutes(fastify: FastifyInstance): void {
             throw { statusCode: 404, message: 'Customer not found' };
           }
 
-          const existingNotes = customerResult.rows[0]!.notes || '';
-          const timestamp = new Date().toISOString();
-          const staffName = staff.name || 'Staff';
-          const newNoteEntry = `[${timestamp}] ${staffName}: ${note.trim()}`;
-          const updatedNotes = existingNotes ? `${existingNotes}\n${newNoteEntry}` : newNoteEntry;
+          const trimmed = note.trim();
+          const inserted = await client.query<{ id: string }>(
+            `
+            INSERT INTO customer_notes
+              (customer_id, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
+            VALUES
+              ($1::uuid, $2::uuid, $3, 'EMPLOYEE_REGISTER', $4, false)
+            RETURNING id
+            `,
+            [session.customer_id, staff.staffId, staff.name, trimmed]
+          );
 
-          // Update customer notes
-          await client.query(`UPDATE customers SET notes = $1, updated_at = NOW() WHERE id = $2`, [
-            updatedNotes,
-            session.customer_id,
-          ]);
+          const noteId = inserted.rows[0]!.id;
+          const preview = trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed;
+          await insertCustomerActivityEvent(client, {
+            customerId: session.customer_id,
+            actionType: 'NOTE_ADDED',
+            actionCategory: 'NOTE',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: staff.staffId,
+            actorStaffName: staff.name,
+            summary: `Note added: ${preview}`,
+            metadata: {
+              noteId,
+              isImportant: false,
+            },
+          });
 
-          return { sessionId: session.id, success: true, note: newNoteEntry };
+          return { sessionId: session.id, success: true, noteId };
         });
 
         const { payload } = await transaction((client) =>

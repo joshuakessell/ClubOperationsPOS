@@ -72,7 +72,11 @@ export function useKioskRealtime({
   const applySessionUpdatedPayload = sessionActions.applySessionUpdatedPayload;
   const resetToIdle = sessionActions.resetToIdle;
 
-  const { connected: realtimeConnected, lastMessage } = useLaneSession({
+  const {
+    connected: realtimeConnected,
+    lastMessage,
+    mode,
+  } = useLaneSession({
     laneId: lane ?? undefined,
     role: 'customer',
     kioskToken: kioskToken ?? '',
@@ -308,5 +312,5 @@ export function useKioskRealtime({
     };
   }, [lane, pollSessionSnapshotOnce, realtimeConnected, sessionIdRef]);
 
-  return { realtimeConnected };
+  return { realtimeConnected, mode };
 }

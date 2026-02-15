@@ -5,6 +5,8 @@ import { insertAuditLog } from '../../audit/auditLog';
 import { serializableTransaction } from '../../db';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { getUpgradeFee, type RentalType } from '../../pricing/engine';
+import { transaction } from '../../db';
+import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
 
 type RentalTier = 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL';
 type SwitchPaymentOutcome = 'CASH_SUCCESS' | 'CREDIT_SUCCESS' | 'CREDIT_DECLINE';
@@ -36,6 +38,12 @@ type SwitchHttpError = {
   additionalFee?: number;
   currentRentalType?: RentalTier;
   targetRentalType?: RentalTier;
+  // Optional context for secondary effects outside the aborted transaction.
+  visitId?: string;
+  checkinBlockId?: string;
+  targetResourceType?: 'room' | 'locker';
+  targetResourceId?: string;
+  targetResourceNumber?: string;
 };
 
 export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): void {
@@ -270,24 +278,6 @@ export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): v
             }
 
             if (paymentOutcome === 'CREDIT_DECLINE') {
-              await client.query(
-                `INSERT INTO payment_intents (amount, status, quote_json)
-                 VALUES ($1, 'CANCELLED', $2)`,
-                [
-                  additionalFee,
-                  JSON.stringify({
-                    type: 'SWITCH_UPCHARGE',
-                    visitId,
-                    checkinBlockId: block.id,
-                    currentRentalType,
-                    targetRentalType,
-                    targetResourceType,
-                    targetResourceId,
-                    targetResourceNumber,
-                    declineReason: declineReason ?? 'Credit declined',
-                  }),
-                ]
-              );
               throw {
                 statusCode: 402,
                 code: 'PAYMENT_DECLINED',
@@ -295,6 +285,13 @@ export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): v
                 additionalFee,
                 currentRentalType,
                 targetRentalType,
+                // Pass through context so we can persist a cancelled intent outside this transaction.
+                // (The serializableTransaction will roll back all writes when we throw.)
+                visitId,
+                checkinBlockId: block.id,
+                targetResourceType,
+                targetResourceId,
+                targetResourceNumber,
               } satisfies SwitchHttpError;
             }
 
@@ -428,10 +425,101 @@ export function registerCheckinSwitchResourceRoutes(fastify: FastifyInstance): v
           await broadcastInventoryUpdate(fastify.broadcaster);
         }
 
+        // Customer activity log
+        await transaction(async (client) => {
+          // Derive customerId from visit
+          const visitRow = await client.query<{ customer_id: string }>(
+            `SELECT customer_id FROM visits WHERE id = $1 LIMIT 1`,
+            [result.visitId]
+          );
+          const customerId = visitRow.rows[0]?.customer_id;
+          if (!customerId) return;
+
+          const actionType = result.newResourceType === 'room' ? 'ROOM_CHANGED' : 'LOCKER_CHANGED';
+
+          const event = await insertCustomerActivityEvent(client, {
+            customerId,
+            actionType,
+            actionCategory: 'RESOURCE_CHANGE',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            actorType: 'STAFF',
+            actorStaffId: staffId,
+            actorStaffName: request.staff!.name,
+            summary:
+              result.newResourceType === 'room'
+                ? `Room changed: ${result.previousResourceNumber ?? '—'} → ${result.newResourceNumber}`
+                : `Locker changed: ${result.previousResourceNumber ?? '—'} → ${result.newResourceNumber}`,
+            metadata: {
+              visitId: result.visitId,
+              checkinBlockId: result.checkinBlockId,
+              fromResourceType: result.previousResourceType,
+              fromResourceId: result.previousResourceId,
+              fromResourceNumber: result.previousResourceNumber,
+              toResourceType: result.newResourceType,
+              toResourceId: result.newResourceId,
+              toResourceNumber: result.newResourceNumber,
+              additionalFee: result.additionalFee,
+              paymentIntentId: result.paymentIntentId,
+            },
+            dedupeKey: `ACT:${actionType}:${result.checkinBlockId}:${result.newResourceId}`,
+            searchParts: [result.newResourceNumber, result.previousResourceNumber ?? ''],
+          });
+
+          request.log.info(
+            {
+              customerActivityEventId: event.id,
+              customerId,
+              actionType,
+              actionCategory: 'RESOURCE_CHANGE',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              actorType: 'STAFF',
+              actorStaffId: staffId,
+            },
+            'customer_activity_event'
+          );
+        });
+
         return reply.send({ success: true, ...result });
       } catch (error: unknown) {
         if (error && typeof error === 'object' && 'statusCode' in error) {
           const err = error as SwitchHttpError;
+
+          // If a card was declined, record a cancelled payment_intent for auditability.
+          // This must happen outside the aborted serializable transaction.
+          if (err.code === 'PAYMENT_DECLINED' && 'checkinBlockId' in err && 'visitId' in err) {
+            const checkinBlockId = (err as unknown as { checkinBlockId?: string }).checkinBlockId;
+            const declinedVisitId = (err as unknown as { visitId?: string }).visitId;
+            if (checkinBlockId && declinedVisitId) {
+              try {
+                await transaction(async (client) => {
+                  await client.query(
+                    `INSERT INTO payment_intents (amount, status, quote_json)
+                     VALUES ($1, 'CANCELLED', $2)`,
+                    [
+                      err.additionalFee ?? 0,
+                      JSON.stringify({
+                        type: 'SWITCH_UPCHARGE',
+                        visitId: declinedVisitId,
+                        checkinBlockId,
+                        currentRentalType: err.currentRentalType,
+                        targetRentalType: err.targetRentalType,
+                        targetResourceType: (err as unknown as { targetResourceType?: string })
+                          .targetResourceType,
+                        targetResourceId: (err as unknown as { targetResourceId?: string })
+                          .targetResourceId,
+                        targetResourceNumber: (err as unknown as { targetResourceNumber?: string })
+                          .targetResourceNumber,
+                        declineReason: err.message,
+                      }),
+                    ]
+                  );
+                });
+              } catch (persistError) {
+                request.log.warn(persistError, 'Failed to persist cancelled switch payment_intent');
+              }
+            }
+          }
+
           return reply.status(err.statusCode).send({
             error: err.message,
             code: err.code,

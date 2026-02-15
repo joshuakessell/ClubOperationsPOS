@@ -1,12 +1,19 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getApiUrl } from '@club-ops/shared';
 import type { StaffSession } from './LockScreen';
 import { EditShiftModal } from './shifts/EditShiftModal';
 import { SHIFT_BADGE_COLORS, SHIFT_BADGE_LABELS, SHIFT_LABELS } from './shifts/constants';
 import type { Shift, TimeOffRequest } from './shifts/types';
-
-const API_BASE = getApiUrl('/api');
+import {
+  createScheduleTimeOffRequest,
+  fetchAdminPendingTimeOffRequests,
+  fetchAdminShifts,
+  fetchScheduleShifts,
+  fetchScheduleTimeOffRequests,
+  updateShift,
+  updateAdminTimeOffRequest,
+} from './api/shifts';
+import { fetchStaff } from './api/staffAdmin';
 
 interface ShiftsViewProps {
   session: StaffSession;
@@ -64,45 +71,31 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
       params.append('from', start.toISOString());
       params.append('to', end.toISOString());
 
-      const shiftsUrl = limitedAccess
-        ? `${API_BASE}/v1/schedule/shifts?${params}`
-        : `${API_BASE}/v1/admin/shifts?${params}`;
+      const shiftsPromise = limitedAccess
+        ? fetchScheduleShifts(session.sessionToken, params)
+        : fetchAdminShifts(session.sessionToken, params);
 
-      const [shiftsRes, myReqRes, pendingRes] = await Promise.all([
-        fetch(shiftsUrl, {
-          headers: { Authorization: `Bearer ${session.sessionToken}` },
-        }),
-        fetch(
-          `${API_BASE}/v1/schedule/time-off-requests?from=${start.toISOString().slice(0, 10)}&to=${end.toISOString().slice(0, 10)}`,
-          {
-            headers: { Authorization: `Bearer ${session.sessionToken}` },
-          }
-        ),
-        isAdmin
-          ? fetch(`${API_BASE}/v1/admin/time-off-requests?status=PENDING`, {
-              headers: { Authorization: `Bearer ${session.sessionToken}` },
-            })
-          : Promise.resolve(null),
+      const myReqPromise = fetchScheduleTimeOffRequests(
+        session.sessionToken,
+        start.toISOString().slice(0, 10),
+        end.toISOString().slice(0, 10)
+      );
+
+      const pendingPromise = isAdmin
+        ? fetchAdminPendingTimeOffRequests(session.sessionToken)
+        : Promise.resolve(null);
+
+      const [shiftsData, myReqData, pendingData] = await Promise.all([
+        shiftsPromise,
+        myReqPromise,
+        pendingPromise,
       ]);
 
-      if (shiftsRes.ok) {
-        const data = await shiftsRes.json();
-        setMonthShifts(Array.isArray(data) ? data : []);
+      setMonthShifts(Array.isArray(shiftsData) ? shiftsData : []);
+      setMyTimeOffRequests(myReqData.requests || []);
+      if (pendingData) {
+        setPendingTimeOffRequests(pendingData.requests || []);
       } else {
-        setMonthShifts([]);
-      }
-
-      if (myReqRes.ok) {
-        const data = await myReqRes.json();
-        setMyTimeOffRequests(data.requests || []);
-      } else {
-        setMyTimeOffRequests([]);
-      }
-
-      if (pendingRes && pendingRes.ok) {
-        const data = await pendingRes.json();
-        setPendingTimeOffRequests(data.requests || []);
-      } else if (!pendingRes) {
         setPendingTimeOffRequests([]);
       }
     } catch (e) {
@@ -114,13 +107,8 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
 
   const fetchEmployees = useCallback(async () => {
     try {
-      const response = await fetch(`${API_BASE}/v1/admin/staff`, {
-        headers: { Authorization: `Bearer ${session.sessionToken}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setEmployees(data.staff || []);
-      }
+      const data = await fetchStaff(session.sessionToken, new URLSearchParams());
+      setEmployees(data.staff || []);
     } catch (error) {
       console.error('Failed to fetch employees:', error);
     }
@@ -143,13 +131,8 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
         params.append('employeeId', employeeFilter);
       }
 
-      const response = await fetch(`${API_BASE}/v1/admin/shifts?${params}`, {
-        headers: { Authorization: `Bearer ${session.sessionToken}` },
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setShifts(data);
-      }
+      const data = await fetchAdminShifts(session.sessionToken, params);
+      setShifts(data);
     } catch (error) {
       console.error('Failed to fetch shifts:', error);
     } finally {
@@ -552,13 +535,8 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                         <button
                           onClick={async () => {
-                            await fetch(`${API_BASE}/v1/admin/time-off-requests/${r.id}`, {
-                              method: 'PATCH',
-                              headers: {
-                                Authorization: `Bearer ${session.sessionToken}`,
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify({ status: 'APPROVED' }),
+                            await updateAdminTimeOffRequest(session.sessionToken, r.id, {
+                              status: 'APPROVED',
                             });
                             await fetchMonthData();
                           }}
@@ -577,13 +555,8 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
                         </button>
                         <button
                           onClick={async () => {
-                            await fetch(`${API_BASE}/v1/admin/time-off-requests/${r.id}`, {
-                              method: 'PATCH',
-                              headers: {
-                                Authorization: `Bearer ${session.sessionToken}`,
-                                'Content-Type': 'application/json',
-                              },
-                              body: JSON.stringify({ status: 'DENIED' }),
+                            await updateAdminTimeOffRequest(session.sessionToken, r.id, {
+                              status: 'DENIED',
                             });
                             await fetchMonthData();
                           }}
@@ -702,22 +675,10 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
                     onClick={async () => {
                       setSubmittingRequest(true);
                       try {
-                        const res = await fetch(`${API_BASE}/v1/schedule/time-off-requests`, {
-                          method: 'POST',
-                          headers: {
-                            Authorization: `Bearer ${session.sessionToken}`,
-                            'Content-Type': 'application/json',
-                          },
-                          body: JSON.stringify({
-                            day: selectedDay,
-                            reason: requestReason || undefined,
-                          }),
+                        await createScheduleTimeOffRequest(session.sessionToken, {
+                          requestedDate: selectedDay,
+                          reason: requestReason,
                         });
-                        if (!res.ok) {
-                          const body = await res.json().catch(() => ({}));
-                          alert(body.error || 'Failed to submit request');
-                          return;
-                        }
                         await fetchMonthData();
                         setSelectedDay(null);
                       } finally {
@@ -962,21 +923,10 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
           }}
           onSave={async (updates) => {
             try {
-              const response = await fetch(`${API_BASE}/v1/admin/shifts/${selectedShift.id}`, {
-                method: 'PATCH',
-                headers: {
-                  Authorization: `Bearer ${session.sessionToken}`,
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(updates),
-              });
-              if (response.ok) {
-                await fetchShifts();
-                setShowEditModal(false);
-                setSelectedShift(null);
-              } else {
-                alert('Failed to update shift');
-              }
+              await updateShift(session.sessionToken, selectedShift.id, updates);
+              await fetchShifts();
+              setShowEditModal(false);
+              setSelectedShift(null);
             } catch (error) {
               console.error('Failed to update shift:', error);
               alert('Failed to update shift');

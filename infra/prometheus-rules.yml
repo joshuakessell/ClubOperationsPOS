@@ -1,0 +1,98 @@
+groups:
+  - name: API alerts
+    interval: 30s
+    rules:
+      - alert: APIDown
+        expr: up{job="api"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API is down"
+          description: "API service has been unreachable for 2 minutes"
+
+      - alert: APIHighErrorRate
+        expr: rate(http_requests_total{job="api",status=~"5.."}[5m]) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High error rate in API"
+          description: "Error rate is above 5% (current: {{ $value | humanizePercentage }})"
+
+      - alert: APIHighLatency
+        expr: histogram_quantile(0.95, http_request_duration_seconds{job="api"}) > 1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High API latency"
+          description: "95th percentile latency is above 1s (current: {{ $value }}s)"
+
+      - alert: APIHighMemoryUsage
+        expr: process_resident_memory_bytes{job="api"} / 1024 / 1024 > 400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage in API"
+          description: "Memory usage is above 400MB (current: {{ $value }}MB)"
+
+  - name: Database alerts
+    interval: 30s
+    rules:
+      - alert: PostgresDown
+        expr: up{job="postgres"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PostgreSQL is down"
+          description: "PostgreSQL database has been unreachable for 1 minute"
+
+      - alert: PostgresHighConnections
+        expr: pg_stat_activity_count > 90
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High PostgreSQL connection count"
+          description: "Database connections are above 90 (current: {{ $value }})"
+
+      - alert: PostgresSlowQueries
+        expr: pg_stat_statements_mean_time > 1000
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Slow PostgreSQL queries detected"
+          description: "Mean query time exceeds 1s (current: {{ $value }}ms)"
+
+  - name: Container alerts
+    interval: 30s
+    rules:
+      - alert: ContainerHighCPU
+        expr: container_cpu_usage_seconds_total > 0.8
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high CPU usage"
+          description: "Container CPU usage is above 80% (current: {{ $value | humanizePercentage }})"
+
+      - alert: ContainerHighMemory
+        expr: container_memory_usage_bytes / 1024 / 1024 > 400
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high memory usage"
+          description: "Container memory usage is above 400MB"
+
+      - alert: ContainerRestarting
+        expr: increase(container_last_seen{job="docker"}[5m]) > 2
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container is restarting frequently"
+          description: "Container has restarted multiple times in the last 5 minutes"
