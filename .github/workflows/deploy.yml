@@ -114,8 +114,8 @@ jobs:
                     "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops"
                   },
                   "RuntimeEnvironmentSecrets": {
-                    "DATABASE_URL": "$DATABASE_URL_SECRET_ARN",
-                    "KIOSK_TOKEN": "$KIOSK_TOKEN_SECRET_ARN"
+                    "DATABASE_URL": "${DATABASE_URL_SECRET_ARN}:DATABASE_URL::",
+                    "KIOSK_TOKEN": "${KIOSK_TOKEN_SECRET_ARN}:KIOSK_TOKEN::"
                   }
                 }
               },
@@ -130,7 +130,9 @@ jobs:
       - name: Fetch Kiosk Token for frontend builds
         id: fetch-token
         run: |
-          TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.KIOSK_TOKEN_SECRET_ARN }}" --query SecretString --output text)
+          RAW=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.KIOSK_TOKEN_SECRET_ARN }}" --query SecretString --output text)
+          # Secret may be JSON {"KIOSK_TOKEN":"value"} or plain text.
+          TOKEN=$(echo "$RAW" | jq -r '.KIOSK_TOKEN // empty' 2>/dev/null || echo "$RAW")
           echo "::add-mask::$TOKEN"
           echo "VITE_KIOSK_TOKEN=$TOKEN" >> $GITHUB_ENV
 
