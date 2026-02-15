@@ -316,11 +316,11 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
                   currentTotalHours,
                   waitlist: wl
                     ? {
-                        id: wl.id,
-                        desiredTier: wl.desired_tier,
-                        backupTier: wl.backup_tier,
-                        status: wl.status,
-                      }
+                      id: wl.id,
+                      desiredTier: wl.desired_tier,
+                      backupTier: wl.backup_tier,
+                      status: wl.status,
+                    }
                     : null,
                 },
               };
@@ -354,6 +354,9 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
             computedMode === 'RENEWAL' ? 'EMPLOYEE' : null;
           const selectionLockedAtForSession = computedMode === 'RENEWAL' ? new Date() : null;
           const membershipChoiceForSession = null;
+          // Initialize flow_step so the kiosk knows which screen to show.
+          // CHECKIN starts at LANGUAGE; RENEWAL skips straight to PAYMENT.
+          const flowStepForSession = computedMode === 'RENEWAL' ? 'PAYMENT' : 'LANGUAGE';
 
           if (existingSession.rows.length > 0 && existingSession.rows[0]!.status !== 'COMPLETED') {
             // Update existing session
@@ -386,6 +389,8 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
                  selection_confirmed = $12,
                  selection_confirmed_by = $13,
                  selection_locked_at = $14,
+                 flow_step = $15,
+                 flow_version = 0,
                  updated_at = NOW()
              WHERE id = $7
              RETURNING *`,
@@ -404,6 +409,7 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
                 selectionConfirmedForSession,
                 selectionConfirmedByForSession,
                 selectionLockedAtForSession,
+                flowStepForSession,
               ]
             );
             session = updateResult.rows[0]!;
@@ -411,8 +417,8 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
             // Create new session
             const newSessionResult = await client.query<LaneSessionRow>(
               `INSERT INTO lane_sessions 
-             (lane_id, status, staff_id, customer_id, customer_display_name, membership_number, checkin_mode, renewal_hours, desired_rental_type, assigned_resource_id, assigned_resource_type, membership_choice, selection_confirmed, selection_confirmed_by, selection_locked_at)
-             VALUES ($1, 'ACTIVE', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+             (lane_id, status, staff_id, customer_id, customer_display_name, membership_number, checkin_mode, renewal_hours, desired_rental_type, assigned_resource_id, assigned_resource_type, membership_choice, selection_confirmed, selection_confirmed_by, selection_locked_at, flow_step, flow_version)
+             VALUES ($1, 'ACTIVE', $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, 0)
              RETURNING *`,
               [
                 laneId,
@@ -429,6 +435,7 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
                 selectionConfirmedForSession,
                 selectionConfirmedByForSession,
                 selectionLockedAtForSession,
+                flowStepForSession,
               ]
             );
             session = newSessionResult.rows[0]!;
