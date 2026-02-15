@@ -245,7 +245,6 @@ permissions:
 
 ### Supply Chain Security
 - SBOM generation for dependency tracking
-- Trivy scanning for known vulnerabilities
 - Hadolint for Dockerfile best practices
 - Secret scanning to prevent credential leaks
 

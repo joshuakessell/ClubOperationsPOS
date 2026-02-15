@@ -77,7 +77,6 @@ Jobs:
 1. Unit tests, linting, type checking
 2. Build Docker images for all services
 3. Push to GHCR (GitHub Container Registry)
-4. Security scan with Trivy
 
 #### 2. `deploy-prod.yml` - Production Deployment
 Triggers on:
@@ -170,7 +169,6 @@ Scale by increasing replicas or increasing individual limits.
 - Non-root user execution
 - Dropped Linux capabilities (ALL)
 - Read-only root filesystem (where possible)
-- Security scanning with Trivy
 
 
 

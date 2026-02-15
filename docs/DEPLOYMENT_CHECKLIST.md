@@ -483,7 +483,6 @@ Immediate rollback if:
   - ECR image sizes
 
 - [ ] Review security scan results
-  - Trivy vulnerability reports
   - Dependency updates needed
 
 - [ ] Update dependencies (if needed)

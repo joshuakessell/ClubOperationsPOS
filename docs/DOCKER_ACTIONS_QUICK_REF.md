@@ -26,9 +26,6 @@ curl http://localhost:3000/health
 
 # Lint Dockerfile
 docker run --rm -i hadolint/hadolint < Dockerfile.api
-
-# Scan for vulnerabilities
-docker run --rm -v $(pwd):/src aquasec/trivy image club-ops-api:local
 ```
 
 ### Check GitHub Actions Cache
@@ -141,7 +138,6 @@ ECR_REPO/club-ops-api:prod-abc1234    # Rollback reference
 
 1. **Build Time**
    - Hadolint → Dockerfile best practices
-   - Trivy → Dependency vulnerabilities
 
 2. **Pre-Deployment**
    - SBOM → Software composition
