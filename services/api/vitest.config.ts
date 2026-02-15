@@ -18,11 +18,8 @@ export default defineConfig({
         globals: true,
         environment: 'node',
         include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
-        pool: 'forks', // Use forks for better isolation in Node environment
-        poolOptions: {
-            forks: {
-                singleFork: true,
-            },
-        },
+        pool: 'forks',
+        maxWorkers: 1,
+        isolate: false,
     },
 });

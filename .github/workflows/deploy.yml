@@ -52,6 +52,17 @@ jobs:
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
+        
+      # --- Secret Fetching (for Frontend Builds) ---
+      # Frontends need the TOKEN value at build time, not the ARN.
+      - name: Fetch Kiosk Token Secret
+        id: fetch-token
+        run: |
+          TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.KIOSK_TOKEN_SECRET_ARN }}" --query SecretString --output text)
+          # Mask the token in logs
+          echo "::add-mask::$TOKEN"
+          # Export to GITHUB_ENV for subsequent steps
+          echo "VITE_KIOSK_TOKEN=$TOKEN" >> $GITHUB_ENV
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -77,13 +88,27 @@ jobs:
           APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
           ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
           IMAGE_TAG: ${{ env.IMAGE_TAG }}
+          DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
+          KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
         run: |
+          # The API likely fetches secrets at runtime using the ARNs if configured to do so.
+          # We pass the ARNs as environment variables.
+          
           aws apprunner update-service \
             --service-arn "$APP_RUNNER_SERVICE_ARN" \
             --source-configuration '{
               "ImageRepository": {
                 "ImageIdentifier": "'"$ECR_REPO_URI:$IMAGE_TAG"'",
-                "ImageRepositoryType": "ECR"
+                "ImageRepositoryType": "ECR",
+                "ImageConfiguration": {
+                  "Port": "3000",
+                  "RuntimeEnvironmentVariables": {
+                    "DATABASE_URL_SECRET_ARN": "'"$DATABASE_URL_SECRET_ARN"'",
+                    "KIOSK_TOKEN_SECRET_ARN": "'"$KIOSK_TOKEN_SECRET_ARN"'",
+                    "LOG_LEVEL": "info",
+                    "Skip_DB": "false" 
+                  }
+                }
               }
             }'
 
@@ -92,8 +117,13 @@ jobs:
         env:
           # Shared build env vars
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
-          VITE_KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
+          VITE_REALTIME_PROVIDER: appsync-events
+          VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
+          VITE_DISABLE_REALTIME: 'false'
+          # VITE_KIOSK_TOKEN is already set in env from previous step
         run: |
+          # Ensure env var is available
+          export VITE_KIOSK_TOKEN="${{ env.VITE_KIOSK_TOKEN }}"
           pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-register --force
 
       # --- Employee Register Deployment ---
