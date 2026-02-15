@@ -65,7 +65,6 @@ aws cloudformation deploy --template-file infra.yaml --stack-name club-ops-prod 
 ### ✅ CI/CD Pipeline
 - **Automated testing** on every PR
 - **Docker image building** and pushing to GHCR
-- **Security scanning** with Trivy
 - **Automated deployment** on tag push
 - **Smoke tests** and health checks
 - **Automatic rollback** on failure

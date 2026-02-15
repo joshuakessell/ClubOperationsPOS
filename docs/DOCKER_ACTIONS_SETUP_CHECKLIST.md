@@ -114,7 +114,6 @@ Verify cron schedules are appropriate for your team:
 1. Check GitHub Security tab
 2. Verify:
    - [ ] Dockerfile lint results visible
-   - [ ] Trivy scan results visible
    - [ ] No critical vulnerabilities (or known/accepted)
    - [ ] SBOM artifacts uploaded
 
@@ -338,7 +337,6 @@ platforms: linux/amd64,linux/arm64  # Add to all builds
 - GitHub Actions docs: https://docs.github.com/actions
 - Docker Buildx docs: https://docs.docker.com/build/
 - Hadolint rules: https://github.com/hadolint/hadolint
-- Trivy docs: https://aquasecurity.github.io/trivy/
 
 ### Team Contacts
 - CI/CD issues: [Team Lead]

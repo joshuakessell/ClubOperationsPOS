@@ -61,13 +61,6 @@ Triggered on: **Pull Request** | **Push to main**
 │   - Employee Register: http://localhost:5175/                   │
 │ • docker compose down -v                                        │
 └─────────────────────────────────────────────────────────────────┘
-                              ↓
-┌─────────────────────────────────────────────────────────────────┐
-│                    SECURITY SCAN                                 │
-├─────────────────────────────────────────────────────────────────┤
-│ • Trivy vulnerability scanner (CRITICAL + HIGH)                 │
-│ • Upload SARIF to GitHub Security                               │
-└─────────────────────────────────────────────────────────────────┘
 ```
 
 ## Demo Deployment (deploy.yml)

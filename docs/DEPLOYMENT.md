@@ -364,7 +364,6 @@ aws logs filter-log-events \
 - **Database Access**: RDS publicly accessible but secured by security groups
 - **HTTPS**: All traffic encrypted with TLS via CloudFront/App Runner
 - **OIDC Authentication**: GitHub Actions uses OIDC for AWS credentials (no long-lived keys)
-- **Image Scanning**: Trivy scans for vulnerabilities in CI
 - **Kiosk Token**: Shared secret for kiosk authentication (rotate periodically)
 
 ## Troubleshooting
