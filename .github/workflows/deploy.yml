@@ -106,12 +106,20 @@ jobs:
             }'
 
       # --- Frontend Build ---
+      - name: Fetch Kiosk Token for frontend builds
+        id: fetch-token
+        run: |
+          TOKEN=$(aws secretsmanager get-secret-value --secret-id "${{ secrets.KIOSK_TOKEN_SECRET_ARN }}" --query SecretString --output text)
+          echo "::add-mask::$TOKEN"
+          echo "VITE_KIOSK_TOKEN=$TOKEN" >> $GITHUB_ENV
+
       - name: Build Frontends
         env:
           VITE_API_BASE_URL: https://api-demo.joshuakessell.com
           VITE_REALTIME_PROVIDER: appsync-events
           VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
           VITE_DISABLE_REALTIME: 'false'
+          VITE_KIOSK_TOKEN: ${{ env.VITE_KIOSK_TOKEN }}
         run: |
           pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-register --force
 
