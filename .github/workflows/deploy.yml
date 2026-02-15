@@ -84,26 +84,47 @@ jobs:
           DATABASE_URL_SECRET_ARN: ${{ secrets.DATABASE_URL_SECRET_ARN }}
           KIOSK_TOKEN_SECRET_ARN: ${{ secrets.KIOSK_TOKEN_SECRET_ARN }}
         run: |
-          # The API likely fetches secrets at runtime using the ARNs if configured to do so.
-          # We pass the ARNs as environment variables.
-          
-          aws apprunner update-service \
-            --service-arn "$APP_RUNNER_SERVICE_ARN" \
-            --source-configuration '{
+          # Build JSON payload for update-service.
+          # RuntimeEnvironmentSecrets: App Runner resolves these ARNs to
+          # plaintext at container startup (e.g. DATABASE_URL, KIOSK_TOKEN).
+          # RuntimeEnvironmentVariables: plain config values.
+          cat > /tmp/apprunner-input.json <<JSONEOF
+          {
+            "ServiceArn": "$APP_RUNNER_SERVICE_ARN",
+            "SourceConfiguration": {
               "ImageRepository": {
-                "ImageIdentifier": "'"$ECR_REPO_URI:$IMAGE_TAG"'",
+                "ImageIdentifier": "$ECR_REPO_URI:$IMAGE_TAG",
                 "ImageRepositoryType": "ECR",
                 "ImageConfiguration": {
                   "Port": "3000",
                   "RuntimeEnvironmentVariables": {
-                    "DATABASE_URL_SECRET_ARN": "'"$DATABASE_URL_SECRET_ARN"'",
-                    "KIOSK_TOKEN_SECRET_ARN": "'"$KIOSK_TOKEN_SECRET_ARN"'",
+                    "PORT": "3000",
+                    "HOST": "0.0.0.0",
                     "LOG_LEVEL": "info",
-                    "Skip_DB": "false" 
+                    "DEMO_MODE": "true",
+                    "SEED_ON_STARTUP": "false",
+                    "DEMO_INCREMENTAL": "true",
+                    "DEMO_FORCE_RESEED": "false",
+                    "DEMO_RESET_ON_STARTUP": "true",
+                    "DEMO_SHIFT_REGENERATE_PDFS": "true",
+                    "DB_SSL": "true",
+                    "DB_SSL_CA_PATH": "",
+                    "DB_LOG_QUERIES": "false",
+                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event",
+                    "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops"
+                  },
+                  "RuntimeEnvironmentSecrets": {
+                    "DATABASE_URL": "$DATABASE_URL_SECRET_ARN",
+                    "KIOSK_TOKEN": "$KIOSK_TOKEN_SECRET_ARN"
                   }
                 }
-              }
-            }'
+              },
+              "AutoDeploymentsEnabled": false
+            }
+          }
+          JSONEOF
+
+          aws apprunner update-service --cli-input-json file:///tmp/apprunner-input.json
 
       # --- Frontend Build ---
       - name: Fetch Kiosk Token for frontend builds
