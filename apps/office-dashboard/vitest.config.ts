@@ -4,7 +4,7 @@ import path from 'path';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
-    plugins: [react()],
+    plugins: [react() as any],
     resolve: {
         alias: [
             {
@@ -31,6 +31,6 @@ export default defineConfig({
         isolate: false,
         teardownTimeout: 10000,
         forceExit: true,
-        reporters: ['default'],
+        reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
     },
 });

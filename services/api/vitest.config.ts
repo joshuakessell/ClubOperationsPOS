@@ -21,5 +21,8 @@ export default defineConfig({
         pool: 'forks',
         maxWorkers: 1,
         isolate: false,
+        teardownTimeout: 10000,
+        forceExit: true,
+        reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
     },
 });

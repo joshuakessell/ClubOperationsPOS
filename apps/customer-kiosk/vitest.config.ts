@@ -25,6 +25,12 @@ export default defineConfig({
         globals: true,
         environment: 'jsdom',
         include: ['src/**/*.test.{ts,tsx}'],
-        setupFiles: [], // Add setup file if needed
+        setupFiles: ['./src/vitest.setup.ts'],
+        pool: 'forks',
+        maxWorkers: 1,
+        isolate: false,
+        teardownTimeout: 10000,
+        forceExit: true,
+        reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
     },
 });
