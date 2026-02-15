@@ -128,6 +128,26 @@ function currencyUSD() {
   return 'USD';
 }
 
+/** Tier-based checkin pricing in cents */
+function checkinPriceCents(rentalType: string): number {
+  switch (rentalType) {
+    case 'LOCKER': return 2000;
+    case 'STANDARD': return 4000;
+    case 'DOUBLE': return 5500;
+    case 'SPECIAL': return 6500;
+    default: return 2000;
+  }
+}
+
+/** Get the night key (YYYY-MM-DD) for a date, treating 0:00-5:59 as previous day's night */
+function nightKey(d: Date): string {
+  const adjusted = new Date(d.getTime());
+  if (adjusted.getHours() < 6) {
+    adjusted.setDate(adjusted.getDate() - 1);
+  }
+  return adjusted.toISOString().slice(0, 10);
+}
+
 export async function appendIncrementalDemoSimulation(params: {
   client: DbClient;
   from: Date;
@@ -138,8 +158,7 @@ export async function appendIncrementalDemoSimulation(params: {
   rooms: DemoRoom[];
   staff: DemoStaff[];
   registerSessions: DemoRegisterSession[];
-}): Promise<{ visitsCreated: number }>
-{
+}): Promise<{ visitsCreated: number }> {
   const windowMs = params.to.getTime() - params.from.getTime();
   if (windowMs <= 0) return { visitsCreated: 0 };
 
@@ -157,6 +176,10 @@ export async function appendIncrementalDemoSimulation(params: {
   let roomIndex = 0;
   let created = 0;
 
+  // ---------------------------------------------------------------------------
+  // Deferred event queues — populated during visit creation, flushed afterward
+  // ---------------------------------------------------------------------------
+
   const checkoutEvents: Array<{
     occurredAt: Date;
     customer: DemoCustomer;
@@ -167,9 +190,15 @@ export async function appendIncrementalDemoSimulation(params: {
     lockerId: string | null;
     staffId: string;
     staffName: string;
+    checkoutDeltaMinutes: number;
   }> = [];
 
-  const cleaningEvents: Array<{ roomId: string; startedAt: Date; completedAt: Date; staffId: string }> = [];
+  const cleaningEvents: Array<{
+    roomId: string;
+    startedAt: Date;
+    completedAt: Date;
+    staffId: string;
+  }> = [];
 
   const anonOrders: Array<{ createdAt: Date; staffId: string; registerSessionId: string }> = [];
   const customerOrders: Array<{
@@ -178,6 +207,63 @@ export async function appendIncrementalDemoSimulation(params: {
     registerSessionId: string;
     customerId: string;
   }> = [];
+
+  // Waitlist entries for rooms (completed flow)
+  const waitlistEvents: Array<{
+    visitId: string;
+    checkinBlockId: string;
+    customerId: string;
+    desiredTier: string;
+    roomId: string;
+    createdAt: Date;
+    offeredAt: Date;
+    completedAt: Date;
+  }> = [];
+
+  // Room upgrade events (locker→room mid-stay)
+  const upgradeEvents: Array<{
+    visitId: string;
+    originalBlockId: string;
+    customerId: string;
+    roomId: string;
+    roomType: string;
+    lockerId: string;
+    upgradeAt: Date;
+    upgradeEndAt: Date;
+    staffId: string;
+  }> = [];
+
+  // Payment intents for checkin fees
+  const paymentEvents: Array<{
+    visitId: string;
+    checkinBlockId: string;
+    rentalType: string;
+    paidAt: Date;
+    laneSessionId: string | null;
+  }> = [];
+
+  // Checkout requests for room visits (completed)
+  const checkoutRequestEvents: Array<{
+    checkinBlockId: string;
+    customerId: string;
+    lateMinutes: number;
+    lateFeeAmount: number;
+    completedAt: Date;
+  }> = [];
+
+  // Late checkout events (capped at 2 per night)
+  const lateCheckoutEvents: Array<{
+    checkinBlockId: string;
+    customerId: string;
+    lateMinutes: number;
+    feeAmount: number;
+    banApplied: boolean;
+    createdAt: Date;
+    checkoutRequestId: string | null;
+  }> = [];
+
+  // Track late checkouts per night to cap at 2
+  const lateCountByNight = new Map<string, number>();
 
   for (let i = 0; i < intervals && created < maxVisits; i += 1) {
     const slotStart = new Date(params.from.getTime() + i * intervalMs);
@@ -286,6 +372,7 @@ export async function appendIncrementalDemoSimulation(params: {
         lockerId,
         staffId: staffMember.id,
         staffName: staffMember.name,
+        checkoutDeltaMinutes,
       });
 
       if (rng() < 0.24) {
@@ -305,11 +392,101 @@ export async function appendIncrementalDemoSimulation(params: {
         });
       }
 
+      // --- Cleaning events (randomized durations) ---
       if (roomId) {
-        const cleaningStart = new Date(end.getTime() + 5 * 60 * 1000);
-        const cleaningDone = new Date(cleaningStart.getTime() + 10 * 60 * 1000);
+        const isPeak = isFridayOrSaturdayPeak(end);
+        const cleaningStartDelay = 3 + Math.floor(rng() * 6); // 3-8 min
+        const cleaningDuration = isPeak
+          ? 12 + Math.floor(rng() * 9) // 12-20 min on peak
+          : 8 + Math.floor(rng() * 8); // 8-15 min off-peak
+        const cleaningStart = new Date(end.getTime() + cleaningStartDelay * 60 * 1000);
+        const cleaningDone = new Date(cleaningStart.getTime() + cleaningDuration * 60 * 1000);
         const cleaner = params.staff[(roomIndex + j) % params.staff.length]!;
         cleaningEvents.push({ roomId, startedAt: cleaningStart, completedAt: cleaningDone, staffId: cleaner.id });
+      }
+
+      // --- Waitlist: ~8% of room visits went through waitlist first ---
+      if (roomId && rng() < 0.08) {
+        const waitCreatedAt = new Date(start.getTime() - Math.floor(15 + rng() * 30) * 60 * 1000);
+        const offeredAt = new Date(waitCreatedAt.getTime() + Math.floor(15 + rng() * 30) * 60 * 1000);
+        const completedAt = new Date(offeredAt.getTime() + Math.floor(2 + rng() * 3) * 60 * 1000);
+        waitlistEvents.push({
+          visitId,
+          checkinBlockId,
+          customerId: customer.id,
+          desiredTier: rentalType,
+          roomId,
+          createdAt: waitCreatedAt,
+          offeredAt,
+          completedAt,
+        });
+      }
+
+      // --- Room upgrades: ~4% of locker visits upgrade to a room mid-stay ---
+      if (lockerId && !roomId && params.rooms.length > 0 && rng() < 0.04) {
+        const upgradeRoom = params.rooms[Math.floor(rng() * params.rooms.length)]!;
+        const upgradeMinutesIn = 30 + Math.floor(rng() * 90); // 30-120 min into stay
+        const upgradeAt = new Date(start.getTime() + upgradeMinutesIn * 60 * 1000);
+        if (upgradeAt < end) {
+          upgradeEvents.push({
+            visitId,
+            originalBlockId: checkinBlockId,
+            customerId: customer.id,
+            roomId: upgradeRoom.id,
+            roomType: upgradeRoom.type === 'DOUBLE' || upgradeRoom.type === 'SPECIAL' || upgradeRoom.type === 'STANDARD'
+              ? upgradeRoom.type : 'STANDARD',
+            lockerId,
+            upgradeAt,
+            upgradeEndAt: scheduledEnd,
+            staffId: staffMember.id,
+          });
+        }
+      }
+
+      // --- Payment intents for ~30% of visits ---
+      if (rng() < 0.30) {
+        paymentEvents.push({
+          visitId,
+          checkinBlockId,
+          rentalType,
+          paidAt: signedAt,
+          laneSessionId: null,
+        });
+      }
+
+      // --- Checkout requests for completed room visits ---
+      if (roomId) {
+        const isLate = checkoutDeltaMinutes < -15; // actually checked out after scheduled time
+        const lateMinutes = isLate ? Math.abs(checkoutDeltaMinutes) - 15 : 0;
+        const lateFeePerBlock = 1500; // $15 per 15-min block
+        const lateBlocks = Math.ceil(lateMinutes / 15);
+        const lateFeeAmount = lateBlocks * lateFeePerBlock / 100; // in dollars for numeric(10,2)
+
+        checkoutRequestEvents.push({
+          checkinBlockId,
+          customerId: customer.id,
+          lateMinutes,
+          lateFeeAmount,
+          completedAt: end,
+        });
+
+        // Late checkout events: only for actually late checkouts, capped at 2/night
+        if (isLate && lateMinutes > 0) {
+          const night = nightKey(end);
+          const currentCount = lateCountByNight.get(night) ?? 0;
+          if (currentCount < 2) {
+            lateCountByNight.set(night, currentCount + 1);
+            lateCheckoutEvents.push({
+              checkinBlockId,
+              customerId: customer.id,
+              lateMinutes,
+              feeAmount: lateFeeAmount,
+              banApplied: lateMinutes >= 60,
+              createdAt: end,
+              checkoutRequestId: null, // linked later during insert
+            });
+          }
+        }
       }
 
       await params.client.query(
@@ -333,6 +510,11 @@ export async function appendIncrementalDemoSimulation(params: {
     }
   }
 
+  // ---------------------------------------------------------------------------
+  // Flush deferred events
+  // ---------------------------------------------------------------------------
+
+  // 1) Checkout activity events + customer notes
   for (const ev of checkoutEvents) {
     if (ev.occurredAt > params.to) continue;
 
@@ -378,6 +560,7 @@ export async function appendIncrementalDemoSimulation(params: {
     }
   }
 
+  // 2) Cleaning events (randomized durations)
   for (const ce of cleaningEvents) {
     if (ce.completedAt > params.to) continue;
     const eventId1 = randomUUID();
@@ -393,6 +576,276 @@ export async function appendIncrementalDemoSimulation(params: {
     );
   }
 
+  // 3) Waitlist entries
+  for (const wl of waitlistEvents) {
+    if (wl.completedAt > params.to) continue;
+    const waitlistId = randomUUID();
+
+    await params.client.query(
+      `INSERT INTO waitlist
+         (id, visit_id, checkin_block_id, desired_tier, backup_tier, room_id,
+          status, created_at, updated_at, offered_at, offer_expires_at,
+          last_offered_at, offer_attempts, completed_at)
+       VALUES ($1, $2, $3, $4::rental_type, 'LOCKER'::rental_type, $5,
+               'COMPLETED', $6, $7, $8, $9, $8, 1, $7)`,
+      [
+        waitlistId,
+        wl.visitId,
+        wl.checkinBlockId,
+        wl.desiredTier,
+        wl.roomId,
+        wl.createdAt,
+        wl.completedAt,
+        wl.offeredAt,
+        new Date(wl.offeredAt.getTime() + 10 * 60 * 1000), // offer_expires_at = offered + 10 min
+      ]
+    );
+
+    // Link checkin block to waitlist
+    await params.client.query(
+      `UPDATE checkin_blocks SET waitlist_id = $1 WHERE id = $2`,
+      [waitlistId, wl.checkinBlockId]
+    );
+
+    // Inventory reservation (released)
+    await params.client.query(
+      `INSERT INTO inventory_reservations
+         (id, resource_type, resource_id, kind, waitlist_id,
+          created_at, expires_at, released_at, release_reason)
+       VALUES ($1, 'room'::inventory_resource_type, $2, 'UPGRADE_HOLD'::inventory_reservation_kind,
+               $3, $4, $5, $6, 'waitlist_completed')`,
+      [
+        randomUUID(),
+        wl.roomId,
+        waitlistId,
+        wl.offeredAt,
+        new Date(wl.offeredAt.getTime() + 10 * 60 * 1000),
+        wl.completedAt,
+      ]
+    );
+  }
+
+  // 4) Room upgrades (locker → room)
+  for (const ug of upgradeEvents) {
+    if (ug.upgradeAt > params.to) continue;
+    const renewalBlockId = randomUUID();
+    const waitlistId = randomUUID();
+    const paymentIntentId = randomUUID();
+    const chargeId = randomUUID();
+    const upgradeRentalType = ug.roomType;
+
+    // Renewal checkin block for the upgrade
+    await params.client.query(
+      `INSERT INTO checkin_blocks
+         (id, visit_id, block_type, starts_at, ends_at, locker_id, room_id,
+          agreement_signed, agreement_signed_at, rental_type, waitlist_id)
+       VALUES ($1, $2, 'RENEWAL', $3, $4, NULL, $5, true, $6, $7::rental_type, $8)`,
+      [
+        renewalBlockId,
+        ug.visitId,
+        ug.upgradeAt,
+        ug.upgradeEndAt,
+        ug.roomId,
+        ug.upgradeAt,
+        upgradeRentalType,
+        waitlistId,
+      ]
+    );
+
+    // Waitlist entry for the upgrade
+    await params.client.query(
+      `INSERT INTO waitlist
+         (id, visit_id, checkin_block_id, desired_tier, backup_tier,
+          locker_or_room_assigned_initially, room_id,
+          status, created_at, updated_at, offered_at, offer_expires_at,
+          last_offered_at, offer_attempts, completed_at)
+       VALUES ($1, $2, $3, $4::rental_type, 'LOCKER'::rental_type,
+               $5, $6,
+               'COMPLETED', $7, $8, $9, $10, $9, 1, $8)`,
+      [
+        waitlistId,
+        ug.visitId,
+        ug.originalBlockId,
+        upgradeRentalType,
+        ug.lockerId,
+        ug.roomId,
+        new Date(ug.upgradeAt.getTime() - 5 * 60 * 1000), // created 5 min before upgrade
+        ug.upgradeAt, // completed at upgrade time
+        new Date(ug.upgradeAt.getTime() - 3 * 60 * 1000), // offered 3 min before upgrade
+        new Date(ug.upgradeAt.getTime() + 7 * 60 * 1000), // expires 10 min after offer
+      ]
+    );
+
+    // Inventory reservation (released)
+    await params.client.query(
+      `INSERT INTO inventory_reservations
+         (id, resource_type, resource_id, kind, waitlist_id,
+          created_at, expires_at, released_at, release_reason)
+       VALUES ($1, 'room'::inventory_resource_type, $2, 'UPGRADE_HOLD'::inventory_reservation_kind,
+               $3, $4, $5, $6, 'upgrade_completed')`,
+      [
+        randomUUID(),
+        ug.roomId,
+        waitlistId,
+        new Date(ug.upgradeAt.getTime() - 3 * 60 * 1000),
+        new Date(ug.upgradeAt.getTime() + 7 * 60 * 1000),
+        ug.upgradeAt,
+      ]
+    );
+
+    // Payment intent for upgrade fee
+    const upgradePriceCents = 2500; // $25
+    await params.client.query(
+      `INSERT INTO payment_intents
+         (id, amount, tip_cents, status, quote_json, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 0, 'PAID', $3, $4, $4, $4)`,
+      [
+        paymentIntentId,
+        upgradePriceCents / 100, // numeric(10,2)
+        { type: 'UPGRADE', from: 'LOCKER', to: upgradeRentalType, priceCents: upgradePriceCents },
+        ug.upgradeAt,
+      ]
+    );
+
+    // Charge for upgrade
+    await params.client.query(
+      `INSERT INTO charges
+         (id, visit_id, checkin_block_id, type, amount, payment_intent_id, created_at)
+       VALUES ($1, $2, $3, 'UPGRADE', $4, $5, $6)`,
+      [
+        chargeId,
+        ug.visitId,
+        renewalBlockId,
+        upgradePriceCents / 100,
+        paymentIntentId,
+        ug.upgradeAt,
+      ]
+    );
+  }
+
+  // 5) Payment intents & charges for initial checkin fees
+  for (const pe of paymentEvents) {
+    if (pe.paidAt > params.to) continue;
+    const paymentIntentId = randomUUID();
+    const chargeId = randomUUID();
+    const priceCents = checkinPriceCents(pe.rentalType);
+
+    await params.client.query(
+      `INSERT INTO payment_intents
+         (id, amount, tip_cents, status, quote_json, paid_at, created_at, updated_at)
+       VALUES ($1, $2, 0, 'PAID', $3, $4, $4, $4)`,
+      [
+        paymentIntentId,
+        priceCents / 100,
+        { type: 'CHECKIN', rentalType: pe.rentalType, priceCents },
+        pe.paidAt,
+      ]
+    );
+
+    await params.client.query(
+      `INSERT INTO charges
+         (id, visit_id, checkin_block_id, type, amount, payment_intent_id, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        chargeId,
+        pe.visitId,
+        pe.checkinBlockId,
+        pe.rentalType,
+        priceCents / 100,
+        paymentIntentId,
+        pe.paidAt,
+      ]
+    );
+  }
+
+  // 6) Checkout requests for completed room visits
+  for (const cr of checkoutRequestEvents) {
+    if (cr.completedAt > params.to) continue;
+    const crId = randomUUID();
+
+    await params.client.query(
+      `INSERT INTO checkout_requests
+         (id, occupancy_id, kiosk_device_id, customer_id, status,
+          customer_checklist_json, late_minutes, late_fee_amount,
+          items_confirmed, fee_paid, completed_at, created_at, updated_at)
+       VALUES ($1, $2, 'demo-kiosk-1', $3, 'VERIFIED',
+               $4, $5, $6,
+               true, true, $7, $7, $7)`,
+      [
+        crId,
+        cr.checkinBlockId,
+        cr.customerId,
+        { towelReturned: true, keyReturned: true, personalBelongings: true },
+        cr.lateMinutes,
+        cr.lateFeeAmount,
+        cr.completedAt,
+      ]
+    );
+
+    // Link any late checkout event to this checkout request
+    const matchingLate = lateCheckoutEvents.find(
+      (le) => le.checkinBlockId === cr.checkinBlockId && le.checkoutRequestId === null
+    );
+    if (matchingLate) {
+      matchingLate.checkoutRequestId = crId;
+    }
+  }
+
+  // 7) Late checkout events (capped at 2/night)
+  for (const le of lateCheckoutEvents) {
+    if (le.createdAt > params.to) continue;
+
+    const lateEventId = randomUUID();
+    await params.client.query(
+      `INSERT INTO late_checkout_events
+         (id, occupancy_id, checkout_request_id, late_minutes, fee_amount,
+          ban_applied, created_at, customer_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        lateEventId,
+        le.checkinBlockId,
+        le.checkoutRequestId,
+        le.lateMinutes,
+        le.feeAmount,
+        le.banApplied,
+        le.createdAt,
+        le.customerId,
+      ]
+    );
+
+    // Charge + payment intent for late fee
+    if (le.feeAmount > 0) {
+      const paymentIntentId = randomUUID();
+      const chargeId = randomUUID();
+
+      await params.client.query(
+        `INSERT INTO payment_intents
+           (id, amount, tip_cents, status, quote_json, paid_at, created_at, updated_at)
+         VALUES ($1, $2, 0, 'PAID', $3, $4, $4, $4)`,
+        [
+          paymentIntentId,
+          le.feeAmount,
+          { type: 'LATE_FEE', lateMinutes: le.lateMinutes, feeAmount: le.feeAmount },
+          le.createdAt,
+        ]
+      );
+
+      await params.client.query(
+        `INSERT INTO charges
+           (id, visit_id, checkin_block_id, type, amount, payment_intent_id, created_at)
+         VALUES ($1, (SELECT visit_id FROM checkin_blocks WHERE id = $2), $2, 'LATE_FEE', $3, $4, $5)`,
+        [
+          chargeId,
+          le.checkinBlockId,
+          le.feeAmount,
+          paymentIntentId,
+          le.createdAt,
+        ]
+      );
+    }
+  }
+
+  // 8) Orders (anonymous + customer-linked)
   async function insertOrder(order: {
     createdAt: Date;
     registerSessionId: string;
