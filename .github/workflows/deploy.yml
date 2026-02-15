@@ -114,8 +114,8 @@ jobs:
                     "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops"
                   },
                   "RuntimeEnvironmentSecrets": {
-                    "DATABASE_URL": "${DATABASE_URL_SECRET_ARN}:DATABASE_URL::",
-                    "KIOSK_TOKEN": "${KIOSK_TOKEN_SECRET_ARN}:KIOSK_TOKEN::"
+                    "DATABASE_URL": "$DATABASE_URL_SECRET_ARN",
+                    "KIOSK_TOKEN": "$KIOSK_TOKEN_SECRET_ARN"
                   }
                 }
               },
