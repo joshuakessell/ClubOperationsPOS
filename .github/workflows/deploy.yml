@@ -1,0 +1,123 @@
+name: Deploy (dev)
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    name: Deploy dev (API + frontends)
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.28.0
+
+      - name: Resolve pnpm store path
+        id: pnpm-store
+        run: echo "path=$(pnpm store path)" >> $GITHUB_OUTPUT
+
+      - name: Cache pnpm store
+        uses: actions/cache@v4
+        with:
+          path: ${{ steps.pnpm-store.outputs.path }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: us-east-1
+
+      - name: Login to Amazon ECR
+        id: ecr-login
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # --- API Deployment ---
+      - name: Build & Push API Docker Image
+        env:
+          ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
+        run: |
+          IMAGE_TAG="dev-${{ github.sha }}"
+          LATEST_TAG="dev-latest"
+          
+          docker build -t "$ECR_REPO_URI:$IMAGE_TAG" -f services/api/Dockerfile .
+          docker tag "$ECR_REPO_URI:$IMAGE_TAG" "$ECR_REPO_URI:$LATEST_TAG"
+          
+          docker push "$ECR_REPO_URI:$IMAGE_TAG"
+          docker push "$ECR_REPO_URI:$LATEST_TAG"
+          
+          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
+
+      - name: Deploy API to App Runner
+        env:
+          APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+          ECR_REPO_URI: ${{ secrets.ECR_REPO_URI }}
+          IMAGE_TAG: ${{ env.IMAGE_TAG }}
+        run: |
+          aws apprunner update-service \
+            --service-arn "$APP_RUNNER_SERVICE_ARN" \
+            --source-configuration '{
+              "ImageRepository": {
+                "ImageIdentifier": "'"$ECR_REPO_URI:$IMAGE_TAG"'",
+                "ImageRepositoryType": "ECR"
+              }
+            }'
+
+      # --- Frontend Build ---
+      - name: Build Frontends
+        env:
+          # Shared build env vars
+          VITE_API_BASE_URL: https://api-demo.joshuakessell.com
+          VITE_KIOSK_TOKEN: ${{ secrets.KIOSK_TOKEN }}
+        run: |
+          pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-register --force
+
+      # --- Employee Register Deployment ---
+      - name: Deploy employee-register
+        env:
+          EMPLOYEE_BUCKET: ${{ vars.EMPLOYEE_BUCKET }}
+          EMPLOYEE_DISTRIBUTION_ID: ${{ vars.EMPLOYEE_DISTRIBUTION_ID }}
+        run: |
+          aws s3 sync apps/employee-register/dist "s3://$EMPLOYEE_BUCKET" --delete
+          aws cloudfront create-invalidation --distribution-id "$EMPLOYEE_DISTRIBUTION_ID" --paths "/*"
+
+      # --- Customer Kiosk Deployment ---
+      - name: Deploy customer-kiosk
+        env:
+          CUSTOMER_BUCKET: ${{ vars.CUSTOMER_BUCKET }}
+          CUSTOMER_DISTRIBUTION_ID: ${{ vars.CUSTOMER_DISTRIBUTION_ID }}
+        run: |
+          aws s3 sync apps/customer-kiosk/dist "s3://$CUSTOMER_BUCKET" --delete
+          aws cloudfront create-invalidation --distribution-id "$CUSTOMER_DISTRIBUTION_ID" --paths "/*"
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "## Dev deployment complete" >> $GITHUB_STEP_SUMMARY
+          echo "- API: https://api-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
+          echo "- Employee: https://employee-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
+          echo "- Customer: https://customer-demo.joshuakessell.com" >> $GITHUB_STEP_SUMMARY
