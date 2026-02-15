@@ -234,10 +234,41 @@ body {
 }
 
 .main-content {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 3rem;
   width: 100%;
+}
+
+/* Language toggle — pill button in the top-right of the rental screen */
+.ck-language-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  z-index: 20;
+  padding: 0.55rem 1.1rem;
+  font-size: clamp(0.85rem, 1.8vw, 1rem);
+  font-weight: 700;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.12);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  color: rgba(255, 255, 255, 0.92);
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.ck-language-toggle:hover,
+.ck-language-toggle:active {
+  background: rgba(255, 255, 255, 0.22);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+.ck-language-toggle:disabled {
+  opacity: 0.5;
+  pointer-events: none;
 }
 
 .customer-info {
