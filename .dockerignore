@@ -4,6 +4,8 @@ node_modules/
 
 # Build outputs (will be copied explicitly)
 dist/
+!packages/shared/dist/
+!services/api/dist/
 build/
 .turbo/
 
