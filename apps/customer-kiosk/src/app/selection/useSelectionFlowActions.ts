@@ -54,13 +54,13 @@ export function useSelectionFlowActions({
   } = ui;
 
   const {
-    onSwitchToLanguage,
+    onToggleLanguage,
   } = callbacks;
 
   const { showNotice } = notices;
 
   const showLanguageRequiredNotice = () => {
-    onSwitchToLanguage();
+    onToggleLanguage();
     showNotice({ tone: 'warning', title: t('EN', 'selectLanguage') });
   };
 

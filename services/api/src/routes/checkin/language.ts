@@ -83,13 +83,15 @@ export function registerCheckinLanguageRoutes(fastify: FastifyInstance): void {
           `INSERT INTO lane_session_commands (session_id, command_id, actor, type, payload_json)
            VALUES ($1, $2, $3, $4, $5)
            ON CONFLICT (session_id, command_id) DO NOTHING`,
-          [session.id, commandId, 'CUSTOMER', 'SET_STEP', { step: 'LANGUAGE', language }]
+          [session.id, commandId, 'CUSTOMER', 'SET_LANGUAGE', { language }]
         );
 
+        // Language toggle no longer changes flow_step — it only bumps the
+        // version so the broadcast carries the updated customer language
+        // without disrupting the kiosk's current view.
         await client.query(
           `UPDATE lane_sessions
-           SET flow_step = 'LANGUAGE',
-               flow_version = COALESCE(flow_version, 0) + 1,
+           SET flow_version = COALESCE(flow_version, 0) + 1,
                flow_last_command_id = $1,
                flow_last_actor = 'CUSTOMER',
                updated_at = NOW()

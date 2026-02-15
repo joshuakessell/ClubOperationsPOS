@@ -124,7 +124,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   const showSixMonthMembershipAdd = membershipStatus !== 'ACTIVE' && !isMembershipPending;
   const step: EmployeeAssistStep = useMemo(() => {
     if (!sessionId || !customerName) return 'DONE';
-    if (isLanguageNeeded) return 'LANGUAGE';
     if (waitlistDesiredTier && !waitlistBackupType) return 'UPGRADE';
     if (selectionConfirmed) return 'DONE';
     if (proposedBy === 'CUSTOMER' && proposedRentalType) return 'DONE';
@@ -244,102 +243,110 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
 
   return (
     <div
-      className="cs-liquid-card"
-      style={{
-        padding: '0.9rem',
-        flex: 1,
+      className= "cs-liquid-card"
+  style = {{
+    padding: '0.9rem',
+      flex: 1,
         minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
           display: 'flex',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
+            flexDirection: 'column',
+              overflow: 'hidden',
+      }
+}
+    >
+  <div
+        style={
+  {
+    display: 'flex',
+      justifyContent: 'space-between',
+        gap: '0.75rem',
           alignItems: 'baseline',
-        }}
+        }
+}
       >
-        <div style={{ fontWeight: 950, fontSize: '1rem' }}>Employee Assist</div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {onBack ? (
+  <div style={ { fontWeight: 950, fontSize: '1rem' } }> Employee Assist </div>
+    < div style = {{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      {
+        onBack?(
             <button
-              type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
-              onClick={() => void onBack()}
-              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
+              type = "button"
+              className = "cs-liquid-button cs-liquid-button--secondary"
+              onClick = {() => void onBack()}
+style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
             >
-              Back
-            </button>
+  Back
+  </button>
           ) : null}
-          {onCancel ? (
-            <button
-              type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
-              onClick={() => void onCancel()}
-              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
+{
+  onCancel ? (
+    <button
+              type= "button"
+              className = "cs-liquid-button cs-liquid-button--secondary"
+  onClick = {() => void onCancel()
+}
+style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
             >
-              Cancel
-            </button>
+  Cancel
+  </button>
           ) : null}
-          {onClearSession ? (
-            <button
-              type="button"
-              className="cs-liquid-button cs-liquid-button--danger"
-              onClick={onClearSession}
-              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }}
+{
+  onClearSession ? (
+    <button
+              type= "button"
+              className = "cs-liquid-button cs-liquid-button--danger"
+  onClick = { onClearSession }
+  style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }
+}
             >
-              Clear Session
-            </button>
+  Clear Session
+    </button>
           ) : (
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              Step: {step}
-            </div>
+  <div className= "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
+    Step: { step }
+</div>
           )}
-        </div>
-      </div>
+</div>
+  </div>
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          marginTop: '0.75rem',
-          overflowY: 'auto',
+  < div
+style = {{
+  flex: 1,
+    minHeight: 0,
+      marginTop: '0.75rem',
+        overflowY: 'auto',
           paddingRight: '0.25rem',
-          display: 'grid',
-          gap: '0.7rem',
-          alignContent: 'start',
+            display: 'grid',
+              gap: '0.7rem',
+                alignContent: 'start',
         }}
       >
-        <EmployeeAssistStepContent
-          step={step}
-          directSelect={directSelect}
-          isSubmitting={isSubmitting}
-          pending={pending}
-          setPending={setPending}
-          showSixMonthMembershipAdd={showSixMonthMembershipAdd}
-          waitlistDesiredTier={waitlistDesiredTier}
-          waitlistDesiredTypes={waitlistDesiredTypes}
-          waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
-          waitlistRequestedResourceType={waitlistRequestedResourceType}
-          waitlistUnavailableOptions={waitlistUnavailableOptions}
-          rentalButtons={rentalButtons}
-          waitlistBackupButtons={waitlistBackupButtons}
-          onHighlightLanguage={onHighlightLanguage}
-          onConfirmLanguage={onConfirmLanguage}
-          onHighlightMembership={onHighlightMembership}
-          onConfirmMembershipSixMonth={onConfirmMembershipSixMonth}
-          onHighlightRental={onHighlightRental}
-          onApproveRental={onApproveRental}
-          onDirectSelectRental={onDirectSelectRental}
-          onHighlightWaitlistBackup={onHighlightWaitlistBackup}
-          onSelectWaitlistBackupAsCustomer={onSelectWaitlistBackupAsCustomer}
-          onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
-          onDirectSelectWaitlistBackup={onDirectSelectWaitlistBackup}
-        />
-      </div>
-    </div>
+  <EmployeeAssistStepContent
+          step={ step }
+directSelect = { directSelect }
+isSubmitting = { isSubmitting }
+pending = { pending }
+setPending = { setPending }
+showSixMonthMembershipAdd = { showSixMonthMembershipAdd }
+waitlistDesiredTier = { waitlistDesiredTier }
+waitlistDesiredTypes = { waitlistDesiredTypes }
+waitlistRequestedResourceNumber = { waitlistRequestedResourceNumber }
+waitlistRequestedResourceType = { waitlistRequestedResourceType }
+waitlistUnavailableOptions = { waitlistUnavailableOptions }
+rentalButtons = { rentalButtons }
+waitlistBackupButtons = { waitlistBackupButtons }
+onHighlightLanguage = { onHighlightLanguage }
+onConfirmLanguage = { onConfirmLanguage }
+onHighlightMembership = { onHighlightMembership }
+onConfirmMembershipSixMonth = { onConfirmMembershipSixMonth }
+onHighlightRental = { onHighlightRental }
+onApproveRental = { onApproveRental }
+onDirectSelectRental = { onDirectSelectRental }
+onHighlightWaitlistBackup = { onHighlightWaitlistBackup }
+onSelectWaitlistBackupAsCustomer = { onSelectWaitlistBackupAsCustomer }
+onSelectRentalAsCustomer = { props.onSelectRentalAsCustomer }
+onDirectSelectWaitlistBackup = { onDirectSelectWaitlistBackup }
+  />
+  </div>
+  </div>
   );
 }

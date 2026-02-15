@@ -79,6 +79,7 @@ export function CustomerAccountPanel(props: {
   onStartRenewal?: (activeCheckin: ActiveCheckinDetails) => void;
   onGoBack?: () => void;
   onRefetchAccountState?: () => void;
+  onToggleLanguage?: () => void;
 
   // callbacks to apply immediate REST response (WS will still be source-of-truth)
   onStartedSession: (payload: {
@@ -174,6 +175,7 @@ export function CustomerAccountPanel(props: {
   const showGoBack =
     state.mode === 'ERROR' &&
     (state.errorCode === 'UNDERAGE' || state.errorCode === 'ID_EXPIRED');
+
   const renderProfileCard = (footer: JSX.Element | null) => (
     <CustomerProfileCard
       name= { displayName }
@@ -193,8 +195,10 @@ export function CustomerAccountPanel(props: {
   waitlistBackupType = { hasActiveSession? props.waitlistBackupType : null}
   footer = { footer ?? undefined
 }
-    />
+onToggleLanguage = { props.onToggleLanguage }
+  />
   );
+
 const beginCheckinButton = (
   <button
       type= "button"
@@ -206,11 +210,7 @@ style = {{ width: '100%', maxWidth: 320, padding: '0.7rem', fontWeight: 900 }}
   { manualStartPending? 'Starting Check-in…': 'Start Checkin' }
   </button>
   );
-const headerAction = props.customerLabel ? (
-  <div className= "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
-    { props.customerLabel }
-    </div>
-  ) : null;
+
 const tabs = (
   <div style= {{ display: 'flex', gap: '0.5rem' }}>
     <button
@@ -237,12 +237,19 @@ onClick = {() => setActiveTab('guided')}
     </button>
     </div>
   );
+
+const headerAction = hasActiveSession ? tabs : null;
+
 return (
   <PanelShell align= "top" scroll = "hidden" >
-    <PanelHeader title="Customer Account" spacing = "none" action = { headerAction } />
-    {
-      state.mode === 'ALREADY_VISITING' ? (
-        <div
+    <PanelHeader
+        title={ props.customerName || 'Customer Account' }
+spacing = "none"
+action = { headerAction }
+  />
+{
+  state.mode === 'ALREADY_VISITING' ? (
+    <div
           className= "er-account-already-visiting"
           style={{ marginTop: '0.75rem', display: 'grid', gap: '0.75rem' }}
         >
@@ -313,12 +320,8 @@ style = {{ marginTop: '0.75rem', width: '100%', padding: '0.75rem', fontWeight: 
         >
 {
   hasActiveSession?(
-            <div className = "cs-liquid-card" style = {{ padding: '0.85rem' }} >
-  <div style={ { display: 'flex', justifyContent: 'space-between', gap: '1rem' } }>
-    <div style={ { fontWeight: 900, fontSize: '1.05rem' } }> Customer Profile </div>
-{ tabs }
-</div>
-  < div style = {{ marginTop: '0.75rem' }}>
+            <div style = {{ padding: '0.85rem' }} >
+  <div style={ { marginTop: '0.25rem' } }>
     { activeTab === 'profile' ? (
       <CustomerAccountDetailsCard
                     customerId= { props.customerId }
