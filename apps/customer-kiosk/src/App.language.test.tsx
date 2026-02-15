@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, type Mock } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 import {
   setupKioskAppTest,
@@ -13,7 +13,7 @@ describe('App language flow', () => {
     const App = getApp();
     let mockSessionSnapshot: unknown = null;
     // Make set-language succeed
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL) => {
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation((url: RequestInfo | URL) => {
       const u =
         typeof url === 'string'
           ? url
@@ -141,7 +141,7 @@ describe('App language flow', () => {
     const App = getApp();
     let mockSessionSnapshot: unknown = null;
     // Make set-language succeed
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL) => {
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation((url: RequestInfo | URL) => {
       const u =
         typeof url === 'string'
           ? url

@@ -11,7 +11,8 @@
     ],
     "outDir": "./dist",
     "rootDir": ".",
-    "composite": true
+    "composite": true,
+    "tsBuildInfoFile": "./dist/buildinfo.json"
   },
   "include": [
     "index.ts",

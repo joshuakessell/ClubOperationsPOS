@@ -1,4 +1,4 @@
-import { beforeEach, afterEach, vi } from 'vitest';
+import { beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { cleanup } from '@testing-library/react';
 
 const globalWithAct = globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT?: boolean };
@@ -196,7 +196,7 @@ export function setupKioskAppTest() {
     lastSocket = null;
     createdSockets.length = 0;
     mockSessionSnapshot = null;
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>();
     Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
     Object.defineProperty(global, 'fetch', { value: fetchMock, writable: true, configurable: true });
@@ -226,7 +226,7 @@ export function setupKioskAppTest() {
     }
 
     App = (await import('../App')).default;
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation(
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
       (url: RequestInfo | URL, init?: RequestInit) => {
         const u =
           typeof url === 'string'

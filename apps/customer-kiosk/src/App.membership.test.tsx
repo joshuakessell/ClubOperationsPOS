@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, type Mock } from 'vitest';
 import { render, screen, act } from '@testing-library/react';
 
 import {
@@ -23,7 +23,7 @@ function withRentalFlow(payload: Record<string, unknown>) {
 describe('App membership (kiosk selection screen)', () => {
   beforeEach(() => {
     // Ensure inventory shows at least one option (SelectionScreen reads from inventory polling, not session payload).
-    (global.fetch as ReturnType<typeof vi.fn>).mockImplementation((url: RequestInfo | URL) => {
+    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation((url: RequestInfo | URL) => {
       const u =
         typeof url === 'string'
           ? url
