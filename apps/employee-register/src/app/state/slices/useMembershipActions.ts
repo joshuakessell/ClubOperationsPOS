@@ -12,7 +12,7 @@ type Params = {
   membershipNumber: string | null;
   customerMembershipValidUntil: string | null;
   setIsSubmitting: (value: boolean) => void;
-  pollOnce: () => Promise<void>;
+  pollOnce: () => Promise<unknown>;
   notifications: ToastNotifier;
 };
 

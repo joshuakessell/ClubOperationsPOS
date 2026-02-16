@@ -37,10 +37,11 @@ import {
 } from './routes';
 import { createBroadcaster, type Broadcaster } from './realtime/broadcaster';
 import { LocalLaneSockets } from './realtime/localSockets';
-import { initializeDatabase, closeDatabase } from './db';
+import { initializeDatabase, closeDatabase, getPool } from './db';
 import { cleanupAbandonedRegisterSessions } from './routes/registers';
 import { seedDemoData } from './db/seed-demo';
 import { expireWaitlistEntries } from './waitlist/expireWaitlist';
+import { startAutoReplayOutbox } from './checkin/autoReplayOutbox';
 import { processUpgradeHoldsTick } from './waitlist/upgradeHolds';
 
 loadEnvFromDotEnvIfPresent();
@@ -190,9 +191,13 @@ async function main() {
   await fastify.register(orderRoutes);
   await fastify.register(customerSpendLedgerRoutes);
 
+  // Auto-replay outbox (edge stack only)
+  const autoReplayAbort = new AbortController();
+
   // Graceful shutdown
   const shutdown = async () => {
     fastify.log.info('Shutting down...');
+    autoReplayAbort.abort();
     clearInterval(cleanupInterval);
     clearInterval(waitlistExpiryInterval);
     clearInterval(upgradeHoldInterval);
@@ -228,7 +233,19 @@ async function main() {
           fastify.dbHealthy = true;
           fastify.log.info('Database connection initialized');
 
-          // Seed demo data if DEMO_MODE is enabled
+
+          // Start auto-replay for edge stack
+          if (process.env.EDGE_STACK === 'true' && process.env.CLOUD_API_BASE_URL) {
+            startAutoReplayOutbox({
+              pool: getPool(),
+              cloudApiBase: process.env.CLOUD_API_BASE_URL.replace(/\/$/, ''),
+              kioskToken: KIOSK_TOKEN!,
+              signal: autoReplayAbort.signal,
+              log: (...args: unknown[]) => fastify.log.info(String(args.map(String).join(' '))),
+            });
+            fastify.log.info('Auto-replay outbox service started (EDGE_STACK=true)');
+          }
+
           if (process.env.DEMO_MODE === 'true') {
             if (SEED_ON_STARTUP) {
               fastify.log.info(
