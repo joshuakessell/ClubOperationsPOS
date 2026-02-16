@@ -21,7 +21,7 @@ export async function writeOfflineOutboxRecord(
       params.commandId,
       params.actor,
       params.type,
-      params.payload ?? null,
+      params.payload != null ? JSON.stringify(params.payload) : null,
     ]
   );
 }

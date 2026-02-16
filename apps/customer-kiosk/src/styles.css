@@ -21,6 +21,7 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family:
+    'Inter',
     system-ui,
     -apple-system,
     BlinkMacSystemFont,
@@ -29,6 +30,11 @@ body {
     sans-serif;
   min-height: 100vh;
   overflow: hidden;
+}
+
+#root {
+  max-width: 1200px;
+  margin: 0 auto;
 }
 
 /* iPad kiosk hardening (scoped) */
@@ -244,8 +250,8 @@ body {
 /* Language toggle — pill button in the top-right of the rental screen */
 .ck-language-toggle {
   position: absolute;
-  top: 0;
-  right: 0;
+  top: 1rem;
+  right: 1rem;
   z-index: 20;
   padding: 0.55rem 1.1rem;
   font-size: clamp(0.85rem, 1.8vw, 1rem);
@@ -706,13 +712,13 @@ body {
 }
 
 .agreement-body {
-  color: #ffffff;
+  color: var(--text, #ffffff);
   line-height: 1.6;
-  font-size: 0.875rem;
+  font-size: 1rem;
 }
 
 .agreement-body h2 {
-  color: #ffffff;
+  color: var(--text, #ffffff);
   font-size: 1.25rem;
   font-weight: 700;
   margin-top: 1.25rem;
@@ -720,7 +726,7 @@ body {
 }
 
 .agreement-body h3 {
-  color: #ffffff;
+  color: var(--text, #ffffff);
   font-size: 1rem;
   font-weight: 600;
   margin-top: 1rem;
@@ -728,12 +734,12 @@ body {
 }
 
 .agreement-body p {
-  color: rgba(255, 255, 255, 0.92);
+  color: var(--text-muted, rgba(255, 255, 255, 0.92));
   margin-bottom: 0.75rem;
 }
 
 .agreement-placeholder {
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--text-muted, rgba(255, 255, 255, 0.7));
   text-align: center;
   font-style: italic;
 }

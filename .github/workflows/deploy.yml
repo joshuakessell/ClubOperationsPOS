@@ -111,8 +111,9 @@ jobs:
                     "DB_SSL": "true",
                     "DB_SSL_CA_PATH": "",
                     "DB_LOG_QUERIES": "false",
-                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event",
-                    "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops"
+                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "${{ vars.APPSYNC_EVENTS_HTTP_ENDPOINT }}",
+                    "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops",
+                    "ALLOWED_ORIGINS": "https://employee-demo.joshuakessell.com,https://customer-demo.joshuakessell.com"
                   },
                   "RuntimeEnvironmentSecrets": {
                     "DATABASE_URL": "$DATABASE_URL_SECRET_ARN",

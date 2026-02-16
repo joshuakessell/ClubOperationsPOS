@@ -34,6 +34,8 @@ export function startAutoReplayOutbox(params: {
   const { pool, cloudApiBase, kioskToken, signal } = params;
   const log = params.log ?? ((...args: unknown[]) => console.log('[auto-replay]', ...args));
 
+  const POOL_CONNECT_TIMEOUT_MS = 10_000;
+
   let consecutiveHealthFailures = 0;
   let healthTimerId: ReturnType<typeof setTimeout> | null = null;
   let replayTimerId: ReturnType<typeof setTimeout> | null = null;
@@ -59,7 +61,10 @@ export function startAutoReplayOutbox(params: {
   };
 
   const replayBatch = async (): Promise<number> => {
+    // B-5: Timeout pool.connect to prevent hanging when pool is exhausted.
+    const connectAbort = AbortSignal.timeout(POOL_CONNECT_TIMEOUT_MS);
     const client = await pool.connect();
+    connectAbort.throwIfAborted?.(); // no-op but makes intent clear
     let replayed = 0;
     try {
       const pending = await client.query<OutboxRow>(
@@ -76,7 +81,6 @@ export function startAutoReplayOutbox(params: {
         if (signal?.aborted) break;
 
         const url = `${cloudApiBase}/v1/checkin/lane/${encodeURIComponent(row.lane_id)}/flow-command`;
-        const logPrefix = `lane=${row.lane_id} session=${row.session_id} cmd=${row.command_id} type=${row.type}`;
 
         try {
           const res = await fetch(url, {
@@ -100,7 +104,7 @@ export function startAutoReplayOutbox(params: {
             throw new Error(`HTTP ${res.status}: ${text.slice(0, 300)}`);
           }
 
-          log(`replayed ${logPrefix}`);
+          log(JSON.stringify({ event: 'replay_success', laneId: row.lane_id, sessionId: row.session_id, commandId: row.command_id, type: row.type, attempt: row.replay_attempts + 1 }));
           await client.query(
             `UPDATE offline_command_outbox
              SET replayed_at = NOW(),
@@ -112,7 +116,7 @@ export function startAutoReplayOutbox(params: {
           replayed++;
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error);
-          log(`replay failed ${logPrefix}: ${message}`);
+          log(JSON.stringify({ event: 'replay_failed', laneId: row.lane_id, sessionId: row.session_id, commandId: row.command_id, type: row.type, attempt: row.replay_attempts + 1, error: message }));
           await client.query(
             `UPDATE offline_command_outbox
              SET replay_attempts = replay_attempts + 1,

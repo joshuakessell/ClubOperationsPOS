@@ -83,6 +83,12 @@ function extractAppSyncRealtimeEventJsonStrings(rawMessage: unknown): string[] {
     }
   }
 
+  if (iterations >= 200) {
+    // Safety cap reached — some events may have been dropped.
+    // eslint-disable-next-line no-console
+    console.warn('[AppSync] extractAppSyncRealtimeEventJsonStrings hit 200-iteration safety cap; some events may be truncated');
+  }
+
   return results;
 }
 
@@ -138,7 +144,7 @@ export class AppSyncTransport implements RealtimeTransport {
     const env = { ...metaEnv, ...processEnv };
 
     this.options = params.options;
-    this.authUrl = getApiUrl('/api/v1/realtime/auth');
+    this.authUrl = getApiUrl('/v1/realtime/auth');
     this.channelNamespace = getChannelNamespace(env);
 
     this.laneId = params.laneId;
@@ -220,6 +226,7 @@ export class AppSyncTransport implements RealtimeTransport {
       }
 
       if (parsed && parsed.type === 'connection_ack') {
+        this.retryCount = 0;
         this.setStatus('connected');
 
         if (!didSubscribe) {
@@ -264,23 +271,6 @@ export class AppSyncTransport implements RealtimeTransport {
         if (this.shouldReconnect) {
           this.scheduleReconnect();
         }
-      };
-
-      // Mark as connected once we see connection_ack.
-      const originalOnMessage = socket.onmessage?.bind(socket);
-      socket.onmessage = (event) => {
-        let parsed: AppSyncMessage | null = null;
-        try {
-          parsed = JSON.parse(event.data as string) as AppSyncMessage;
-        } catch {
-          parsed = null;
-        }
-
-        if (parsed && parsed.type === 'connection_ack') {
-          this.retryCount = 0;
-        }
-
-        originalOnMessage?.(event);
       };
     };
 
