@@ -1,12 +1,9 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import '@club-ops/ui/styles/index.css';
+import '@club-ops/ui/tailadmin/theme.css';
 import './styles.css';
-import './styles.components.css';
-import './styles.scan-entry.css';
 import { OrientationGuard } from './ui/orientation/OrientationGuard';
-import './ui/orientation/orientation.css';
 import { FatalEnvScreen } from './components/FatalEnvScreen';
 
 const root = document.getElementById('root');
