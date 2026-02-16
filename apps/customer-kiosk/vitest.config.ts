@@ -30,7 +30,7 @@ export default defineConfig({
         maxWorkers: 1,
         isolate: false,
         teardownTimeout: 10000,
-        forceExit: true,
+        // Note: forceExit is a CLI flag (--forceExit), not an InlineConfig option
         reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],
     },
 });
