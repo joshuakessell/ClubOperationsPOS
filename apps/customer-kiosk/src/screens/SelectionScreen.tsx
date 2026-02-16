@@ -81,166 +81,153 @@ export function SelectionScreen({
       : 'muted';
 
   return (
-    <I18nProvider lang= { session.customerPrimaryLanguage } >
-    <ScreenShell backgroundVariant="steamroom1" showLogoWatermark = { true} watermarkLayer = "under" >
-      { orientationOverlay }
-  { welcomeOverlay }
-  <div className="active-content" >
-    <main className="main-content" >
-      <div className="customer-info" >
-        <h1 className="customer-name" > { session.customerName || t(lang, 'welcome') } </h1>
-          < div
-  className = {
-    isPendingMembership
-    ? 'customer-membership-subheader customer-membership-subheader--pending'
-      : 'customer-membership-subheader'
-  }
-    >
-    { membershipLabel }
-    </div>
-    </div>
+    <I18nProvider lang={session.customerPrimaryLanguage}>
+      <ScreenShell backgroundVariant="steamroom1" showLogoWatermark={true} watermarkLayer="under">
+        {orientationOverlay}
+        {welcomeOverlay}
+        <div className="active-content">
+          <main className="main-content">
+            <div className="customer-info">
+              <h1 className="customer-name">{session.customerName || t(lang, 'welcome')}</h1>
+              <div
+                className={
+                  isPendingMembership
+                    ? 'customer-membership-subheader customer-membership-subheader--pending'
+                    : 'customer-membership-subheader'
+                }
+              >
+                {membershipLabel}
+              </div>
+            </div>
 
-  {/* Language toggle — top-right corner */ }
-  <button
+            {/* Language toggle */}
+            <button
               type="button"
-  className = "ck-language-toggle"
-  onClick = { onToggleLanguage }
-  disabled = { isSubmitting }
-    >
-    { lang === 'ES' ? 'English' : 'Español'
-}
-</button>
+              className="ck-language-toggle"
+              onClick={onToggleLanguage}
+              disabled={isSubmitting}
+            >
+              {lang === 'ES' ? 'English' : 'Español'}
+            </button>
 
-{
-  notice && (
-    <KioskNoticeBanner tone={ notice.tone ?? 'warning' } title = { notice.title } >
-      { notice.message }
-      </KioskNoticeBanner>
-            )
-}
+            {notice && (
+              <KioskNoticeBanner tone={notice.tone ?? 'warning'} title={notice.title}>
+                {notice.message}
+              </KioskNoticeBanner>
+            )}
 
-{/* Past-due block message */ }
-{
-  session.pastDueBlocked && (
-    <div className="past-due-block-message" >
-      <p>{ t(session.customerPrimaryLanguage, 'pastDueBlocked') } </p>
-      </div>
-            )
-}
+            {/* Past-due block message */}
+            {session.pastDueBlocked && (
+              <div className="past-due-block-message">
+                <p>{t(session.customerPrimaryLanguage, 'pastDueBlocked')}</p>
+              </div>
+            )}
 
-{/* Selection State Display */ }
-{
-  proposedRentalType && (
-    <KioskNoticeBanner
-                tone={ selectionTone }
-  className = "ck-selection-proposed-banner"
-  title = {
-    selectionConfirmed
-    ? `✓ ${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${selectionConfirmedBy === 'CUSTOMER' ? t(session.customerPrimaryLanguage, 'common.you') : t(session.customerPrimaryLanguage, 'common.staff')})`
+            {/* Selection State Display */}
+            {proposedRentalType && (
+              <KioskNoticeBanner
+                tone={selectionTone}
+                className="ck-selection-proposed-banner"
+                title={
+                  selectionConfirmed
+                    ? `✓ ${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${selectionConfirmedBy === 'CUSTOMER' ? t(session.customerPrimaryLanguage, 'common.you') : t(session.customerPrimaryLanguage, 'common.staff')})`
                     : proposedBy === 'EMPLOYEE'
-    ? `${t(session.customerPrimaryLanguage, 'proposed')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})`
-    : `${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'common.you')})`
-}
+                      ? `${t(session.customerPrimaryLanguage, 'proposed')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'selection.staffSuggestionHint')})`
+                      : `${t(session.customerPrimaryLanguage, 'selected')}: ${getRentalDisplayName(proposedRentalType, session.customerPrimaryLanguage)} (${t(session.customerPrimaryLanguage, 'common.you')})`
+                }
               />
             )}
 
-<div className="purchase-cards" >
-  <PurchaseCard variant="rental" active = { true} title = { t(lang, 'rental.title') } >
-  {
-    rentalsToShow.length > 0 ? (
-      <>
-      <div className= "rental-grid" >
-      {
-        rentalsToShow.map((rental) => {
-          const availableCount = getAvailableCount(rental);
-          const showWarning =
-            typeof availableCount === 'number' &&
-            availableCount > 0 &&
-            availableCount <= 5;
-          const isUnavailable = availableCount === 0;
-          const isDisabled =
-            session.pastDueBlocked ||
-            selectionConfirmed ||
-            isUnavailable;
-          const isSelected =
-            proposedRentalType === rental &&
-            (selectionConfirmed || proposedBy === 'CUSTOMER');
-          const isStaffProposed =
-            proposedBy === 'EMPLOYEE' &&
-            proposedRentalType === rental &&
-            !selectionConfirmed;
-          const isForced =
-            selectedRental === rental &&
-            selectionConfirmed &&
-            selectionConfirmedBy === 'EMPLOYEE';
+            <div className="purchase-cards">
+              <PurchaseCard variant="rental" active={true} title={t(lang, 'rental.title')}>
+                {rentalsToShow.length > 0 ? (
+                  <>
+                    <div className="rental-grid">
+                      {rentalsToShow.map((rental) => {
+                        const availableCount = getAvailableCount(rental);
+                        const showWarning =
+                          typeof availableCount === 'number' &&
+                          availableCount > 0 &&
+                          availableCount <= 5;
+                        const isUnavailable = availableCount === 0;
+                        const isDisabled =
+                          !session.customerPrimaryLanguage ||
+                          session.pastDueBlocked ||
+                          selectionConfirmed ||
+                          isUnavailable;
+                        const isSelected =
+                          proposedRentalType === rental &&
+                          (selectionConfirmed || proposedBy === 'CUSTOMER');
+                        const isStaffProposed =
+                          proposedBy === 'EMPLOYEE' &&
+                          proposedRentalType === rental &&
+                          !selectionConfirmed;
+                        const isForced =
+                          selectedRental === rental &&
+                          selectionConfirmed &&
+                          selectionConfirmedBy === 'EMPLOYEE';
 
-          const displayName = getRentalDisplayName(rental, lang);
-          const span2 =
-            rental === 'LOCKER' || rental === 'GYM_LOCKER' || rental === 'STANDARD';
-          const subtext =
-            showWarning && !isUnavailable && typeof availableCount === 'number'
-              ? t(lang, 'availability.onlyAvailable', { count: availableCount })
-              : isUnavailable
-                ? t(lang, 'availability.unavailable')
-                : null;
+                        const displayName = getRentalDisplayName(rental, lang);
+                        const span2 =
+                          rental === 'LOCKER' || rental === 'GYM_LOCKER' || rental === 'STANDARD';
+                        const subtext =
+                          showWarning && !isUnavailable && typeof availableCount === 'number'
+                            ? t(lang, 'availability.onlyAvailable', { count: availableCount })
+                            : isUnavailable
+                              ? t(lang, 'availability.unavailable')
+                              : null;
 
-          return (
-            <KioskOptionButton
-                            key= { rental }
-          span = { span2? 2: 1 }
-          selected = { isSelected }
-          staffProposed = { isStaffProposed }
-          disabled = { isDisabled }
-          disabledStyle = { isDisabled }
-          stacked = { true}
-          data - forced={ isForced }
-          onClick = {() => {
-            if (isDisabled) return;
-            void onSelectRental(rental);
-          }
-        }
-                            title = { displayName }
-                            subtext = { subtext }
-          />
+                        return (
+                          <KioskOptionButton
+                            key={rental}
+                            span={span2 ? 2 : 1}
+                            selected={isSelected}
+                            staffProposed={isStaffProposed}
+                            disabled={isDisabled}
+                            disabledStyle={isDisabled}
+                            stacked={true}
+                            data-forced={isForced}
+                            onClick={() => {
+                              if (isDisabled) return;
+                              void onSelectRental(rental);
+                            }}
+                            title={displayName}
+                            subtext={subtext}
+                          />
                         );
-      })
-  }
-    </div>
+                      })}
+                    </div>
 
-{
-  hasUnavailableRentals ? (
-    <button
-                        type= "button"
-                        className = {
-    [
-    'cs-liquid-button',
-    hasStaffProposedUnavailable
-      ? 'cs-liquid-button--staff-proposed'
-      : 'cs-liquid-button--secondary',
-    'ck-waitlist-entry-btn',
-                        ].join(' ')
-  }
-  onClick = {() => {
-    if (!canInteract) return;
-    onJoinWaitlist();
-  }
-}
-disabled = {!canInteract}
+                    {hasUnavailableRentals ? (
+                      <button
+                        type="button"
+                        className={[
+                          'cs-liquid-button',
+                          hasStaffProposedUnavailable
+                            ? 'cs-liquid-button--staff-proposed'
+                            : 'cs-liquid-button--secondary',
+                          'ck-waitlist-entry-btn',
+                        ].join(' ')}
+                        onClick={() => {
+                          if (!canInteract) return;
+                          onJoinWaitlist();
+                        }}
+                        disabled={!canInteract}
                       >
-  { t(lang, 'waitlist.joinButton') }
-  </button>
+                        {t(lang, 'waitlist.joinButton')}
+                      </button>
                     ) : null}
-</>
+                  </>
                 ) : (
-  <div className= "cs-liquid-button cs-liquid-button--disabled" >
-  { t(lang, 'noOptionsAvailable') }
-  </div>
+                  <div className="cs-liquid-button cs-liquid-button--disabled">
+                    {t(lang, 'noOptionsAvailable')}
+                  </div>
                 )}
-</PurchaseCard>
-  </div>
-  </main>
-  </div>
-  </ScreenShell>
-  </I18nProvider>
+              </PurchaseCard>
+            </div>
+          </main>
+        </div>
+      </ScreenShell>
+    </I18nProvider>
   );
 }
