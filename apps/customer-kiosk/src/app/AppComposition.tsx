@@ -123,8 +123,6 @@ export function AppComposition() {
       );
       break;
 
-
-
     case 'payment':
       screen = (
         <PaymentScreen

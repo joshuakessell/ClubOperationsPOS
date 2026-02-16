@@ -5,7 +5,6 @@ import type { WaitlistUnavailableOptions } from '../selection/types';
 
 export type AppView =
   | 'idle'
-  | 'language'
   | 'selection'
   | 'payment'
   | 'agreement'
