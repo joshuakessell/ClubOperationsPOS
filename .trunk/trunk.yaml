@@ -17,11 +17,15 @@ runtimes:
     - python@3.10.8
 # This is the section where you manage your linters. (https://docs.trunk.io/check/configuration)
 lint:
+  disabled:
+    # ESLint is disabled in Trunk because its sandbox copies files to /tmp,
+    # breaking import.meta.dirname-based tsconfigRootDir resolution in our
+    # flat ESLint config. ESLint runs correctly via `pnpm lint` in CI.
+    - eslint
   enabled:
     - actionlint@1.7.11
     - cfnlint@1.44.0
     - checkov@3.2.501
-    - eslint@10.0.0
     - git-diff-check
     - hadolint@2.14.0
     - ls-lint@2.3.1
