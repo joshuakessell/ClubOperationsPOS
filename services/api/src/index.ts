@@ -279,7 +279,14 @@ async function main() {
               'DEMO_MODE enabled; restoring demo snapshot and shifting timestamps (fast startup).'
             );
           }
-          await seedDemoData({ forceReseed: SEED_ON_STARTUP });
+          try {
+            await seedDemoData({ forceReseed: SEED_ON_STARTUP });
+          } catch (seedErr) {
+            fastify.log.error(
+              seedErr,
+              '❌ Demo seed failed (non-fatal) — server will continue without demo data.'
+            );
+          }
         }
       } else {
         fastify.log.error(`Database initialization failed after ${DB_INIT_MAX_RETRIES} attempts. Server is running but database is unavailable.`);
