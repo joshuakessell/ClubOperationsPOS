@@ -31,7 +31,6 @@ export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | nul
     assignedResourceNumber,
     agreementSigned,
     selectionConfirmed,
-    customerPrimaryLanguage,
     membershipNumber,
     customerMembershipValidUntil,
     membershipPurchaseIntent,
