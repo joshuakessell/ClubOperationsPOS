@@ -1,4 +1,5 @@
 /* PurchaseCard — Tailwind edition */
+@reference "tailwindcss";
 .purchase-card { @apply flex flex-col gap-4; padding: 1.15rem; }
 .purchase-card__header { @apply flex items-center justify-between gap-4; }
 .purchase-card__title { @apply font-extrabold; font-size: clamp(1.05rem, 2.2vw, 1.25rem); }

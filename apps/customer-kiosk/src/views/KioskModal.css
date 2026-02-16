@@ -1,4 +1,5 @@
 /* KioskModal — Tailwind edition */
+@reference "tailwindcss";
 .ck-modal-overlay {
   @apply fixed inset-0 flex items-center justify-center z-[1000];
   background: rgba(0, 0, 0, 0.8);

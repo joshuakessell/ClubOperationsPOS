@@ -1,4 +1,5 @@
 /* KioskOptionButton — Tailwind edition */
+@reference "tailwindcss";
 .kiosk-option-button {
   @apply text-center p-4;
   white-space: normal;

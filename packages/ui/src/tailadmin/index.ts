@@ -10,9 +10,9 @@
 export { default as Button } from './ui/button/Button';
 export type { ButtonProps } from './ui/button/Button';
 
-export { Card, CardTitle, CardDescription } from './ui/card/index';
+export { Card, CardTitle, CardDescription } from './ui/card/Card';
 
-export { Modal } from './ui/modal/index';
+export { Modal } from './ui/modal/Modal';
 
 export {
   Table,
@@ -20,7 +20,7 @@ export {
   TableBody,
   TableRow,
   TableCell,
-} from './ui/table/index';
+} from './ui/table/Table';
 
 export { default as Badge } from './ui/badge/Badge';
 

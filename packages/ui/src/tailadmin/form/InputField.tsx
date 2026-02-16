@@ -2,7 +2,7 @@ import type React from "react";
 import type { FC } from "react";
 
 interface InputProps {
-  type?: "text" | "number" | "email" | "password" | "date" | "time" | string;
+  type?: string;
   id?: string;
   name?: string;
   placeholder?: string;

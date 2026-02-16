@@ -6,6 +6,9 @@
  * that can't be expressed purely as utility classes.
  */
 
+@import "tailwindcss";
+@reference "@club-ops/ui/tailadmin/theme.css";
+
 /* ── Layout ─────────────────────────────────────────────── */
 .dashboard {
   @apply flex min-h-screen bg-gray-950 text-gray-200 font-outfit;

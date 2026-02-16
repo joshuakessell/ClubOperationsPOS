@@ -1,4 +1,5 @@
 /* SlideOutDrawer — Tailwind edition */
+@reference "tailwindcss";
 .sod-root {
   @apply fixed block pointer-events-none;
   top: calc(var(--er-topbar-height, 60px) + var(--er-rail-gap, 12px));
