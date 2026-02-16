@@ -1,937 +1,583 @@
-/* Shared design tokens are imported in main.tsx */
+/*
+ * Customer Kiosk — TailAdmin + Tailwind v4 styles
+ *
+ * Consolidated from: styles.css, styles.screens.css, orientation.css
+ * Component-level CSS files (KioskModal.css, etc.) are separate.
+ *
+ * Uses @apply Tailwind utilities + TailAdmin design tokens.
+ * Keyframes and pseudo-elements remain as raw CSS.
+ */
+
+@import "tailwindcss";
+
+/* ── Design tokens (CSS vars bridge) ───────────────────────── */
 :root {
-  --bg: var(--cs-bg);
-  --text: var(--cs-text);
-  --text-muted: var(--cs-text-muted);
-  --border: var(--cs-border);
+  --bg: var(--color-gray-950, #0a0a0f);
+  --text: #ffffff;
+  --text-muted: rgba(255, 255, 255, 0.7);
+  --border: rgba(255, 255, 255, 0.12);
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html {
-  height: 100%;
-  overflow: hidden;
-}
-
+/* ── Global resets ─────────────────────────────────────────── */
+* { @apply m-0 p-0 box-border; }
+html { @apply h-full overflow-hidden; }
 body {
+  @apply min-h-screen overflow-hidden font-sans;
   background: var(--bg);
   color: var(--text);
-  font-family:
-    'Inter',
-    system-ui,
-    -apple-system,
-    BlinkMacSystemFont,
-    'Segoe UI',
-    Roboto,
-    sans-serif;
-  min-height: 100vh;
-  overflow: hidden;
 }
+#root { @apply max-w-[1200px] mx-auto; }
 
-#root {
-  max-width: 1200px;
-  margin: 0 auto;
-}
+/* iPad kiosk hardening */
+#root, #root * { -webkit-touch-callout: none; }
+#root { @apply select-none; }
+#root input, #root textarea { @apply select-auto; }
+#root button, #root a, #root [role='button'] { -webkit-tap-highlight-color: transparent; }
 
-/* iPad kiosk hardening (scoped) */
-#root,
-#root * {
-  -webkit-touch-callout: none;
-}
+.cs-screen-overlay { @apply bg-transparent z-2; }
 
-#root {
-  -webkit-user-select: none;
-  user-select: none;
-}
-
-#root input,
-#root textarea {
-  -webkit-user-select: auto;
-  user-select: auto;
-}
-
-#root button,
-#root a,
-#root [role='button'] {
-  -webkit-tap-highlight-color: transparent;
-}
-
-.cs-screen-overlay {
-  background: transparent;
-  z-index: 2;
-}
-
-/* Kiosk-specific background layers */
+/* ── Kiosk backgrounds ─────────────────────────────────────── */
 .cs-kiosk-bg,
 .cs-kiosk-bg--steamroom1,
 .cs-kiosk-bg--steamroom2,
 .cs-kiosk-bg--none {
   background-image: url('./assets/background.png');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  background-color: var(--cs-bg);
+  @apply bg-cover bg-center bg-no-repeat;
+  background-color: var(--bg);
 }
 
 .cs-kiosk-watermark {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: none;
-  z-index: 3;
-  transition:
-    opacity 200ms ease,
-    filter 200ms ease;
+  @apply absolute inset-0 flex items-center justify-center pointer-events-none z-3;
+  transition: opacity 200ms ease, filter 200ms ease;
 }
-
-.cs-kiosk-watermark__img {
-  width: min(82vw, 1100px);
-  opacity: 0.6;
-  filter: blur(0.1px);
-}
-
-.cs-kiosk-watermark--under {
-  z-index: 1;
-  opacity: 0.25;
-  filter: blur(0.4px);
-}
-
-.cs-kiosk-watermark--over {
-  z-index: 3;
-  opacity: 0.55;
-}
+.cs-kiosk-watermark__img { width: min(82vw, 1100px); @apply opacity-60; filter: blur(0.1px); }
+.cs-kiosk-watermark--under { @apply z-1 opacity-25; filter: blur(0.4px); }
+.cs-kiosk-watermark--over { @apply z-3 opacity-55; }
 
 .cs-kiosk-stage {
-  position: relative;
-  z-index: 10;
-  min-height: 100vh;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
+  @apply relative z-10 min-h-screen flex items-center justify-center p-6;
 }
 
-/* Welcome overlay (black overlay with white logo + localized welcome message) */
+/* ── Welcome overlay ───────────────────────────────────────── */
 .welcome-overlay {
-  position: fixed;
-  inset: 0;
+  @apply fixed inset-0 flex items-center justify-center z-[2000];
   background: rgba(0, 0, 0, 0.7);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 2000;
   animation: fadeIn 0.25s ease;
 }
+.welcome-overlay-content { @apply flex flex-col items-center justify-center gap-4 p-8 text-center; }
+.welcome-overlay-logo { width: clamp(220px, 36vw, 560px); @apply h-auto brightness-0 invert; }
+.welcome-overlay-message { @apply text-white font-semibold; font-size: clamp(1.25rem, 3vw, 2rem); }
 
-.welcome-overlay-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1rem;
-  padding: 2rem;
-  text-align: center;
-}
-
-.welcome-overlay-logo {
-  width: clamp(220px, 36vw, 560px);
-  height: auto;
-  filter: brightness(0) invert(1);
-}
-
-.welcome-overlay-message {
-  color: #ffffff;
-  font-size: clamp(1.25rem, 3vw, 2rem);
-  font-weight: 600;
-}
-
+/* ── Orientation blocker ───────────────────────────────────── */
 .orientation-blocker {
-  position: fixed;
-  inset: 0;
-  z-index: 3000;
-  background: #000;
-  color: #fff;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem;
-  text-align: center;
+  @apply fixed inset-0 z-[3000] bg-black text-white flex items-center justify-center p-8 text-center;
 }
+.orientation-blocker h1 { font-size: clamp(1.75rem, 4vw, 2.5rem); @apply mb-3; }
+.orientation-blocker p { font-size: clamp(1rem, 2.5vw, 1.25rem); color: rgba(255, 255, 255, 0.85); }
 
-.orientation-blocker h1 {
-  font-size: clamp(1.75rem, 4vw, 2.5rem);
-  margin-bottom: 0.75rem;
-}
-
-.orientation-blocker p {
-  font-size: clamp(1rem, 2.5vw, 1.25rem);
-  color: rgba(255, 255, 255, 0.85);
-}
-
-/* Idle state: centered logo */
-.idle-content {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
+/* ── Idle state ────────────────────────────────────────────── */
+.idle-content { @apply flex items-center justify-center; }
 .logo-idle {
   width: clamp(240px, 45vw, 720px);
-  height: auto;
+  @apply h-auto;
   transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
   animation: fadeIn 0.5s ease-in;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.9);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-/* Active session state - internal spacing only */
+/* ── Active session ────────────────────────────────────────── */
 .active-content {
-  display: flex;
-  flex-direction: column;
-  gap: 2rem;
-  width: 100%;
-  max-width: 800px;
+  @apply flex flex-col gap-8 w-full max-w-[800px];
   animation: slideIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
-
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .logo-header {
   width: clamp(120px, 18vw, 240px);
-  height: auto;
-  margin-bottom: 2rem;
+  @apply h-auto mb-8 brightness-0 invert;
   animation: logoFadeIn 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-  filter: brightness(0) invert(1); /* White logo */
 }
+.main-content { @apply relative flex flex-col gap-12 w-full; }
 
-@keyframes logoFadeIn {
-  from {
-    opacity: 0;
-    transform: scale(0.8);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
-.main-content {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  gap: 3rem;
-  width: 100%;
-}
-
-/* Language toggle — pill button in the top-right of the rental screen */
+/* ── Language toggle ───────────────────────────────────────── */
 .ck-language-toggle {
-  position: absolute;
-  top: 1rem;
-  right: 1rem;
-  z-index: 20;
+  @apply absolute top-4 right-4 z-20 font-bold cursor-pointer rounded-full;
   padding: 0.55rem 1.1rem;
   font-size: clamp(0.85rem, 1.8vw, 1rem);
-  font-weight: 700;
   border: 1px solid rgba(255, 255, 255, 0.35);
-  border-radius: 999px;
   background: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
   color: rgba(255, 255, 255, 0.92);
-  cursor: pointer;
   transition: background 0.15s ease, border-color 0.15s ease;
 }
-
-.ck-language-toggle:hover,
-.ck-language-toggle:active {
+.ck-language-toggle:hover, .ck-language-toggle:active {
   background: rgba(255, 255, 255, 0.22);
   border-color: rgba(255, 255, 255, 0.5);
 }
+.ck-language-toggle:disabled { @apply opacity-50 pointer-events-none; }
 
-.ck-language-toggle:disabled {
-  opacity: 0.5;
-  pointer-events: none;
-}
-
+/* ── Customer info ─────────────────────────────────────────── */
 .customer-info {
-  text-align: center;
+  @apply text-center;
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both;
 }
-
-@keyframes fadeInUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
 .customer-name {
   font-size: clamp(2rem, 5vw, 3.5rem);
-  font-weight: 600;
+  @apply font-semibold mb-2;
   color: var(--text);
-  margin-bottom: 0.5rem;
 }
+.customer-membership-subheader { color: var(--text-muted); font-size: clamp(1rem, 2.5vw, 1.4rem); @apply font-bold; }
+.customer-membership-subheader--pending { @apply text-blue-400; }
+.membership-number { font-size: clamp(1rem, 2.5vw, 1.5rem); color: var(--text-muted); }
 
-.customer-membership-subheader {
-  color: var(--text-muted);
-  font-size: clamp(1rem, 2.5vw, 1.4rem);
-  font-weight: 700;
-}
-
-.customer-membership-subheader--pending {
-  color: #60a5fa;
-}
-
-.membership-number {
-  font-size: clamp(1rem, 2.5vw, 1.5rem);
-  color: var(--text-muted);
-}
-
+/* ── Sections ──────────────────────────────────────────────── */
 .membership-level-section,
 .experience-section {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  width: 100%;
+  @apply flex flex-col gap-4 w-full;
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.4s both;
 }
+.section-label { font-size: clamp(1rem, 2vw, 1.25rem); @apply font-medium; color: var(--text-muted); }
+.purchase-cards { @apply flex flex-col w-full; gap: 2.25rem; }
 
-.section-label {
-  font-size: clamp(1rem, 2vw, 1.25rem);
-  color: var(--cs-text-muted);
-  font-weight: 500;
-}
-
-.purchase-cards {
-  display: flex;
-  flex-direction: column;
-  gap: 2.25rem;
-  width: 100%;
-}
-
-/* Guided step UI (SelectionScreen + AgreementScreen) */
-@keyframes ckGlowPulse {
-  0%,
-  100% {
-    opacity: 0.85;
-    text-shadow:
-      0 0 0 rgba(255, 255, 255, 0),
-      0 0 0 rgba(255, 255, 255, 0);
-  }
-  50% {
-    opacity: 1;
-    text-shadow:
-      0 0 10px rgba(255, 255, 255, 0.55),
-      0 0 18px rgba(255, 255, 255, 0.35);
-  }
-}
-
-@keyframes ckBounceInX {
-  0%,
-  100% {
-    transform: translateY(-50%) translateX(calc(var(--toward, 1) * -6px));
-  }
-  50% {
-    transform: translateY(-50%) translateX(calc(var(--toward, 1) * 10px));
-  }
-}
-
-@keyframes ckBounceDown {
-  0%,
-  100% {
-    transform: translateY(-6px);
-  }
-  50% {
-    transform: translateY(10px);
-  }
-}
-
-@keyframes ckBounceRight {
-  0%,
-  100% {
-    transform: translateX(-6px);
-  }
-  50% {
-    transform: translateX(10px);
-  }
-}
-
-@keyframes ckCardPulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 0 rgba(255, 255, 255, 0),
-      0 18px 40px rgba(0, 0, 0, 0.45);
-  }
-  50% {
-    box-shadow:
-      0 0 0 3px rgba(255, 255, 255, 0.25),
-      0 0 22px rgba(255, 255, 255, 0.22),
-      0 18px 40px rgba(0, 0, 0, 0.45);
-  }
-}
-
-.ck-glow-text {
-  animation: ckGlowPulse 1.2s ease-in-out infinite;
-}
-
-.ck-step-wrap {
-  position: relative;
-  /* Provide an internal gutter so side arrows are never clipped/hidden by the card. */
-  padding-left: 48px;
-  padding-right: 48px;
-}
-
-.ck-step-active {
-  animation: ckCardPulse 1.15s ease-in-out infinite;
-}
+/* ── Guided step UI ────────────────────────────────────────── */
+.ck-glow-text { animation: ckGlowPulse 1.2s ease-in-out infinite; }
+.ck-step-wrap { @apply relative; padding-left: 48px; padding-right: 48px; }
+.ck-step-active { animation: ckCardPulse 1.15s ease-in-out infinite; }
 
 .ck-step-helper-text {
-  position: absolute;
-  left: 50%;
+  @apply absolute left-1/2 pointer-events-none text-center whitespace-nowrap font-bold;
   top: -10px;
   transform: translate(-50%, -100%);
   font-size: 0.95rem;
-  font-weight: 700;
   color: rgba(255, 255, 255, 0.95);
-  pointer-events: none;
-  text-align: center;
-  white-space: nowrap;
 }
 
 .ck-arrow {
-  pointer-events: none;
+  @apply pointer-events-none font-black z-50;
   color: rgba(255, 255, 255, 0.98);
-  font-weight: 900;
-  z-index: 50;
-  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35))
-    drop-shadow(0 0 22px rgba(255, 255, 255, 0.18));
+  filter: drop-shadow(0 0 10px rgba(255, 255, 255, 0.35)) drop-shadow(0 0 22px rgba(255, 255, 255, 0.18));
 }
+.ck-arrow--in { @apply absolute top-1/2; font-size: 44px; }
+.ck-arrow--left { left: 10px; --toward: 1; animation: ckBounceInX 0.9s ease-in-out infinite; }
+.ck-arrow--right { right: 10px; --toward: -1; animation: ckBounceInX 0.9s ease-in-out infinite; }
+.ck-arrow--step { @apply absolute; left: 14px; top: 18px; font-size: 34px; }
 
-/* Inward arrows for active SelectionScreen card */
-.ck-arrow--in {
-  position: absolute;
-  top: 50%;
-  font-size: 44px;
-}
+/* ── Agreement scroll shell ────────────────────────────────── */
+.ck-agreement-scroll-shell { @apply grid items-stretch gap-2.5 min-h-0; grid-template-columns: 1fr; flex: 1 1 0; }
+.ck-agreement-scroll-region { @apply flex flex-col gap-2 min-h-0; flex: 1 1 0; }
 
-.ck-arrow--left {
-  left: 10px;
-  --toward: 1;
-  animation: ckBounceInX 0.9s ease-in-out infinite;
-}
-
-.ck-arrow--right {
-  right: 10px;
-  --toward: -1;
-  animation: ckBounceInX 0.9s ease-in-out infinite;
-}
-
-/* Agreement scroll shell (no arrows) */
-.ck-agreement-scroll-shell {
-  display: grid;
-  grid-template-columns: 1fr;
-  align-items: stretch;
-  gap: 10px;
-  flex: 1 1 0;
-  min-height: 0;
-}
-
-/* The scroll region must take the remaining height above the fixed action row. */
-.ck-agreement-scroll-region {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  flex: 1 1 0;
-  min-height: 0;
-}
-
-/* SelectionScreen step arrow: positioned next to the card header title */
-.ck-arrow--step {
-  position: absolute;
-  /* .ck-step-wrap has internal gutters; card starts after 48px padding. */
-  left: 14px;
-  top: 18px;
-  font-size: 34px;
-}
-
-
-
-/* Pending approval overlay */
+/* ── Pending overlay ───────────────────────────────────────── */
 .ck-pending-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 4500;
+  @apply fixed inset-0 z-[4500] flex items-center justify-center p-6;
   background: rgba(0, 0, 0, 0.45);
   backdrop-filter: blur(3px);
   -webkit-backdrop-filter: blur(3px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 24px;
 }
-
 .ck-pending-overlay__text {
-  color: #ffffff;
+  @apply text-white font-extrabold text-center;
   font-size: clamp(1.5rem, 3.6vw, 2.25rem);
-  font-weight: 800;
-  text-align: center;
   text-shadow: 0 0 22px rgba(255, 255, 255, 0.15);
 }
 
-/* Fixed-width ellipsis so the phrase doesn't shift while dots animate */
-@keyframes ckDotPulse {
-  0%,
-  20% {
-    opacity: 0.15;
-  }
-  50% {
-    opacity: 1;
-  }
-  80%,
-  100% {
-    opacity: 0.15;
-  }
-}
+/* ── Ellipsis dots ─────────────────────────────────────────── */
+.ck-ellipsis { @apply inline-flex justify-start; width: 3ch; margin-left: 0.15ch; }
+.ck-dot { @apply inline-block text-left; width: 1ch; opacity: 0.15; animation: ckDotPulse 1.2s ease-in-out infinite; }
+.ck-dot:nth-child(2) { animation-delay: 0.2s; }
+.ck-dot:nth-child(3) { animation-delay: 0.4s; }
 
-.ck-ellipsis {
-  display: inline-flex;
-  width: 3ch;
-  justify-content: flex-start;
-  margin-left: 0.15ch;
-}
-
-.ck-dot {
-  display: inline-block;
-  width: 1ch;
-  text-align: left;
-  opacity: 0.15;
-  animation: ckDotPulse 1.2s ease-in-out infinite;
-}
-
-.ck-dot:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.ck-dot:nth-child(3) {
-  animation-delay: 0.4s;
-}
-
-.membership-option-stack {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.rental-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 1rem;
-  width: 100%;
-}
-
-.rental-grid .span-2 {
-  grid-column: 1 / -1;
-}
-
-.ck-waitlist-entry-btn {
-  width: 100%;
-  margin-top: 0.5rem;
-  min-height: 92px;
-  padding: 1rem 1rem;
-}
-
-.ck-selection-proposed-banner {
-  margin-top: -0.5rem;
-  margin-bottom: -0.5rem;
-}
+/* ── Selection options ─────────────────────────────────────── */
+.membership-option-stack { @apply flex flex-col gap-3; }
+.rental-grid { @apply grid gap-4 w-full; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.rental-grid .span-2 { grid-column: 1 / -1; }
+.ck-waitlist-entry-btn { @apply w-full mt-2; min-height: 92px; @apply p-4; }
+.ck-selection-proposed-banner { margin-top: -0.5rem; margin-bottom: -0.5rem; }
 
 .membership-buttons,
 .experience-options {
-  display: grid;
+  @apply grid gap-4 w-full;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1rem;
-  width: 100%;
 }
 
 .ck-option-highlight {
-  box-shadow:
-    0 0 0 4px rgba(255, 255, 255, 0.55),
-    0 0 28px rgba(255, 255, 255, 0.18);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.55), 0 0 28px rgba(255, 255, 255, 0.18);
 }
 
 .proceed-section {
-  display: flex;
-  justify-content: center;
-  margin-top: 2rem;
+  @apply flex justify-center mt-8;
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.6s both;
 }
 
 .package-options {
-  display: grid;
+  @apply grid w-full;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1.5rem;
-  width: 100%;
   animation: fadeInUp 0.6s cubic-bezier(0.4, 0, 0.2, 1) 0.4s both;
 }
-
 .package-option {
-  padding: 2rem;
-  text-align: center;
-  cursor: pointer;
+  @apply p-8 text-center cursor-pointer;
   animation: fadeInUp 0.5s cubic-bezier(0.4, 0, 0.2, 1) both;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-card */
-  /* Keep only sizing/layout/animation properties */
 }
+.package-option:nth-child(1) { animation-delay: 0.5s; }
+.package-option:nth-child(2) { animation-delay: 0.6s; }
+.package-option:nth-child(3) { animation-delay: 0.7s; }
+.package-option:nth-child(4) { animation-delay: 0.8s; }
+.package-option:hover { transform: translateY(-2px); }
+.package-name { font-size: clamp(1.125rem, 2vw, 1.5rem); @apply font-medium; color: var(--text); }
 
-.package-option:nth-child(1) {
-  animation-delay: 0.5s;
-}
-
-.package-option:nth-child(2) {
-  animation-delay: 0.6s;
-}
-
-.package-option:nth-child(3) {
-  animation-delay: 0.7s;
-}
-
-.package-option:nth-child(4) {
-  animation-delay: 0.8s;
-}
-
-.package-option:hover {
-  transform: translateY(-2px);
-  /* Other hover effects handled by cs-liquid-card */
-}
-
-.package-name {
-  font-size: clamp(1.125rem, 2vw, 1.5rem);
-  font-weight: 500;
-  color: var(--text);
-}
-
-/* Agreement Screen - PDF-like layout */
+/* ── Agreement screen ──────────────────────────────────────── */
 .agreement-screen-container {
-  width: 100%;
+  @apply w-full flex flex-col gap-4 mx-auto overflow-hidden;
   max-width: 900px;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
   height: calc(100vh - 48px);
   max-height: calc(100vh - 48px);
-  margin: 0 auto;
   padding: clamp(12px, 2vw, 20px);
-  overflow: hidden;
 }
+.agreement-logo-header { @apply p-4 px-6 text-center rounded-xl; }
+.agreement-logo-img { @apply max-w-[200px] h-auto; filter: none; }
 
-/* Logo header */
-.agreement-logo-header {
-  padding: 1rem 1.5rem;
-  text-align: center;
-  border-radius: var(--cs-radius-lg);
-}
-
-.agreement-logo-img {
-  max-width: 200px;
-  height: auto;
-  filter: none;
-}
-
-/* Liquid-glass panel */
 .agreement-paper-panel {
-  padding: 1.5rem;
-  border-radius: var(--cs-radius-lg);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  @apply p-6 rounded-xl flex flex-col gap-4 min-h-0 overflow-hidden;
   flex: 1;
-  min-height: 0;
-  overflow: hidden;
 }
-
 .agreement-title {
   font-size: clamp(1.35rem, 2.5vw, 2.1rem);
-  font-weight: 600;
-  text-align: center;
-  margin-bottom: 0.25rem;
-  color: #ffffff;
+  @apply font-semibold text-center mb-1 text-white;
 }
-
-/* Scroll box container must be allowed to shrink, otherwise overflow won't engage */
-.agreement-scroll-wrap {
-  position: relative;
-  min-height: 0;
-  height: 100%;
-}
-
+.agreement-scroll-wrap { @apply relative min-h-0 h-full; }
 .agreement-scroll-area {
+  @apply h-full overflow-y-auto min-h-0 mb-0 rounded-lg;
   border: 1px solid rgba(255, 255, 255, 0.22);
-  border-radius: var(--cs-radius-md);
   padding: 1.25rem;
-  height: 100%;
-  overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   touch-action: pan-y;
   background: rgba(0, 0, 0, 0.78);
-  margin-bottom: 0;
-  min-height: 0;
 }
+.agreement-scroll-area--static { @apply overflow-y-hidden; }
 
-.agreement-scroll-area--static {
-  overflow-y: hidden;
-}
+.agreement-body { @apply leading-relaxed text-base; color: var(--text); }
+.agreement-body h2 { @apply text-xl font-bold mt-5 mb-3 text-white; }
+.agreement-body h3 { @apply text-base font-semibold mt-4 mb-2 text-white; }
+.agreement-body p { @apply mb-3; color: var(--text-muted); }
+.agreement-placeholder { color: var(--text-muted); @apply text-center italic; }
 
-.agreement-body {
-  color: var(--text, #ffffff);
-  line-height: 1.6;
-  font-size: 1rem;
-}
+.agreement-actions { @apply flex flex-col gap-3 shrink-0; }
 
-.agreement-body h2 {
-  color: var(--text, #ffffff);
-  font-size: 1.25rem;
-  font-weight: 700;
-  margin-top: 1.25rem;
-  margin-bottom: 0.75rem;
-}
+.ck-action-row { @apply grid items-center gap-2.5 w-full; grid-template-columns: 44px 1fr; }
+.ck-action-indicator { @apply flex items-center justify-center; min-height: 44px; }
+.ck-action-content { @apply min-w-0; }
+.ck-action-content--center { @apply flex justify-center; }
+.ck-action-content--checkbox { @apply flex justify-start; }
 
-.agreement-body h3 {
-  color: var(--text, #ffffff);
-  font-size: 1rem;
-  font-weight: 600;
-  margin-top: 1rem;
-  margin-bottom: 0.5rem;
-}
-
-.agreement-body p {
-  color: var(--text-muted, rgba(255, 255, 255, 0.92));
-  margin-bottom: 0.75rem;
-}
-
-.agreement-placeholder {
-  color: var(--text-muted, rgba(255, 255, 255, 0.7));
-  text-align: center;
-  font-style: italic;
-}
-
-.agreement-actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.ck-action-row {
-  display: grid;
-  grid-template-columns: 44px 1fr;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-}
-
-.ck-action-indicator {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 44px;
-}
-
-.ck-action-content {
-  min-width: 0;
-}
-
-.ck-action-content--center {
-  display: flex;
-  justify-content: center;
-}
-
-.ck-action-content--checkbox {
-  display: flex;
-  justify-content: flex-start;
-}
-
-.agreement-signature-row {
-  display: flex;
-  justify-content: center;
-}
-
+.agreement-signature-row { @apply flex justify-center; }
 .agreement-signature-button {
   min-width: min(420px, 92vw);
-  min-height: 56px;
+  @apply min-h-14 font-extrabold;
   font-size: clamp(1rem, 2vw, 1.25rem);
-  font-weight: 800;
 }
-
-.agreement-signature-button__content {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+.agreement-signature-button__content { @apply inline-flex items-center gap-2; }
 
 .agreement-signature-check {
-  width: 28px;
-  height: 28px;
-  border-radius: 999px;
+  @apply w-7 h-7 rounded-full inline-flex items-center justify-center font-black;
   background: rgba(34, 197, 94, 0.22);
   border: 1px solid rgba(34, 197, 94, 0.55);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 900;
   color: rgba(255, 255, 255, 0.95);
 }
 
+/* ── Signature modal ───────────────────────────────────────── */
 .signature-modal-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: 4000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 16px;
+  @apply fixed inset-0 z-[4000] flex items-center justify-center p-4;
   background: rgba(0, 0, 0, 0.75);
 }
-
 .signature-modal {
   width: min(980px, 96vw);
   max-height: min(760px, 92vh);
-  padding: 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
+  @apply p-4 flex flex-col gap-3;
 }
-
-.signature-modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
+.signature-modal-header { @apply flex items-center justify-center; }
 .signature-modal-title {
-  font-weight: 800;
+  @apply font-extrabold text-white text-center;
   font-size: clamp(1.1rem, 2.2vw, 1.4rem);
-  color: #fff;
-  text-align: center;
 }
-
 .signature-modal-canvas {
+  @apply w-full rounded-xl bg-white;
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 10px;
-  background: #ffffff;
-  width: 100%;
   height: clamp(260px, 36vh, 420px);
   touch-action: none;
 }
+.signature-modal-actions { @apply flex gap-3 justify-center; }
+.signature-modal-actions .cs-liquid-button { @apply min-w-40 min-h-13 font-extrabold; }
 
-.signature-modal-actions {
-  display: flex;
-  gap: 0.75rem;
-  justify-content: center;
-}
-
-.signature-modal-actions .cs-liquid-button {
-  min-width: 160px;
-  min-height: 52px;
-  font-weight: 800;
-}
-
-
-
-.signature-section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  flex-shrink: 0;
-}
-
-.signature-label {
-  font-size: clamp(0.875rem, 1.5vw, 1rem);
-  color: rgba(255, 255, 255, 0.85);
-  font-weight: 500;
-}
-
+.signature-section { @apply flex flex-col gap-3 shrink-0; }
+.signature-label { font-size: clamp(0.875rem, 1.5vw, 1rem); @apply font-medium; color: rgba(255, 255, 255, 0.85); }
 .signature-canvas {
+  @apply rounded-lg bg-white cursor-crosshair w-full;
   border: 1px solid rgba(255, 255, 255, 0.25);
-  border-radius: 8px;
-  background: #ffffff;
-  cursor: crosshair;
-  touch-action: none;
-  width: 100%;
   max-width: 560px;
   height: clamp(140px, 20vh, 200px);
+  touch-action: none;
 }
+.clear-signature-btn { @apply self-start; }
 
-.clear-signature-btn {
-  align-self: flex-start;
-  /* Background, border, border-radius handled by cs-liquid-button */
-  /* Keep only sizing/layout properties */
-}
-
-.agreement-submit-container {
-  display: flex;
-  justify-content: center;
-  margin-top: 0.5rem;
-  flex-shrink: 0;
-}
-
+.agreement-submit-container { @apply flex justify-center mt-2 shrink-0; }
 .submit-agreement-btn {
-  padding: 1rem 2rem;
+  @apply p-4 px-8 font-semibold min-h-14 min-w-[200px];
   font-size: clamp(1rem, 2vw, 1.25rem);
-  font-weight: 600;
-  min-height: 56px;
-  min-width: 200px;
-  /* Background, border, border-radius, box-shadow handled by cs-liquid-button */
-  /* Keep only sizing/font properties */
 }
 
-
-
+/* ── Complete screen ───────────────────────────────────────── */
 .complete-screen {
-  text-align: center;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  align-items: center;
-  justify-content: center;
-  min-height: 50vh;
+  @apply text-center flex flex-col gap-4 items-center justify-center min-h-[50vh];
+}
+.complete-screen h1 { font-size: clamp(2rem, 4vw, 3rem); @apply font-semibold; }
+.complete-screen p { font-size: clamp(1.125rem, 2vw, 1.5rem); color: var(--text-muted); }
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Screens (from styles.screens.css) ───────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Language Selection */
+.language-selection-screen {
+  @apply w-full max-w-[600px] mx-auto flex flex-col gap-12 items-center justify-center min-h-[50vh];
+}
+.language-title { font-size: clamp(1.5rem, 3vw, 2.5rem); @apply font-semibold text-center; }
+.language-options { @apply flex gap-8 w-full justify-center; }
+.language-option {
+  @apply font-semibold min-w-[200px];
+  padding: 2rem 4rem;
+  font-size: clamp(1.25rem, 2.5vw, 2rem);
 }
 
-.complete-screen h1 {
-  font-size: clamp(2rem, 4vw, 3rem);
-  font-weight: 600;
+/* Lane Selection */
+.lane-selection-screen {
+  @apply w-full max-w-[720px] mx-auto flex flex-col items-center justify-center min-h-[50vh] text-center;
+  gap: 1.5rem;
+}
+.lane-title { font-size: clamp(1.75rem, 3.5vw, 2.75rem); @apply font-bold; }
+.lane-subtitle { font-size: clamp(1rem, 2.2vw, 1.4rem); @apply font-semibold max-w-[520px]; color: var(--text-muted); }
+.lane-options { @apply flex gap-8 w-full justify-center flex-wrap; }
+.lane-option {
+  @apply w-full flex flex-col items-center gap-2 text-center;
+  flex: 1 1 240px;
+  min-width: 220px;
+  padding: 2.25rem 2rem;
+}
+.lane-option__title { font-size: clamp(1.5rem, 2.8vw, 2.4rem); @apply font-bold; }
+.lane-option__subtitle { font-size: clamp(1rem, 2vw, 1.25rem); @apply font-semibold; color: var(--text-muted); }
+
+/* Payment Pending */
+.payment-pending-screen {
+  @apply text-center flex flex-col gap-8 items-center justify-center min-h-[50vh];
+}
+.payment-pending-screen h1 { font-size: clamp(2rem, 4vw, 3rem); @apply font-semibold; }
+
+.payment-total { @apply rounded-2xl; width: min(560px, 92vw); font-size: 1.35rem; padding: clamp(2rem, 3vw, 3rem); }
+.payment-breakdown { @apply rounded-2xl; width: min(560px, 92vw); font-size: 1.35rem; padding: clamp(1.75rem, 2.6vw, 2.5rem); }
+.breakdown-title { font-size: clamp(1.5rem, 3.2vw, 2.1rem); @apply font-extrabold mb-3; color: var(--text); }
+.breakdown-items { @apply flex flex-col gap-2; }
+.breakdown-row { @apply flex items-baseline justify-between gap-4; }
+.breakdown-desc { @apply font-bold; font-size: clamp(1.25rem, 2.8vw, 1.9rem); color: var(--text-muted); }
+.breakdown-amt { @apply font-extrabold; font-size: clamp(1.25rem, 2.8vw, 1.9rem); color: var(--text); }
+.total-label { font-size: clamp(1.6rem, 3.6vw, 2.35rem); @apply mb-2; color: var(--text-muted); }
+.total-amount { font-size: clamp(3rem, 9vw, 5.75rem); @apply font-black; color: var(--text); }
+.payment-instruction { font-size: clamp(1.125rem, 2vw, 1.5rem); color: var(--text-muted); }
+
+.payment-decline-generic {
+  @apply mt-4 rounded-2xl font-semibold text-white;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  background: rgba(239, 68, 68, 0.12);
 }
 
-.complete-screen p {
-  font-size: clamp(1.125rem, 2vw, 1.5rem);
-  color: var(--text-muted);
+/* Agreement bypass */
+.agreement-bypass-screen { @apply flex items-center justify-center min-h-[60vh]; }
+
+/* Past Due */
+.past-due-block-message {
+  @apply p-6 bg-red-500 text-white rounded-xl text-center mb-8 font-semibold;
+  font-size: clamp(1rem, 2vw, 1.25rem);
+}
+
+/* Assignment Info */
+.assignment-info {
+  @apply flex flex-col w-full rounded-2xl;
+  gap: 1.5rem;
+  margin-top: 1.25rem;
+  padding: clamp(22px, 3.2vw, 40px);
+}
+.assignment-row { @apply flex flex-col gap-2 items-center; }
+.assignment-row--checkout { @apply gap-3; }
+.assignment-label {
+  font-size: clamp(1.5rem, 3.6vw, 2.35rem);
+  @apply font-extrabold tracking-tight;
+  color: rgba(255, 255, 255, 0.95);
+}
+.assignment-value {
+  font-size: clamp(3rem, 9vw, 5.75rem);
+  @apply font-black leading-none break-words tracking-wide;
+  color: rgba(255, 255, 255, 0.98);
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.18), 0 18px 40px rgba(0, 0, 0, 0.45);
+}
+.assignment-value--time { font-size: clamp(2.25rem, 6.5vw, 4.25rem); @apply tracking-tight; }
+.assignment-subvalue {
+  font-size: clamp(1.25rem, 3vw, 1.9rem);
+  font-weight: 750;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.complete-ok-btn {
+  min-width: min(520px, 92vw);
+  @apply font-black;
+  min-height: 84px;
+  padding: 1.25rem 2.25rem;
+  font-size: clamp(1.5rem, 3.4vw, 2.25rem);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Orientation overlay (from orientation.css) ──────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.orientation-overlay {
+  @apply fixed inset-0 z-[9999] flex items-center justify-center text-center;
+  background: rgba(0, 0, 0, 0.85);
+  padding: 24px;
+  padding-top: max(24px, env(safe-area-inset-top));
+  padding-bottom: max(24px, env(safe-area-inset-bottom));
+}
+.orientation-card {
+  @apply w-full max-w-[420px] rounded-2xl;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  padding: 22px 18px 18px;
+}
+.orientation-title { @apply text-3xl font-bold text-white; }
+.orientation-message { @apply text-base mt-2.5; color: rgba(255, 255, 255, 0.85); }
+
+.orientation-icon {
+  @apply relative mx-auto mb-4;
+  width: 96px; height: 66px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-radius: 14px;
+}
+.orientation-icon-home {
+  @apply absolute left-1/2 rounded-full;
+  bottom: 7px;
+  transform: translateX(-50%);
+  width: 10px; height: 10px;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  opacity: 0.9;
+}
+.orientation-icon::before {
+  content: '';
+  @apply absolute rounded-full;
+  right: -18px; top: -22px;
+  width: 48px; height: 48px;
+  border: 3px solid rgba(255, 255, 255, 0.9);
+  border-left-color: transparent;
+  border-bottom-color: transparent;
+  transform: rotate(15deg);
+  opacity: 0.9;
+}
+.orientation-icon::after {
+  content: '';
+  @apply absolute;
+  right: -6px; top: 4px;
+  width: 0; height: 0;
+  border-left: 11px solid rgba(255, 255, 255, 0.9);
+  border-top: 7px solid transparent;
+  border-bottom: 7px solid transparent;
+  transform: rotate(20deg);
+  opacity: 0.9;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Liquid-Glass Component Classes (Tailwind edition) ───── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.glass-effect {
+  @apply relative;
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.cs-liquid-button {
+  @apply relative inline-flex items-center justify-center gap-2
+         px-4 py-2.5 rounded-lg text-sm font-medium text-white
+         whitespace-nowrap cursor-pointer select-none overflow-hidden;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 300ms, border-color 300ms, box-shadow 300ms, transform 150ms;
+}
+.cs-liquid-button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.3); }
+.cs-liquid-button:active:not(:disabled) { transform: translateY(1px); }
+.cs-liquid-button:focus-visible { @apply outline-2 outline-white/30 outline-offset-2; }
+.cs-liquid-button:disabled { @apply opacity-55 cursor-not-allowed; }
+
+.cs-liquid-button--pill { @apply rounded-full; }
+.cs-liquid-button--secondary { background: rgba(255, 255, 255, 0.08); border-color: rgba(255, 255, 255, 0.35); }
+.cs-liquid-button--secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.22); }
+.cs-liquid-button--danger { background: rgba(220, 38, 38, 0.08); border-color: rgba(220, 38, 38, 0.6); }
+.cs-liquid-button--danger:hover:not(:disabled) { background: rgba(220, 38, 38, 0.22); }
+.cs-liquid-button--selected {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  filter: brightness(1.05);
+}
+.cs-liquid-button--staff-proposed {
+  border-color: rgba(59, 130, 246, 0.95);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.65), 0 0 0 2px rgba(59, 130, 246, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  background: linear-gradient(145deg, rgba(59, 130, 246, 0.36), rgba(255, 255, 255, 0.08));
+}
+
+.cs-liquid-input {
+  @apply w-full px-4 py-2 text-white text-sm rounded-full;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+  transition: background-color 300ms, box-shadow 300ms, border-color 300ms;
+}
+.cs-liquid-input::placeholder { color: rgba(255, 255, 255, 0.7); }
+.cs-liquid-input:focus {
+  @apply outline-none;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+.cs-liquid-card {
+  @apply relative rounded-lg text-white overflow-hidden;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+.cs-liquid-card > * { @apply relative z-1; }
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Keyframes ─────────────────────────────────────────────  */
+/* ═══════════════════════════════════════════════════════════ */
+
+@keyframes fadeIn { from { opacity: 0; transform: scale(0.9); } to { opacity: 1; transform: scale(1); } }
+@keyframes slideIn { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes logoFadeIn { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+@keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+@keyframes ckGlowPulse {
+  0%, 100% { opacity: 0.85; text-shadow: 0 0 0 rgba(255,255,255,0), 0 0 0 rgba(255,255,255,0); }
+  50% { opacity: 1; text-shadow: 0 0 10px rgba(255,255,255,0.55), 0 0 18px rgba(255,255,255,0.35); }
+}
+@keyframes ckBounceInX {
+  0%, 100% { transform: translateY(-50%) translateX(calc(var(--toward,1) * -6px)); }
+  50% { transform: translateY(-50%) translateX(calc(var(--toward,1) * 10px)); }
+}
+@keyframes ckCardPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(255,255,255,0), 0 18px 40px rgba(0,0,0,0.45); }
+  50% { box-shadow: 0 0 0 3px rgba(255,255,255,0.25), 0 0 22px rgba(255,255,255,0.22), 0 18px 40px rgba(0,0,0,0.45); }
+}
+@keyframes ckDotPulse {
+  0%, 20% { opacity: 0.15; } 50% { opacity: 1; } 80%, 100% { opacity: 0.15; }
 }
