@@ -1,17 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 import { LockScreen, type StaffSession } from '../LockScreen';
-import { ShiftsView } from '../ShiftsView';
+import { ScheduleView } from '../schedule/ScheduleView';
 import { OfficeShell } from '../OfficeShell';
 import { DemoOverview } from '../DemoOverview';
 import { LaneMonitorView } from '../LaneMonitorView';
 import { WaitlistManagementView } from '../WaitlistManagementView';
 import { CustomerAdminToolsView } from '../CustomerAdminToolsView';
-import { ActivityLogView } from '../ActivityLogView';
+import { ActivityHub } from '../activity/ActivityHub';
 import { LateCheckoutBanAlertsView } from '../LateCheckoutBanAlertsView';
-import { ReportsDemoView } from '../ReportsDemoView';
+import { ReportsView } from '../reports/ReportsView';
 import { MessagesView } from '../MessagesView';
-import { Box, Button, CircularProgress, Typography } from '@mui/material';
+import { RouteErrorBoundary } from './RouteErrorBoundary';
 import {
   clearStorageValue,
   CLUBOPS_STORAGE_KEYS,
@@ -20,6 +20,7 @@ import {
   writeStorageValue,
 } from '@club-ops/shared';
 import { fetchAuthMe, logout } from '../api/auth';
+import { ForcePinChangeModal } from '../ForcePinChangeModal';
 
 export function AppComposition() {
   const [session, setSession] = useState<StaffSession | null>(() => {
@@ -109,7 +110,7 @@ export function AppComposition() {
     return () => ac.abort();
   }, [session?.sessionToken, isValidatingSession]);
 
-  const handleLogin = (newSession: StaffSession) => {
+  const handleLogin = useCallback((newSession: StaffSession) => {
     setSession(newSession);
     writeStorageValue(
       window.localStorage,
@@ -119,7 +120,7 @@ export function AppComposition() {
     );
     setSessionValidationError(null);
     setIsValidatingSession(false);
-  };
+  }, []);
 
   const handleLogout = async () => {
     if (session?.sessionToken) {
@@ -135,76 +136,75 @@ export function AppComposition() {
   // Gate app mounting on validating any stored session.
   if (session && isValidatingSession) {
     return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 2,
-          p: 3,
-        }}
-      >
-        <CircularProgress />
-        <Typography variant="h6">Validating session…</Typography>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ maxWidth: 520, textAlign: 'center' }}
-        >
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
+        <div className="h-8 w-8 animate-spin rounded-full border-[3px] border-gray-700 border-t-brand-500" />
+        <h3 className="text-xl font-semibold text-white/90">Validating session…</h3>
+        <p className="max-w-lg text-center text-sm text-gray-400">
           If you see this for more than a few seconds, the API may be down or your token may have
           expired.
-        </Typography>
-        <Button variant="outlined" color="inherit" onClick={clearSession}>
+        </p>
+        <button
+          className="rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-300 ring-1 ring-inset ring-gray-700 hover:bg-white/[0.05] transition-colors"
+          onClick={clearSession}
+        >
           Return to Lock Screen
-        </Button>
-      </Box>
+        </button>
+      </div>
     );
   }
 
   if (session && sessionValidationError) {
     return (
-      <Box
-        sx={{
-          minHeight: '100vh',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          flexDirection: 'column',
-          gap: 2,
-          p: 3,
-        }}
-      >
-        <Typography variant="h6">Session check failed</Typography>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ maxWidth: 640, textAlign: 'center' }}
-        >
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 p-6">
+        <h3 className="text-xl font-semibold text-white/90">Session check failed</h3>
+        <p className="max-w-lg text-center text-sm text-gray-400">
           {sessionValidationError}
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="contained"
+        </p>
+        <div className="flex gap-2">
+          <button
+            className="rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white hover:bg-brand-600 transition-colors"
             onClick={() => {
               setSessionValidationError(null);
               setIsValidatingSession(true);
             }}
           >
             Retry
-          </Button>
-          <Button variant="outlined" color="inherit" onClick={clearSession}>
+          </button>
+          <button
+            className="rounded-lg px-4 py-2.5 text-sm font-semibold text-gray-300 ring-1 ring-inset ring-gray-700 hover:bg-white/[0.05] transition-colors"
+            onClick={clearSession}
+          >
             Return to Lock Screen
-          </Button>
-        </Box>
-      </Box>
+          </button>
+        </div>
+      </div>
     );
   }
 
   // Show lock screen if not authenticated
   if (!session) {
     return <LockScreen onLogin={handleLogin} deviceType="desktop" deviceId={deviceId} />;
+  }
+
+  // Force PIN change if admin reset the user's PIN
+  if (session.mustChangePin) {
+    return (
+      <ForcePinChangeModal
+        sessionToken={session.sessionToken}
+        staffName={session.name}
+        onComplete={() => {
+          // Clear the mustChangePin flag in state
+          const updatedSession = { ...session, mustChangePin: false };
+          setSession(updatedSession);
+          writeStorageValue(
+            window.localStorage,
+            CLUBOPS_STORAGE_KEYS.staffSession,
+            JSON.stringify(updatedSession),
+            CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+          );
+        }}
+      />
+    );
   }
 
   const isAdmin = session.role === 'ADMIN';
@@ -216,20 +216,20 @@ export function AppComposition() {
         <Route
           path="/overview"
           element={
-            isAdmin ? <DemoOverview session={session} /> : <Navigate to="/schedule" replace />
+            isAdmin ? <RouteErrorBoundary routeName="Overview"><DemoOverview session={session} /></RouteErrorBoundary> : <Navigate to="/schedule" replace />
           }
         />
         <Route
           path="/monitor"
           element={
-            isAdmin ? <LaneMonitorView session={session} /> : <Navigate to="/schedule" replace />
+            isAdmin ? <RouteErrorBoundary routeName="Lane Monitor"><LaneMonitorView session={session} /></RouteErrorBoundary> : <Navigate to="/schedule" replace />
           }
         />
         <Route
           path="/waitlist"
           element={
             isAdmin ? (
-              <WaitlistManagementView session={session} />
+              <RouteErrorBoundary routeName="Waitlist"><WaitlistManagementView session={session} /></RouteErrorBoundary>
             ) : (
               <Navigate to="/schedule" replace />
             )
@@ -238,14 +238,14 @@ export function AppComposition() {
         <Route
           path="/reports"
           element={
-            isAdmin ? <ReportsDemoView session={session} /> : <Navigate to="/schedule" replace />
+            isAdmin ? <RouteErrorBoundary routeName="Reports"><ReportsView sessionToken={session.sessionToken} /></RouteErrorBoundary> : <Navigate to="/schedule" replace />
           }
         />
         <Route
           path="/customers"
           element={
             isAdmin ? (
-              <CustomerAdminToolsView session={session} />
+              <RouteErrorBoundary routeName="Customer Tools"><CustomerAdminToolsView session={session} /></RouteErrorBoundary>
             ) : (
               <Navigate to="/schedule" replace />
             )
@@ -253,13 +253,13 @@ export function AppComposition() {
         />
         <Route
           path="/logs"
-          element={isAdmin ? <ActivityLogView session={session} /> : <Navigate to="/schedule" replace />}
+          element={isAdmin ? <RouteErrorBoundary routeName="Operations Hub"><ActivityHub session={session} /></RouteErrorBoundary> : <Navigate to="/schedule" replace />}
         />
         <Route
           path="/late-checkout-alerts"
           element={
             isAdmin ? (
-              <LateCheckoutBanAlertsView session={session} />
+              <RouteErrorBoundary routeName="Alerts"><LateCheckoutBanAlertsView session={session} /></RouteErrorBoundary>
             ) : (
               <Navigate to="/schedule" replace />
             )
@@ -267,11 +267,11 @@ export function AppComposition() {
         />
         <Route
           path="/schedule"
-          element={<ShiftsView session={session} limitedAccess={!isAdmin} />}
+          element={<RouteErrorBoundary routeName="Schedule"><ScheduleView sessionToken={session.sessionToken} /></RouteErrorBoundary>}
         />
         <Route
           path="/messages"
-          element={isAdmin ? <Navigate to="/overview" replace /> : <MessagesView />}
+          element={isAdmin ? <Navigate to="/overview" replace /> : <RouteErrorBoundary routeName="Messages"><MessagesView /></RouteErrorBoundary>}
         />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

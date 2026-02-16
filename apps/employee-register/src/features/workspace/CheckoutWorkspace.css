@@ -1,14 +1,4 @@
-.er-checkout-workspace {
-  height: 100%;
-  min-height: 0;
-  display: flex;
-  overflow: hidden;
-}
-
-.er-checkout-workspace__primary {
-  flex: 1;
-  min-height: 0;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-}
+/* CheckoutWorkspace — Tailwind edition */
+@reference "tailwindcss";
+.er-checkout-workspace { @apply h-full min-h-0 flex overflow-hidden; }
+.er-checkout-workspace__primary { @apply flex-1 min-h-0 overflow-hidden flex flex-col; }

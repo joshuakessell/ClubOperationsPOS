@@ -24,6 +24,7 @@ interface StaffRow {
   qr_token_hash: string | null;
   pin_hash: string | null;
   active: boolean;
+  force_pin_change: boolean;
 }
 
 /**
@@ -89,7 +90,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
         // Find staff by ID or name (must be active)
         // Use separate conditions to avoid type mismatch (UUID vs VARCHAR)
         const staffResult = await client.query<StaffRow>(
-          `SELECT id, name, role, pin_hash, active
+          `SELECT id, name, role, pin_hash, active, force_pin_change
            FROM staff
            WHERE (id::text = $1 OR name ILIKE $1)
            AND pin_hash IS NOT NULL
@@ -235,6 +236,7 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
           name: staff.name,
           role: staff.role,
           sessionToken,
+          mustChangePin: staff.force_pin_change,
         };
       });
 
@@ -255,6 +257,88 @@ export async function authRoutes(fastify: FastifyInstance): Promise<void> {
       });
     }
   });
+
+  /**
+   * POST /v1/auth/change-pin - Change PIN (used after forced reset)
+   *
+   * Accepts current PIN and new PIN. Clears force_pin_change flag.
+   */
+  const ChangePinSchema = z.object({
+    currentPin: z.string().regex(/^\d{6}$/, 'PIN must be exactly 6 digits'),
+    newPin: z.string().regex(/^\d{6}$/, 'PIN must be exactly 6 digits'),
+    confirmPin: z.string().regex(/^\d{6}$/, 'PIN must be exactly 6 digits'),
+  });
+
+  fastify.post<{
+    Body: z.infer<typeof ChangePinSchema>;
+  }>(
+    '/v1/auth/change-pin',
+    {
+      preHandler: [requireAuth],
+    },
+    async (request, reply) => {
+      if (!request.staff) {
+        return reply.status(401).send({ error: 'Unauthorized' });
+      }
+
+      let body: z.infer<typeof ChangePinSchema>;
+      try {
+        body = ChangePinSchema.parse(request.body);
+      } catch (error) {
+        return reply.status(400).send({
+          error: 'Validation failed',
+          details: error instanceof z.ZodError ? error.errors : 'Invalid input',
+        });
+      }
+
+      if (body.newPin !== body.confirmPin) {
+        return reply.status(400).send({ error: 'New PIN and confirmation do not match' });
+      }
+
+      if (body.newPin === body.currentPin) {
+        return reply.status(400).send({ error: 'New PIN must be different from current PIN' });
+      }
+
+      try {
+        const { hashPin } = await import('../auth/utils');
+
+        // Verify current PIN
+        const staffResult = await query<{ pin_hash: string | null }>(
+          `SELECT pin_hash FROM staff WHERE id = $1 AND active = true`,
+          [request.staff.staffId]
+        );
+
+        if (staffResult.rows.length === 0 || !staffResult.rows[0]!.pin_hash) {
+          return reply.status(401).send({ error: 'Unauthorized' });
+        }
+
+        if (!(await verifyPin(body.currentPin, staffResult.rows[0]!.pin_hash))) {
+          return reply.status(401).send({ error: 'Current PIN is incorrect' });
+        }
+
+        // Hash new PIN and update
+        const newPinHash = await hashPin(body.newPin);
+        await query(
+          `UPDATE staff SET pin_hash = $1, force_pin_change = false, updated_at = NOW() WHERE id = $2`,
+          [newPinHash, request.staff.staffId]
+        );
+
+        // Audit log
+        await insertAuditLogQuery(query, {
+          staffId: request.staff.staffId,
+          action: 'STAFF_PIN_RESET',
+          entityType: 'staff',
+          entityId: request.staff.staffId,
+          metadata: { selfChange: true },
+        });
+
+        return reply.send({ success: true });
+      } catch (error) {
+        request.log.error(error, 'Failed to change PIN');
+        return reply.status(500).send({ error: 'Internal server error' });
+      }
+    }
+  );
 
   /**
    * POST /v1/auth/logout - Staff logout

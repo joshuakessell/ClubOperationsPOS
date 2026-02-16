@@ -13,13 +13,14 @@ const API_BASE = getApiUrl('/api');
 
 interface ReAuthModalProps {
   sessionToken: string;
+  deviceId?: string;
   onSuccess: () => void;
   onCancel: () => void;
 }
 
 type AuthMethod = 'webauthn' | 'pin';
 
-export function ReAuthModal({ sessionToken, onSuccess, onCancel }: ReAuthModalProps) {
+export function ReAuthModal({ sessionToken, deviceId: deviceIdProp, onSuccess, onCancel }: ReAuthModalProps) {
   const [authMethod, setAuthMethod] = useState<AuthMethod>('webauthn');
   const [pin, setPin] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function ReAuthModal({ sessionToken, onSuccess, onCancel }: ReAuthModalPr
     setError(null);
 
     try {
-      const deviceId = 'office-dashboard';
+      const deviceId = deviceIdProp || 'office-dashboard';
       const options = await requestReauthAuthenticationOptions(sessionToken, deviceId, API_BASE);
       const credential = await getCredential(options);
       const credentialResponse = authenticationCredentialToJSON(credential);

@@ -7,6 +7,7 @@ import {
   fetchTimeclockSessions,
   updateTimeclockSession,
 } from './api/timeclock';
+import { formatTime, formatDate, calculateHours } from './lib/dateUtils';
 
 
 import type { TimeclockSession } from './api/timeclock';
@@ -79,33 +80,7 @@ export function TimeclockView({ session }: TimeclockViewProps) {
     }
   };
 
-  const formatTime = (isoString: string): string => {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'America/Chicago',
-    });
-  };
 
-  const formatDate = (isoString: string): string => {
-    const date = new Date(isoString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      timeZone: 'America/Chicago',
-    });
-  };
-
-  const calculateHours = (clockIn: string, clockOut: string | null): string => {
-    if (!clockOut) return '—';
-    const start = new Date(clockIn).getTime();
-    const end = new Date(clockOut).getTime();
-    const hours = (end - start) / (1000 * 60 * 60);
-    return `${hours.toFixed(2)}h`;
-  };
 
   // Group by employee for hours summary
   const hoursByEmployee = sessions.reduce(
@@ -409,7 +384,7 @@ function EditSessionModal({
 }: {
   session: TimeclockSession;
   onClose: () => void;
-  onSave: (updates: any) => Promise<void>;
+  onSave: (updates: { clock_in_at: string; clock_out_at: string | null; notes: string | null }) => Promise<void>;
 }) {
   const [clockInAt, setClockInAt] = useState(session.clockInAt.slice(0, 16));
   const [clockOutAt, setClockOutAt] = useState(session.clockOutAt?.slice(0, 16) || '');

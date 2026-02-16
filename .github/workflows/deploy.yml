@@ -18,6 +18,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      APPSYNC_EVENTS_HTTP_ENDPOINT: https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event
 
     steps:
       - name: Checkout repo
@@ -31,7 +33,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.28.0
+          version: 10.29.3
 
       - name: Resolve pnpm store path
         id: pnpm-store
@@ -54,6 +56,7 @@ jobs:
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
+
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -111,7 +114,7 @@ jobs:
                     "DB_SSL": "true",
                     "DB_SSL_CA_PATH": "",
                     "DB_LOG_QUERIES": "false",
-                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "${{ vars.APPSYNC_EVENTS_HTTP_ENDPOINT }}",
+                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "${{ env.APPSYNC_EVENTS_HTTP_ENDPOINT }}",
                     "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops",
                     "ALLOWED_ORIGINS": "https://employee-demo.joshuakessell.com,https://customer-demo.joshuakessell.com"
                   },

@@ -10,6 +10,7 @@ import { registerAdminReportRoutes } from './admin/reports';
 import { registerAdminRoomRoutes } from './admin/rooms';
 import { registerAdminStaffRoutes } from './admin/staff';
 import { registerAdminLateCheckoutBanAlertRoutes } from './admin/late-checkout-ban-alerts';
+import { registerShiftTemplateRoutes } from './admin/shift-templates';
 
 /**
  * Admin-only routes for operations management and metrics.
@@ -35,4 +36,6 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   registerAdminLateCheckoutBanAlertRoutes(fastify);
 
   registerAdminReportRoutes(fastify);
+
+  registerShiftTemplateRoutes(fastify);
 }

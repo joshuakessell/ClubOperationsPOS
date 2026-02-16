@@ -302,7 +302,7 @@ export function registerAdminStaffRoutes(fastify: FastifyInstance): void {
 
         const result = await query<{ id: string }>(
           `UPDATE staff
-         SET pin_hash = $1, updated_at = NOW()
+         SET pin_hash = $1, force_pin_change = true, updated_at = NOW()
          WHERE id = $2
          RETURNING id`,
           [pinHash, request.params.id]

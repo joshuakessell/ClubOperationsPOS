@@ -22,6 +22,7 @@ export function DevicesView({ session }: DevicesViewProps) {
   const [newDeviceName, setNewDeviceName] = useState('');
   const [adding, setAdding] = useState(false);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const refreshDevices = useCallback(async () => {
     try {
@@ -43,9 +44,10 @@ export function DevicesView({ session }: DevicesViewProps) {
 
   const handleAddDevice = async () => {
     if (!newDeviceId.trim() || !newDeviceName.trim()) {
-      alert('Device ID and display name are required');
+      setError('Device ID and display name are required');
       return;
     }
+    setError(null);
 
     setAdding(true);
     try {
@@ -59,7 +61,7 @@ export function DevicesView({ session }: DevicesViewProps) {
       setNewDeviceName('');
     } catch (error) {
       console.error('Failed to add device:', error);
-      alert('Failed to add device');
+      setError('Failed to add device. Please try again.');
     } finally {
       setAdding(false);
     }
@@ -67,9 +69,10 @@ export function DevicesView({ session }: DevicesViewProps) {
 
   const handleToggleDevice = async (deviceId: string, currentEnabled: boolean) => {
     if (!currentEnabled && enabledCount >= 2) {
-      alert('Maximum of 2 enabled devices allowed');
+      setError('Maximum of 2 enabled devices allowed');
       return;
     }
+    setError(null);
 
     setToggling(deviceId);
     try {
@@ -77,7 +80,7 @@ export function DevicesView({ session }: DevicesViewProps) {
       await refreshDevices();
     } catch (error) {
       console.error('Failed to toggle device:', error);
-      alert('Failed to update device');
+      setError('Failed to update device. Please try again.');
     } finally {
       setToggling(null);
     }
@@ -110,6 +113,37 @@ export function DevicesView({ session }: DevicesViewProps) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '1rem' }}>
+
+      {error && (
+        <div
+          style={{
+            padding: '0.75rem 1rem',
+            marginBottom: '1rem',
+            background: '#7f1d1d',
+            border: '1px solid #ef4444',
+            borderRadius: '8px',
+            color: '#fca5a5',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+          }}
+        >
+          <span>{error}</span>
+          <button
+            onClick={() => setError(null)}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: '#fca5a5',
+              cursor: 'pointer',
+              fontSize: '1.25rem',
+              lineHeight: 1,
+            }}
+          >
+            ×
+          </button>
+        </div>
+      )}
           <button
             onClick={() => setShowAddModal(true)}
             disabled={!canAddMore}

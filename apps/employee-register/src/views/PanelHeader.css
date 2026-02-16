@@ -1,73 +1,21 @@
-.er-panel-header {
-  display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-}
+/* PanelHeader — Tailwind edition */
+@reference "tailwindcss";
+.er-panel-header { @apply flex flex-col gap-1; }
+.er-panel-header__top { @apply flex justify-between items-center gap-3 flex-wrap; }
+.er-panel-header__title-group { @apply flex items-baseline gap-2 flex-wrap; }
+.er-panel-header__action { @apply flex items-center gap-2; }
+.er-panel-header--center { @apply items-center text-center; }
+.er-panel-header--center .er-panel-header__top { @apply justify-center; }
 
-.er-panel-header__top {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-}
+.er-panel-header__title { @apply text-lg font-bold text-white; }
+.er-panel-header__title--lg { @apply text-xl; }
 
-.er-panel-header__title-group {
-  display: flex;
-  align-items: baseline;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-}
+.er-panel-header__subtitle { @apply text-sm; color: var(--er-text-muted); }
+.er-panel-header__subtitle--lg { @apply text-base; }
 
-.er-panel-header__action {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-}
+.er-panel-header__description { @apply text-sm mt-1; color: var(--er-text-muted); }
+.er-panel-header__description--lg { @apply text-base; }
 
-.er-panel-header--center {
-  align-items: center;
-  text-align: center;
-}
-
-.er-panel-header--center .er-panel-header__top {
-  justify-content: center;
-}
-
-.er-panel-header--space-none {
-  margin-bottom: 0;
-}
-
-.er-panel-header--space-sm {
-  margin-bottom: 0.5rem;
-}
-
-.er-panel-header--space-md {
-  margin-bottom: 0.75rem;
-}
-
-.er-card-title {
-  margin: 0;
-  font-weight: 900;
-  font-size: 1.35rem;
-  color: #fff;
-  text-transform: none;
-  letter-spacing: 0.01em;
-}
-
-.actions-panel .er-card-title,
-.inventory-panel .er-card-title {
-  font-size: 1.35rem;
-}
-
-.er-ui-tweaks label.er-card-title {
-  font-size: 1.35rem !important;
-  line-height: 1.2 !important;
-}
-
-.er-card-subtitle {
-  font-weight: 800;
-  font-size: 1rem;
-  color: #60a5fa;
-  letter-spacing: 0.01em;
+.er-panel-header__badge {
+  @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-bold;
 }

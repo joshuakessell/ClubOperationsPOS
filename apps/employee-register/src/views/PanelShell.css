@@ -1,25 +1,9 @@
+/* PanelShell — Tailwind edition */
+@reference "tailwindcss";
 .er-panel-shell {
+  @apply min-h-0 max-h-full overflow-auto flex flex-col self-stretch;
   flex: 0 1 auto;
-  min-height: 0;
-  max-height: 100%;
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-  align-self: stretch;
 }
-
-.er-panel-shell--center {
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-}
-
-.er-panel-shell--top {
-  justify-content: flex-start;
-  align-items: stretch;
-  text-align: left;
-}
-
-.er-panel-shell--no-scroll {
-  overflow: hidden;
-}
+.er-panel-shell--center { @apply justify-center items-center text-center; }
+.er-panel-shell--top { @apply justify-start items-stretch text-left; }
+.er-panel-shell--no-scroll { @apply overflow-hidden; }

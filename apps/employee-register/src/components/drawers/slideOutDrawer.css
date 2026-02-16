@@ -1,125 +1,62 @@
+/* SlideOutDrawer — Tailwind edition */
+@reference "tailwindcss";
 .sod-root {
-  position: fixed;
+  @apply fixed block pointer-events-none;
   top: calc(var(--er-topbar-height, 60px) + var(--er-rail-gap, 12px));
   bottom: var(--er-rail-gap, 12px);
   --sod-edge-gap: 12px;
-  /* Avoid flex sizing so the panel can't shrink and "detach" from the screen edge. */
-  display: block;
-  pointer-events: none; /* allow clicks through except on interactive children */
   will-change: transform;
 }
-
-.sod-root.sod-left {
-  left: 0;
-}
-
-.sod-root.sod-right {
-  right: 0;
-}
-
-.sod-root:not(.sod-dragging) {
-  transition: transform 220ms cubic-bezier(0.2, 0.9, 0.2, 1);
-}
-
-.sod-backdrop {
-  position: fixed;
-  top: var(--er-topbar-height, 60px);
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.42);
-}
-
-.sod-tab {
-  pointer-events: auto;
-  align-self: center;
-
-  /* Drawer tab exception: do NOT shrink; slightly increase size for readability. */
-  width: var(--sod-tab-width, 54px) !important;
-  min-height: 178px !important;
-
-  padding: 0.65rem 0.3rem !important;
-  border-radius: 9999px;
-
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-
-  box-shadow:
-    0 18px 40px rgba(0, 0, 0, 0.45),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
-}
-/*
-  Keep the tab vertically centered while pressed.
-
-  NOTE:
-  The tab is centered using transform: translateY(-50%). If we apply a generic
-  :active transform (e.g. translateY(1px)), it overrides the centering transform
-  and makes the tab jump down when pressed.
-*/
-.sod-left .sod-tab:active:not(:disabled),
-.sod-right .sod-tab:active:not(:disabled) {
-  transform: translateY(-50%);
-  filter: brightness(1.08);
-}
-
-.sod-tabLabel {
-  writing-mode: vertical-rl;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-weight: 800;
-  font-size: calc(0.8rem + 3px);
-}
-
-/* Make label read top-to-bottom on left side */
-.sod-tab--left .sod-tabLabel {
-  transform: rotate(180deg);
-}
-
-.sod-left .sod-tab {
-  position: absolute;
-  top: var(--sod-tab-top, 50%);
-  right: 0;
-  transform: translateY(-50%);
-}
-
-.sod-right .sod-tab {
-  position: absolute;
-  top: var(--sod-tab-top, 50%);
-  left: 0;
-  transform: translateY(-50%);
-}
+.sod-root.sod-left { @apply left-0; }
+.sod-root.sod-right { @apply right-0; }
+.sod-root:not(.sod-dragging) { transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1); }
 
 .sod-panel {
-  pointer-events: auto;
+  @apply h-full flex overflow-hidden pointer-events-auto rounded-xl;
+  background: var(--er-surface-strong);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--er-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+.sod-left .sod-panel { @apply flex-row; margin-left: var(--sod-edge-gap); }
+.sod-right .sod-panel { @apply flex-row-reverse; margin-right: var(--sod-edge-gap); }
 
-  height: 100%;
-  width: 100%;
-  /* Panel itself should not scroll. Scroll happens inside drawer content. */
-  overflow: hidden;
+.sod-handle {
+  @apply flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing;
+  width: 28px;
+}
+.sod-handle::before {
+  content: '';
+  @apply block w-1 h-10 rounded-full;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background 120ms;
+}
+.sod-handle:hover::before { background: rgba(255, 255, 255, 0.5); }
 
-  padding: 1rem;
-  box-sizing: border-box;
-
-  /* Keep content readable against backdrop */
-  background: rgba(10, 10, 10, 0.78);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+.sod-body {
+  @apply flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col;
+}
+.sod-body__inner {
+  @apply flex-1 min-h-0 overflow-y-auto p-3;
+  -webkit-overflow-scrolling: touch;
 }
 
-.sod-left .sod-panel {
-  margin-left: var(--sod-edge-gap, 12px);
-  margin-right: var(--sod-tab-width, 54px);
-  width: calc(100% - var(--sod-tab-width, 54px) - var(--sod-edge-gap, 12px));
+/* Peek strip */
+.sod-peek-strip {
+  @apply flex flex-col items-center justify-center shrink-0 pointer-events-auto cursor-pointer;
+  width: 36px;
+  background: var(--er-surface-strong);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--er-border);
+  transition: background 150ms;
 }
-
-.sod-right .sod-panel {
-  margin-left: var(--sod-tab-width, 54px);
-  margin-right: var(--sod-edge-gap, 12px);
-  width: calc(100% - var(--sod-tab-width, 54px) - var(--sod-edge-gap, 12px));
-}
-
-/* Reduce accidental text selection while dragging */
-.sod-dragging,
-.sod-dragging * {
-  user-select: none;
+.sod-left .sod-peek-strip { margin-left: var(--sod-edge-gap); @apply rounded-r-xl; }
+.sod-right .sod-peek-strip { margin-right: var(--sod-edge-gap); @apply rounded-l-xl; }
+.sod-peek-strip:hover { background: rgba(255, 255, 255, 0.1); }
+.sod-peek-strip__label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  @apply text-xs font-bold;
+  color: var(--er-text-muted);
 }
