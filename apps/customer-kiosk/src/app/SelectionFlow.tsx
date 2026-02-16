@@ -81,62 +81,64 @@ export function SelectionFlow({
 
   return (
     <>
-      <SelectionScreen
-        session={session}
-        inventory={inventory}
-        proposedRentalType={proposedRentalType}
-        proposedBy={proposedBy}
-        selectionConfirmed={selectionConfirmed}
-        selectionConfirmedBy={selectionConfirmedBy}
-        selectedRental={selectedRental}
-        isSubmitting={isSubmitting}
-        orientationOverlay={orientationOverlay}
-        welcomeOverlay={welcomeOverlay}
-        notice={notices.notice}
-        onSelectRental={(rental) => void actions.handleRentalSelection(rental)}
-        membershipChoice={isMember ? null : membershipChoice}
-        onJoinWaitlist={() => void actions.handleOpenWaitlist()}
+    <SelectionScreen
+        session= { session }
+  inventory = { inventory }
+  proposedRentalType = { proposedRentalType }
+  proposedBy = { proposedBy }
+  selectionConfirmed = { selectionConfirmed }
+  selectionConfirmedBy = { selectionConfirmedBy }
+  selectedRental = { selectedRental }
+  isSubmitting = { isSubmitting }
+  orientationOverlay = { orientationOverlay }
+  welcomeOverlay = { welcomeOverlay }
+  notice = { notices.notice }
+  onSelectRental = {(rental) => void actions.handleRentalSelection(rental)
+}
+onToggleLanguage = { callbacks.onToggleLanguage }
+membershipChoice = { isMember? null: membershipChoice }
+onJoinWaitlist = {() => void actions.handleOpenWaitlist()}
       />
-      <SelectionFlowModals
-        session={session}
-        inventory={inventory}
-        waitlistDesiredType={waitlistDesiredType}
-        waitlistDesiredTypes={waitlistDesiredTypes}
-        waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
-        waitlistRequestedResourceType={waitlistRequestedResourceType}
-        waitlistUnavailableOptions={waitlistUnavailableOptions}
-        waitlistPosition={waitlistPosition}
-        waitlistETA={waitlistETA}
-        waitlistUpgradeFee={waitlistUpgradeFee}
-        showWaitlistModal={showWaitlistModal}
-        highlightedWaitlistBackup={highlightedWaitlistBackup}
-        showUpgradeDisclaimer={showUpgradeDisclaimer}
-        showCustomerConfirmation={showCustomerConfirmation}
-        customerConfirmationData={customerConfirmationData}
-        showRenewalDisclaimer={showRenewalDisclaimer}
-        isSubmitting={isSubmitting}
-        onAcknowledgeUpgrade={() => void actions.handleDisclaimerAcknowledge()}
-        onCloseUpgrade={() => setShowUpgradeDisclaimer(false)}
-        onCustomerConfirm={(confirmed) => void actions.handleCustomerConfirmSelection(confirmed)}
-        onWaitlistDesiredTypesChange={actions.handleWaitlistDesiredTypesChange}
-        onWaitlistSpecificSelection={actions.handleWaitlistSpecificSelection}
-        onWaitlistSpecificFocus={() => void actions.handleWaitlistSpecificFocus()}
-        onWaitlistBackupSelection={actions.handleWaitlistBackupSelection}
-        onWaitlistBackToPreferences={() => {
-          void actions.handleWaitlistBackToPreferences();
-          void handleBack?.();
-        }}
-        onWaitlistSubmit={() => void actions.handleWaitlistSubmit()}
-        onWaitlistCancel={() => {
-          void actions.handleWaitlistCancel();
-          void handleCancel?.();
-        }}
-        onCloseRenewal={() => setShowRenewalDisclaimer(false)}
-        onProceedRenewal={() => {
-          setShowRenewalDisclaimer(false);
-          callbacks.onProceedToAgreement();
-        }}
+  < SelectionFlowModals
+session = { session }
+inventory = { inventory }
+waitlistDesiredType = { waitlistDesiredType }
+waitlistDesiredTypes = { waitlistDesiredTypes }
+waitlistRequestedResourceNumber = { waitlistRequestedResourceNumber }
+waitlistRequestedResourceType = { waitlistRequestedResourceType }
+waitlistUnavailableOptions = { waitlistUnavailableOptions }
+waitlistPosition = { waitlistPosition }
+waitlistETA = { waitlistETA }
+waitlistUpgradeFee = { waitlistUpgradeFee }
+showWaitlistModal = { showWaitlistModal }
+highlightedWaitlistBackup = { highlightedWaitlistBackup }
+showUpgradeDisclaimer = { showUpgradeDisclaimer }
+showCustomerConfirmation = { showCustomerConfirmation }
+customerConfirmationData = { customerConfirmationData }
+showRenewalDisclaimer = { showRenewalDisclaimer }
+isSubmitting = { isSubmitting }
+onAcknowledgeUpgrade = {() => void actions.handleDisclaimerAcknowledge()}
+onCloseUpgrade = {() => setShowUpgradeDisclaimer(false)}
+onCustomerConfirm = {(confirmed) => void actions.handleCustomerConfirmSelection(confirmed)}
+onWaitlistDesiredTypesChange = { actions.handleWaitlistDesiredTypesChange }
+onWaitlistSpecificSelection = { actions.handleWaitlistSpecificSelection }
+onWaitlistSpecificFocus = {() => void actions.handleWaitlistSpecificFocus()}
+onWaitlistBackupSelection = { actions.handleWaitlistBackupSelection }
+onWaitlistBackToPreferences = {() => {
+  void actions.handleWaitlistBackToPreferences();
+  void handleBack?.();
+}}
+onWaitlistSubmit = {() => void actions.handleWaitlistSubmit()}
+onWaitlistCancel = {() => {
+  void actions.handleWaitlistCancel();
+  void handleCancel?.();
+}}
+onCloseRenewal = {() => setShowRenewalDisclaimer(false)}
+onProceedRenewal = {() => {
+  setShowRenewalDisclaimer(false);
+  callbacks.onProceedToAgreement();
+}}
       />
-    </>
+  </>
   );
 }

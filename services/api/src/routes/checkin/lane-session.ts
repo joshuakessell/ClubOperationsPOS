@@ -355,8 +355,8 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
           const selectionLockedAtForSession = computedMode === 'RENEWAL' ? new Date() : null;
           const membershipChoiceForSession = null;
           // Initialize flow_step so the kiosk knows which screen to show.
-          // CHECKIN starts at LANGUAGE; RENEWAL skips straight to PAYMENT.
-          const flowStepForSession = computedMode === 'RENEWAL' ? 'PAYMENT' : 'LANGUAGE';
+          // CHECKIN starts at RENTAL (language is toggled inline); RENEWAL skips to PAYMENT.
+          const flowStepForSession = computedMode === 'RENEWAL' ? 'PAYMENT' : 'RENTAL';
 
           if (existingSession.rows.length > 0 && existingSession.rows[0]!.status !== 'COMPLETED') {
             // Update existing session

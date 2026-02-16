@@ -24,6 +24,7 @@ export interface SelectionScreenProps {
   welcomeOverlay: ReactNode;
   notice?: KioskNotice | null;
   onSelectRental: (rental: string) => void;
+  onToggleLanguage: () => void;
   membershipChoice: 'ONE_TIME' | 'SIX_MONTH' | null;
   onJoinWaitlist: () => void;
 }
@@ -41,6 +42,7 @@ export function SelectionScreen({
   welcomeOverlay,
   notice,
   onSelectRental,
+  onToggleLanguage,
   membershipChoice,
   onJoinWaitlist,
 }: SelectionScreenProps) {
@@ -57,8 +59,7 @@ export function SelectionScreen({
   const canInteract =
     !isSubmitting &&
     !session.pastDueBlocked &&
-    !selectionConfirmed &&
-    !!session.customerPrimaryLanguage;
+    !selectionConfirmed;
 
   const rentalOrder = ['LOCKER', 'GYM_LOCKER', 'STANDARD', 'DOUBLE', 'SPECIAL'] as const;
   const allowedSet = new Set(session.allowedRentals);
@@ -99,17 +100,20 @@ export function SelectionScreen({
               </div>
             </div>
 
+            {/* Language toggle */}
+            <button
+              type="button"
+              className="ck-language-toggle"
+              onClick={onToggleLanguage}
+              disabled={isSubmitting}
+            >
+              {lang === 'ES' ? 'English' : 'Español'}
+            </button>
+
             {notice && (
               <KioskNoticeBanner tone={notice.tone ?? 'warning'} title={notice.title}>
                 {notice.message}
               </KioskNoticeBanner>
-            )}
-
-            {/* Defensive fallback: if language isn't selected yet, block interactions and instruct the customer. */}
-            {!session.customerPrimaryLanguage && (
-              <div className="past-due-block-message">
-                <p>{t('EN', 'selectLanguage')}</p>
-              </div>
             )}
 
             {/* Past-due block message */}

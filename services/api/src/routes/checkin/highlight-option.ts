@@ -11,14 +11,14 @@ export function registerCheckinHighlightRoutes(fastify: FastifyInstance): void {
    * POST /v1/checkin/lane/:laneId/highlight-option
    *
    * Ephemeral (non-persisted) kiosk UI highlight for employee "pending" selections
-   * during the LANGUAGE and MEMBERSHIP steps.
+   * during the MEMBERSHIP steps.
    *
    * Security: requireAuth (staff only).
    */
   fastify.post<{
     Params: { laneId: string };
     Body: {
-      step: 'LANGUAGE' | 'MEMBERSHIP' | 'WAITLIST_BACKUP';
+      step: 'MEMBERSHIP' | 'WAITLIST_BACKUP';
       option: string | null;
       sessionId?: string;
     };
@@ -39,17 +39,17 @@ export function registerCheckinHighlightRoutes(fastify: FastifyInstance): void {
         const resolved = await transaction(async (client) => {
           const sessionResult = sessionId
             ? await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
-                [sessionId]
-              )
+              `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
+              [sessionId]
+            )
             : await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions
+              `SELECT * FROM lane_sessions
                  WHERE lane_id = $1
                    AND status IN ('ACTIVE', 'AWAITING_CUSTOMER', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
                  ORDER BY created_at DESC
                  LIMIT 1`,
-                [laneId]
-              );
+              [laneId]
+            );
 
           if (sessionResult.rows.length === 0) {
             throw { statusCode: 404, message: 'No active session found' };

@@ -38,8 +38,15 @@ export interface EmployeeAssistPanelProps {
   isSubmitting?: boolean;
   directSelect?: boolean;
 
-  onHighlightLanguage: (lang: 'EN' | 'ES' | null) => void;
-  onConfirmLanguage: (lang: 'EN' | 'ES') => Promise<void> | void;
+  // Flow-step driven state (server-authoritative)
+  flowStep?: 'RENTAL' | 'WAITLIST_PREFERENCES' | 'WAITLIST_BACKUP' | 'PAYMENT' | 'AGREEMENT' | 'COMPLETE' | null;
+  ledgerLineItems?: Array<{ description: string; amount: number }>;
+  ledgerTotal?: number | null;
+  paymentStatus?: 'DUE' | 'PAID' | null;
+  agreementBypassPending?: boolean;
+  assignedResourceType?: 'room' | 'locker' | null;
+  assignedResourceNumber?: string | null;
+
 
   onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) => void;
   onConfirmMembershipOneTime?: () => Promise<void> | void;
@@ -70,6 +77,7 @@ export interface EmployeeAssistPanelProps {
   ) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
   onClearSession?: () => void;
+  onBypassAgreement?: () => Promise<void> | void;
 
   onBack?: () => Promise<void> | void;
   onCancel?: () => Promise<void> | void;
@@ -80,7 +88,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   const {
     sessionId,
     customerName,
-    customerPrimaryLanguage,
     allowedRentals,
     proposedRentalType,
     proposedBy,
@@ -94,8 +101,13 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     waitlistUnavailableOptions,
     isSubmitting = false,
     directSelect = false,
-    onHighlightLanguage,
-    onConfirmLanguage,
+    flowStep,
+    ledgerLineItems,
+    ledgerTotal,
+    paymentStatus,
+    agreementBypassPending,
+    assignedResourceType,
+    assignedResourceNumber,
     onHighlightMembership,
     onConfirmMembershipSixMonth,
     onHighlightRental,
@@ -105,13 +117,14 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     onApproveRental,
     onClearSession,
     onDirectSelectRental,
+    onBypassAgreement,
     onBack,
     onCancel,
   } = props;
 
   const [pending, setPending] = useState<PendingState>(null);
 
-  const isLanguageNeeded = !customerPrimaryLanguage;
+
   const membershipStatus = getCustomerMembershipStatus(
     {
       membershipNumber: props.membershipNumber || null,
@@ -124,14 +137,17 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   const showSixMonthMembershipAdd = membershipStatus !== 'ACTIVE' && !isMembershipPending;
   const step: EmployeeAssistStep = useMemo(() => {
     if (!sessionId || !customerName) return 'DONE';
-    if (isLanguageNeeded) return 'LANGUAGE';
+    // Server-authoritative flow step takes priority when available
+    if (flowStep === 'PAYMENT') return 'PAYMENT';
+    if (flowStep === 'AGREEMENT') return 'AGREEMENT';
+    if (flowStep === 'COMPLETE') return 'DONE';
     if (waitlistDesiredTier && !waitlistBackupType) return 'UPGRADE';
     if (selectionConfirmed) return 'DONE';
     if (proposedBy === 'CUSTOMER' && proposedRentalType) return 'DONE';
     return 'RENTAL';
   }, [
     customerName,
-    isLanguageNeeded,
+    flowStep,
     proposedBy,
     proposedRentalType,
     selectionConfirmed,
@@ -143,8 +159,7 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   // Clear pending state when the session or step changes.
   useEffect(() => {
     setPending(null);
-    // Clear kiosk highlights for step-driven (language/membership) highlights.
-    onHighlightLanguage(null);
+    // Clear kiosk highlights for step-driven (membership) highlights.
     onHighlightMembership(null);
     onHighlightWaitlistBackup(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -244,102 +259,117 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
 
   return (
     <div
-      className="cs-liquid-card"
-      style={{
-        padding: '0.9rem',
-        flex: 1,
+      className= "cs-liquid-card"
+  style = {{
+    padding: '0.9rem',
+      flex: 1,
         minHeight: 0,
-        display: 'flex',
-        flexDirection: 'column',
-        overflow: 'hidden',
-      }}
-    >
-      <div
-        style={{
           display: 'flex',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
+            flexDirection: 'column',
+              overflow: 'hidden',
+      }
+}
+    >
+  <div
+        style={
+  {
+    display: 'flex',
+      justifyContent: 'space-between',
+        gap: '0.75rem',
           alignItems: 'baseline',
-        }}
+        }
+}
       >
-        <div style={{ fontWeight: 950, fontSize: '1rem' }}>Employee Assist</div>
-        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {onBack ? (
+  <div style={ { fontWeight: 950, fontSize: '1rem' } }> Employee Assist </div>
+    < div style = {{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      {
+        onBack?(
             <button
-              type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
-              onClick={() => void onBack()}
-              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
+              type = "button"
+              className = "cs-liquid-button cs-liquid-button--secondary"
+              onClick = {() => void onBack()}
+style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
             >
-              Back
-            </button>
+  Back
+  </button>
           ) : null}
-          {onCancel ? (
-            <button
-              type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
-              onClick={() => void onCancel()}
-              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
+{
+  onCancel ? (
+    <button
+              type= "button"
+              className = "cs-liquid-button cs-liquid-button--secondary"
+  onClick = {() => void onCancel()
+}
+style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
             >
-              Cancel
-            </button>
+  Cancel
+  </button>
           ) : null}
-          {onClearSession ? (
-            <button
-              type="button"
-              className="cs-liquid-button cs-liquid-button--danger"
-              onClick={onClearSession}
-              style={{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }}
+{
+  onClearSession ? (
+    <button
+              type= "button"
+              className = "cs-liquid-button cs-liquid-button--danger"
+  onClick = { onClearSession }
+  style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }
+}
             >
-              Clear Session
-            </button>
+  Clear Session
+    </button>
           ) : (
-            <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-              Step: {step}
-            </div>
+  <div className= "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
+    Step: { step }
+</div>
           )}
-        </div>
-      </div>
+</div>
+  </div>
 
-      <div
-        style={{
-          flex: 1,
-          minHeight: 0,
-          marginTop: '0.75rem',
-          overflowY: 'auto',
+  < div
+style = {{
+  flex: 1,
+    minHeight: 0,
+      marginTop: '0.75rem',
+        overflowY: 'auto',
           paddingRight: '0.25rem',
-          display: 'grid',
-          gap: '0.7rem',
-          alignContent: 'start',
+            display: 'grid',
+              gap: '0.7rem',
+                alignContent: 'start',
         }}
       >
-        <EmployeeAssistStepContent
-          step={step}
-          directSelect={directSelect}
-          isSubmitting={isSubmitting}
-          pending={pending}
-          setPending={setPending}
-          showSixMonthMembershipAdd={showSixMonthMembershipAdd}
-          waitlistDesiredTier={waitlistDesiredTier}
-          waitlistDesiredTypes={waitlistDesiredTypes}
-          waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
-          waitlistRequestedResourceType={waitlistRequestedResourceType}
-          waitlistUnavailableOptions={waitlistUnavailableOptions}
-          rentalButtons={rentalButtons}
-          waitlistBackupButtons={waitlistBackupButtons}
-          onHighlightLanguage={onHighlightLanguage}
-          onConfirmLanguage={onConfirmLanguage}
-          onHighlightMembership={onHighlightMembership}
-          onConfirmMembershipSixMonth={onConfirmMembershipSixMonth}
-          onHighlightRental={onHighlightRental}
-          onApproveRental={onApproveRental}
-          onDirectSelectRental={onDirectSelectRental}
-          onHighlightWaitlistBackup={onHighlightWaitlistBackup}
-          onSelectWaitlistBackupAsCustomer={onSelectWaitlistBackupAsCustomer}
-          onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
-          onDirectSelectWaitlistBackup={onDirectSelectWaitlistBackup}
-        />
-      </div>
-    </div>
+  <EmployeeAssistStepContent
+          step={ step }
+directSelect = { directSelect }
+isSubmitting = { isSubmitting }
+pending = { pending }
+setPending = { setPending }
+showSixMonthMembershipAdd = { showSixMonthMembershipAdd }
+waitlistDesiredTier = { waitlistDesiredTier }
+waitlistDesiredTypes = { waitlistDesiredTypes }
+waitlistRequestedResourceNumber = { waitlistRequestedResourceNumber }
+waitlistRequestedResourceType = { waitlistRequestedResourceType }
+waitlistUnavailableOptions = { waitlistUnavailableOptions }
+rentalButtons = { rentalButtons }
+waitlistBackupButtons = { waitlistBackupButtons }
+ledgerLineItems = { ledgerLineItems }
+ledgerTotal = { ledgerTotal }
+paymentStatus = { paymentStatus }
+agreementBypassPending = { agreementBypassPending }
+assignedResourceType = { assignedResourceType }
+assignedResourceNumber = { assignedResourceNumber }
+inventoryAvailable = { inventoryAvailable }
+proposedRentalType = { proposedRentalType }
+onHighlightMembership = { onHighlightMembership }
+onConfirmMembershipSixMonth = { onConfirmMembershipSixMonth }
+onHighlightRental = { onHighlightRental }
+onApproveRental = { onApproveRental }
+onDirectSelectRental = { onDirectSelectRental }
+onHighlightWaitlistBackup = { onHighlightWaitlistBackup }
+onSelectWaitlistBackupAsCustomer = { onSelectWaitlistBackupAsCustomer }
+onSelectRentalAsCustomer = { props.onSelectRentalAsCustomer }
+onDirectSelectWaitlistBackup = { onDirectSelectWaitlistBackup }
+onBypassAgreement = { onBypassAgreement }
+  />
+  </div>
+  </div>
   );
 }

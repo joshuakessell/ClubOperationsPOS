@@ -5,7 +5,7 @@ import { requireKioskTokenOrStaff } from '../../auth/kioskToken';
 import type { LaneSessionRow } from '../../checkin/types';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import { transaction } from '../../db';
-import { assertCustomerLanguageSelected } from '../../checkin/session';
+
 import { getLaneFeatureFlags } from '../../checkin/laneFeatureFlags';
 import { assertLaneWriteAuthority } from '../../checkin/laneAuthority';
 import { writeOfflineOutboxRecord } from '../../checkin/offlineOutbox';
@@ -13,7 +13,6 @@ import { writeOfflineOutboxRecord } from '../../checkin/offlineOutbox';
 type FlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
 
 type FlowStep =
-  | 'LANGUAGE'
   | 'RENTAL'
   | 'WAITLIST_PREFERENCES'
   | 'WAITLIST_BACKUP'
@@ -105,7 +104,6 @@ const FlowCommandRequestByTypeSchema = z.discriminatedUnion('type', [
 ]);
 
 const FLOW_STEPS: FlowStep[] = [
-  'LANGUAGE',
   'RENTAL',
   'WAITLIST_PREFERENCES',
   'WAITLIST_BACKUP',
@@ -115,18 +113,16 @@ const FLOW_STEPS: FlowStep[] = [
 ];
 
 const FLOW_STEP_INDEX: Record<FlowStep, number> = {
-  LANGUAGE: 0,
-  RENTAL: 1,
-  WAITLIST_PREFERENCES: 2,
-  WAITLIST_BACKUP: 3,
-  PAYMENT: 4,
-  AGREEMENT: 5,
-  COMPLETE: 6,
+  RENTAL: 0,
+  WAITLIST_PREFERENCES: 1,
+  WAITLIST_BACKUP: 2,
+  PAYMENT: 3,
+  AGREEMENT: 4,
+  COMPLETE: 5,
 };
 
 const ALLOWED_STEP_TRANSITIONS: Readonly<Record<FlowStep, ReadonlySet<FlowStep>>> = {
-  LANGUAGE: new Set(['LANGUAGE', 'RENTAL']),
-  RENTAL: new Set(['LANGUAGE', 'RENTAL', 'WAITLIST_PREFERENCES']),
+  RENTAL: new Set(['RENTAL', 'WAITLIST_PREFERENCES']),
   WAITLIST_PREFERENCES: new Set(['RENTAL', 'WAITLIST_PREFERENCES', 'WAITLIST_BACKUP']),
   WAITLIST_BACKUP: new Set(['WAITLIST_PREFERENCES', 'WAITLIST_BACKUP', 'PAYMENT']),
   PAYMENT: new Set(['WAITLIST_BACKUP', 'PAYMENT', 'AGREEMENT']),
@@ -475,7 +471,7 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
               throw { statusCode: 400, error: 'InvalidPayload', message: 'payload.rentalType is required' };
             }
 
-            await assertCustomerLanguageSelected(client, session);
+
 
             if (session.selection_confirmed) {
               throw { statusCode: 400, error: 'SelectionLocked', message: 'Selection is already locked' };
@@ -486,7 +482,6 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           }
 
           if (type === 'CONFIRM_SELECTION') {
-            await assertCustomerLanguageSelected(client, session);
 
             if (!session.proposed_rental_type && !nextProposedRentalType) {
               throw { statusCode: 400, error: 'NoProposal', message: 'No selection proposed yet' };
@@ -540,7 +535,7 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
             nextWaitlistRequestedResourceType = requestedType;
           }
 
-          const currentStep = parseFlowStep(session.flow_step) ?? 'LANGUAGE';
+          const currentStep = parseFlowStep(session.flow_step) ?? 'RENTAL';
           const { nextStep, clear } = computeFlowUpdate({ currentStep, type, payload });
           const nextVersion = currentVersion + 1;
 

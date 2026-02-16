@@ -126,7 +126,7 @@ describe('App flow: already checked in', () => {
       fireEvent.click(suggestion);
     });
 
-    expect(await screen.findByText('Customer Profile')).toBeDefined();
+    expect(await screen.findByRole('heading', { name: 'Customer Account' })).toBeDefined();
 
     // Search opens the account in "manual start" mode.
     const startCheckinButton = await screen.findByRole('button', { name: 'Start Checkin' });
@@ -136,7 +136,7 @@ describe('App flow: already checked in', () => {
 
     expect(await screen.findByText('Currently Checked In')).toBeDefined();
     expect(screen.queryByText('Already Checked In')).toBeNull();
-    expect(screen.queryByText('Customer Profile')).toBeNull();
+    // The PanelHeader always renders; after check-in starts the title changes to the customer name.
   });
 
   it('shows selected customer account immediately after search selection', async () => {

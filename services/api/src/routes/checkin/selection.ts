@@ -4,7 +4,7 @@ import { requireKioskTokenOrStaff } from '../../auth/kioskToken';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import type { LaneSessionRow, PoolClient } from '../../checkin/types';
 import { getHttpError } from '../../checkin/utils';
-import { assertCustomerLanguageSelected } from '../../checkin/session';
+
 import { transaction } from '../../db';
 import type {
   SelectionAcknowledgedPayload,
@@ -325,7 +325,7 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
 
           const session = sessionResult.rows[0]!;
 
-          await assertCustomerLanguageSelected(client, session);
+
 
           // Check past-due blocking
           const { blocked } = await checkPastDueBlocked(
@@ -458,17 +458,17 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
           const session = await transaction(async (client) => {
             const sessionResult = sessionId
               ? await client.query<LaneSessionRow>(
-                  `SELECT * FROM lane_sessions WHERE id = $1 AND lane_id = $2 LIMIT 1`,
-                  [sessionId, laneId]
-                )
+                `SELECT * FROM lane_sessions WHERE id = $1 AND lane_id = $2 LIMIT 1`,
+                [sessionId, laneId]
+              )
               : await client.query<LaneSessionRow>(
-                  `SELECT * FROM lane_sessions
+                `SELECT * FROM lane_sessions
                    WHERE lane_id = $1
                      AND status IN ('ACTIVE', 'AWAITING_CUSTOMER', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
                    ORDER BY created_at DESC
                    LIMIT 1`,
-                  [laneId]
-                );
+                [laneId]
+              );
             if (sessionResult.rows.length === 0) {
               throw { statusCode: 404, message: 'No active session found' };
             }
@@ -532,17 +532,17 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
         const result = await transaction(async (client) => {
           const sessionResult = sessionId
             ? await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions WHERE id = $1 AND lane_id = $2 LIMIT 1`,
-                [sessionId, laneId]
-              )
+              `SELECT * FROM lane_sessions WHERE id = $1 AND lane_id = $2 LIMIT 1`,
+              [sessionId, laneId]
+            )
             : await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions
+              `SELECT * FROM lane_sessions
                  WHERE lane_id = $1
                    AND status IN ('ACTIVE', 'AWAITING_CUSTOMER', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
                  ORDER BY created_at DESC
                  LIMIT 1`,
-                [laneId]
-              );
+              [laneId]
+            );
 
           if (sessionResult.rows.length === 0) {
             throw { statusCode: 404, message: 'No active session found' };
@@ -552,7 +552,7 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
 
           const desired =
             waitlistDesiredType === null ||
-            (typeof waitlistDesiredType === 'string' && !waitlistDesiredType.trim())
+              (typeof waitlistDesiredType === 'string' && !waitlistDesiredType.trim())
               ? null
               : waitlistDesiredType;
           const normalizedDesiredTypes = normalizeDesiredTypes(waitlistDesiredTypes);
@@ -732,7 +732,7 @@ export function registerCheckinSelectionRoutes(fastify: FastifyInstance): void {
 
           const session = sessionResult.rows[0]!;
 
-          await assertCustomerLanguageSelected(client, session);
+
 
           // Check past-due blocking
           const { blocked } = await checkPastDueBlocked(

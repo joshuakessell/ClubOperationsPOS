@@ -5,7 +5,6 @@ import type { WaitlistUnavailableOptions } from '../selection/types';
 
 export type AppView =
   | 'idle'
-  | 'language'
   | 'selection'
   | 'payment'
   | 'agreement'
@@ -180,7 +179,7 @@ export function useKioskSessionState() {
         visitId: payload.visitId,
         mode: payload.mode,
         blockEndsAt: payload.blockEndsAt,
-        customerPrimaryLanguage: payload.customerPrimaryLanguage,
+        customerPrimaryLanguage: payload.customerPrimaryLanguage || 'EN',
         pastDueBlocked: payload.pastDueBlocked,
         pastDueBalance: payload.pastDueBalance,
         paymentStatus: payload.paymentStatus,
@@ -225,15 +224,12 @@ export function useKioskSessionState() {
         return;
       }
 
-      if (payload.flowStep === 'LANGUAGE') {
-        setView('language');
-        return;
-      }
-
-      if (payload.flowStep === 'RENTAL' || payload.flowStep === 'WAITLIST_PREFERENCES' || payload.flowStep === 'WAITLIST_BACKUP') {
+      if (payload.flowStep === 'LANGUAGE' || payload.flowStep === 'RENTAL' || payload.flowStep === 'WAITLIST_PREFERENCES' || payload.flowStep === 'WAITLIST_BACKUP') {
         setView('selection');
         return;
       }
+
+
 
       if (payload.flowStep === 'AGREEMENT' && payload.agreementBypassPending && !payload.agreementSigned) {
         setView('agreement-bypass');

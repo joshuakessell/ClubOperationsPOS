@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { RoomStatus } from '@club-ops/shared';
 import type { DetailedRoom } from './types';
 import { alertLevelFromMsUntil, getMsUntil, groupRooms, sortGroupedRooms } from './utils';
-import { INVENTORY_COLUMN_HEADER_STYLE } from './InventorySectionStyles';
+import { INVENTORY_COLUMN_HEADER_STYLE } from './inventorySectionStyles';
 import { RoomItem } from './RoomItem';
 
 interface InventorySectionProps {

@@ -1,7 +1,7 @@
 import { AgreementFlow } from './AgreementFlow';
 import { SelectionFlow } from './SelectionFlow';
 import { IdleScreen } from '../screens/IdleScreen';
-import { LanguageScreen } from '../screens/LanguageScreen';
+
 import { LaneSelectionScreen } from '../screens/LaneSelectionScreen';
 import { PaymentScreen } from '../screens/PaymentScreen';
 import { AgreementBypassScreen } from '../screens/AgreementBypassScreen';
@@ -45,7 +45,7 @@ export function AppComposition() {
     membershipChoice,
     showMembershipModal,
     membershipModalIntent,
-    highlightedLanguage,
+
     highlightedMembershipChoice,
     highlightedWaitlistBackup,
     checkinMode,
@@ -91,10 +91,10 @@ export function AppComposition() {
 
   const welcomeOverlayNode = (
     <WelcomeOverlay
-      isOpen={showWelcomeOverlay}
-      language={session.customerPrimaryLanguage}
-      customerName={session.customerName}
-      onDismiss={dismissWelcomeOverlay}
+      isOpen= { showWelcomeOverlay }
+  language = { session.customerPrimaryLanguage }
+  customerName = { session.customerName }
+  onDismiss = { dismissWelcomeOverlay }
     />
   );
 
@@ -105,8 +105,8 @@ export function AppComposition() {
   if (!lane) {
     return (
       <LaneSelectionScreen
-        orientationOverlay={orientationOverlay}
-        onSelectLane={handleLaneSelection}
+        orientationOverlay= { orientationOverlay }
+    onSelectLane = { handleLaneSelection }
       />
     );
   }
@@ -117,22 +117,8 @@ export function AppComposition() {
     case 'idle':
       screen = (
         <IdleScreen
-          customerPrimaryLanguage={session.customerPrimaryLanguage}
-          orientationOverlay={orientationOverlay}
-        />
-      );
-      break;
-
-    case 'language':
-      screen = (
-        <LanguageScreen
-          customerPrimaryLanguage={session.customerPrimaryLanguage}
-          onSelectLanguage={(lang) => void handleLanguageSelection(lang)}
-          isSubmitting={isSubmitting}
-          highlightedLanguage={highlightedLanguage}
-          orientationOverlay={orientationOverlay}
-          welcomeOverlay={welcomeOverlayNode}
-          notice={notice}
+          customerPrimaryLanguage= { session.customerPrimaryLanguage }
+      orientationOverlay = { orientationOverlay }
         />
       );
       break;
@@ -140,12 +126,12 @@ export function AppComposition() {
     case 'payment':
       screen = (
         <PaymentScreen
-          customerPrimaryLanguage={session.customerPrimaryLanguage}
-          paymentLineItems={session.paymentLineItems}
-          paymentTotal={session.paymentTotal}
-          paymentFailureReason={session.paymentFailureReason}
-          orientationOverlay={orientationOverlay}
-          welcomeOverlay={welcomeOverlayNode}
+          customerPrimaryLanguage= { session.customerPrimaryLanguage }
+      paymentLineItems = { session.paymentLineItems }
+      paymentTotal = { session.paymentTotal }
+      paymentFailureReason = { session.paymentFailureReason }
+      orientationOverlay = { orientationOverlay }
+      welcomeOverlay = { welcomeOverlayNode }
         />
       );
       break;
@@ -153,9 +139,9 @@ export function AppComposition() {
     case 'agreement-bypass':
       screen = (
         <AgreementBypassScreen
-          customerPrimaryLanguage={session.customerPrimaryLanguage}
-          orientationOverlay={orientationOverlay}
-          welcomeOverlay={welcomeOverlayNode}
+          customerPrimaryLanguage= { session.customerPrimaryLanguage }
+      orientationOverlay = { orientationOverlay }
+      welcomeOverlay = { welcomeOverlayNode }
         />
       );
       break;
@@ -163,17 +149,17 @@ export function AppComposition() {
     case 'agreement':
       screen = (
         <AgreementFlow
-          apiBase={apiBase}
-          kioskAuthHeaders={kioskAuthHeaders}
-          session={session}
-          lane={lane}
-          checkinMode={checkinMode}
-          orientationOverlay={orientationOverlay}
-          welcomeOverlay={welcomeOverlayNode}
-          isSubmitting={isSubmitting}
-          setIsSubmitting={setIsSubmitting}
-          notice={notice}
-          showNotice={showNotice}
+          apiBase= { apiBase }
+      kioskAuthHeaders = { kioskAuthHeaders }
+      session = { session }
+      lane = { lane }
+      checkinMode = { checkinMode }
+      orientationOverlay = { orientationOverlay }
+      welcomeOverlay = { welcomeOverlayNode }
+      isSubmitting = { isSubmitting }
+      setIsSubmitting = { setIsSubmitting }
+      notice = { notice }
+      showNotice = { showNotice }
         />
       );
       break;
@@ -181,115 +167,120 @@ export function AppComposition() {
     case 'complete':
       screen = (
         <CompleteScreen
-          customerPrimaryLanguage={session.customerPrimaryLanguage}
-          assignedResourceType={session.assignedResourceType}
-          assignedResourceNumber={session.assignedResourceNumber}
-          checkoutAt={session.checkoutAt}
-          isSubmitting={isSubmitting}
-          onAcknowledge={() => void handleKioskAcknowledge()}
-          orientationOverlay={orientationOverlay}
-          welcomeOverlay={welcomeOverlayNode}
-        />
+          customerPrimaryLanguage= { session.customerPrimaryLanguage }
+      assignedResourceType = { session.assignedResourceType }
+      assignedResourceNumber = { session.assignedResourceNumber }
+      checkoutAt = { session.checkoutAt }
+      isSubmitting = { isSubmitting }
+      onAcknowledge = {() => void handleKioskAcknowledge()
+  }
+  orientationOverlay = { orientationOverlay }
+  welcomeOverlay = { welcomeOverlayNode }
+    />
       );
-      break;
+  break;
 
     case 'selection':
-      screen = (
-        <SelectionFlow
-          apiBase={apiBase}
-          kioskAuthHeaders={kioskAuthHeaders}
-          state={{
-            session,
-            lane,
-            inventory,
-            selectedRental,
-            proposedRentalType,
-            proposedBy,
-            selectionConfirmed,
-            selectionConfirmedBy,
-            waitlistDesiredType,
-            waitlistDesiredTypes,
-            waitlistBackupType,
-            waitlistRequestedResourceNumber,
-            waitlistRequestedResourceType,
-            waitlistUnavailableOptions,
-            waitlistPosition,
-            waitlistETA,
-            waitlistUpgradeFee,
-            showWaitlistModal,
-            showUpgradeDisclaimer,
-            upgradeAction,
-            upgradeDisclaimerAcknowledged,
-            showRenewalDisclaimer,
-            showCustomerConfirmation,
-            customerConfirmationData,
-            membershipChoice,
-            showMembershipModal,
-            membershipModalIntent,
-            highlightedMembershipChoice,
-            highlightedWaitlistBackup,
+  screen = (
+    <SelectionFlow
+          apiBase= { apiBase }
+  kioskAuthHeaders = { kioskAuthHeaders }
+  state = {{
+    session,
+      lane,
+      inventory,
+      selectedRental,
+      proposedRentalType,
+      proposedBy,
+      selectionConfirmed,
+      selectionConfirmedBy,
+      waitlistDesiredType,
+      waitlistDesiredTypes,
+      waitlistBackupType,
+      waitlistRequestedResourceNumber,
+      waitlistRequestedResourceType,
+      waitlistUnavailableOptions,
+      waitlistPosition,
+      waitlistETA,
+      waitlistUpgradeFee,
+      showWaitlistModal,
+      showUpgradeDisclaimer,
+      upgradeAction,
+      upgradeDisclaimerAcknowledged,
+      showRenewalDisclaimer,
+      showCustomerConfirmation,
+      customerConfirmationData,
+      membershipChoice,
+      showMembershipModal,
+      membershipModalIntent,
+      highlightedMembershipChoice,
+      highlightedWaitlistBackup,
+          }
+}
+setters = {{
+  setProposedRentalType,
+    setProposedBy,
+    setSelectionConfirmed,
+    setSelectionConfirmedBy,
+    setWaitlistDesiredType,
+    setWaitlistDesiredTypes,
+    setWaitlistBackupType,
+    setWaitlistRequestedResourceNumber,
+    setWaitlistRequestedResourceType,
+    setWaitlistUnavailableOptions,
+    setWaitlistPosition,
+    setWaitlistETA,
+    setWaitlistUpgradeFee,
+    setShowWaitlistModal,
+    setShowUpgradeDisclaimer,
+    setUpgradeAction,
+    setUpgradeDisclaimerAcknowledged,
+    setShowRenewalDisclaimer,
+    setShowCustomerConfirmation,
+    setCustomerConfirmationData,
+    setMembershipChoice,
+    setShowMembershipModal,
+    setMembershipModalIntent,
+    setHighlightedWaitlistBackup,
+    setSession,
           }}
-          setters={{
-            setProposedRentalType,
-            setProposedBy,
-            setSelectionConfirmed,
-            setSelectionConfirmedBy,
-            setWaitlistDesiredType,
-            setWaitlistDesiredTypes,
-            setWaitlistBackupType,
-            setWaitlistRequestedResourceNumber,
-            setWaitlistRequestedResourceType,
-            setWaitlistUnavailableOptions,
-            setWaitlistPosition,
-            setWaitlistETA,
-            setWaitlistUpgradeFee,
-            setShowWaitlistModal,
-            setShowUpgradeDisclaimer,
-            setUpgradeAction,
-            setUpgradeDisclaimerAcknowledged,
-            setShowRenewalDisclaimer,
-            setShowCustomerConfirmation,
-            setCustomerConfirmationData,
-            setMembershipChoice,
-            setShowMembershipModal,
-            setMembershipModalIntent,
-            setHighlightedWaitlistBackup,
-            setSession,
+ui = {{
+  orientationOverlay,
+    welcomeOverlay: welcomeOverlayNode,
+      isSubmitting,
+      setIsSubmitting,
           }}
-          ui={{
-            orientationOverlay,
-            welcomeOverlay: welcomeOverlayNode,
-            isSubmitting,
-            setIsSubmitting,
+callbacks = {{
+  onToggleLanguage: () => {
+    const nextLang = session.customerPrimaryLanguage === 'ES' ? 'EN' : 'ES';
+    void handleLanguageSelection(nextLang);
+  },
+    onProceedToAgreement: () => setView('agreement'),
+      onBack: () => handleBack(),
+        onCancel: () => handleCancel(),
           }}
-          callbacks={{
-            onSwitchToLanguage: () => setView('language'),
-            onProceedToAgreement: () => setView('agreement'),
-            onBack: () => handleBack(),
-            onCancel: () => handleCancel(),
-          }}
-          notices={{
-            notice,
-            showNotice,
+notices = {{
+  notice,
+    showNotice,
           }}
         />
       );
-      break;
+break;
 
     default:
-      screen = null;
+screen = null;
   }
 
-  return (
-    <>
-      {screen}
-      <IdScanBlockedModal
-        isOpen={!!session.idScanIssue}
-        issue={session.idScanIssue ?? null}
-        customerPrimaryLanguage={session.customerPrimaryLanguage}
-        onAcknowledge={() => void handleIdScanIssueDismiss()}
-        isSubmitting={isSubmitting}
-      />
-    </>
+return (
+  <>
+  { screen }
+  < IdScanBlockedModal
+        isOpen = {!!session.idScanIssue}
+issue = { session.idScanIssue ?? null }
+customerPrimaryLanguage = { session.customerPrimaryLanguage }
+onAcknowledge = {() => void handleIdScanIssueDismiss()}
+isSubmitting = { isSubmitting }
+  />
+  </>
   );
 }

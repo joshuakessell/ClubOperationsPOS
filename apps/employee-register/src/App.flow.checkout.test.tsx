@@ -159,7 +159,7 @@ describe('App flow: checkout', () => {
       fireEvent.click(suggestion);
     });
 
-    expect(await screen.findByText('Customer Profile')).toBeDefined();
+    expect(await screen.findByRole('heading', { name: 'Customer Account' })).toBeDefined();
 
     const startCheckinButton = await screen.findByRole('button', { name: /Start Checkin/i });
     act(() => {
@@ -187,7 +187,7 @@ describe('App flow: checkout', () => {
     await waitFor(() => {
       expect(screen.getByText('Scan Now')).toBeDefined();
     });
-    expect(screen.queryByText('Customer Profile')).toBeNull();
+    expect(screen.queryByRole('heading', { name: 'Customer Account' })).toBeNull();
     expect(document.querySelector('.er-account-already-visiting')).toBeNull();
   });
 });

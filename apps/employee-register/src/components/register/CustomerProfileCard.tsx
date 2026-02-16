@@ -21,29 +21,31 @@ export interface CustomerProfileCardProps {
   waitlistBackupType?: string | null;
   footer?: ReactNode;
   compact?: boolean;
+  onToggleLanguage?: () => void;
 }
 
 function Detail({ label, value }: { label: string; value: ReactNode }) {
   return (
-    <div style={{ minWidth: 0 }}>
-      <div
+    <div style= {{ minWidth: 0 }
+}>
+  <div
         className="er-text-sm"
-        style={{ color: '#94a3b8', marginBottom: '0.15rem', fontWeight: 800 }}
+style = {{ color: '#94a3b8', marginBottom: '0.15rem', fontWeight: 800 }}
       >
-        {label}
-      </div>
-      <div
-        className="er-text-md"
-        style={{
-          fontWeight: 900,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
+  { label }
+  </div>
+  < div
+className = "er-text-md"
+style = {{
+  fontWeight: 900,
+    whiteSpace: 'nowrap',
+      overflow: 'hidden',
+        textOverflow: 'ellipsis',
         }}
       >
-        {value}
-      </div>
-    </div>
+  { value }
+  </div>
+  </div>
   );
 }
 
@@ -128,77 +130,119 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
   const compact = Boolean(props.compact);
 
   return (
-    <div className={compact ? undefined : 'cs-liquid-card'} style={{ padding: compact ? 0 : '0.9rem' }}>
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          gap: '0.75rem',
-          alignItems: 'baseline',
-        }}
-      >
-        <div style={{ fontWeight: 950, fontSize: '1rem' }}>Customer Profile</div>
-        {props.checkinStage ? (
-          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 900 }}>
-            Check-in Stage: {props.checkinStage.number} — {props.checkinStage.label}
-          </div>
-        ) : null}
-      </div>
-
-      <div
-        style={{
-          marginTop: '0.6rem',
-          display: 'grid',
-          gridTemplateColumns: compact
-            ? 'repeat(auto-fit, minmax(150px, 1fr))'
-            : 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: '0.65rem 0.9rem',
-          alignItems: 'start',
-        }}
-      >
-        <Detail label="Name" value={props.name || '—'} />
-        <Detail label="Preferred Language" value={languageLabel} />
-        <Detail label="DOB (MM/DD/YYYY)" value={dobDisplay} />
-        <Detail label="ID Type" value={idTypeLabel} />
-        <Detail label="ID #" value={props.idNumber || '—'} />
-        <Detail
-          label="ID Exp (MM/DD/YYYY)"
-          value={formatMmDdYyyyFromYyyyMmDd(props.idExpirationDate)}
-        />
-        <Detail label="Member" value={isMember ? 'Yes' : 'No'} />
-        <Detail label="Membership ID" value={props.membershipNumber || '—'} />
-        <Detail
-          label="Membership Exp (MM/YY)"
-          value={isMember ? formatMmYyFromYyyyMmDd(props.membershipValidUntil) : '—'}
-        />
-        <Detail label="Last Visit (MM/YY)" value={formatMmYyFromTimestamp(props.lastVisitAt)} />
-      </div>
-
-      {props.waitlistDesiredTier && props.waitlistBackupType ? (
-        <div
-          className={compact ? undefined : 'cs-liquid-card'}
-          style={{
-            marginTop: '0.75rem',
-            padding: '0.75rem',
-            background: '#fef3c7',
-            border: '2px solid #f59e0b',
-            borderRadius: '10px',
-            color: '#92400e',
+    <div className= { compact? undefined: 'cs-liquid-card' } style = {{ padding: compact ? 0 : '0.9rem' }
+}>
+{
+  props.checkinStage ? (
+    <div
+          style= {{
+  display: 'flex',
+    justifyContent: 'flex-end',
+      marginBottom: '0.35rem',
           }}
         >
-          <div style={{ fontWeight: 900, marginBottom: '0.35rem' }}>Customer Waitlisted</div>
-          <div className="er-text-sm" style={{ fontWeight: 800 }}>
-            Requested <strong>{props.waitlistDesiredTier}</strong>; backup{' '}
-            <strong>{props.waitlistBackupType}</strong>.
-          </div>
-        </div>
+  <div className="er-text-sm" style = {{ color: '#94a3b8', fontWeight: 900 }}>
+    Check -in Stage: { props.checkinStage.number } — { props.checkinStage.label }
+</div>
+  </div>
       ) : null}
 
-      {props.footer ? (
-        <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'center' }}>
-          {props.footer}
-        </div>
-      ) : null}
+<div
+        style={
+  {
+    marginTop: '0.6rem',
+      display: 'grid',
+        gridTemplateColumns: compact
+          ? 'repeat(auto-fit, minmax(150px, 1fr))'
+          : 'repeat(auto-fit, minmax(170px, 1fr))',
+          gap: '0.65rem 0.9rem',
+            alignItems: 'start',
+        }
+}
+      >
+  <Detail label="Name" value = { props.name || '—' } />
+    <div style={ { minWidth: 0 } }>
+      <div
+            className="er-text-sm"
+style = {{ color: '#94a3b8', marginBottom: '0.15rem', fontWeight: 800 }}
+          >
+  Preferred Language
     </div>
+{
+  props.onToggleLanguage ? (
+    <button
+              type= "button"
+              className = "cs-liquid-button cs-liquid-button--secondary"
+  onClick = { props.onToggleLanguage }
+  style = {{
+    padding: '0.25rem 0.65rem',
+      fontSize: '0.85rem',
+        fontWeight: 900,
+          minWidth: 0,
+              }
+}
+            >
+  { languageLabel === '—' ? 'Set Language' : languageLabel}
+</button>
+          ) : (
+  <div
+              className= "er-text-md"
+style = {{
+  fontWeight: 900,
+    whiteSpace: 'nowrap',
+      overflow: 'hidden',
+        textOverflow: 'ellipsis',
+              }}
+            >
+  { languageLabel }
+  </div>
+          )}
+</div>
+  < Detail label = "DOB (MM/DD/YYYY)" value = { dobDisplay } />
+    <Detail label="ID Type" value = { idTypeLabel } />
+      <Detail label="ID #" value = { props.idNumber || '—' } />
+        <Detail
+          label="ID Exp (MM/DD/YYYY)"
+value = { formatMmDdYyyyFromYyyyMmDd(props.idExpirationDate) }
+  />
+  <Detail label="Member" value = { isMember? 'Yes': 'No' } />
+    <Detail label="Membership ID" value = { props.membershipNumber || '—' } />
+      <Detail
+          label="Membership Exp (MM/YY)"
+value = { isMember? formatMmYyFromYyyyMmDd(props.membershipValidUntil) : '—'}
+  />
+  <Detail label="Last Visit (MM/YY)" value = { formatMmYyFromTimestamp(props.lastVisitAt) } />
+    </div>
+
+{
+  props.waitlistDesiredTier && props.waitlistBackupType ? (
+    <div
+          className= { compact? undefined: 'cs-liquid-card' }
+          style = {{
+    marginTop: '0.75rem',
+      padding: '0.75rem',
+        background: '#fef3c7',
+          border: '2px solid #f59e0b',
+            borderRadius: '10px',
+              color: '#92400e',
+          }
+}
+        >
+  <div style={ { fontWeight: 900, marginBottom: '0.35rem' } }> Customer Waitlisted </div>
+    < div className = "er-text-sm" style = {{ fontWeight: 800 }}>
+      Requested < strong > { props.waitlistDesiredTier } </strong>; backup{' '}
+      < strong > { props.waitlistBackupType } </strong>.
+      </div>
+      </div>
+      ) : null}
+
+{
+  props.footer ? (
+    <div style= {{ marginTop: '0.85rem', display: 'flex', justifyContent: 'center' }
+}>
+  { props.footer }
+  </div>
+      ) : null}
+</div>
   );
 }

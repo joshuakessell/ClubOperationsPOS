@@ -8,7 +8,7 @@ import {
   formatTimeOfDay,
   getMsUntil,
 } from './utils';
-import { INVENTORY_COLUMN_HEADER_STYLE } from './InventorySectionStyles';
+import { INVENTORY_COLUMN_HEADER_STYLE } from './inventorySectionStyles';
 
 interface LockerSectionProps {
   lockers: DetailedLocker[];
