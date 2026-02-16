@@ -208,16 +208,16 @@ export function useKioskRealtime({
   }, [lastMessage, onRealtimeMessage]);
 
   const pollSessionSnapshotOnce = useCallback(
-    async (laneId: string) => {
+    async (laneId: string): Promise<boolean> => {
       const sessionIdAtStart = sessionIdRef.current;
       try {
         const res = await fetch(
           `${apiBase}/v1/checkin/lane/${encodeURIComponent(laneId)}/session-snapshot`,
           { headers: kioskAuthHeaders() }
         );
-        if (!res.ok) return;
+        if (!res.ok) return false;
         const data = await readJson<unknown>(res);
-        if (!isRecord(data)) return;
+        if (!isRecord(data)) return true;
         const sessionPayload = data['session'];
         if (sessionPayload == null) {
           const sessionIdNow = sessionIdRef.current;
@@ -230,7 +230,7 @@ export function useKioskRealtime({
             // switched to another session in the meantime.
             if (sessionIdNow === sessionIdAtStart) resetToIdle();
           }
-          return;
+          return true;
         }
         if (isRecord(sessionPayload)) {
           const parsedPayload = SessionUpdatedPayloadSchema.safeParse(sessionPayload);
@@ -238,8 +238,10 @@ export function useKioskRealtime({
             applySessionUpdatedPayload(parsedPayload.data);
           }
         }
+        return true;
       } catch {
         // Best-effort; realtime/polling will continue.
+        return false;
       }
     },
     [apiBase, kioskAuthHeaders, applySessionUpdatedPayload, resetToIdle, sessionIdRef]
@@ -266,10 +268,22 @@ export function useKioskRealtime({
       pollingDelayTimerRef.current = null;
     }
     if (pollingIntervalRef.current !== null) {
-      window.clearInterval(pollingIntervalRef.current);
+      window.clearTimeout(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
     pollingStartedRef.current = false;
+
+    const POLL_WITH_SESSION_MS = 1500;
+    const POLL_IDLE_MS = 5000;
+    const POLL_MAX_BACKOFF_MS = 30_000;
+    let consecutiveErrors = 0;
+    let cancelled = false;
+
+    const getNextInterval = () => {
+      const base = sessionIdRef.current ? POLL_WITH_SESSION_MS : POLL_IDLE_MS;
+      if (consecutiveErrors === 0) return base;
+      return Math.min(POLL_MAX_BACKOFF_MS, base * Math.pow(2, consecutiveErrors));
+    };
 
     const graceMs = realtimeConnected ? 0 : hasConnectedRef.current ? 8000 : 6000;
     pollingDelayTimerRef.current = window.setTimeout(() => {
@@ -280,31 +294,49 @@ export function useKioskRealtime({
         }
       }
 
-      const pollOnce = async () => {
+      const pollLoop = async () => {
+        if (cancelled) return;
+
         if (realtimeConnected && !sessionIdRef.current) {
           const now = Date.now();
           if (now - lastIdlePollAtRef.current < 2500) {
+            pollingIntervalRef.current = window.setTimeout(() => {
+              void pollLoop();
+            }, getNextInterval());
             return;
           }
           lastIdlePollAtRef.current = now;
         }
 
-        await pollSessionSnapshotOnce(laneId);
+        try {
+          const success = await pollSessionSnapshotOnce(laneId);
+          if (success) {
+            consecutiveErrors = 0;
+          } else {
+            consecutiveErrors += 1;
+          }
+        } catch {
+          consecutiveErrors += 1;
+        }
+
+        if (!cancelled) {
+          pollingIntervalRef.current = window.setTimeout(() => {
+            void pollLoop();
+          }, getNextInterval());
+        }
       };
 
-      void pollOnce();
-      pollingIntervalRef.current = window.setInterval(() => {
-        void pollOnce();
-      }, 1500);
+      void pollLoop();
     }, graceMs);
 
     return () => {
+      cancelled = true;
       if (pollingDelayTimerRef.current !== null) {
         window.clearTimeout(pollingDelayTimerRef.current);
         pollingDelayTimerRef.current = null;
       }
       if (pollingIntervalRef.current !== null) {
-        window.clearInterval(pollingIntervalRef.current);
+        window.clearTimeout(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
       pollingStartedRef.current = false;

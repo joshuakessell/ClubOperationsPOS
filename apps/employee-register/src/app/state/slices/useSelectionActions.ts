@@ -22,7 +22,7 @@ type Params = {
   waitlistDesiredTier: string | null;
   proposedRentalType: string | null;
   setIsSubmitting: (value: boolean) => void;
-  pollOnce: () => Promise<void>;
+  pollOnce: () => Promise<unknown>;
   setSelectionConfirmed: (value: boolean) => void;
   setCustomerSelectedType: (value: string | null) => void;
   laneSessionActions: LaneSessionActions;
