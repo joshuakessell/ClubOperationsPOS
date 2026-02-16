@@ -298,10 +298,12 @@ export function useLaneSession({
 
       const lanTransport =
         env?.VITE_LAN_FALLBACK === '1' &&
-          typeof env?.VITE_LAN_REALTIME_WS_URL === 'string' &&
-          env.VITE_LAN_REALTIME_WS_URL
+          typeof lanApiBase === 'string' &&
+          lanApiBase &&
+          laneId
           ? new LanWebSocketTransport({
-            url: env.VITE_LAN_REALTIME_WS_URL as string,
+            baseUrl: lanApiBase,
+            laneId,
             options: {
               debug: realtimeDebug,
               onEvent,
@@ -327,7 +329,8 @@ export function useLaneSession({
       const lanOnlyTransport = lanTransport ? buildHybrid([lanTransport]) : null;
 
       // Mode controller with hysteresis.
-      const pollIntervalMs = 2000;
+      const POLL_BASE_MS = 10_000;
+      const POLL_MAX_MS = 60_000;
       const cloudFailToLanThreshold = 2;
       const cloudSuccessToFailbackThreshold = 6;
       const lanSuccessThreshold = 2;
@@ -336,6 +339,7 @@ export function useLaneSession({
       let consecutiveCloudFailures = 0;
       let consecutiveCloudSuccesses = 0;
       let consecutiveLanSuccesses = 0;
+      let consecutiveAllDown = 0;
 
       const controller = new AbortController();
 
@@ -352,9 +356,17 @@ export function useLaneSession({
       transportRef.current = cloudTransport;
       void transportRef.current.connect();
 
+      let healthTimerId: ReturnType<typeof setTimeout> | null = null;
+
+      const getNextInterval = () => {
+        if (consecutiveAllDown === 0) return POLL_BASE_MS;
+        return Math.min(POLL_MAX_MS, POLL_BASE_MS * Math.pow(2, consecutiveAllDown - 1));
+      };
+
       const tick = async () => {
         const cloudHealth = await fetchHealth(cloudApiBase, controller.signal);
-        const lanHealth = await fetchHealth(lanApiBase, controller.signal);
+        // Only fetch LAN health when LAN fallback is configured.
+        const lanHealth = lanOnlyTransport ? await fetchHealth(lanApiBase, controller.signal) : false;
 
         // Cloud counters.
         if (cloudHealth && appSyncTransport.getStatus() === 'connected') {
@@ -372,6 +384,13 @@ export function useLaneSession({
           consecutiveLanSuccesses = 0;
         }
 
+        // Track when both endpoints are down for backoff.
+        if (!cloudHealth && !lanHealth) {
+          consecutiveAllDown++;
+        } else {
+          consecutiveAllDown = 0;
+        }
+
         if (
           currentMode === 'cloud' &&
           lanOnlyTransport &&
@@ -379,6 +398,7 @@ export function useLaneSession({
           consecutiveLanSuccesses >= lanSuccessThreshold
         ) {
           swapTransport('lan');
+          scheduleNextTick();
           return;
         }
 
@@ -388,15 +408,26 @@ export function useLaneSession({
         ) {
           swapTransport('cloud');
         }
+        scheduleNextTick();
       };
 
-      const timer = window.setInterval(() => {
+      const scheduleNextTick = () => {
+        if (controller.signal.aborted) return;
+        healthTimerId = setTimeout(() => {
+          void tick();
+        }, getNextInterval());
+      };
+
+      // Start first tick after initial interval.
+      healthTimerId = setTimeout(() => {
         void tick();
-      }, pollIntervalMs);
+      }, POLL_BASE_MS);
 
       return () => {
         controller.abort();
-        window.clearInterval(timer);
+        if (healthTimerId !== null) {
+          clearTimeout(healthTimerId);
+        }
         transportRef.current?.disconnect();
         transportRef.current = null;
         setMode('cloud');

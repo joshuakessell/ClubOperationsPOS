@@ -57,6 +57,9 @@ services:
       DEMO_MODE: "false"
       SEED_ON_STARTUP: ${EDGE_SEED_ON_STARTUP:-false}
 
+      # Auto-replay: cloud API base URL for syncing offline outbox when internet returns
+      CLOUD_API_BASE_URL: ${CLOUD_API_BASE_URL:-https://api-demo.joshuakessell.com}
+
       # Square (optional; edge can run without if flows don't require payments)
       SQUARE_ACCESS_TOKEN: ${SQUARE_ACCESS_TOKEN:-development}
       SQUARE_LOCATION_ID: ${SQUARE_LOCATION_ID:-development}
