@@ -67,9 +67,10 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
   }, [isOpen, step]);
 
   const fetchAvailableEmployees = async () => {
+    setError(null);
     try {
       const response = await fetch(`${API_BASE}/v1/employees/available`);
-      if (!response.ok) throw new Error('Failed to fetch employees');
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
       const data = await readJson<{ employees?: unknown[] }>(response);
       const employees = (Array.isArray(data.employees) ? data.employees : [])
         .filter(isRecord)
@@ -87,11 +88,17 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
             : [],
         }));
       setEmployees(employees);
+      if (employees.length === 0) {
+        setError('No employees found in the database. Is the database seeded?');
+      }
     } catch (error) {
       console.error('Failed to fetch employees:', error);
-      setError('Failed to load employees');
+      setError(
+        `Failed to load employees. Check that the API is running. (${API_BASE}/v1/employees/available)`
+      );
     }
   };
+
 
   const fetchRegisterAvailability = async () => {
     try {
@@ -284,10 +291,19 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
           <div className="sign-in-step">
             <h2>Select Employee</h2>
             {error && <div className="sign-in-error">{error}</div>}
+            {employees.length === 0 && (
+              <div className="sign-in-actions">
+                <button
+                  className="cs-liquid-button"
+                  onClick={() => void fetchAvailableEmployees()}
+                  disabled={isLoading}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
             <div className="employee-list">
-              {employees.length === 0 ? (
-                <p>No employees found</p>
-              ) : (
+              {employees.length === 0 ? null : (
                 employees.map((emp) => (
                   <button
                     key={emp.id}

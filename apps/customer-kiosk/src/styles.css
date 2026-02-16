@@ -136,6 +136,8 @@ body {
 }
 .section-label { font-size: clamp(1rem, 2vw, 1.25rem); @apply font-medium; color: var(--text-muted); }
 .purchase-cards { @apply flex flex-col w-full; gap: 2.25rem; }
+.purchase-card__body { @apply flex flex-col gap-3 p-5; }
+.cs-liquid-button--disabled { @apply opacity-50 cursor-not-allowed; }
 
 /* ── Guided step UI ────────────────────────────────────────── */
 .ck-glow-text { animation: ckGlowPulse 1.2s ease-in-out infinite; }

@@ -12,6 +12,42 @@
 }
 .er-shell__sidebar-scroll { @apply flex-1 min-h-0 overflow-y-auto flex flex-col gap-3; }
 
+/* sidebar header */
+.er-shell__sidebar-header {
+  @apply flex items-center justify-between gap-2 px-2 pb-2 shrink-0;
+  border-bottom: 1px solid var(--er-border);
+}
+.er-shell__sidebar-title {
+  @apply text-sm font-bold text-white truncate;
+}
+.er-shell__sidebar-subtitle {
+  @apply text-xs font-medium truncate;
+  color: var(--er-text-muted);
+}
+
+/* nav */
+.er-shell__nav {
+  @apply flex-1 min-h-0 overflow-y-auto flex flex-col gap-1.5 py-1;
+}
+.er-shell__nav-btn {
+  @apply w-full justify-start text-left gap-2.5 text-sm py-2.5 px-3;
+}
+.er-shell__nav-icon {
+  @apply flex items-center justify-center w-5 h-5 text-base shrink-0;
+}
+.er-shell__nav-label {
+  @apply flex-1 truncate;
+}
+.er-shell__nav-badge {
+  @apply inline-flex items-center justify-center rounded-full text-xs font-bold shrink-0;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 6px;
+  background: rgba(239, 68, 68, 0.25);
+  border: 1px solid rgba(239, 68, 68, 0.5);
+  color: #fca5a5;
+}
+
 .er-shell__main { @apply flex-1 min-h-0 flex flex-col overflow-hidden; }
 .er-shell__content {
   @apply flex-1 min-h-0 flex flex-col overflow-hidden p-3;
