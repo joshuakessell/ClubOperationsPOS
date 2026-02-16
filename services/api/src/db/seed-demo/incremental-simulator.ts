@@ -634,25 +634,8 @@ export async function appendIncrementalDemoSimulation(params: {
     const chargeId = randomUUID();
     const upgradeRentalType = ug.roomType;
 
-    // Renewal checkin block for the upgrade
-    await params.client.query(
-      `INSERT INTO checkin_blocks
-         (id, visit_id, block_type, starts_at, ends_at, locker_id, room_id,
-          agreement_signed, agreement_signed_at, rental_type, waitlist_id)
-       VALUES ($1, $2, 'RENEWAL', $3, $4, NULL, $5, true, $6, $7::rental_type, $8)`,
-      [
-        renewalBlockId,
-        ug.visitId,
-        ug.upgradeAt,
-        ug.upgradeEndAt,
-        ug.roomId,
-        ug.upgradeAt,
-        upgradeRentalType,
-        waitlistId,
-      ]
-    );
-
-    // Waitlist entry for the upgrade
+    // Waitlist entry for the upgrade — must be inserted BEFORE checkin_blocks
+    // because checkin_blocks.waitlist_id references waitlist(id).
     await params.client.query(
       `INSERT INTO waitlist
          (id, visit_id, checkin_block_id, desired_tier, backup_tier,
@@ -673,6 +656,24 @@ export async function appendIncrementalDemoSimulation(params: {
         ug.upgradeAt, // completed at upgrade time
         new Date(ug.upgradeAt.getTime() - 3 * 60 * 1000), // offered 3 min before upgrade
         new Date(ug.upgradeAt.getTime() + 7 * 60 * 1000), // expires 10 min after offer
+      ]
+    );
+
+    // Renewal checkin block for the upgrade (waitlist row must already exist)
+    await params.client.query(
+      `INSERT INTO checkin_blocks
+         (id, visit_id, block_type, starts_at, ends_at, locker_id, room_id,
+          agreement_signed, agreement_signed_at, rental_type, waitlist_id)
+       VALUES ($1, $2, 'RENEWAL', $3, $4, NULL, $5, true, $6, $7::rental_type, $8)`,
+      [
+        renewalBlockId,
+        ug.visitId,
+        ug.upgradeAt,
+        ug.upgradeEndAt,
+        ug.roomId,
+        ug.upgradeAt,
+        upgradeRentalType,
+        waitlistId,
       ]
     );
 

@@ -889,9 +889,10 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
   } catch (error) {
     console.error('❌ Demo seed failed:', error);
     throw error;
-  } finally {
-    await closeDatabase();
   }
+  // NOTE: Do NOT call closeDatabase() here — when invoked from the server's
+  // startup path (index.ts), the pool must remain open for request handling.
+  // The CLI entrypoint below handles cleanup for standalone runs.
 }
 
 // ---------------------------------------------------------------------------
@@ -899,8 +900,10 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
 // Allows running: DEMO_MODE=true pnpm --filter @club-ops/api exec tsx src/db/seed-demo.ts
 // ---------------------------------------------------------------------------
 if (require.main === module) {
-  seedDemoData().catch((err) => {
-    console.error('❌ seed-demo CLI failed:', err);
-    process.exitCode = 1;
-  });
+  seedDemoData()
+    .catch((err) => {
+      console.error('❌ seed-demo CLI failed:', err);
+      process.exitCode = 1;
+    })
+    .finally(() => closeDatabase());
 }
