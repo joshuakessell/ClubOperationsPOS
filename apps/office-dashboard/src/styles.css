@@ -472,3 +472,115 @@
     @apply justify-center p-3;
   }
 }
+
+/* ── Liquid‑Glass Component Classes (Tailwind edition) ────── */
+/*
+ * These replace the old @club-ops/ui/styles/liquid-glass.css imports.
+ * Components reference these class names directly in JSX; the visual
+ * effect is now driven entirely by Tailwind utilities + TailAdmin tokens.
+ */
+
+.glass-effect {
+  @apply relative;
+  backdrop-filter: blur(16px) saturate(120%);
+  -webkit-backdrop-filter: blur(16px) saturate(120%);
+  background-color: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background-color 0.4s ease, border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+/* -- Buttons -- */
+.cs-liquid-button {
+  @apply relative inline-flex items-center justify-center gap-2
+         px-4 py-2.5 rounded-lg text-theme-sm font-semibold text-white
+         whitespace-nowrap cursor-pointer select-none overflow-hidden;
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+  -webkit-tap-highlight-color: transparent;
+  transition: background-color 300ms, border-color 300ms, box-shadow 300ms, transform 150ms;
+}
+.cs-liquid-button:hover:not(:disabled) { background: rgba(255, 255, 255, 0.3); }
+.cs-liquid-button:active:not(:disabled) { transform: translateY(1px); }
+.cs-liquid-button:focus-visible { @apply outline-2 outline-white/30 outline-offset-2; }
+.cs-liquid-button:disabled { @apply opacity-55 cursor-not-allowed; }
+
+.cs-liquid-button--pill { @apply rounded-full; }
+.cs-liquid-button--secondary {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.cs-liquid-button--secondary:hover:not(:disabled) { background: rgba(255, 255, 255, 0.22); }
+
+.cs-liquid-button--danger {
+  background: rgba(220, 38, 38, 0.08);
+  border-color: rgba(220, 38, 38, 0.6);
+}
+.cs-liquid-button--danger:hover:not(:disabled) { background: rgba(220, 38, 38, 0.22); }
+
+.cs-liquid-button--selected {
+  border-color: rgba(255, 255, 255, 0.5);
+  box-shadow: 0 22px 50px rgba(0, 0, 0, 0.65), inset 0 1px 0 rgba(255, 255, 255, 0.32);
+  filter: brightness(1.05);
+}
+
+/* -- Inputs -- */
+.cs-liquid-input {
+  @apply w-full px-4 py-2 text-white text-theme-sm rounded-full;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+  transition: background-color 300ms, box-shadow 300ms, border-color 300ms;
+}
+.cs-liquid-input::placeholder { color: rgba(255, 255, 255, 0.7); }
+.cs-liquid-input:focus {
+  @apply outline-none;
+  background: rgba(255, 255, 255, 0.15);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15), 0 0 0 2px rgba(255, 255, 255, 0.3);
+}
+
+/* -- Search wrapper -- */
+.cs-liquid-search { @apply relative w-full; }
+.cs-liquid-search__input { @apply relative z-1 pl-8 pr-4; }
+.cs-liquid-search__icon {
+  @apply absolute left-3 top-1/2 -translate-y-1/2 z-2 inline-flex items-center justify-center;
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* -- Cards -- */
+.cs-liquid-card {
+  @apply relative rounded-lg text-white overflow-hidden;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+.cs-liquid-card > * { @apply relative z-1; }
+
+/* -- PIN / Numpad -- */
+.cs-liquid-pin { @apply w-full flex flex-col gap-3; }
+.cs-liquid-pin__display {
+  @apply w-full flex items-center justify-center px-4.5 py-4 rounded-2xl;
+  min-height: 72px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
+}
+.cs-liquid-pin__dots { @apply flex items-center justify-center gap-3; }
+.cs-liquid-pin__dot {
+  @apply w-3.5 h-3.5 rounded-full;
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.cs-liquid-pin__dot.is-filled {
+  background: rgba(255, 255, 255, 0.86);
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.18), 0 0 18px rgba(255, 255, 255, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.25);
+}
+.cs-liquid-numpad { @apply w-full grid grid-cols-3 gap-3; }
+.cs-liquid-numpad__key { @apply text-2xl font-semibold; min-height: 72px; }
+.cs-liquid-numpad__secondary { @apply text-lg; }
+.cs-liquid-numpad__key:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
+.cs-liquid-numpad__submit { @apply col-span-3 text-lg font-semibold; min-height: 72px; }
