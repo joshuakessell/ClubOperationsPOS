@@ -88,7 +88,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   const {
     sessionId,
     customerName,
-    customerPrimaryLanguage,
     allowedRentals,
     proposedRentalType,
     proposedBy,

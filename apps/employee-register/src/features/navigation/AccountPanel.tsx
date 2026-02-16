@@ -70,7 +70,6 @@ export function AccountPanel() {
     laneSessionMode,
     renewalHours,
     highlightKioskOption,
-    handleConfirmLanguage,
     handleConfirmMembershipOneTime,
     handleConfirmMembershipSixMonth,
     handleProposeSelection,
