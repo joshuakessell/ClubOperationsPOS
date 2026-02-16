@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
 import { EditShiftModal } from './shifts/EditShiftModal';
 import { SHIFT_BADGE_COLORS, SHIFT_BADGE_LABELS, SHIFT_LABELS } from './shifts/constants';
+import { formatTime } from './lib/dateUtils';
 import type { Shift, TimeOffRequest } from './shifts/types';
 import {
   createScheduleTimeOffRequest,
@@ -23,9 +24,7 @@ interface ShiftsViewProps {
 export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
   const navigate = useNavigate();
   const isAdmin = session.role === 'ADMIN';
-  const [viewMode, setViewMode] = useState<'calendar' | 'list'>(() =>
-    isAdmin ? 'calendar' : 'calendar'
-  );
+  const [viewMode, setViewMode] = useState<'calendar' | 'list'>('calendar');
 
   // Calendar state (current month)
   const [monthShifts, setMonthShifts] = useState<Shift[]>([]);
@@ -176,15 +175,7 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
     void fetchMonthData();
   }, [fetchMonthData]);
 
-  const formatTime = (isoString: string): string => {
-    const date = new Date(isoString);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-      timeZone: 'America/Chicago',
-    });
-  };
+
 
   const getComplianceBadge = (shift: Shift) => {
     if (shift.flags?.noShow) {
@@ -535,40 +526,52 @@ export function ShiftsView({ session, limitedAccess }: ShiftsViewProps) {
                       <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
                         <button
                           onClick={async () => {
-                            await updateAdminTimeOffRequest(session.sessionToken, r.id, {
-                              status: 'APPROVED',
-                            });
-                            await fetchMonthData();
+                            try {
+                              await updateAdminTimeOffRequest(session.sessionToken, r.id, {
+                                status: 'APPROVED',
+                              });
+                              await fetchMonthData();
+                            } catch (err) {
+                              console.error('Failed to approve request:', err);
+                            }
                           }}
+                          disabled={r.status !== 'PENDING'}
                           style={{
                             flex: 1,
                             padding: '0.55rem 0.8rem',
-                            background: '#22c55e',
+                            background: r.status !== 'PENDING' ? '#6b7280' : '#22c55e',
                             border: 'none',
                             borderRadius: '8px',
                             color: '#0b1220',
-                            cursor: 'pointer',
+                            cursor: r.status !== 'PENDING' ? 'not-allowed' : 'pointer',
                             fontWeight: 900,
+                            opacity: r.status !== 'PENDING' ? 0.6 : 1,
                           }}
                         >
                           Approve
                         </button>
                         <button
                           onClick={async () => {
-                            await updateAdminTimeOffRequest(session.sessionToken, r.id, {
-                              status: 'DENIED',
-                            });
-                            await fetchMonthData();
+                            try {
+                              await updateAdminTimeOffRequest(session.sessionToken, r.id, {
+                                status: 'DENIED',
+                              });
+                              await fetchMonthData();
+                            } catch (err) {
+                              console.error('Failed to deny request:', err);
+                            }
                           }}
+                          disabled={r.status !== 'PENDING'}
                           style={{
                             flex: 1,
                             padding: '0.55rem 0.8rem',
-                            background: '#ef4444',
+                            background: r.status !== 'PENDING' ? '#6b7280' : '#ef4444',
                             border: 'none',
                             borderRadius: '8px',
                             color: '#fff',
-                            cursor: 'pointer',
+                            cursor: r.status !== 'PENDING' ? 'not-allowed' : 'pointer',
                             fontWeight: 900,
+                            opacity: r.status !== 'PENDING' ? 0.6 : 1,
                           }}
                         >
                           Deny

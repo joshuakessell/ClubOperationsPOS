@@ -150,8 +150,8 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
           setSelected(found);
           await loadPanels(found.id, centerEventId);
         }
-      } catch {
-        // Ignore deep-link failure.
+      } catch (err) {
+        console.error('Deep-link customer lookup failed:', err);
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -48,7 +48,7 @@ export async function apiJson<T>(
   if (!res.ok) {
     const msg =
       typeof data === 'object' && data && 'message' in data
-        ? String((data as any).message)
+        ? String((data as Record<string, unknown>).message)
         : `Request failed (${res.status})`;
     throw new ApiError(res.status, msg, data);
   }

@@ -26,9 +26,12 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
   const [isLoadingEmployees, setIsLoadingEmployees] = useState(true);
 
   useEffect(() => {
+    const abortController = new AbortController();
+
     const loadEmployees = async () => {
       try {
-        const data = await fetchAuthStaff();
+        const data = await fetchAuthStaff(abortController.signal);
+        if (abortController.signal.aborted) return;
         const staffList: Employee[] = (data.staff || []).map((staff) => ({
           id: staff.id,
           name: staff.name,
@@ -40,14 +43,18 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
         }));
         setEmployees(staffList);
       } catch (error) {
+        if (abortController.signal.aborted) return;
         console.error('Failed to load employees:', error);
         setError('Failed to load staff list');
       } finally {
-        setIsLoadingEmployees(false);
+        if (!abortController.signal.aborted) {
+          setIsLoadingEmployees(false);
+        }
       }
     };
 
     loadEmployees();
+    return () => abortController.abort();
   }, []);
 
   const handleEmployeeSelect = (employee: Employee) => {
