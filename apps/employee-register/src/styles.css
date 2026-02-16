@@ -34,6 +34,13 @@ body {
 }
 #root { @apply h-screen flex flex-col; }
 
+/* ── Main app container ───────────────────────────────────── */
+.container {
+  @apply flex-1 min-h-0 flex flex-col overflow-hidden relative;
+  z-index: 1;
+  background: transparent;
+}
+
 /* iPad register hardening */
 #root, #root * { -webkit-touch-callout: none; }
 #root { @apply select-none; }
@@ -609,7 +616,936 @@ body {
 .cs-screen-overlay { @apply bg-transparent z-2; }
 
 /* ═══════════════════════════════════════════════════════════ */
+/* ── Core Layout Utilities ──────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Top-level layout sections */
+.header {
+  @apply shrink-0;
+}
+.main {
+  @apply flex-1 min-h-0 overflow-hidden;
+}
+
+/* Surface backgrounds — glass-effect utility */
+.er-surface {
+  background: var(--er-surface);
+  border: 1px solid var(--er-border);
+  border-radius: var(--er-radius);
+}
+.er-surface-strong {
+  background: var(--er-surface-strong);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--er-border);
+  border-radius: var(--er-radius);
+}
+
+/* Typography scale */
+.er-text { color: var(--er-text); }
+.er-text-muted { color: var(--er-text-muted); }
+.er-text-xs { @apply text-xs; }
+.er-text-sm { @apply text-sm; }
+.er-text-md { @apply text-base; }
+.er-text-lg { @apply text-lg; }
+.er-text-xl { @apply text-xl; }
+.er-text-2xl { font-size: 26px; }
+
+.er-title {
+  @apply text-lg font-bold text-white;
+}
+
+/* Spinner */
+.er-spinner {
+  @apply w-5 h-5 rounded-full animate-spin;
+  border: 2px solid rgba(255, 255, 255, 0.15);
+  border-top-color: rgba(255, 255, 255, 0.85);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Lock Screen (Batch 2) ──────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.lock-screen {
+  @apply min-h-screen flex items-center justify-center p-8;
+  background: var(--er-bg);
+}
+.lock-screen-content {
+  @apply w-full max-w-md p-8 flex flex-col gap-6;
+}
+.lock-screen-header {
+  @apply text-center;
+}
+.lock-screen-header h1 {
+  @apply text-2xl font-bold text-white mb-2;
+}
+.lock-screen-header p {
+  @apply text-sm;
+  color: var(--er-text-muted);
+}
+.lock-screen-error {
+  @apply p-3 rounded-lg text-sm text-white;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.lock-screen-tabs {
+  @apply flex gap-2;
+}
+.lock-screen-tabs .tab-button {
+  @apply flex-1;
+}
+.lock-screen-webauthn {
+  @apply flex flex-col gap-4;
+}
+.lock-screen-pin {
+  @apply flex flex-col gap-4;
+}
+.staff-lookup-input {
+  @apply w-full;
+}
+.webauthn-button {
+  @apply w-full py-3 font-bold;
+}
+.webauthn-fallback-button,
+.pin-fallback-button {
+  @apply w-full py-2.5 text-sm;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Scan Panel (Batch 3) ───────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.er-scan-panel {
+  @apply flex flex-col items-center;
+}
+.er-scan-header {
+  @apply flex flex-col items-center gap-2 text-center mb-4;
+}
+.er-scan-icon {
+  @apply text-4xl;
+}
+.er-scan-label {
+  @apply text-xs font-semibold uppercase tracking-wider;
+  color: var(--er-text-muted);
+}
+.er-scan-input {
+  @apply w-full rounded-lg p-3 text-sm text-white resize-none;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--er-border);
+  min-height: 80px;
+  transition: border-color 200ms;
+}
+.er-scan-input:focus {
+  @apply outline-none;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.er-scan-input--entry {
+  font-family: monospace;
+  letter-spacing: 0.5px;
+}
+.er-scan-input:disabled {
+  @apply opacity-50 cursor-not-allowed;
+}
+.er-scan-status {
+  @apply text-xs font-semibold mt-3 text-center;
+  color: var(--er-text-muted);
+}
+.er-scan-demo-badge {
+  @apply inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest mb-3;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+.er-scan-processing-overlay {
+  @apply fixed inset-0 z-[5000] flex items-center justify-center pointer-events-none opacity-0;
+  background: rgba(0, 0, 0, 0.5);
+  transition: opacity 200ms;
+}
+.er-scan-processing-overlay--active {
+  @apply opacity-100 pointer-events-auto;
+}
+.er-scan-processing-card {
+  @apply flex items-center gap-3 p-5 text-sm font-semibold;
+}
+.er-scan-processing-text {
+  color: var(--er-text-muted);
+}
+
+/* Search half-width */
+.er-search-half {
+  @apply relative;
+}
+.er-search-half__measure {
+  @apply invisible absolute top-0 left-0 whitespace-nowrap;
+}
+.er-search-half__center {
+  @apply flex justify-center;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Account & Customer (Batch 4) ───────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.er-account-grid {
+  @apply grid gap-3;
+  grid-template-columns: 1fr 1fr;
+}
+.er-account-scroll {
+  @apply overflow-y-auto min-h-0;
+  max-height: 200px;
+}
+.er-account-scroll--tall {
+  max-height: 400px;
+}
+.er-account-actions {
+  @apply flex gap-2 flex-wrap;
+}
+.er-account-section-title {
+  @apply text-xs font-bold uppercase tracking-wider mb-2;
+  color: var(--er-text-muted);
+}
+.er-account-already-visiting {
+  @apply p-3 rounded-lg text-sm font-semibold;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+.er-card-title {
+  @apply text-base font-bold text-white;
+}
+.er-card-subtitle {
+  @apply text-sm;
+  color: var(--er-text-muted);
+}
+
+.status-badges {
+  @apply flex gap-1.5 flex-wrap;
+}
+
+/* Forms */
+.form-group {
+  @apply flex flex-col gap-1.5;
+}
+.form-actions {
+  @apply flex gap-2 justify-end mt-3;
+}
+.manual-entry-form {
+  @apply flex flex-col gap-4;
+}
+.submit-btn {
+  @apply font-bold;
+}
+.cancel-btn {
+  /* inherits cs-liquid-button--secondary */
+  display: inline-flex;
+}
+.typeahead-section {
+  @apply flex flex-col gap-2;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Inventory Panel (Batch 5) ──────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.er-inv-nav {
+  @apply flex items-center gap-2 cursor-pointer select-none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--er-radius);
+  background: var(--er-surface);
+  border: 1px solid var(--er-border);
+  transition: background 150ms;
+}
+.er-inv-nav:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+.er-inv-nav-label {
+  @apply text-sm font-bold text-white flex-1;
+}
+.er-inv-nav-stats {
+  @apply flex items-center gap-1.5;
+}
+.er-inv-meta {
+  @apply text-xs font-semibold;
+  color: var(--er-text-muted);
+}
+.er-inv-search-label {
+  @apply text-xs font-semibold;
+  color: var(--er-text-muted);
+}
+.er-inv-section-header {
+  @apply flex items-center justify-between gap-3 mb-2 shrink-0;
+}
+.er-inv-section-title {
+  @apply text-sm font-bold text-white;
+}
+.er-inv-section-meta {
+  @apply flex items-center gap-2;
+}
+.er-inv-column-title {
+  @apply text-xs font-bold uppercase tracking-wider py-1;
+  color: var(--er-text-muted);
+}
+.er-inv-column-title--available {
+  color: rgba(34, 197, 94, 0.85);
+}
+.er-inv-column-title--occupied {
+  color: rgba(239, 68, 68, 0.85);
+}
+
+/* inventory items (rows inside sections) */
+.er-inv-item {
+  @apply flex items-center cursor-pointer select-none;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--er-radius);
+  border: 1px solid transparent;
+  transition: background 120ms, border-color 120ms;
+}
+.er-inv-item:hover {
+  background: var(--er-surface);
+  border-color: var(--er-border);
+}
+.er-inv-item--selected {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+.er-inv-item--highlight {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.35);
+}
+.er-inv-item--waitlist {
+  background: rgba(168, 85, 247, 0.1);
+  border-color: rgba(168, 85, 247, 0.3);
+}
+.er-inv-item--danger {
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+.er-inv-item--warning {
+  background: rgba(234, 179, 8, 0.1);
+  border-color: rgba(234, 179, 8, 0.3);
+}
+
+.er-inv-occupied-row {
+  @apply flex items-center gap-3 flex-1 min-w-0;
+}
+.er-inv-occupied-number {
+  @apply text-sm font-bold text-white shrink-0;
+  min-width: 36px;
+}
+.er-inv-occupied-customer {
+  @apply flex-1 min-w-0;
+}
+.er-inv-occupied-customer-text {
+  @apply text-sm truncate block;
+  color: var(--er-text-muted);
+}
+.er-inv-occupied-checkout {
+  @apply flex items-center gap-2 shrink-0;
+}
+.er-inv-occupied-time {
+  @apply text-xs font-semibold;
+  color: var(--er-text-muted);
+}
+.er-inv-occupied-duration {
+  @apply text-xs font-bold;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Checkout & Retail (Batch 6) ────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.er-checkout-shell {
+  @apply flex flex-col h-full;
+}
+.er-checkout-list {
+  @apply flex flex-col gap-2 overflow-y-auto flex-1 min-h-0;
+}
+.er-checkout-card {
+  @apply p-0;
+}
+
+/* Retail layout */
+.er-retail-layout {
+  @apply flex gap-3 h-full min-h-0;
+}
+.er-retail-catalog {
+  @apply flex-1 min-h-0 flex flex-col overflow-hidden;
+}
+.er-retail-items {
+  @apply flex flex-col gap-2 overflow-y-auto flex-1 min-h-0;
+}
+.er-retail-section-title {
+  @apply text-xs font-bold uppercase tracking-wider mb-2;
+  color: var(--er-text-muted);
+}
+.er-retail-section-hint {
+  @apply text-xs;
+  color: var(--er-text-muted);
+}
+.er-retail-item-button {
+  @apply w-full text-left justify-start;
+}
+.er-retail-item-label {
+  @apply flex-1 text-sm font-semibold text-white;
+}
+.er-retail-price {
+  @apply text-sm font-bold shrink-0;
+  color: var(--er-text-muted);
+}
+.er-retail-card {
+  @apply p-4;
+}
+
+/* Retail cart */
+.er-retail-cart {
+  @apply flex flex-col h-full min-h-0;
+  width: 280px;
+}
+.er-retail-cart-panel {
+  @apply flex flex-col flex-1 min-h-0 p-3 gap-2;
+  background: var(--er-surface);
+  border: 1px solid var(--er-border);
+  border-radius: var(--er-radius);
+}
+.er-retail-cart-row {
+  @apply flex items-center gap-2;
+}
+.er-retail-cart-name {
+  @apply text-sm font-semibold text-white flex-1 truncate;
+}
+.er-retail-cart-unit {
+  @apply text-xs font-semibold shrink-0;
+  color: var(--er-text-muted);
+}
+.er-retail-cart-meta {
+  @apply text-xs;
+  color: var(--er-text-muted);
+}
+.er-retail-cart-label {
+  @apply text-xs font-semibold;
+  color: var(--er-text-muted);
+}
+.er-retail-cart-empty {
+  @apply text-sm text-center py-6;
+  color: var(--er-text-muted);
+}
+.er-retail-cart-remove {
+  @apply shrink-0 text-xs py-1 px-2;
+  min-height: unset;
+}
+.er-retail-actions {
+  @apply flex gap-2 mt-auto shrink-0 pt-2;
+}
+.er-retail-total {
+  @apply text-lg font-bold text-white text-right;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Modals (Batch 7) ───────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Transaction Complete Modal */
+.er-txn-complete-modal__overlay {
+  @apply fixed inset-0 z-[5000] flex items-center justify-center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.er-txn-complete-modal {
+  @apply relative p-6 flex flex-col gap-4 rounded-2xl;
+  width: min(480px, 92vw);
+  max-height: min(85vh, 700px);
+  overflow-y: auto;
+  animation: erSlideUp 0.25s ease;
+}
+.er-txn-complete-modal__title {
+  @apply text-xl font-black text-white text-center;
+}
+.er-txn-complete-modal__verify {
+  @apply flex flex-col gap-3;
+}
+.er-txn-complete-modal__assignment {
+  @apply p-4 rounded-lg text-center;
+}
+.er-txn-complete-modal__complete {
+  @apply text-center;
+}
+.er-txn-complete-modal__notice {
+  @apply p-3 rounded-lg text-sm;
+  background: rgba(234, 179, 8, 0.12);
+  border: 1px solid rgba(234, 179, 8, 0.3);
+}
+
+/* Required Payment Modal */
+.er-required-modal__overlay {
+  @apply fixed inset-0 z-[5000] flex items-center justify-center p-4;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.er-required-modal {
+  @apply relative flex flex-col;
+  width: min(600px, 96vw);
+  max-height: min(90vh, 800px);
+  animation: erSlideUp 0.25s ease;
+}
+.er-required-modal__panel {
+  @apply p-6 flex flex-col gap-4 overflow-y-auto;
+}
+.er-required-modal__header {
+  @apply flex items-start justify-between gap-3 shrink-0;
+}
+.er-required-modal__title {
+  @apply text-xl font-black text-white;
+}
+.er-required-modal__subtitle {
+  @apply text-sm;
+  color: var(--er-text-muted);
+}
+.er-required-modal__close {
+  @apply w-9 h-9 p-0 text-xl shrink-0;
+  min-height: unset;
+}
+.er-required-modal__options {
+  @apply flex flex-col gap-2;
+}
+.er-required-modal__details {
+  @apply flex flex-col gap-3;
+}
+.er-required-modal__amount {
+  @apply text-center p-4 rounded-lg;
+}
+.er-required-modal__amount-label {
+  @apply text-sm font-semibold;
+  color: var(--er-text-muted);
+}
+.er-required-modal__amount-value {
+  @apply text-3xl font-black text-white;
+}
+.er-required-modal__carousel {
+  @apply flex flex-col gap-3;
+}
+.er-required-modal__carousel-viewport {
+  @apply overflow-hidden rounded-lg;
+}
+.er-required-modal__pending {
+  @apply flex items-center justify-center gap-3 p-6 text-center;
+}
+.er-required-modal__ellipsis {
+  @apply inline-flex;
+  width: 3ch;
+}
+
+/* Split payment */
+.er-required-modal__split-panel {
+  @apply flex flex-col gap-4;
+}
+.er-required-modal__split-title {
+  @apply text-base font-bold text-white;
+}
+.er-required-modal__split-grid {
+  @apply grid gap-3;
+  grid-template-columns: 1fr 1fr;
+}
+.er-required-modal__split-field {
+  @apply flex flex-col gap-1;
+}
+.er-required-modal__split-label {
+  @apply text-xs font-semibold;
+  color: var(--er-text-muted);
+}
+.er-required-modal__split-input {
+  @apply w-full;
+}
+.er-required-modal__split-button {
+  @apply w-full;
+}
+.er-required-modal__split-actions {
+  @apply flex gap-2 justify-end;
+}
+.er-required-modal__split-hint {
+  color: rgba(226, 232, 240, 0.7);
+  font-weight: 600;
+}
+.er-required-modal__split-hint--error {
+  color: #fca5a5;
+  font-weight: 700;
+}
+.er-required-modal__split-total {
+  font-size: 1.9rem;
+  font-weight: 900;
+  color: #fff;
+}
+.er-required-modal__addon {
+  grid-column: 1 / -1;
+}
+
+/* Offer Upgrade Modal */
+.offer-upgrade-modal-overlay {
+  @apply fixed inset-0 z-[5000] flex items-center justify-center p-4;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+.offer-upgrade-modal {
+  @apply relative p-6 flex flex-col gap-4 rounded-2xl;
+  width: min(520px, 92vw);
+  max-height: min(85vh, 700px);
+  overflow-y: auto;
+  animation: erSlideUp 0.25s ease;
+}
+.offer-upgrade-modal-header {
+  @apply flex items-start justify-between gap-3;
+}
+.offer-upgrade-modal-title {
+  @apply text-xl font-black text-white;
+}
+.offer-upgrade-modal-subtitle {
+  @apply text-sm mt-1;
+  color: var(--er-text-muted);
+}
+.offer-upgrade-modal-close {
+  @apply w-9 h-9 p-0 text-xl shrink-0;
+  min-height: unset;
+}
+.offer-upgrade-modal-body {
+  @apply flex flex-col gap-3;
+}
+.offer-upgrade-modal-loading,
+.offer-upgrade-modal-empty {
+  @apply text-center py-6 text-sm;
+  color: var(--er-text-muted);
+}
+.offer-upgrade-modal-error {
+  @apply p-3 rounded-lg text-sm text-white;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+.offer-upgrade-modal-note {
+  @apply text-xs;
+  color: var(--er-text-muted);
+}
+.offer-upgrade-modal-actions {
+  @apply flex gap-2 justify-end;
+}
+.offer-upgrade-room-list {
+  @apply flex flex-col gap-2;
+}
+.offer-upgrade-confirm { display: inline-flex; }
+.offer-upgrade-cancel { display: inline-flex; }
+.offer-upgrade-room-item {
+  padding: 0.75rem 0.9rem;
+  color: var(--er-text);
+  font-weight: 800;
+  cursor: pointer;
+}
+.offer-upgrade-room-item:disabled {
+  @apply opacity-55 cursor-not-allowed;
+}
+
+/* Payment breakdown */
+.er-payment-breakdown {
+  @apply flex flex-col gap-2 p-4 rounded-lg;
+  background: var(--er-surface);
+  border: 1px solid var(--er-border);
+}
+.er-payment-breakdown__row {
+  @apply flex items-baseline justify-between gap-3;
+}
+.er-payment-breakdown__label {
+  @apply text-sm;
+  color: var(--er-text-muted);
+}
+.er-payment-breakdown__amount {
+  @apply text-sm font-bold text-white;
+}
+.er-payment-breakdown__items {
+  @apply flex flex-col gap-1;
+}
+
+/* Renewal ledger */
+.er-renewal-ledger {
+  @apply flex flex-col gap-3;
+}
+.er-renewal-ledger__section {
+  @apply flex flex-col gap-1;
+}
+.er-renewal-ledger__row {
+  @apply flex items-baseline justify-between gap-3;
+}
+.er-renewal-ledger__label {
+  @apply text-sm;
+  color: var(--er-text-muted);
+}
+.er-renewal-ledger__items {
+  @apply flex flex-col gap-1;
+}
+.er-renewal-ledger__total {
+  @apply flex items-baseline justify-between gap-3 pt-2 mt-1 text-base font-bold text-white;
+  border-top: 1px solid var(--er-border);
+}
+.er-renewal-modal__actions {
+  @apply flex gap-2 justify-end mt-3;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Shared Utilities (Batch 8) ─────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Alerts */
+.cs-alert {
+  @apply p-3 rounded-lg text-sm;
+  background: rgba(59, 130, 246, 0.12);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+.cs-alert--error {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.35);
+}
+
+/* Badges */
+.cs-badge {
+  @apply inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+.cs-badge--success {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: #86efac;
+}
+.cs-badge--error {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+.cs-badge--info {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #93c5fd;
+}
+
+/* Card / Input / Label / Link / Table primitives */
+.cs-card {
+  @apply p-4 rounded-lg;
+  background: var(--er-surface);
+  border: 1px solid var(--er-border);
+}
+.cs-input {
+  @apply w-full px-3 py-2 text-sm text-white rounded-lg;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--er-border);
+  transition: border-color 200ms;
+}
+.cs-input:focus {
+  @apply outline-none;
+  border-color: rgba(255, 255, 255, 0.35);
+}
+.cs-label {
+  @apply text-xs font-semibold uppercase tracking-wider;
+  color: var(--er-text-muted);
+}
+.cs-link {
+  @apply text-sm font-semibold cursor-pointer;
+  color: rgba(59, 130, 246, 0.9);
+  transition: color 150ms;
+}
+.cs-link:hover {
+  color: rgba(96, 165, 250, 1);
+}
+
+.cs-table {
+  @apply w-full text-sm;
+  border-collapse: collapse;
+}
+.cs-table th {
+  @apply text-left text-xs font-bold uppercase tracking-wider py-2 px-3;
+  color: var(--er-text-muted);
+  border-bottom: 1px solid var(--er-border);
+}
+.cs-table td {
+  @apply py-2 px-3;
+  border-bottom: 1px solid var(--er-border);
+}
+.cs-table tbody tr:hover {
+  background: var(--er-surface);
+}
+
+/* Button variants */
+.cs-liquid-button--success {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.5);
+}
+.cs-liquid-button--success:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.22);
+}
+.cs-liquid-button--warning {
+  background: rgba(234, 179, 8, 0.08);
+  border-color: rgba(234, 179, 8, 0.5);
+}
+.cs-liquid-button--warning:hover:not(:disabled) {
+  background: rgba(234, 179, 8, 0.22);
+}
+
+/* Action button utilities */
+.action-btn {
+  @apply text-sm py-1.5 px-3;
+  min-height: unset;
+}
+.action-buttons {
+  @apply flex gap-2;
+}
+.actions-panel {
+  @apply flex gap-2 flex-wrap;
+}
+.btn-icon {
+  @apply inline-flex items-center justify-center shrink-0;
+}
+
+/* Register-level utilities */
+.register-button {
+  @apply w-full py-3 font-bold;
+}
+.register-buttons {
+  @apply flex flex-col gap-2;
+}
+.register-top-actions {
+  @apply flex items-center gap-2;
+}
+
+/* Slide-out drawer utilities */
+.sod-backdrop {
+  @apply fixed inset-0 z-[4000];
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+}
+.sod-tabLabel {
+  @apply text-xs font-bold uppercase tracking-wider;
+  color: var(--er-text-muted);
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Register Sign-In (splash + signed-in topbar) ────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+/* Splash: centered vertically + horizontally when not signed in */
+.register-sign-in-container {
+  @apply flex-1 min-h-0 flex flex-col;
+}
+
+/* When the container has no .register-top-bar child it is the splash state;
+   center the sign-in button using the only-child trick isn't reliable here,
+   so the button itself is the centering element. */
+.register-sign-in-button {
+  @apply m-auto text-xl font-bold px-10 py-5;
+  min-width: 220px;
+  min-height: 64px;
+}
+
+/* ── Register top-bar (signed-in header) ─────────────────── */
+.register-top-bar {
+  @apply flex items-center justify-between gap-4 shrink-0;
+  height: var(--er-topbar-height);
+  padding: 0 var(--er-rail-gap);
+  background: var(--er-surface-strong);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--er-border);
+}
+.register-top-bar-left,
+.register-top-bar-right { @apply flex items-center gap-2.5; }
+.register-top-bar-center {
+  @apply flex-1 flex items-center justify-center gap-3 text-sm font-semibold;
+  color: var(--er-text-muted);
+}
+.register-top-bar-title { @apply text-lg font-bold text-white; }
+.register-top-bar-dev { @apply flex items-center gap-2; }
+.er-header-action-btn {
+  @apply text-xs py-1.5 px-3;
+  min-height: unset;
+}
+
+/* ═══════════════════════════════════════════════════════════ */
+/* ── Sign-In Modal ───────────────────────────────────────── */
+/* ═══════════════════════════════════════════════════════════ */
+
+.sign-in-modal-overlay {
+  @apply fixed inset-0 z-[5000] flex items-center justify-center;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.sign-in-modal {
+  @apply relative p-8 flex flex-col gap-5 rounded-2xl;
+  width: min(480px, 92vw);
+  max-height: min(85vh, 700px);
+  overflow-y: auto;
+  animation: erSlideUp 0.25s ease;
+}
+
+.sign-in-modal h2 {
+  @apply text-2xl font-black text-white tracking-tight;
+}
+
+.sign-in-modal-close {
+  @apply absolute top-4 right-4 w-9 h-9 p-0 text-xl;
+  min-height: unset;
+}
+
+.sign-in-step {
+  @apply flex flex-col gap-4;
+}
+
+.sign-in-subtitle {
+  @apply text-sm;
+  color: var(--er-text-muted);
+}
+
+.sign-in-error {
+  @apply p-3 rounded-lg text-sm text-white;
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.sign-in-actions {
+  @apply flex gap-3 justify-end mt-2;
+}
+
+.employee-list {
+  @apply flex flex-col gap-2 max-h-[50vh] overflow-y-auto;
+}
+
+.employee-list .employee-item {
+  @apply w-full text-left justify-start;
+}
+
+/* ── Shake animation (wrong PIN feedback) ────────────────── */
+@keyframes erShake {
+  0%, 100% { transform: translateX(0); }
+  15%, 45%, 75% { transform: translateX(-6px); }
+  30%, 60%, 90% { transform: translateX(6px); }
+}
+.shake { animation: erShake 0.4s ease; }
+
+/* ═══════════════════════════════════════════════════════════ */
 /* ── Keyframes ─────────────────────────────────────────────  */
 /* ═══════════════════════════════════════════════════════════ */
 
 @keyframes erSlideUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+
+/* Gold pulse reminder for eligible upgrades */
+@keyframes goldPulse {
+  0%, 100% {
+    box-shadow: 0 0 0 rgba(245, 158, 11, 0), 0 0 0 rgba(245, 158, 11, 0);
+    filter: none;
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.22), 0 0 18px rgba(245, 158, 11, 0.55);
+    filter: drop-shadow(0 0 10px rgba(245, 158, 11, 0.35));
+  }
+}
+.gold-pulse:not(:disabled) { animation: goldPulse 1.6s ease-in-out infinite; }
+.gold-pulse:disabled { animation: none; box-shadow: none; filter: none; }
