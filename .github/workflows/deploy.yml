@@ -9,6 +9,8 @@ concurrency:
   group: deploy-dev-${{ github.ref }}
   cancel-in-progress: true
 
+permissions: read-all
+
 jobs:
   deploy:
     name: Deploy dev (API + frontends)
@@ -52,7 +54,6 @@ jobs:
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
-  
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -67,13 +68,13 @@ jobs:
         run: |
           IMAGE_TAG="dev-${{ github.sha }}"
           LATEST_TAG="dev-latest"
-          
+
           docker build -t "$ECR_REPO_URI:$IMAGE_TAG" -f services/api/Dockerfile .
           docker tag "$ECR_REPO_URI:$IMAGE_TAG" "$ECR_REPO_URI:$LATEST_TAG"
-          
+
           docker push "$ECR_REPO_URI:$IMAGE_TAG"
           docker push "$ECR_REPO_URI:$LATEST_TAG"
-          
+
           echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
 
       - name: Deploy API to App Runner
