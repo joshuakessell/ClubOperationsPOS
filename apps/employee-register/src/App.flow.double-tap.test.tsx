@@ -179,14 +179,14 @@ describe('App flow: double tap proposal', () => {
       fireEvent.click(suggestion);
     });
     await waitFor(() => {
-      // After check-in, activeTab='guided' shows EmployeeAssistPanel (not CustomerProfileCard).
-      // The header label 'Rivera, Alex' persists; 'Alex Rivera' only appears in the profile card.
-      expect(screen.queryAllByText(/Rivera, Alex/).length).toBeGreaterThan(0);
+      // After check-in, the PanelHeader title shows the customer name.
+      expect(screen.queryAllByText(/Alex Rivera/).length).toBeGreaterThan(0);
     });
 
     // The app auto-switches to guided tab when a session becomes active.
+    // The PanelHeader title shows the customer name.
     await waitFor(() => {
-      expect(screen.getByText('Customer Profile')).toBeDefined();
+      expect(screen.getByText('Alex Rivera')).toBeDefined();
     });
 
     // Wait for the polling fallback to deliver session-snapshot data (with prerequisites

@@ -42,7 +42,7 @@ export const AddOnsSchema = z.object({
 });
 
 export const HighlightOptionSchema = z.object({
-  step: z.enum(['LANGUAGE', 'MEMBERSHIP', 'WAITLIST_BACKUP']),
+  step: z.enum(['MEMBERSHIP', 'WAITLIST_BACKUP']),
   option: z.string().min(1).nullable(),
   sessionId: z.string().uuid().optional(),
 });

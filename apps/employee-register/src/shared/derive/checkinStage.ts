@@ -14,14 +14,13 @@ type CheckinStageInput = {
   membershipPurchaseIntent: 'PURCHASE' | 'RENEW' | null;
   membershipChoice: 'ONE_TIME' | 'SIX_MONTH' | null;
   flowStep:
-    | 'LANGUAGE'
-    | 'RENTAL'
-    | 'WAITLIST_PREFERENCES'
-    | 'WAITLIST_BACKUP'
-    | 'PAYMENT'
-    | 'AGREEMENT'
-    | 'COMPLETE'
-    | null;
+  | 'RENTAL'
+  | 'WAITLIST_PREFERENCES'
+  | 'WAITLIST_BACKUP'
+  | 'PAYMENT'
+  | 'AGREEMENT'
+  | 'COMPLETE'
+  | null;
 };
 
 export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | null {
@@ -49,8 +48,6 @@ export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | nul
 
   // When flowStep is available, prefer it as the authoritative UI stage.
   switch (flowStep) {
-    case 'LANGUAGE':
-      return { number: 1, label: 'Language Selection' };
     case 'RENTAL':
     case 'WAITLIST_PREFERENCES':
     case 'WAITLIST_BACKUP':
@@ -74,10 +71,7 @@ export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | nul
     return { number: 4, label: 'Signing Member Agreement' };
   }
 
-  // 1 - Language selection
-  if (!customerPrimaryLanguage) {
-    return { number: 1, label: 'Language Selection' };
-  }
+
 
   // 2 - Membership options (only when needed)
   const membershipStatus = getCustomerMembershipStatus(

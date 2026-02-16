@@ -76,6 +76,16 @@ export function CustomerAccountPanel(props: {
     onDirectSelectWaitlistBackup?: (
         rental: 'LOCKER' | 'GYM_LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL'
     ) => void;
+
+    // Flow-step driven state (server-authoritative)
+    flowStep?: 'RENTAL' | 'WAITLIST_PREFERENCES' | 'WAITLIST_BACKUP' | 'PAYMENT' | 'AGREEMENT' | 'COMPLETE' | null;
+    ledgerLineItems?: Array<{ description: string; amount: number }>;
+    ledgerTotal?: number | null;
+    paymentStatus?: 'DUE' | 'PAID' | null;
+    agreementBypassPending?: boolean;
+    assignedResourceType?: 'room' | 'locker' | null;
+    assignedResourceNumber?: string | null;
+
     onStartRenewal?: (activeCheckin: ActiveCheckinDetails) => void;
     onGoBack?: () => void;
     onRefetchAccountState?: () => void;
@@ -95,8 +105,6 @@ export function CustomerAccountPanel(props: {
     }) => void;
 
     // employee-side lane actions
-    onHighlightLanguage: (lang: 'EN' | 'ES' | null) => void;
-    onConfirmLanguage: (lang: 'EN' | 'ES') => void;
     onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) => void;
     onConfirmMembershipOneTime: () => void;
     onConfirmMembershipSixMonth: () => void;
@@ -116,6 +124,7 @@ export function CustomerAccountPanel(props: {
         }
     ) => void;
     onApproveRental: () => void;
+    onBypassAgreement?: () => Promise<void> | void;
 }) {
     const registerState = useEmployeeRegisterState();
     const customerNotesState = registerState.customerNotesState;
@@ -353,8 +362,6 @@ inventoryAvailable = { props.inventoryAvailable }
 waitlistUnavailableOptions = { props.waitlistUnavailableOptions }
 isSubmitting = { props.isSubmitting }
 directSelect = { props.directSelect }
-onHighlightLanguage = { props.onHighlightLanguage }
-onConfirmLanguage = { props.onConfirmLanguage }
 onHighlightMembership = { props.onHighlightMembership }
 onConfirmMembershipOneTime = { props.onConfirmMembershipOneTime }
 onConfirmMembershipSixMonth = { props.onConfirmMembershipSixMonth }
@@ -366,6 +373,14 @@ onSelectWaitlistBackupAsCustomer = { props.onSelectWaitlistBackupAsCustomer }
 onClearSession = { props.onClearSession }
 onDirectSelectWaitlistBackup = { props.onDirectSelectWaitlistBackup }
 onApproveRental = { props.onApproveRental }
+flowStep = { props.flowStep }
+ledgerLineItems = { props.ledgerLineItems }
+ledgerTotal = { props.ledgerTotal }
+paymentStatus = { props.paymentStatus }
+agreementBypassPending = { props.agreementBypassPending }
+assignedResourceType = { props.assignedResourceType }
+assignedResourceNumber = { props.assignedResourceNumber }
+onBypassAgreement = { props.onBypassAgreement }
     />
     </div>
                 )}

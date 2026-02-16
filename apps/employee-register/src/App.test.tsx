@@ -174,7 +174,7 @@ describe('App', () => {
       });
     });
     expect(
-      await screen.findByText('Customer Profile', undefined, { timeout: STEP_TIMEOUT_MS })
+      await screen.findByRole('button', { name: 'Profile' }, { timeout: STEP_TIMEOUT_MS })
     ).toBeDefined();
   });
 

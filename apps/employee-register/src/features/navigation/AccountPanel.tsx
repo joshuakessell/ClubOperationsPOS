@@ -37,10 +37,10 @@ export function AccountPanel() {
     startCheckoutFromCustomerAccount,
     handleClearSession,
     selectNavTab,
-	    returnToPreviousTab,
-	    handleBackStep,
-	    handleCancelStep,
-	    currentSessionId,
+    returnToPreviousTab,
+    handleBackStep,
+    handleCancelStep,
+    currentSessionId,
     laneSession,
     customerName,
     membershipNumber,
@@ -79,6 +79,7 @@ export function AccountPanel() {
     handleSelectWaitlistBackupAsCustomer,
     handleDirectSelectWaitlistBackup,
     handleConfirmSelection,
+    handleStartAgreementBypass,
     laneSessionActions,
   } = useEmployeeRegisterState();
 
@@ -228,15 +229,12 @@ export function AccountPanel() {
   const directSelect = laneSessionMode === 'RENEWAL';
   const inventorySnapshot = inventoryAvailable
     ? {
-        rooms: inventoryAvailable.rooms,
-        lockers: inventoryAvailable.lockers,
-      }
+      rooms: inventoryAvailable.rooms,
+      lockers: inventoryAvailable.lockers,
+    }
     : null;
 
   const employeeAssistInteractionProps = {
-    onHighlightLanguage: (lang: 'EN' | 'ES' | null) =>
-      void highlightKioskOption({ step: 'LANGUAGE', option: lang }),
-    onConfirmLanguage: (lang: 'EN' | 'ES') => void handleConfirmLanguage(lang),
     onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) =>
       void highlightKioskOption({ step: 'MEMBERSHIP', option: choice }),
     onConfirmMembershipOneTime: () => void handleConfirmMembershipOneTime(),
@@ -265,6 +263,7 @@ export function AccountPanel() {
     ) =>
       void handleDirectSelectWaitlistBackup(rental),
     onApproveRental: () => void handleConfirmSelection(),
+    onBypassAgreement: () => void handleStartAgreementBypass(),
     onBack: () => void handleBackStep(),
     onCancel: () => void handleCancelStep(),
   };
@@ -298,11 +297,11 @@ export function AccountPanel() {
         const toEntries = (value: unknown): Array<{ number: string; status: string }> =>
           Array.isArray(value)
             ? value.filter(
-                (entry): entry is { number: string; status: string } =>
-                  isRecord(entry) &&
-                  typeof entry.number === 'string' &&
-                  typeof entry.status === 'string'
-              )
+              (entry): entry is { number: string; status: string } =>
+                isRecord(entry) &&
+                typeof entry.number === 'string' &&
+                typeof entry.status === 'string'
+            )
             : [];
         setWaitlistUnavailableOptions({
           rooms: {
@@ -322,150 +321,164 @@ export function AccountPanel() {
   if (accountCustomerId) {
     return (
       <CustomerAccountPanel
-        lane={lane}
-        sessionToken={session?.sessionToken}
-        customerId={accountCustomerId}
-        customerLabel={accountCustomerLabel}
-        customerSummary={accountCustomerSummary}
-        customerProfile={customerProfile}
-        autoStartCheckin={accountAutoStartCheckin}
-        onStartCheckout={startCheckoutFromCustomerAccount}
-        onStartRenewal={(activeCheckin) => openRenewalSelection(activeCheckin)}
-        onClearSession={() => void handleClearSession().then(() => selectNavTab('scan'))}
-        onGoBack={returnToPreviousTab}
-        currentSessionId={currentSessionId}
-        currentSessionCustomerId={laneSession.customerId}
-        customerName={customerName}
-        membershipNumber={membershipNumber}
-        customerMembershipValidUntil={customerMembershipValidUntil}
-        membershipPurchaseIntent={membershipPurchaseIntent}
-        membershipChoice={membershipChoice}
-        allowedRentals={allowedRentals}
-        proposedRentalType={proposedRentalType}
-        proposedBy={proposedBy}
-        selectionConfirmed={selectionConfirmed}
-        customerPrimaryLanguage={customerPrimaryLanguage}
-        customerDob={customerDob}
-        customerDobMonthDay={customerDobMonthDay}
-        customerIdNumber={customerIdNumber}
-        customerLastVisitAt={customerLastVisitAt}
-        customerIdExpirationDate={customerIdExpirationDate}
-        customerIdType={customerIdType}
-        customerIdTypeOther={customerIdTypeOther}
-        hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
-        waitlistDesiredTier={waitlistDesiredTier}
-        waitlistDesiredTypes={waitlistDesiredTypes}
-        waitlistBackupType={waitlistBackupType}
-        waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
-        waitlistRequestedResourceType={waitlistRequestedResourceType}
-        inventoryAvailable={inventorySnapshot}
-        waitlistUnavailableOptions={waitlistUnavailableOptions}
-        isSubmitting={isSubmitting}
-        checkinStage={checkinStage}
-        sessionMode={laneSessionMode ?? undefined}
-        renewalHours={renewalHours}
-        directSelect={directSelect}
-        onStartedSession={(data) => {
-          const patch: LaneSessionPatch = {};
-          if (accountCustomerId) patch.customerId = accountCustomerId;
-          if (data.customerName) patch.customerName = data.customerName;
-          if (data.membershipNumber) patch.membershipNumber = data.membershipNumber;
-          if (data.sessionId) patch.currentSessionId = data.sessionId;
-          if (data.mode) patch.mode = data.mode;
-          if (data.renewalHours) patch.renewalHours = data.renewalHours;
-          if (data.customerHasEncryptedLookupMarker !== undefined) {
-            patch.customerHasEncryptedLookupMarker = Boolean(data.customerHasEncryptedLookupMarker);
-          }
-          if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
-            if (isAssignedResourceType(data.activeAssignedResourceType)) {
-              patch.assignedResourceType = data.activeAssignedResourceType;
-            }
-            if (data.activeAssignedResourceNumber)
-              patch.assignedResourceNumber = data.activeAssignedResourceNumber;
-            patch.checkoutAt = data.blockEndsAt;
-          }
-          if (Object.keys(patch).length > 0) patchLaneSession(patch);
-        }}
-        {...employeeAssistInteractionProps}
+        lane= { lane }
+    sessionToken = { session?.sessionToken }
+    customerId = { accountCustomerId }
+    customerLabel = { accountCustomerLabel }
+    customerSummary = { accountCustomerSummary }
+    customerProfile = { customerProfile }
+    autoStartCheckin = { accountAutoStartCheckin }
+    onStartCheckout = { startCheckoutFromCustomerAccount }
+    onStartRenewal = {(activeCheckin) => openRenewalSelection(activeCheckin)
+  }
+  onClearSession = {() => void handleClearSession().then(() => selectNavTab('scan'))
+}
+onGoBack = { returnToPreviousTab }
+currentSessionId = { currentSessionId }
+currentSessionCustomerId = { laneSession.customerId }
+customerName = { customerName }
+membershipNumber = { membershipNumber }
+customerMembershipValidUntil = { customerMembershipValidUntil }
+membershipPurchaseIntent = { membershipPurchaseIntent }
+membershipChoice = { membershipChoice }
+allowedRentals = { allowedRentals }
+proposedRentalType = { proposedRentalType }
+proposedBy = { proposedBy }
+selectionConfirmed = { selectionConfirmed }
+customerPrimaryLanguage = { customerPrimaryLanguage }
+customerDob = { customerDob }
+customerDobMonthDay = { customerDobMonthDay }
+customerIdNumber = { customerIdNumber }
+customerLastVisitAt = { customerLastVisitAt }
+customerIdExpirationDate = { customerIdExpirationDate }
+customerIdType = { customerIdType }
+customerIdTypeOther = { customerIdTypeOther }
+hasEncryptedLookupMarker = { Boolean(laneSession.customerHasEncryptedLookupMarker) }
+waitlistDesiredTier = { waitlistDesiredTier }
+waitlistDesiredTypes = { waitlistDesiredTypes }
+waitlistBackupType = { waitlistBackupType }
+waitlistRequestedResourceNumber = { waitlistRequestedResourceNumber }
+waitlistRequestedResourceType = { waitlistRequestedResourceType }
+inventoryAvailable = { inventorySnapshot }
+waitlistUnavailableOptions = { waitlistUnavailableOptions }
+isSubmitting = { isSubmitting }
+checkinStage = { checkinStage }
+sessionMode = { laneSessionMode ?? undefined}
+renewalHours = { renewalHours }
+directSelect = { directSelect }
+flowStep = { laneSession.flowStep }
+ledgerLineItems = { laneSession.ledgerLineItems }
+ledgerTotal = { laneSession.ledgerTotal }
+paymentStatus = { laneSession.paymentStatus }
+agreementBypassPending = { laneSession.agreementBypassPending }
+assignedResourceType = { laneSession.assignedResourceType }
+assignedResourceNumber = { laneSession.assignedResourceNumber }
+onStartedSession = {(data) => {
+  const patch: LaneSessionPatch = {};
+  if (accountCustomerId) patch.customerId = accountCustomerId;
+  if (data.customerName) patch.customerName = data.customerName;
+  if (data.membershipNumber) patch.membershipNumber = data.membershipNumber;
+  if (data.sessionId) patch.currentSessionId = data.sessionId;
+  if (data.mode) patch.mode = data.mode;
+  if (data.renewalHours) patch.renewalHours = data.renewalHours;
+  if (data.customerHasEncryptedLookupMarker !== undefined) {
+    patch.customerHasEncryptedLookupMarker = Boolean(data.customerHasEncryptedLookupMarker);
+  }
+  if (data.mode === 'RENEWAL' && typeof data.blockEndsAt === 'string') {
+    if (isAssignedResourceType(data.activeAssignedResourceType)) {
+      patch.assignedResourceType = data.activeAssignedResourceType;
+    }
+    if (data.activeAssignedResourceNumber)
+      patch.assignedResourceNumber = data.activeAssignedResourceNumber;
+    patch.checkoutAt = data.blockEndsAt;
+  }
+  if (Object.keys(patch).length > 0) patchLaneSession(patch);
+}}
+{...employeeAssistInteractionProps }
       />
     );
   }
 
-  if (currentSessionId && (!laneSession.customerId || laneSession.customerId === accountCustomerId)) {
-    return (
-      <PanelShell align="top" scroll="hidden">
-        <div
-          style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '0.75rem',
-            minHeight: 0,
-          }}
-        >
-          <PanelHeader title="Customer Account" spacing="none" />
-          <div
-            style={{
-              minHeight: '14rem',
-              maxHeight: '22rem',
-              overflowY: 'auto',
-              paddingRight: '0.2rem',
-            }}
-          >
-            <CustomerProfileCard
-              name={customerName}
-              preferredLanguage={customerPrimaryLanguage || null}
-              dob={customerDob || null}
-              dobMonthDay={customerDobMonthDay || null}
-              membershipNumber={membershipNumber || null}
-              idNumber={customerIdNumber || null}
-              membershipValidUntil={customerMembershipValidUntil || null}
-              lastVisitAt={customerLastVisitAt || null}
-              idExpirationDate={customerIdExpirationDate || null}
-              idType={customerIdType || null}
-              idTypeOther={customerIdTypeOther || null}
-              hasEncryptedLookupMarker={Boolean(laneSession.customerHasEncryptedLookupMarker)}
-              checkinStage={checkinStage}
-              waitlistDesiredTier={waitlistDesiredTier}
-              waitlistBackupType={waitlistBackupType}
-            />
-          </div>
-          <EmployeeAssistPanel
-            sessionId={currentSessionId}
-            customerName={customerName}
-            customerPrimaryLanguage={customerPrimaryLanguage}
-            membershipNumber={membershipNumber || null}
-            customerMembershipValidUntil={customerMembershipValidUntil}
-            membershipPurchaseIntent={membershipPurchaseIntent}
-            membershipChoice={membershipChoice}
-            allowedRentals={allowedRentals}
-            proposedRentalType={proposedRentalType}
-            proposedBy={proposedBy}
-            selectionConfirmed={selectionConfirmed}
-            waitlistDesiredTier={waitlistDesiredTier}
-            waitlistDesiredTypes={waitlistDesiredTypes}
-            waitlistBackupType={waitlistBackupType}
-            waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
-            waitlistRequestedResourceType={waitlistRequestedResourceType}
-            inventoryAvailable={inventorySnapshot}
-            waitlistUnavailableOptions={waitlistUnavailableOptions}
-            isSubmitting={isSubmitting}
-            directSelect={directSelect}
-            onClearSession={() => void handleClearSession().then(() => selectNavTab('scan'))}
-            {...employeeAssistInteractionProps}
-          />
-        </div>
-      </PanelShell>
-    );
-  }
-
+if (currentSessionId && (!laneSession.customerId || laneSession.customerId === accountCustomerId)) {
   return (
-    <PanelShell align="center">
-      <PanelHeader
+    <PanelShell align= "top" scroll = "hidden" >
+      <div
+          style={
+    {
+      display: 'flex',
+        flexDirection: 'column',
+          gap: '0.75rem',
+            minHeight: 0,
+          }
+  }
+        >
+    <PanelHeader title="Customer Account" spacing = "none" />
+      <div
+            style={
+    {
+      minHeight: '14rem',
+        maxHeight: '22rem',
+          overflowY: 'auto',
+            paddingRight: '0.2rem',
+            }
+  }
+          >
+    <CustomerProfileCard
+              name={ customerName }
+  preferredLanguage = { customerPrimaryLanguage || null
+}
+dob = { customerDob || null}
+dobMonthDay = { customerDobMonthDay || null}
+membershipNumber = { membershipNumber || null}
+idNumber = { customerIdNumber || null}
+membershipValidUntil = { customerMembershipValidUntil || null}
+lastVisitAt = { customerLastVisitAt || null}
+idExpirationDate = { customerIdExpirationDate || null}
+idType = { customerIdType || null}
+idTypeOther = { customerIdTypeOther || null}
+hasEncryptedLookupMarker = { Boolean(laneSession.customerHasEncryptedLookupMarker) }
+checkinStage = { checkinStage }
+waitlistDesiredTier = { waitlistDesiredTier }
+waitlistBackupType = { waitlistBackupType }
+  />
+  </div>
+  < EmployeeAssistPanel
+sessionId = { currentSessionId }
+customerName = { customerName }
+customerPrimaryLanguage = { customerPrimaryLanguage }
+membershipNumber = { membershipNumber || null}
+customerMembershipValidUntil = { customerMembershipValidUntil }
+membershipPurchaseIntent = { membershipPurchaseIntent }
+membershipChoice = { membershipChoice }
+allowedRentals = { allowedRentals }
+proposedRentalType = { proposedRentalType }
+proposedBy = { proposedBy }
+selectionConfirmed = { selectionConfirmed }
+waitlistDesiredTier = { waitlistDesiredTier }
+waitlistDesiredTypes = { waitlistDesiredTypes }
+waitlistBackupType = { waitlistBackupType }
+waitlistRequestedResourceNumber = { waitlistRequestedResourceNumber }
+waitlistRequestedResourceType = { waitlistRequestedResourceType }
+inventoryAvailable = { inventorySnapshot }
+waitlistUnavailableOptions = { waitlistUnavailableOptions }
+isSubmitting = { isSubmitting }
+directSelect = { directSelect }
+onClearSession = {() => void handleClearSession().then(() => selectNavTab('scan'))}
+{...employeeAssistInteractionProps }
+          />
+  </div>
+  </PanelShell>
+    );
+  }
+
+return (
+  <PanelShell align= "center" >
+  <PanelHeader
         align="center"
-        spacing="sm"
-        title="Customer Account"
-        subtitle="Select a customer (scan, search, or first-time) to view their account."
-      />
-    </PanelShell>
+spacing = "sm"
+title = "Customer Account"
+subtitle = "Select a customer (scan, search, or first-time) to view their account."
+  />
+  </PanelShell>
   );
 }

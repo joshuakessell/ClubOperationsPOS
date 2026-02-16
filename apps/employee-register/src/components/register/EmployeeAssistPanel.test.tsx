@@ -6,7 +6,7 @@ function baseProps() {
   return {
     sessionId: 'session-1',
     customerName: 'Test Customer',
-    customerPrimaryLanguage: null,
+    customerPrimaryLanguage: 'EN' as const,
     membershipNumber: null,
     customerMembershipValidUntil: null,
     membershipPurchaseIntent: null,
@@ -19,8 +19,6 @@ function baseProps() {
     waitlistBackupType: null,
     inventoryAvailable: { rooms: { STANDARD: 10, DOUBLE: 8, SPECIAL: 2 }, lockers: 12 },
     isSubmitting: false,
-    onHighlightLanguage: vi.fn(),
-    onConfirmLanguage: vi.fn(),
     onHighlightMembership: vi.fn(),
     onConfirmMembershipOneTime: vi.fn(),
     onConfirmMembershipSixMonth: vi.fn(),
@@ -33,15 +31,7 @@ function baseProps() {
 }
 
 describe('EmployeeAssistPanel', () => {
-  it('LANGUAGE step: tap highlights and confirms immediately', () => {
-    const props = baseProps();
-    render(<EmployeeAssistPanel { ...props } />);
 
-    const english = screen.getByRole('button', { name: 'English' });
-    fireEvent.click(english);
-    expect(props.onHighlightLanguage).toHaveBeenCalledWith('EN');
-    expect(props.onConfirmLanguage).toHaveBeenCalledWith('EN');
-  });
 
   it('Skips MEMBERSHIP when customer is already a member (ACTIVE)', () => {
     const props = {

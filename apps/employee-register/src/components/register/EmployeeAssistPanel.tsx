@@ -38,8 +38,15 @@ export interface EmployeeAssistPanelProps {
   isSubmitting?: boolean;
   directSelect?: boolean;
 
-  onHighlightLanguage: (lang: 'EN' | 'ES' | null) => void;
-  onConfirmLanguage: (lang: 'EN' | 'ES') => Promise<void> | void;
+  // Flow-step driven state (server-authoritative)
+  flowStep?: 'RENTAL' | 'WAITLIST_PREFERENCES' | 'WAITLIST_BACKUP' | 'PAYMENT' | 'AGREEMENT' | 'COMPLETE' | null;
+  ledgerLineItems?: Array<{ description: string; amount: number }>;
+  ledgerTotal?: number | null;
+  paymentStatus?: 'DUE' | 'PAID' | null;
+  agreementBypassPending?: boolean;
+  assignedResourceType?: 'room' | 'locker' | null;
+  assignedResourceNumber?: string | null;
+
 
   onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) => void;
   onConfirmMembershipOneTime?: () => Promise<void> | void;
@@ -70,6 +77,7 @@ export interface EmployeeAssistPanelProps {
   ) => Promise<void> | void;
   onApproveRental: () => Promise<void> | void;
   onClearSession?: () => void;
+  onBypassAgreement?: () => Promise<void> | void;
 
   onBack?: () => Promise<void> | void;
   onCancel?: () => Promise<void> | void;
@@ -94,8 +102,13 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     waitlistUnavailableOptions,
     isSubmitting = false,
     directSelect = false,
-    onHighlightLanguage,
-    onConfirmLanguage,
+    flowStep,
+    ledgerLineItems,
+    ledgerTotal,
+    paymentStatus,
+    agreementBypassPending,
+    assignedResourceType,
+    assignedResourceNumber,
     onHighlightMembership,
     onConfirmMembershipSixMonth,
     onHighlightRental,
@@ -105,13 +118,14 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
     onApproveRental,
     onClearSession,
     onDirectSelectRental,
+    onBypassAgreement,
     onBack,
     onCancel,
   } = props;
 
   const [pending, setPending] = useState<PendingState>(null);
 
-  const isLanguageNeeded = !customerPrimaryLanguage;
+
   const membershipStatus = getCustomerMembershipStatus(
     {
       membershipNumber: props.membershipNumber || null,
@@ -124,13 +138,17 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   const showSixMonthMembershipAdd = membershipStatus !== 'ACTIVE' && !isMembershipPending;
   const step: EmployeeAssistStep = useMemo(() => {
     if (!sessionId || !customerName) return 'DONE';
+    // Server-authoritative flow step takes priority when available
+    if (flowStep === 'PAYMENT') return 'PAYMENT';
+    if (flowStep === 'AGREEMENT') return 'AGREEMENT';
+    if (flowStep === 'COMPLETE') return 'DONE';
     if (waitlistDesiredTier && !waitlistBackupType) return 'UPGRADE';
     if (selectionConfirmed) return 'DONE';
     if (proposedBy === 'CUSTOMER' && proposedRentalType) return 'DONE';
     return 'RENTAL';
   }, [
     customerName,
-    isLanguageNeeded,
+    flowStep,
     proposedBy,
     proposedRentalType,
     selectionConfirmed,
@@ -142,8 +160,7 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   // Clear pending state when the session or step changes.
   useEffect(() => {
     setPending(null);
-    // Clear kiosk highlights for step-driven (language/membership) highlights.
-    onHighlightLanguage(null);
+    // Clear kiosk highlights for step-driven (membership) highlights.
     onHighlightMembership(null);
     onHighlightWaitlistBackup(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -334,8 +351,14 @@ waitlistRequestedResourceType = { waitlistRequestedResourceType }
 waitlistUnavailableOptions = { waitlistUnavailableOptions }
 rentalButtons = { rentalButtons }
 waitlistBackupButtons = { waitlistBackupButtons }
-onHighlightLanguage = { onHighlightLanguage }
-onConfirmLanguage = { onConfirmLanguage }
+ledgerLineItems = { ledgerLineItems }
+ledgerTotal = { ledgerTotal }
+paymentStatus = { paymentStatus }
+agreementBypassPending = { agreementBypassPending }
+assignedResourceType = { assignedResourceType }
+assignedResourceNumber = { assignedResourceNumber }
+inventoryAvailable = { inventoryAvailable }
+proposedRentalType = { proposedRentalType }
 onHighlightMembership = { onHighlightMembership }
 onConfirmMembershipSixMonth = { onConfirmMembershipSixMonth }
 onHighlightRental = { onHighlightRental }
@@ -345,6 +368,7 @@ onHighlightWaitlistBackup = { onHighlightWaitlistBackup }
 onSelectWaitlistBackupAsCustomer = { onSelectWaitlistBackupAsCustomer }
 onSelectRentalAsCustomer = { props.onSelectRentalAsCustomer }
 onDirectSelectWaitlistBackup = { onDirectSelectWaitlistBackup }
+onBypassAgreement = { onBypassAgreement }
   />
   </div>
   </div>
