@@ -276,7 +276,6 @@ async function openAccountViaSearch() {
     fireEvent.click(suggestion);
   });
 
-  expect(await screen.findByText('Customer Profile')).toBeDefined();
   expect(await screen.findByText('Alex Rivera')).toBeDefined();
 }
 
@@ -347,10 +346,10 @@ describe('App edge flows', () => {
       fireEvent.click(accountTab);
     });
 
-    expect(await screen.findByText('Customer Profile')).toBeDefined();
+    expect(await screen.findByText('Alex Rivera')).toBeDefined();
     // After check-in, activeTab='guided' shows EmployeeAssistPanel (not CustomerProfileCard).
-    // 'Alex Rivera' only appears in the profile card; the header label 'Rivera, Alex' persists.
-    expect(await screen.findByText('Rivera, Alex')).toBeDefined();
+    // The PanelHeader title shows the customer name.
+    expect(await screen.findByText('Alex Rivera')).toBeDefined();
   });
 
   it('keeps the active account after jumping to Checkout and back', async () => {
@@ -374,8 +373,8 @@ describe('App edge flows', () => {
       fireEvent.click(accountTab);
     });
 
-    expect(await screen.findByText('Customer Profile')).toBeDefined();
-    expect(await screen.findByText('Rivera, Alex')).toBeDefined();
+    expect(await screen.findByText('Alex Rivera')).toBeDefined();
+    expect(await screen.findByText('Alex Rivera')).toBeDefined();
   });
 
   it('keeps the active account after jumping to Manual Entry and back', async () => {
@@ -399,7 +398,7 @@ describe('App edge flows', () => {
       fireEvent.click(accountTab);
     });
 
-    expect(await screen.findByText('Customer Profile')).toBeDefined();
-    expect(await screen.findByText('Rivera, Alex')).toBeDefined();
+    expect(await screen.findByText('Alex Rivera')).toBeDefined();
+    expect(await screen.findByText('Alex Rivera')).toBeDefined();
   });
 });

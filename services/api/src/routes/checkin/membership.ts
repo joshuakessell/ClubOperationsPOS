@@ -9,7 +9,7 @@ import {
 import { transaction } from '../../db';
 import type { CustomerRow, LaneSessionRow, PaymentIntentRow } from '../../checkin/types';
 import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
-import { assertCustomerLanguageSelected } from '../../checkin/session';
+
 import {
   CompleteMembershipPurchaseSchema,
   MembershipChoiceSchema,
@@ -51,17 +51,17 @@ export function registerCheckinMembershipRoutes(fastify: FastifyInstance): void 
           // Prefer explicit sessionId, else latest active session for lane.
           const sessionResult = sessionId
             ? await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
-                [sessionId]
-              )
+              `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
+              [sessionId]
+            )
             : await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions
+              `SELECT * FROM lane_sessions
                  WHERE lane_id = $1
                    AND status IN ('ACTIVE', 'AWAITING_CUSTOMER', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
                  ORDER BY created_at DESC
                  LIMIT 1`,
-                [laneId]
-              );
+              [laneId]
+            );
 
           if (sessionResult.rows.length === 0) {
             throw { statusCode: 404, message: 'No active session found' };
@@ -74,7 +74,7 @@ export function registerCheckinMembershipRoutes(fastify: FastifyInstance): void 
             throw { statusCode: 400, message: 'Session has no customer' };
           }
 
-          await assertCustomerLanguageSelected(client, session);
+
 
           // Persist membership purchase intent on lane session.
           const intentValue: 'PURCHASE' | 'RENEW' | null = intent === 'NONE' ? null : intent;
@@ -135,9 +135,9 @@ export function registerCheckinMembershipRoutes(fastify: FastifyInstance): void 
 
               const quote = isRenewal
                 ? calculateRenewalQuote({
-                    ...pricingInput,
-                    renewalHours,
-                  })
+                  ...pricingInput,
+                  renewalHours,
+                })
                 : calculatePriceQuote(pricingInput);
 
               await client.query(
@@ -214,17 +214,17 @@ export function registerCheckinMembershipRoutes(fastify: FastifyInstance): void 
         const result = await transaction(async (client) => {
           const sessionResult = sessionId
             ? await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
-                [sessionId]
-              )
+              `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
+              [sessionId]
+            )
             : await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions
+              `SELECT * FROM lane_sessions
                  WHERE lane_id = $1
                    AND status IN ('ACTIVE', 'AWAITING_CUSTOMER', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
                  ORDER BY created_at DESC
                  LIMIT 1`,
-                [laneId]
-              );
+              [laneId]
+            );
 
           if (sessionResult.rows.length === 0) {
             throw { statusCode: 404, message: 'No active session found' };
@@ -233,7 +233,7 @@ export function registerCheckinMembershipRoutes(fastify: FastifyInstance): void 
           const session = sessionResult.rows[0]!;
           const resolvedLaneId = session.lane_id || laneId;
 
-          await assertCustomerLanguageSelected(client, session);
+
 
           const value: 'ONE_TIME' | 'SIX_MONTH' | null =
             choice === 'NONE' ? null : (choice as 'ONE_TIME' | 'SIX_MONTH');
@@ -307,17 +307,17 @@ export function registerCheckinMembershipRoutes(fastify: FastifyInstance): void 
           // Prefer explicit sessionId, else latest active session for lane.
           const sessionResult = sessionId
             ? await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
-                [sessionId]
-              )
+              `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
+              [sessionId]
+            )
             : await client.query<LaneSessionRow>(
-                `SELECT * FROM lane_sessions
+              `SELECT * FROM lane_sessions
                  WHERE lane_id = $1
                    AND status IN ('ACTIVE', 'AWAITING_CUSTOMER', 'AWAITING_ASSIGNMENT', 'AWAITING_PAYMENT', 'AWAITING_SIGNATURE')
                  ORDER BY created_at DESC
                  LIMIT 1`,
-                [laneId]
-              );
+              [laneId]
+            );
 
           if (sessionResult.rows.length === 0) {
             throw { statusCode: 404, message: 'No active session found' };

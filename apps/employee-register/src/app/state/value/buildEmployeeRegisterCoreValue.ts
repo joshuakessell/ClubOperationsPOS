@@ -251,6 +251,7 @@ export function buildEmployeeRegisterCoreValue(params: EmployeeRegisterCoreParam
     handleSelectWaitlistBackupAsCustomer: selectionActions.handleSelectWaitlistBackupAsCustomer,
     handleDirectSelectWaitlistBackup: selectionActions.handleDirectSelectWaitlistBackup,
     handleConfirmSelection: selectionActions.handleConfirmSelection,
+    handleStartAgreementBypass: selectionActions.handleStartAgreementBypass,
     renewalSelection: renewalSelectionState.renewalSelection,
     renewalSelectionError: renewalSelectionState.renewalSelectionError,
     openRenewalSelection: renewalSelectionState.openRenewalSelection,

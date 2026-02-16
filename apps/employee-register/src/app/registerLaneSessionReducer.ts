@@ -67,7 +67,6 @@ export type RegisterLaneSessionState = {
 
   flowVersion: number | null;
   flowStep:
-  | 'LANGUAGE'
   | 'RENTAL'
   | 'WAITLIST_PREFERENCES'
   | 'WAITLIST_BACKUP'
@@ -229,9 +228,10 @@ export function registerLaneSessionReducer(
         next.flowVersion = typeof p.flowVersion === 'number' ? p.flowVersion : null;
       }
       if (p.flowStep !== undefined) {
+        // LANGUAGE is no longer a valid flow step but may appear in old DB records;
+        // treat it as null (unset).
         next.flowStep =
-          p.flowStep === 'LANGUAGE' ||
-            p.flowStep === 'RENTAL' ||
+          p.flowStep === 'RENTAL' ||
             p.flowStep === 'WAITLIST_PREFERENCES' ||
             p.flowStep === 'WAITLIST_BACKUP' ||
             p.flowStep === 'PAYMENT' ||
