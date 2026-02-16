@@ -32,7 +32,6 @@ export function useKioskActions({
   setView: (
     view:
       | 'idle'
-      | 'language'
       | 'selection'
       | 'payment'
       | 'agreement'

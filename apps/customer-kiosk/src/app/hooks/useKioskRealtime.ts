@@ -33,7 +33,6 @@ type KioskRealtimeSessionActions = {
   setView: (
     view:
       | 'idle'
-      | 'language'
       | 'selection'
       | 'payment'
       | 'agreement'
