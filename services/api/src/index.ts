@@ -37,10 +37,11 @@ import {
 } from './routes';
 import { createBroadcaster, type Broadcaster } from './realtime/broadcaster';
 import { LocalLaneSockets } from './realtime/localSockets';
-import { initializeDatabase, closeDatabase } from './db';
+import { initializeDatabase, closeDatabase, getPool } from './db';
 import { cleanupAbandonedRegisterSessions } from './routes/registers';
 import { seedDemoData } from './db/seed-demo';
 import { expireWaitlistEntries } from './waitlist/expireWaitlist';
+import { startAutoReplayOutbox } from './checkin/autoReplayOutbox';
 import { processUpgradeHoldsTick } from './waitlist/upgradeHolds';
 
 loadEnvFromDotEnvIfPresent();
@@ -85,9 +86,14 @@ async function main() {
     },
   });
 
-  // Register CORS
+  // Register CORS — lock origins to an explicit allow-list in production.
+  // ALLOWED_ORIGINS can be a comma-separated list (e.g. "https://a.com,https://b.com").
+  // Falls back to `true` (any origin) only when unset, for local development.
+  const allowedOrigins = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(',').map((o) => o.trim()).filter(Boolean)
+    : true;
   await fastify.register(cors, {
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
   });
 
@@ -190,12 +196,16 @@ async function main() {
   await fastify.register(orderRoutes);
   await fastify.register(customerSpendLedgerRoutes);
 
+  // Auto-replay outbox (edge stack only)
+  const autoReplayAbort = new AbortController();
+
   // Graceful shutdown
   const shutdown = async () => {
     fastify.log.info('Shutting down...');
+    autoReplayAbort.abort();
     clearInterval(cleanupInterval);
     clearInterval(waitlistExpiryInterval);
-    clearInterval(upgradeHoldInterval);
+    if (upgradeHoldInterval) clearInterval(upgradeHoldInterval);
     await fastify.close();
     if (!SKIP_DB) {
       await closeDatabase();
@@ -222,30 +232,58 @@ async function main() {
     fastify.log.info('  GET  /v1/cleaning/batches');
 
     if (!SKIP_DB) {
-      void (async () => {
+      const DB_INIT_MAX_RETRIES = 5;
+      const DB_INIT_BASE_DELAY_MS = 2_000;
+      let dbInitialized = false;
+
+      for (let attempt = 1; attempt <= DB_INIT_MAX_RETRIES; attempt++) {
         try {
           await initializeDatabase();
           fastify.dbHealthy = true;
           fastify.log.info('Database connection initialized');
-
-          // Seed demo data if DEMO_MODE is enabled
-          if (process.env.DEMO_MODE === 'true') {
-            if (SEED_ON_STARTUP) {
-              fastify.log.info(
-                'DEMO_MODE enabled, rebuilding demo data on startup (SEED_ON_STARTUP=true)...'
-              );
-            } else {
-              fastify.log.info(
-                'DEMO_MODE enabled; restoring demo snapshot and shifting timestamps (fast startup).'
-              );
-            }
-            await seedDemoData({ forceReseed: SEED_ON_STARTUP });
-          }
+          dbInitialized = true;
+          break;
         } catch (err) {
           fastify.dbHealthy = false;
-          fastify.log.error(err, 'Failed to initialize database');
+          const delayMs = DB_INIT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+          fastify.log.error(
+            err,
+            `Failed to initialize database (attempt ${attempt}/${DB_INIT_MAX_RETRIES}), retrying in ${delayMs}ms...`
+          );
+          if (attempt < DB_INIT_MAX_RETRIES) {
+            await new Promise((r) => setTimeout(r, delayMs));
+          }
         }
-      })();
+      }
+
+      if (dbInitialized) {
+        // Start auto-replay for edge stack
+        if (process.env.EDGE_STACK === 'true' && process.env.CLOUD_API_BASE_URL) {
+          startAutoReplayOutbox({
+            pool: getPool(),
+            cloudApiBase: process.env.CLOUD_API_BASE_URL.replace(/\/$/, ''),
+            kioskToken: KIOSK_TOKEN!,
+            signal: autoReplayAbort.signal,
+            log: (...args: unknown[]) => fastify.log.info(String(args.map(String).join(' '))),
+          });
+          fastify.log.info('Auto-replay outbox service started (EDGE_STACK=true)');
+        }
+
+        if (process.env.DEMO_MODE === 'true') {
+          if (SEED_ON_STARTUP) {
+            fastify.log.info(
+              'DEMO_MODE enabled, rebuilding demo data on startup (SEED_ON_STARTUP=true)...'
+            );
+          } else {
+            fastify.log.info(
+              'DEMO_MODE enabled; restoring demo snapshot and shifting timestamps (fast startup).'
+            );
+          }
+          await seedDemoData({ forceReseed: SEED_ON_STARTUP });
+        }
+      } else {
+        fastify.log.error(`Database initialization failed after ${DB_INIT_MAX_RETRIES} attempts. Server is running but database is unavailable.`);
+      }
     }
   } catch (err) {
     fastify.log.error(err);

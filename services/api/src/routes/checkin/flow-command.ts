@@ -10,6 +10,21 @@ import { getLaneFeatureFlags } from '../../checkin/laneFeatureFlags';
 import { assertLaneWriteAuthority } from '../../checkin/laneAuthority';
 import { writeOfflineOutboxRecord } from '../../checkin/offlineOutbox';
 
+/**
+ * Structured error for flow command failures.
+ * Extends Error so stack traces, Sentry, and Fastify error hooks work correctly.
+ */
+class FlowCommandError extends Error {
+  readonly statusCode: number;
+  readonly error: string;
+  constructor(statusCode: number, error: string, message: string) {
+    super(message);
+    this.name = 'FlowCommandError';
+    this.statusCode = statusCode;
+    this.error = error;
+  }
+}
+
 type FlowActor = 'CUSTOMER' | 'EMPLOYEE' | 'SYSTEM';
 
 type FlowStep =
@@ -142,7 +157,7 @@ function assertAllowedStepTransition(params: {
   // CANCEL does not change steps.
   if (type === 'CANCEL_STEP') {
     if (nextStep !== currentStep) {
-      throw { statusCode: 400, error: 'InvalidTransition', message: 'CANCEL_STEP cannot change step' };
+      throw new FlowCommandError(400, 'InvalidTransition', 'CANCEL_STEP cannot change step');
     }
     return;
   }
@@ -151,11 +166,7 @@ function assertAllowedStepTransition(params: {
   if (type === 'BACK_STEP') {
     const expected = getPreviousFlowStep(currentStep);
     if (nextStep !== expected) {
-      throw {
-        statusCode: 400,
-        error: 'InvalidTransition',
-        message: `BACK_STEP must move to ${expected}`,
-      };
+      throw new FlowCommandError(400, 'InvalidTransition', `BACK_STEP must move to ${expected}`);
     }
     return;
   }
@@ -165,11 +176,7 @@ function assertAllowedStepTransition(params: {
   if (nextIndex < currentIndex) return;
   if (nextIndex === currentIndex + 1) return;
 
-  throw {
-    statusCode: 400,
-    error: 'InvalidTransition',
-    message: `SET_STEP may only advance by one step (or jump backwards). ${currentStep} -> ${nextStep} not allowed`,
-  };
+  throw new FlowCommandError(400, 'InvalidTransition', `SET_STEP may only advance by one step (or jump backwards). ${currentStep} -> ${nextStep} not allowed`);
 }
 
 function assertStepIsValidForFlow(params: { currentStep: FlowStep; nextStep: FlowStep }): void {
@@ -182,11 +189,7 @@ function assertStepIsValidForFlow(params: { currentStep: FlowStep; nextStep: Flo
 
   const allowed = ALLOWED_STEP_TRANSITIONS[currentStep];
   if (!allowed.has(nextStep)) {
-    throw {
-      statusCode: 400,
-      error: 'InvalidTransition',
-      message: `Transition ${currentStep} -> ${nextStep} is not allowed`,
-    };
+    throw new FlowCommandError(400, 'InvalidTransition', `Transition ${currentStep} -> ${nextStep} is not allowed`);
   }
 }
 
@@ -221,7 +224,7 @@ function computeFlowUpdate(input: {
   if (type === 'SET_STEP') {
     const requested = parseFlowStep(payload?.['step']);
     if (!requested) {
-      throw { statusCode: 400, error: 'InvalidPayload', message: 'payload.step is required' };
+      throw new FlowCommandError(400, 'InvalidPayload', 'payload.step is required');
     }
 
     // When jumping backwards, clear everything after the requested step.
@@ -264,40 +267,29 @@ function computeFlowUpdate(input: {
   }
 
   // For command-specific step transitions (Propose/Confirm typically advance step)
-  const typeStr = type as string;
-  let nextTargetStep = currentStep;
-  if (typeStr === 'PROPOSE_SELECTION' || typeStr === 'CONFIRM_SELECTION') {
-    if (typeStr === 'CONFIRM_SELECTION' && currentStep === 'RENTAL') {
+  const noClear = {
+    rental: false,
+    waitlistPreferences: false,
+    waitlistBackup: false,
+    paymentIntent: false,
+    agreement: false,
+  };
+
+  if (type === 'PROPOSE_SELECTION' || type === 'CONFIRM_SELECTION') {
+    let nextTargetStep = currentStep;
+    if (type === 'CONFIRM_SELECTION' && currentStep === 'RENTAL') {
       nextTargetStep = 'WAITLIST_PREFERENCES';
     }
     // No clearing for these; they are purely additive.
-    return {
-      nextStep: nextTargetStep,
-      clear: {
-        rental: false,
-        waitlistPreferences: false,
-        waitlistBackup: false,
-        paymentIntent: false,
-        agreement: false,
-      },
-    };
+    return { nextStep: nextTargetStep, clear: noClear };
   }
 
-  if (typeStr === 'WAITLIST_UPDATE') {
+  if (type === 'WAITLIST_UPDATE') {
     // Purely additive update to draft fields.
-    return {
-      nextStep: currentStep,
-      clear: {
-        rental: false,
-        waitlistPreferences: false,
-        waitlistBackup: false,
-        paymentIntent: false,
-        agreement: false,
-      },
-    };
+    return { nextStep: currentStep, clear: noClear };
   }
 
-  if (typeStr === 'CANCEL_STEP') {
+  if (type === 'CANCEL_STEP') {
     // CANCEL_STEP clears the step we are currently on, without changing step.
     const clear = {
       rental: currentStep === 'RENTAL',
@@ -310,17 +302,8 @@ function computeFlowUpdate(input: {
     return { nextStep: currentStep, clear };
   }
 
-  // Fallback for any other types
-  return {
-    nextStep: currentStep,
-    clear: {
-      rental: false,
-      waitlistPreferences: false,
-      waitlistBackup: false,
-      paymentIntent: false,
-      agreement: false,
-    },
-  };
+  // Exhaustive fallback — should be unreachable with current FlowCommandType union.
+  return { nextStep: currentStep, clear: noClear };
 }
 
 async function isFlowCommandsEnabled(params: {
@@ -339,6 +322,8 @@ async function isLanFallbackEnabledForLane(params: {
   const flags = await getLaneFeatureFlags(params.client, params.laneId);
   return flags.lanFallbackEnabled;
 }
+// NOTE: This function is duplicated from realtime-lan.ts (B-8 review finding).
+// A future refactor should extract both into a shared `checkin/laneFeatureFlags.ts` utility.
 
 export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void {
   fastify.post<{
@@ -390,12 +375,12 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
       try {
         const result = await transaction(async (client) => {
           if (!(await isFlowCommandsEnabled({ client, laneId }))) {
-            throw { statusCode: 404, message: 'Not Found' };
+            throw new FlowCommandError(404, 'NotFound', 'Not Found');
           }
 
           const authority = await assertLaneWriteAuthority({ client, laneId });
           if (!authority.allowed) {
-            throw { statusCode: 409, error: 'LaneNotAuthoritative', message: authority.reason };
+            throw new FlowCommandError(409, 'LaneNotAuthoritative', authority.reason ?? 'Lane write not allowed');
           }
 
           const lanMode = await isLanFallbackEnabledForLane({ client, laneId });
@@ -408,7 +393,7 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           );
 
           if (locked.rows.length === 0) {
-            throw { statusCode: 404, message: 'Session not found' };
+            throw new FlowCommandError(404, 'NotFound', 'Session not found');
           }
 
           const session = locked.rows[0]!;
@@ -427,11 +412,7 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           }
 
           if (typeof expectedFlowVersion === 'number' && expectedFlowVersion !== currentVersion) {
-            throw {
-              statusCode: 409,
-              error: 'VersionMismatch',
-              message: `expectedFlowVersion ${expectedFlowVersion} does not match current ${currentVersion}`,
-            };
+            throw new FlowCommandError(409, 'VersionMismatch', `expectedFlowVersion ${expectedFlowVersion} does not match current ${currentVersion}`);
           }
 
           await client.query(
@@ -468,13 +449,13 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           if (type === 'PROPOSE_SELECTION') {
             const rentalType = typeof payload?.['rentalType'] === 'string' ? payload['rentalType'] : null;
             if (!rentalType) {
-              throw { statusCode: 400, error: 'InvalidPayload', message: 'payload.rentalType is required' };
+              throw new FlowCommandError(400, 'InvalidPayload', 'payload.rentalType is required');
             }
 
 
 
             if (session.selection_confirmed) {
-              throw { statusCode: 400, error: 'SelectionLocked', message: 'Selection is already locked' };
+              throw new FlowCommandError(400, 'SelectionLocked', 'Selection is already locked');
             }
 
             nextProposedRentalType = rentalType;
@@ -484,7 +465,7 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
           if (type === 'CONFIRM_SELECTION') {
 
             if (!session.proposed_rental_type && !nextProposedRentalType) {
-              throw { statusCode: 400, error: 'NoProposal', message: 'No selection proposed yet' };
+              throw new FlowCommandError(400, 'NoProposal', 'No selection proposed yet');
             }
 
             nextSelectionConfirmed = true;
@@ -569,7 +550,7 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
             sessionId,
           ];
 
-          await client.query(
+          const updatedSession = await client.query<LaneSessionRow>(
             `UPDATE lane_sessions
              SET status = $1::public.lane_session_status,
                  flow_step = $2,
@@ -592,18 +573,12 @@ export function registerCheckinFlowCommandRoutes(fastify: FastifyInstance): void
                  disclaimers_ack_json = CASE WHEN $19 THEN NULL ELSE disclaimers_ack_json END,
                  agreement_bypass_pending = CASE WHEN $20 THEN false ELSE agreement_bypass_pending END,
                  updated_at = NOW()
-             WHERE id = $21`,
+             WHERE id = $21
+             RETURNING *`,
             params
           );
 
-          const updated = await client.query<LaneSessionRow>(
-            `SELECT * FROM lane_sessions WHERE id = $1 LIMIT 1`,
-            [sessionId]
-          );
-
-          const updatedSession = updated.rows[0]!;
-
-          return { applied: true as const, deduped: false as const, session: updatedSession };
+          return { applied: true as const, deduped: false as const, session: updatedSession.rows[0]! };
         });
 
         const { laneId: sessionLaneId, payload: sessionPayload } = await transaction((client) =>
