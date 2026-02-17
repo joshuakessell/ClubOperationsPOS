@@ -27,7 +27,7 @@ Legend:
 
 - [x] Define canonical transition table for steps (allowed transitions)
 - [x] Implement transition-specific clearing rules for each step:
-  - [x] LANGUAGE
+  - [x] LANGUAGE (removed as active flow step; retained for backward compat with old DB records)
   - [x] RENTAL
   - [x] WAITLIST_PREFERENCES
   - [x] WAITLIST_BACKUP
@@ -45,7 +45,7 @@ Legend:
 
 ## 3) Backend: Route Legacy Endpoints Through Command Engine
 
-- [x] `set-language` increments flow_version when FLOW_COMMANDS enabled
+- [x] `set-language` updates customer preference (no longer a flow step transition)
 - [x] Route `selection` endpoints through command engine (propose/force/lock)
 - [x] Route waitlist preference + backup endpoints through command engine
 - [x] Route payment-intent creation/updates through command engine (step bump + audit)

@@ -11,7 +11,8 @@
 ---
 
 ### Product/Behavior Contract (Decision-Complete)
-- Shared flow steps: `LANGUAGE -> RENTAL -> WAITLIST_PREFERENCES -> WAITLIST_BACKUP -> PAYMENT -> AGREEMENT -> COMPLETE`.
+- Shared flow steps: `RENTAL -> WAITLIST_PREFERENCES -> WAITLIST_BACKUP -> PAYMENT -> AGREEMENT -> COMPLETE`.
+  - Language defaults to English; customers can toggle to Spanish via an on-screen button (no dedicated flow step).
 - Employee shared buttons behavior:
   - First tap on shared option: highlight/propose for customer.
   - Second tap same option: confirm/force selection.

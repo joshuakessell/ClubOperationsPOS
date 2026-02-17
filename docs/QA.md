@@ -4,7 +4,7 @@ This QA script mirrors the automated tests and is intended for on-device validat
 
 ---
 
-## 1) Language persistence
+## 1) Language preference
 
 - **Setup**:
   - Have an existing customer record in `customers` with `primary_language` unset.
@@ -12,16 +12,16 @@ This QA script mirrors the automated tests and is intended for on-device validat
 
 - **Steps**:
   - In employee-register, **manually select a customer** (search + confirm).
-  - On customer-kiosk, confirm the **language selection screen** appears.
-  - Tap a language (EN or ES).
-  - Verify customer-kiosk proceeds to the next view (selection/payment gating as applicable).
-  - Simulate “reload”:
-    - Refresh the kiosk page (or restart the kiosk app).
-    - Re-open the same customer/lane session (employee-register confirm customer again if needed).
+  - On customer-kiosk, confirm the session starts in **English by default** (no language selection step).
+  - Tap the **language toggle button** on the kiosk screen to switch to Spanish.
+  - Verify the kiosk UI updates to Spanish immediately.
+  - In employee-register, open the customer profile and use the **preferred language button** to change language.
 
 - **Expected**:
-  - **Language prompt does not reappear** for the same customer once `primary_language` is set.
-  - Kiosk proceeds directly to the next appropriate screen.
+  - **No language selection step** at the start of the checkin flow.
+  - Language defaults to English for all new sessions.
+  - The on-screen toggle and employee profile button allow switching to Spanish.
+  - Once `primary_language` is saved, future sessions for the same customer respect the saved preference.
 
 ---
 
@@ -61,7 +61,7 @@ Test each match type using known fixtures:
 
 - **Fallback name + DOB enrich**:
   - Start with a customer that has `name` + `dob`, but no `id_scan_hash/value`.
-  - Scan that customer’s state ID.
+  - Scan that customer's state ID.
   - Expected: customer matches via name+DOB and the system **writes** `id_scan_hash/value` so the **next** scan matches instantly.
 
 ---
