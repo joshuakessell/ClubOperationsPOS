@@ -663,53 +663,15 @@ body {
 }
 
 /* ═══════════════════════════════════════════════════════════ */
-/* ── Lock Screen (Batch 2) ──────────────────────────────── */
+/* ── Auth / Sign-In Utilities ───────────────────────────── */
 /* ═══════════════════════════════════════════════════════════ */
 
-.lock-screen {
-  @apply min-h-screen flex items-center justify-center p-8;
-  background: var(--er-bg);
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
 }
-.lock-screen-content {
-  @apply w-full max-w-md p-8 flex flex-col gap-6;
-}
-.lock-screen-header {
-  @apply text-center;
-}
-.lock-screen-header h1 {
-  @apply text-2xl font-bold text-white mb-2;
-}
-.lock-screen-header p {
-  @apply text-sm;
-  color: var(--er-text-muted);
-}
-.lock-screen-error {
-  @apply p-3 rounded-lg text-sm text-white;
-  background: rgba(239, 68, 68, 0.18);
-  border: 1px solid rgba(239, 68, 68, 0.35);
-}
-.lock-screen-tabs {
-  @apply flex gap-2;
-}
-.lock-screen-tabs .tab-button {
-  @apply flex-1;
-}
-.lock-screen-webauthn {
-  @apply flex flex-col gap-4;
-}
-.lock-screen-pin {
-  @apply flex flex-col gap-4;
-}
-.staff-lookup-input {
-  @apply w-full;
-}
-.webauthn-button {
-  @apply w-full py-3 font-bold;
-}
-.webauthn-fallback-button,
-.pin-fallback-button {
-  @apply w-full py-2.5 text-sm;
-}
+.animate-shake { animation: shake 0.5s ease-in-out; }
 
 /* ═══════════════════════════════════════════════════════════ */
 /* ── Scan Panel (Batch 3) ───────────────────────────────── */

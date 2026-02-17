@@ -58,14 +58,14 @@ const mockRegisterFetch = () => {
 };
 
 describe('App', () => {
-  it('renders lock screen when not authenticated', () => {
+  it('renders auth page when not authenticated', () => {
     const App = getApp();
     act(() => {
       render(<App />);
     });
-    // When not authenticated, LockScreen is shown instead of the main app
-    // The LockScreen component should be rendered
-    expect(screen.queryByText('Employee Register')).toBeNull();
+    // When not authenticated, the full-page auth card is shown with the title
+    expect(screen.getByText('Employee Register')).toBeDefined();
+    expect(screen.getByText('Select Employee')).toBeDefined();
   });
 
   it('renders the register header when authenticated', async () => {

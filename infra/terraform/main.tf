@@ -60,6 +60,48 @@ resource "aws_s3_bucket_policy" "employee_kiosk" {
 }
 
 # --------------------------------------------------------------------------
+# IAM — GitHub Actions deploy role: S3 permissions for employee-kiosk
+# --------------------------------------------------------------------------
+
+data "aws_iam_role" "github_actions_deploy" {
+  name = "${var.project_name}-${var.environment}-github-actions-deploy"
+}
+
+resource "aws_iam_role_policy" "github_actions_deploy_employee_kiosk" {
+  name = "DeployEmployeeKiosk"
+  role = data.aws_iam_role.github_actions_deploy.name
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid      = "ListEmployeeKioskBucket"
+        Effect   = "Allow"
+        Action   = "s3:ListBucket"
+        Resource = aws_s3_bucket.employee_kiosk.arn
+      },
+      {
+        Sid    = "WriteEmployeeKioskBucket"
+        Effect = "Allow"
+        Action = [
+          "s3:PutObject",
+          "s3:DeleteObject"
+        ]
+        Resource = "${aws_s3_bucket.employee_kiosk.arn}/*"
+      },
+      {
+        Sid      = "InvalidateEmployeeKioskDistribution"
+        Effect   = "Allow"
+        Action   = "cloudfront:CreateInvalidation"
+        Resource = aws_cloudfront_distribution.employee_kiosk.arn
+      }
+    ]
+  })
+}
+
+
+
+# --------------------------------------------------------------------------
 # CloudFront — CDN with SPA routing
 # --------------------------------------------------------------------------
 
