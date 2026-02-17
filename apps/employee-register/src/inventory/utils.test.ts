@@ -10,7 +10,7 @@ import {
   groupRooms,
   sortGroupedRooms,
 } from './utils';
-import type { DetailedRoom } from './types';
+import type { DetailedRoom, RoomGroup } from './types';
 
 // ---------------------------------------------------------------------------
 // isRecord
@@ -214,7 +214,7 @@ describe('groupRooms', () => {
 describe('sortGroupedRooms', () => {
   const makeGrouped = (group: string, number: string, extra: Record<string, unknown> = {}) => ({
     room: { number, tier: 'STANDARD', status: RoomStatus.CLEAN, id: `r-${number}` } as DetailedRoom,
-    group: group as any,
+    group: group as RoomGroup,
     ...extra,
   });
 

@@ -14,7 +14,14 @@ function makeInput(overrides: Partial<Parameters<typeof deriveCheckinStage>[0]> 
     customerMembershipValidUntil: null as string | null,
     membershipPurchaseIntent: null as 'PURCHASE' | 'RENEW' | null,
     membershipChoice: null as 'ONE_TIME' | 'SIX_MONTH' | null,
-    flowStep: null as any,
+    flowStep: null as
+      | 'RENTAL'
+      | 'WAITLIST_PREFERENCES'
+      | 'WAITLIST_BACKUP'
+      | 'PAYMENT'
+      | 'AGREEMENT'
+      | 'COMPLETE'
+      | null,
     ...overrides,
   };
 }

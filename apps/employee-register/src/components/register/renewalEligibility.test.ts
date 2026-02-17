@@ -1,5 +1,21 @@
 import { describe, it, expect } from 'vitest';
 import { formatLocal, getRenewalEligibility } from './renewalEligibility';
+import type { ActiveCheckinDetails } from './modals/AlreadyCheckedInModal';
+
+/** Helper to build a minimal ActiveCheckinDetails with overrides */
+function makeCheckin(overrides: Partial<ActiveCheckinDetails> = {}): ActiveCheckinDetails {
+  return {
+    visitId: 'v-1',
+    rentalType: null,
+    assignedResourceType: null,
+    assignedResourceNumber: null,
+    checkinAt: null,
+    checkoutAt: null,
+    overdue: null,
+    waitlist: null,
+    ...overrides,
+  };
+}
 
 describe('formatLocal', () => {
   it('returns dash for null', () => {
@@ -38,17 +54,17 @@ describe('getRenewalEligibility', () => {
   });
 
   it('returns ineligible when checkoutAt is missing', () => {
-    const result = getRenewalEligibility({ checkoutAt: undefined } as any);
+    const result = getRenewalEligibility(makeCheckin({ checkoutAt: null }));
     expect(result.withinWindow).toBe(false);
   });
 
   it('returns withinWindow=true when checkout is within 1 hour', () => {
     const now = new Date();
     const checkoutAt = new Date(now.getTime() + 30 * 60 * 1000).toISOString(); // 30 mins from now
-    const result = getRenewalEligibility({
+    const result = getRenewalEligibility(makeCheckin({
       checkoutAt,
       currentTotalHours: 4,
-    } as any);
+    }));
     expect(result.withinWindow).toBe(true);
     expect(result.totalHours).toBe(4);
   });
@@ -56,20 +72,20 @@ describe('getRenewalEligibility', () => {
   it('returns withinWindow=false when checkout is more than 1 hour away', () => {
     const now = new Date();
     const checkoutAt = new Date(now.getTime() + 2 * 60 * 60 * 1000).toISOString(); // 2 hours away
-    const result = getRenewalEligibility({
+    const result = getRenewalEligibility(makeCheckin({
       checkoutAt,
       currentTotalHours: 4,
-    } as any);
+    }));
     expect(result.withinWindow).toBe(false);
   });
 
   it('allows 2-hour renewal when total + 2 <= 14', () => {
     const now = new Date();
     const checkoutAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
-    const result = getRenewalEligibility({
+    const result = getRenewalEligibility(makeCheckin({
       checkoutAt,
       currentTotalHours: 12,
-    } as any);
+    }));
     expect(result.allowTwoHour).toBe(true);
     expect(result.allowSixHour).toBe(false);
   });
@@ -77,10 +93,10 @@ describe('getRenewalEligibility', () => {
   it('disallows 2-hour renewal when total + 2 > 14', () => {
     const now = new Date();
     const checkoutAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
-    const result = getRenewalEligibility({
+    const result = getRenewalEligibility(makeCheckin({
       checkoutAt,
       currentTotalHours: 13,
-    } as any);
+    }));
     expect(result.allowTwoHour).toBe(false);
     expect(result.allowSixHour).toBe(false);
   });
@@ -88,10 +104,10 @@ describe('getRenewalEligibility', () => {
   it('allows 6-hour renewal when total + 6 <= 14', () => {
     const now = new Date();
     const checkoutAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
-    const result = getRenewalEligibility({
+    const result = getRenewalEligibility(makeCheckin({
       checkoutAt,
       currentTotalHours: 6,
-    } as any);
+    }));
     expect(result.allowTwoHour).toBe(true);
     expect(result.allowSixHour).toBe(true);
   });
@@ -99,13 +115,14 @@ describe('getRenewalEligibility', () => {
   it('handles null currentTotalHours', () => {
     const now = new Date();
     const checkoutAt = new Date(now.getTime() + 10 * 60 * 1000).toISOString();
-    const result = getRenewalEligibility({
+    const result = getRenewalEligibility(makeCheckin({
       checkoutAt,
       currentTotalHours: null,
-    } as any);
+    }));
     expect(result.withinWindow).toBe(true);
     expect(result.totalHours).toBeNull();
     expect(result.allowTwoHour).toBe(false);
     expect(result.allowSixHour).toBe(false);
   });
 });
+
