@@ -3,12 +3,8 @@ import { BottomToastStack } from '../../components/register/toasts/BottomToastSt
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 
 export function NotificationsRoot() {
-  const {
-    successToastMessage,
-    setSuccessToastMessage,
-    bottomToasts,
-    dismissBottomToast,
-  } = useEmployeeRegisterState();
+  const { successToastMessage, setSuccessToastMessage, bottomToasts, dismissBottomToast } =
+    useEmployeeRegisterState();
 
   return (
     <>

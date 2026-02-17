@@ -254,7 +254,7 @@ export function RequiredTenderOutcomeModal({
     <div className="er-required-modal__overlay" role="presentation">
       <div
         ref={modalRef}
-        className="er-required-modal cs-liquid-card glass-effect"
+        className="er-required-modal rounded-2xl border border-gray-200 bg-white/80 shadow-theme-lg backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/80"
         role="dialog"
         aria-modal="true"
         aria-label="Process payment"
@@ -313,8 +313,10 @@ export function RequiredTenderOutcomeModal({
                       type="button"
                       data-choice={o.value}
                       className={[
-                        'cs-liquid-button',
-                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+                        'rounded-lg border px-3 py-2.5 text-left transition',
+                        selected
+                          ? 'border-brand-500 bg-brand-50 font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                          : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
                       ].join(' ')}
                       onClick={() => {
                         if (isSubmitting) return;
@@ -330,7 +332,7 @@ export function RequiredTenderOutcomeModal({
                 })}
                 <button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary er-required-modal__split-button"
+                  className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03] er-required-modal__split-button"
                   onClick={() => {
                     if (isSubmitting) return;
                     if (!onSplitCardSuccess) return;
@@ -351,8 +353,7 @@ export function RequiredTenderOutcomeModal({
                   <button
                     type="button"
                     className={[
-                      'cs-liquid-button',
-                      'cs-liquid-button--secondary',
+                      'inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
                       'er-required-modal__addon',
                     ].join(' ')}
                     onClick={() => {

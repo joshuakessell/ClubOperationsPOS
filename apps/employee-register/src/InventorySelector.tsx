@@ -5,7 +5,13 @@ import { InventoryListPane } from './inventory/InventoryListPane';
 import { InventoryNav } from './inventory/InventoryNav';
 import { OccupancyDetailsModal } from './inventory/OccupancyDetailsModal';
 import type { DetailedLocker, DetailedRoom } from './inventory/types';
-import { alertLevelFromMsUntil, getMsUntil, groupRooms, isUuid, sortGroupedRooms } from './inventory/utils';
+import {
+  alertLevelFromMsUntil,
+  getMsUntil,
+  groupRooms,
+  isUuid,
+  sortGroupedRooms,
+} from './inventory/utils';
 import { useInventoryData } from './inventory/useInventoryData';
 import { PanelHeader } from './views/PanelHeader';
 
@@ -339,7 +345,7 @@ export function InventorySelector({
 
         {!occupancyLookupMode && !disableSelection && selectedItem && onClearSelection && (
           <button
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             onClick={onClearSelection}
             style={{ width: '100%', marginBottom: '0.75rem', padding: '0.6rem', fontWeight: 800 }}
           >

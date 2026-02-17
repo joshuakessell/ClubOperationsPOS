@@ -88,7 +88,6 @@ export function useEmployeeRegisterStateValue() {
   const { health } = useHealthStatus(lane);
   const addOnState = useAddOnSaleState();
 
-
   const laneSessionCustomerId = laneBindings.customerId ?? null;
   const navState = useNavigationState({
     setManualEntry,
@@ -173,22 +172,28 @@ export function useEmployeeRegisterStateValue() {
   });
 
   const customerNotesState = useCustomerNotesState({ session, notifications: notifier });
-  const customerSpendLedgerState = useCustomerSpendLedgerState({ session, notifications: notifier });
+  const customerSpendLedgerState = useCustomerSpendLedgerState({
+    session,
+    notifications: notifier,
+  });
   const customerDocumentsState = useCustomerDocumentsState({ session, notifications: notifier });
 
-  const realtimeLaneSessionActions = useMemo(() => ({
-    applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
-    applySelectionProposed: laneBindings.laneSessionActions.applySelectionProposed,
-    applySelectionLocked: laneBindings.laneSessionActions.applySelectionLocked,
-    applySelectionForced: laneBindings.laneSessionActions.applySelectionForced,
-    selectionAcknowledged: laneBindings.laneSessionActions.selectionAcknowledged,
-  }), [
-    laneBindings.laneSessionActions.applySessionUpdated,
-    laneBindings.laneSessionActions.applySelectionProposed,
-    laneBindings.laneSessionActions.applySelectionLocked,
-    laneBindings.laneSessionActions.applySelectionForced,
-    laneBindings.laneSessionActions.selectionAcknowledged,
-  ]);
+  const realtimeLaneSessionActions = useMemo(
+    () => ({
+      applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
+      applySelectionProposed: laneBindings.laneSessionActions.applySelectionProposed,
+      applySelectionLocked: laneBindings.laneSessionActions.applySelectionLocked,
+      applySelectionForced: laneBindings.laneSessionActions.applySelectionForced,
+      selectionAcknowledged: laneBindings.laneSessionActions.selectionAcknowledged,
+    }),
+    [
+      laneBindings.laneSessionActions.applySessionUpdated,
+      laneBindings.laneSessionActions.applySelectionProposed,
+      laneBindings.laneSessionActions.applySelectionLocked,
+      laneBindings.laneSessionActions.applySelectionForced,
+      laneBindings.laneSessionActions.selectionAcknowledged,
+    ]
+  );
 
   const realtimeState = useRegisterRealtimeState({
     lane,
@@ -218,10 +223,16 @@ export function useEmployeeRegisterStateValue() {
     setCustomerConfirmationType: inventorySelectionState.setCustomerConfirmationType,
   });
 
-  const pollingLaneSessionActions = useMemo(() => ({
-    applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
-    resetCleared: laneBindings.laneSessionActions.resetCleared,
-  }), [laneBindings.laneSessionActions.applySessionUpdated, laneBindings.laneSessionActions.resetCleared]);
+  const pollingLaneSessionActions = useMemo(
+    () => ({
+      applySessionUpdated: laneBindings.laneSessionActions.applySessionUpdated,
+      resetCleared: laneBindings.laneSessionActions.resetCleared,
+    }),
+    [
+      laneBindings.laneSessionActions.applySessionUpdated,
+      laneBindings.laneSessionActions.resetCleared,
+    ]
+  );
 
   const { pollOnce } = usePollingFallback({
     lane,
@@ -254,9 +265,12 @@ export function useEmployeeRegisterStateValue() {
     pollOnce,
     setSelectionConfirmed: laneBindings.setSelectionConfirmed,
     setCustomerSelectedType: laneBindings.setCustomerSelectedType,
-    laneSessionActions: useMemo(() => ({
-      patch: laneBindings.laneSessionActions.patch,
-    }), [laneBindings.laneSessionActions.patch]),
+    laneSessionActions: useMemo(
+      () => ({
+        patch: laneBindings.laneSessionActions.patch,
+      }),
+      [laneBindings.laneSessionActions.patch]
+    ),
     notifications: notifier,
   });
 

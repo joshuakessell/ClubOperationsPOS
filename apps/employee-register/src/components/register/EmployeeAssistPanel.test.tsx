@@ -31,8 +31,6 @@ function baseProps() {
 }
 
 describe('EmployeeAssistPanel', () => {
-
-
   it('Skips MEMBERSHIP when customer is already a member (ACTIVE)', () => {
     const props = {
       ...baseProps(),
@@ -41,7 +39,7 @@ describe('EmployeeAssistPanel', () => {
       customerMembershipValidUntil: '2999-01-01',
       membershipChoice: null,
     };
-    render(<EmployeeAssistPanel { ...props } />);
+    render(<EmployeeAssistPanel {...props} />);
     expect(screen.queryByRole('button', { name: 'Add 6-Month Membership' })).toBeNull();
     expect(screen.getByText('Step: RENTAL')).toBeTruthy();
   });
@@ -51,7 +49,7 @@ describe('EmployeeAssistPanel', () => {
       ...baseProps(),
       customerPrimaryLanguage: 'EN' as const,
     };
-    render(<EmployeeAssistPanel { ...props } />);
+    render(<EmployeeAssistPanel {...props} />);
 
     const addMembership = screen.getByRole('button', { name: 'Add 6-Month Membership' });
     fireEvent.click(addMembership);
@@ -69,7 +67,7 @@ describe('EmployeeAssistPanel', () => {
       customerPrimaryLanguage: 'EN' as const,
       membershipChoice: 'ONE_TIME' as const,
     };
-    render(<EmployeeAssistPanel { ...props } />);
+    render(<EmployeeAssistPanel {...props} />);
 
     const buttons = screen.getAllByRole('button');
     const rentalButtons = buttons.filter((b) =>
@@ -97,7 +95,7 @@ describe('EmployeeAssistPanel', () => {
       membershipChoice: 'ONE_TIME' as const,
       inventoryAvailable: { rooms: { STANDARD: 0, DOUBLE: 8, SPECIAL: 2 }, lockers: 12 },
     };
-    render(<EmployeeAssistPanel { ...props } />);
+    render(<EmployeeAssistPanel {...props} />);
 
     // When STANDARD count is 0, the button is not rendered at all (filtered out).
     expect(screen.queryByRole('button', { name: /Propose Private/i })).toBeNull();
@@ -118,7 +116,7 @@ describe('EmployeeAssistPanel', () => {
       customerPrimaryLanguage: 'EN' as const,
       membershipChoice: 'ONE_TIME' as const,
     };
-    render(<EmployeeAssistPanel { ...props } />);
+    render(<EmployeeAssistPanel {...props} />);
 
     const locker = screen.getByRole('button', { name: /Propose Locker/i });
     fireEvent.click(locker);
@@ -138,7 +136,7 @@ describe('EmployeeAssistPanel', () => {
       proposedRentalType: 'LOCKER',
       selectionConfirmed: false,
     };
-    render(<EmployeeAssistPanel { ...props } />);
+    render(<EmployeeAssistPanel {...props} />);
 
     expect(screen.getByText('Step: DONE')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'OK' })).toBeNull();

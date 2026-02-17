@@ -1,6 +1,4 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
-import './PanelCard.css';
-import './PanelShell.css';
 
 type PanelAlign = 'top' | 'center';
 type PanelScroll = 'auto' | 'hidden';
@@ -14,6 +12,12 @@ export type PanelShellProps<T extends ElementType = 'div'> = {
   children: ReactNode;
 } & Omit<ComponentPropsWithoutRef<T>, 'as' | 'className' | 'children'>;
 
+/**
+ * Panel wrapper — uses TailAdmin Card styling by default.
+ *
+ * `card=true` (default): rounded card with border and shadow.
+ * `card=false`: transparent wrapper, no border.
+ */
 export function PanelShell<T extends ElementType = 'div'>({
   as,
   align = 'top',
@@ -24,13 +28,14 @@ export function PanelShell<T extends ElementType = 'div'>({
   ...rest
 }: PanelShellProps<T>) {
   const Component = as ?? 'div';
-  const classes = [
-    'er-panel-shell',
-    align === 'center' ? 'er-panel-shell--center' : 'er-panel-shell--top',
-    scroll === 'hidden' ? 'er-panel-shell--no-scroll' : '',
-    card ? 'cs-liquid-card er-panel-card' : '',
-    className,
-  ]
+
+  const alignClass = align === 'center' ? 'items-center justify-center' : 'items-start';
+  const scrollClass = scroll === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto';
+  const cardClass = card
+    ? 'rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900'
+    : '';
+
+  const classes = ['flex flex-1 min-h-0 flex-col', alignClass, scrollClass, cardClass, className]
     .filter(Boolean)
     .join(' ');
 

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Button } from '@club-ops/ui/tailadmin';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 import { RequiredTenderOutcomeModal } from '../../components/register/modals/RequiredTenderOutcomeModal';
 import { RetailSaleCard } from '../../components/retail/RetailSaleCard';
@@ -61,14 +62,13 @@ export function RetailPanel() {
         onAddItem={addItem}
         onRemoveItem={removeItem}
         footer={
-          <button
-            type="button"
-            className="cs-liquid-button"
+          <Button
             onClick={() => setShowTenderOptions(true)}
             disabled={cartItems.length === 0}
+            fullWidth
           >
             Sale
-          </button>
+          </Button>
         }
       />
 

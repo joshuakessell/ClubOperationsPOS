@@ -33,7 +33,7 @@ export function ManagerBypassModal({
         <select
           value={managerId}
           onChange={(e) => onChangeManagerId(e.target.value)}
-          className="cs-liquid-input"
+          className="h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500 dark:border-gray-700 dark:text-white/90"
           style={{
             width: '100%',
             padding: '0.75rem',
@@ -71,7 +71,7 @@ export function ManagerBypassModal({
         <button
           onClick={onBypass}
           disabled={isSubmitting || !managerId || managerPin.trim().length !== 6}
-          className="cs-liquid-button"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
           style={{
             flex: 1,
             padding: '0.75rem',
@@ -83,7 +83,7 @@ export function ManagerBypassModal({
         </button>
         <button
           onClick={onCancel}
-          className="cs-liquid-button cs-liquid-button--danger"
+          className="inline-flex items-center justify-center rounded-lg border border-error-300 bg-error-50 px-4 py-2.5 text-sm font-semibold text-error-600 shadow-theme-xs transition hover:bg-error-100 dark:border-error-700 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
           style={{
             flex: 1,
             padding: '0.75rem',

@@ -1,10 +1,7 @@
 import { describe, it, expect, type Mock } from 'vitest';
 import { render, screen, fireEvent, waitFor, act } from '@testing-library/react';
 import { CLUBOPS_STORAGE_KEYS } from '@club-ops/shared';
-import {
-  buildRealtimeAuthResponse,
-  setupRegisterAppTest,
-} from './test-utils/registerAppTestUtils';
+import { buildRealtimeAuthResponse, setupRegisterAppTest } from './test-utils/registerAppTestUtils';
 
 const { getApp } = setupRegisterAppTest();
 
@@ -22,7 +19,9 @@ describe('App flow: double tap proposal', () => {
       })
     );
 
-    const fetchMock = global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>;
+    const fetchMock = global.fetch as Mock<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >;
     let proposedRental: string | null = null;
 
     fetchMock.mockImplementation((url: RequestInfo | URL, _init?: RequestInit) => {
@@ -194,7 +193,11 @@ describe('App flow: double tap proposal', () => {
     // currentSessionId changes, then every 2s while realtime is disconnected.
     // The session-snapshot mock returns allowedRentals + language + membership, which
     // advances the guided flow to the RENTAL step.
-    const proposeLocker = await screen.findByRole('button', { name: /Propose Locker/i }, { timeout: 5000 });
+    const proposeLocker = await screen.findByRole(
+      'button',
+      { name: /Propose Locker/i },
+      { timeout: 5000 }
+    );
     act(() => {
       fireEvent.click(proposeLocker); // first tap highlights
     });
@@ -202,9 +205,12 @@ describe('App flow: double tap proposal', () => {
     // The propose-selection call sets proposedRental='LOCKER'. The next poll cycle
     // picks up the updated session-snapshot (with proposedRentalType + proposedBy).
     // Wait for the UI to reflect the proposal via polling.
-    await waitFor(() => {
-      expect(proposeLocker).toHaveProperty('disabled', false);
-    }, { timeout: 5000 });
+    await waitFor(
+      () => {
+        expect(proposeLocker).toHaveProperty('disabled', false);
+      },
+      { timeout: 5000 }
+    );
 
     act(() => {
       fireEvent.click(proposeLocker); // second tap confirms selection

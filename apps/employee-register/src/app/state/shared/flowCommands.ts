@@ -39,4 +39,3 @@ export async function sendFlowCommand(params: {
     throw new Error(getErrorMessage(errorPayload) || 'Failed to send flow command');
   }
 }
-

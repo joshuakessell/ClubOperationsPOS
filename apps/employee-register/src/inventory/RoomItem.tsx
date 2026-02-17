@@ -36,7 +36,7 @@ export function RoomItem({
     <button
       type="button"
       className={[
-        'cs-liquid-card',
+        'rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900',
         'er-inv-item',
         isWaitlistMatch ? 'er-inv-item--waitlist' : '',
         isSelected ? 'er-inv-item--selected' : '',

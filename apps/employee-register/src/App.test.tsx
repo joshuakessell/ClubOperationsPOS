@@ -15,46 +15,46 @@ let mockSessionSnapshot: unknown = null;
 
 const mockRegisterFetch = () => {
   mockSessionSnapshot = null;
-  (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
-    (url: RequestInfo | URL, init?: RequestInit) => {
-      const u =
-        typeof url === 'string'
-          ? url
-          : url instanceof URL
-            ? url.toString()
-            : url instanceof Request
-              ? url.url
-              : '';
-      if (u.includes('/v1/realtime/auth')) {
-        return Promise.resolve(buildRealtimeAuthResponse(init));
-      }
-      if (u.includes('/v1/registers/status')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({
-              signedIn: true,
-              employee: { id: 'emp-1', name: 'Test Employee' },
-              registerNumber: 1,
-            }),
-        } as unknown as Response);
-      }
-      if (u.includes('/v1/checkin/lane/lane-1/session-snapshot')) {
-        return Promise.resolve({
-          ok: true,
-          json: () => Promise.resolve({ session: mockSessionSnapshot }),
-        } as unknown as Response);
-      }
-      if (u.includes('/health')) {
-        return Promise.resolve({
-          ok: true,
-          json: () =>
-            Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
-        } as unknown as Response);
-      }
-      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+  (
+    global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>
+  ).mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+    const u =
+      typeof url === 'string'
+        ? url
+        : url instanceof URL
+          ? url.toString()
+          : url instanceof Request
+            ? url.url
+            : '';
+    if (u.includes('/v1/realtime/auth')) {
+      return Promise.resolve(buildRealtimeAuthResponse(init));
     }
-  );
+    if (u.includes('/v1/registers/status')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            signedIn: true,
+            employee: { id: 'emp-1', name: 'Test Employee' },
+            registerNumber: 1,
+          }),
+      } as unknown as Response);
+    }
+    if (u.includes('/v1/checkin/lane/lane-1/session-snapshot')) {
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({ session: mockSessionSnapshot }),
+      } as unknown as Response);
+    }
+    if (u.includes('/health')) {
+      return Promise.resolve({
+        ok: true,
+        json: () =>
+          Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
+      } as unknown as Response);
+    }
+    return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+  });
 };
 
 describe('App', () => {
@@ -191,67 +191,67 @@ describe('App', () => {
       })
     );
 
-    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
-      (url: RequestInfo | URL, init?: RequestInit) => {
-        const u =
-          typeof url === 'string'
-            ? url
-            : url instanceof URL
-              ? url.toString()
-              : url instanceof Request
-                ? url.url
-                : '';
+    (
+      global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>
+    ).mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const u =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : url instanceof Request
+              ? url.url
+              : '';
 
-        if (u.includes('/v1/realtime/auth')) {
-          return Promise.resolve(buildRealtimeAuthResponse(init));
-        }
-        if (u.includes('/v1/registers/status')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                signedIn: true,
-                employee: { id: 'emp-1', name: 'Test Employee' },
-                registerNumber: 1,
-              }),
-          } as unknown as Response);
-        }
-        if (u.includes('/v1/customers/search')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                suggestions: [
-                  {
-                    id: 'c0ffee00-0000-4000-8000-000000000001',
-                    name: 'Alex Rivera',
-                    firstName: 'Alex',
-                    lastName: 'Rivera',
-                    dobMonthDay: '03/14',
-                    membershipNumber: '700001',
-                    disambiguator: '0001',
-                  },
-                ],
-              }),
-          } as unknown as Response);
-        }
-        if (u.includes('/v1/checkin/lane/lane-1/start')) {
-          return Promise.resolve({
-            ok: true,
-            status: 200,
-            json: () => Promise.resolve({}),
-          } as unknown as Response);
-        }
-        if (u.includes('/health')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
-          } as unknown as Response);
-        }
-        return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse(init));
       }
-    );
+      if (u.includes('/v1/registers/status')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              signedIn: true,
+              employee: { id: 'emp-1', name: 'Test Employee' },
+              registerNumber: 1,
+            }),
+        } as unknown as Response);
+      }
+      if (u.includes('/v1/customers/search')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              suggestions: [
+                {
+                  id: 'c0ffee00-0000-4000-8000-000000000001',
+                  name: 'Alex Rivera',
+                  firstName: 'Alex',
+                  lastName: 'Rivera',
+                  dobMonthDay: '03/14',
+                  membershipNumber: '700001',
+                  disambiguator: '0001',
+                },
+              ],
+            }),
+        } as unknown as Response);
+      }
+      if (u.includes('/v1/checkin/lane/lane-1/start')) {
+        return Promise.resolve({
+          ok: true,
+          status: 200,
+          json: () => Promise.resolve({}),
+        } as unknown as Response);
+      }
+      if (u.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
+        } as unknown as Response);
+      }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve({}) } as unknown as Response);
+    });
 
     act(() => {
       render(<App />);

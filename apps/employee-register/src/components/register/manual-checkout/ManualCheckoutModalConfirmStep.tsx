@@ -41,8 +41,7 @@ export function ManualCheckoutModalConfirmStep({
             <div>
               <div style={{ color: '#94a3b8', fontSize: '0.875rem' }}>Resource</div>
               <div style={{ fontWeight: 800 }}>
-                {confirmCurrent.resourceType === 'ROOM' ? 'Room' : 'Locker'}{' '}
-                {confirmCurrent.number}
+                {confirmCurrent.resourceType === 'ROOM' ? 'Room' : 'Locker'} {confirmCurrent.number}
               </div>
             </div>
             <div>
@@ -81,7 +80,7 @@ export function ManualCheckoutModalConfirmStep({
         <div />
         <button
           type="button"
-          className="cs-liquid-button"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-50"
           onClick={onConfirm}
           disabled={isSubmitting}
         >

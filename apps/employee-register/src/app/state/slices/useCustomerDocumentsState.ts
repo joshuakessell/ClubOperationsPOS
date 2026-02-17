@@ -76,4 +76,3 @@ export function useCustomerDocumentsState({ session, notifications }: Params) {
     [getDocuments, getError, isLoading, loadDocuments]
   );
 }
-

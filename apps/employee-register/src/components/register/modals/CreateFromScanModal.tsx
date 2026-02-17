@@ -87,7 +87,10 @@ export function CreateFromScanModal(props: {
           </div>
         ) : null}
 
-        <div className="cs-liquid-card" style={{ padding: '1rem' }}>
+        <div
+          className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+          style={{ padding: '1rem' }}
+        >
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', color: '#94a3b8' }}>
             <span>
               First:{' '}
@@ -130,10 +133,7 @@ export function CreateFromScanModal(props: {
               </strong>
             </div>
             <div>
-              ID Type:{' '}
-              <strong style={{ color: 'white' }}>
-                {idTypeLabel}
-              </strong>
+              ID Type: <strong style={{ color: 'white' }}>{idTypeLabel}</strong>
             </div>
             <div>
               Issuer / State:{' '}
@@ -170,14 +170,15 @@ export function CreateFromScanModal(props: {
             </div>
             <div>
               Scan Hash:{' '}
-              <strong style={{ color: 'white' }}>
-                {pendingCreateFromScan?.idScanHash || '—'}
-              </strong>
+              <strong style={{ color: 'white' }}>{pendingCreateFromScan?.idScanHash || '—'}</strong>
             </div>
           </div>
         </div>
 
-        <div className="cs-liquid-card" style={{ padding: '0.75rem' }}>
+        <div
+          className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+          style={{ padding: '0.75rem' }}
+        >
           <div style={{ color: '#94a3b8', fontSize: '0.85rem', marginBottom: '0.35rem' }}>
             Normalized scan text
           </div>
@@ -198,14 +199,14 @@ export function CreateFromScanModal(props: {
 
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
           <button
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             disabled={createFromScanSubmitting || isSubmitting}
             onClick={onClose}
           >
             Cancel
           </button>
           <button
-            className="cs-liquid-button"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
             disabled={createFromScanSubmitting || isSubmitting || !pendingCreateFromScan}
             onClick={onCreate}
           >

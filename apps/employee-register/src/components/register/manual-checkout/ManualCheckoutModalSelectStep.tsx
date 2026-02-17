@@ -42,16 +42,16 @@ export function ManualCheckoutModalSelectStep({
           flexWrap: 'wrap',
         }}
       >
-        <div className="cs-liquid-search" style={{ flex: 1, minWidth: 280 }}>
+        <div className="relative" style={{ flex: 1, minWidth: 280 }}>
           <input
-            className="cs-liquid-input cs-liquid-search__input"
+            className="h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 py-2.5 pr-10 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500 dark:border-gray-700 dark:text-white/90"
             placeholder="Type room/locker number…"
             value={typedNumber}
             onFocus={onInputFocus}
             onChange={(e) => onTypedNumberChange(e.target.value)}
             aria-label="Checkout number"
           />
-          <div className="cs-liquid-search__icon">
+          <div className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">
             <svg
               width="16"
               height="16"
@@ -79,7 +79,7 @@ export function ManualCheckoutModalSelectStep({
 
         <button
           type="button"
-          className="cs-liquid-button"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-50"
           onClick={onContinue}
           disabled={!canContinue || isSubmitting}
         >
@@ -104,8 +104,10 @@ export function ManualCheckoutModalSelectStep({
                   key={c.occupancyId}
                   type="button"
                   className={[
-                    'cs-liquid-button',
-                    selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+                    'rounded-lg border px-3 py-2.5 text-left transition',
+                    selected
+                      ? 'border-brand-500 bg-brand-50 dark:bg-brand-500/10'
+                      : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
                   ].join(' ')}
                   aria-pressed={selected}
                   onClick={() => onCandidateToggle(c.occupancyId)}

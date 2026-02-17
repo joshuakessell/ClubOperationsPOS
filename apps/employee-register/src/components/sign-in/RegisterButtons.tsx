@@ -1,3 +1,5 @@
+import { Button } from '@club-ops/ui/tailadmin';
+
 export type RegisterNumber = 1 | 2 | 3;
 
 export type RegisterAvailability = {
@@ -27,7 +29,7 @@ export function RegisterButtons({
   onSelect,
 }: RegisterButtonsProps) {
   return (
-    <div className="register-buttons">
+    <div className="flex flex-col gap-2">
       {REGISTER_NUMBERS.map((num) => {
         const reg = registers.find((r) => r.registerNumber === num);
         const occupied = reg?.occupied ?? false;
@@ -49,16 +51,17 @@ export function RegisterButtons({
           : `Use Register ${num}`;
 
         return (
-          <button
-            key={num}
-            className="register-button cs-liquid-button"
-            onClick={() => onSelect(num)}
-            disabled={isDisabled}
-            title={title}
-          >
-            Register {num}
-            {occupiedLabel}
-          </button>
+          <span key={num} title={title}>
+            <Button
+              variant={occupiedBySelectedEmployee ? 'primary' : 'outline'}
+              fullWidth
+              onClick={() => onSelect(num)}
+              disabled={isDisabled}
+            >
+              Register {num}
+              {occupiedLabel}
+            </Button>
+          </span>
         );
       })}
     </div>

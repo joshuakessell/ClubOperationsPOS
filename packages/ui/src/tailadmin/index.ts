@@ -28,6 +28,11 @@ export { default as Alert } from './ui/alert/Alert';
 
 export { Spinner } from './ui/spinner/Spinner';
 
+export { Dropdown } from './ui/dropdown/Dropdown';
+export { DropdownItem } from './ui/dropdown/DropdownItem';
+
+export { default as Avatar } from './ui/avatar/Avatar';
+
 // ── Form Components ──────────────────────────────────────────
 
 export { default as Input } from './form/InputField';

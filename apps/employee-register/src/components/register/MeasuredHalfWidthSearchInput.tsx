@@ -63,7 +63,7 @@ export function MeasuredHalfWidthSearchInput({
         <input
           ref={measureInputRef}
           type="text"
-          className="cs-liquid-input"
+          className="h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500 dark:border-gray-700 dark:text-white/90"
           defaultValue=""
           placeholder=""
           style={{ width: '100%' }}
@@ -77,7 +77,12 @@ export function MeasuredHalfWidthSearchInput({
         <input
           id={id}
           type="text"
-          className={['cs-liquid-input', className].filter(Boolean).join(' ')}
+          className={[
+            'h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500 dark:border-gray-700 dark:text-white/90',
+            className,
+          ]
+            .filter(Boolean)
+            .join(' ')}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}

@@ -1,3 +1,4 @@
+import { Badge } from '@club-ops/ui/tailadmin';
 import { CheckoutRequestsBanner } from '../../components/register/CheckoutRequestsBanner';
 import { CheckoutVerificationModal } from '../../components/register/CheckoutVerificationModal';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
@@ -42,10 +43,7 @@ export function NavigationRoot() {
   } = useEmployeeRegisterState();
 
   const active = navTabToShellKey(navTab);
-  const laneLabel =
-    lane && lane.trim()
-      ? lane.trim().replace(/^lane[-\s]*/i, 'Lane ')
-      : 'Lane 1';
+  const laneLabel = lane && lane.trim() ? lane.trim().replace(/^lane[-\s]*/i, 'Lane ') : 'Lane 1';
 
   const items: ShellNavItem[] = [
     { key: 'scan', label: 'Scan', icon: <span aria-hidden="true">📷</span> },
@@ -59,7 +57,9 @@ export function NavigationRoot() {
       label: 'Rentals',
       icon: <span aria-hidden="true">📦</span>,
       badge: inventoryHasLate ? (
-        <span className="cs-badge cs-badge--error">Late</span>
+        <Badge color="error" variant="light" size="sm">
+          Late
+        </Badge>
       ) : undefined,
     },
     {
@@ -67,7 +67,9 @@ export function NavigationRoot() {
       label: 'Upgrades',
       icon: <span aria-hidden="true">✨</span>,
       badge: hasEligibleEntries ? (
-        <span className="cs-badge cs-badge--success">Ready</span>
+        <Badge color="success" variant="light" size="sm">
+          Ready
+        </Badge>
       ) : undefined,
     },
     { key: 'retail', label: 'Retail', icon: <span aria-hidden="true">🛒</span> },
@@ -119,11 +121,9 @@ export function NavigationRoot() {
             onNavigate={(key) => selectShellNav(key)}
             title={laneLabel}
             statusPill={
-              <span
-                className={`cs-badge ${realtimeConnected ? 'cs-badge--success' : 'cs-badge--error'}`}
-              >
+              <Badge color={realtimeConnected ? 'success' : 'error'} variant="light" size="sm">
                 {realtimeConnected ? 'Live' : 'Offline'}
-              </span>
+              </Badge>
             }
             items={items}
           >
@@ -133,9 +133,7 @@ export function NavigationRoot() {
               {navTab === 'search' && <SearchPanel />}
               {navTab === 'inventory' && <InventoryPanel />}
               {navTab === 'upgrades' && <UpgradesPanel />}
-              {navTab === 'checkout' && (
-                <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />
-              )}
+              {navTab === 'checkout' && <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />}
               {navTab === 'clubLog' && <ClubLogPanel />}
               {navTab === 'roomCleaning' && <RoomCleaningPanel />}
               {navTab === 'firstTime' && <ManualEntryPanel />}

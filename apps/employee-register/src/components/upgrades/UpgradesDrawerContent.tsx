@@ -146,7 +146,7 @@ export function UpgradesDrawerContent({
                                     if (!entry.customerId) return;
                                     onOpenCustomerAccount?.(entry.customerId, customerLabel);
                                   }}
-                                  className="cs-liquid-button cs-liquid-button--secondary"
+                                  className="rounded-lg border border-gray-200 px-2.5 py-1.5 text-sm font-extrabold text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
                                   style={{
                                     padding: '0.3rem 0.6rem',
                                     minHeight: 'unset',
@@ -185,10 +185,10 @@ export function UpgradesDrawerContent({
                             <button
                               onClick={() => onOffer(entry.id, entry.desiredTier, customerLabel)}
                               className={[
-                                'cs-liquid-button',
+                                'rounded-lg px-4 py-2 text-sm font-bold transition',
                                 eligible
-                                  ? 'cs-liquid-button--success'
-                                  : 'cs-liquid-button--secondary',
+                                  ? 'bg-success-500 text-white hover:bg-success-600'
+                                  : 'border border-gray-200 text-gray-700 dark:border-gray-700 dark:text-gray-300',
                               ].join(' ')}
                               disabled={!eligible || isSubmitting}
                               style={{
@@ -203,7 +203,7 @@ export function UpgradesDrawerContent({
                             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                               <button
                                 onClick={() => onStartPayment(entry)}
-                                className="cs-liquid-button"
+                                className="rounded-lg bg-brand-500 px-4 py-2 text-sm font-bold text-white transition hover:bg-brand-600"
                                 disabled={!eligible || isSubmitting}
                                 style={{
                                   padding: '0.5rem 0.9rem',
@@ -215,7 +215,7 @@ export function UpgradesDrawerContent({
                               </button>
                               <button
                                 onClick={() => onCancelOffer(entry.id)}
-                                className="cs-liquid-button cs-liquid-button--danger"
+                                className="rounded-lg border border-error-300 bg-error-50 px-4 py-2 text-sm font-bold text-error-600 transition hover:bg-error-100 dark:border-error-700 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
                                 disabled={isSubmitting}
                                 style={{
                                   padding: '0.5rem 0.9rem',

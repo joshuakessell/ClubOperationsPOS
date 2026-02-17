@@ -40,21 +40,24 @@ export function ManualCheckoutPanelSelectStep({
           flexWrap: 'wrap',
         }}
       >
-        <div className="cs-liquid-search" style={{ flex: 1, minWidth: 280 }}>
+        <div className="relative" style={{ flex: 1, minWidth: 280 }}>
           <input
-            className="cs-liquid-input cs-liquid-search__input"
+            className="h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 py-2.5 pr-10 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500 dark:border-gray-700 dark:text-white/90"
             placeholder="Enter room/locker number…"
             value={typedNumber}
             onChange={(e) => onTypedNumberChange(e.target.value)}
             disabled={isSubmitting}
           />
-          <div className="cs-liquid-search__icon" aria-hidden="true">
+          <div
+            className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"
+            aria-hidden="true"
+          >
             🔎
           </div>
         </div>
         <button
           type="button"
-          className="cs-liquid-button"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:opacity-50"
           onClick={onContinue}
           disabled={!canContinue || isSubmitting}
         >
@@ -82,9 +85,9 @@ export function ManualCheckoutPanelSelectStep({
                   key={c.occupancyId}
                   type="button"
                   className={[
-                    'cs-liquid-card',
+                    'rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900',
                     'er-inv-item',
-                    selected ? 'cs-liquid-button--staff-proposed' : '',
+                    selected ? 'ring-2 ring-brand-500' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
@@ -94,9 +97,7 @@ export function ManualCheckoutPanelSelectStep({
                   <div className="er-inv-occupied-row">
                     <div className="er-inv-occupied-number">{label}</div>
                     <div className="er-inv-occupied-customer">
-                      <span className="er-inv-occupied-customer-text">
-                        {c.customerName || '—'}
-                      </span>
+                      <span className="er-inv-occupied-customer-text">{c.customerName || '—'}</span>
                     </div>
                     <div className="er-inv-occupied-checkout">
                       <div className="er-inv-occupied-time">

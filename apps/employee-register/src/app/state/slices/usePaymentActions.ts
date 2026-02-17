@@ -93,13 +93,7 @@ export function usePaymentActions({
       console.error('Failed to create payment intent:', error);
       notifyWarning(error instanceof Error ? error.message : 'Failed to create payment intent');
     }
-  }, [
-    currentSessionId,
-    lane,
-    notifyWarning,
-    paymentSetters,
-    session?.sessionToken,
-  ]);
+  }, [currentSessionId, lane, notifyWarning, paymentSetters, session?.sessionToken]);
 
   useEffect(() => {
     if (!currentSessionId || !session?.sessionToken) return;

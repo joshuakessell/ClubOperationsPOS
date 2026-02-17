@@ -34,33 +34,25 @@ export function InventorySummaryBar({ counts, onOpenInventorySection }: Inventor
 
   const disabled = !counts;
 
-  const Button = (props: { label: string; ratio: string; section: InventorySummarySection }) => (
+  const SummaryButton = (props: {
+    label: string;
+    ratio: string;
+    section: InventorySummarySection;
+  }) => (
     <button
       type="button"
-      className="cs-liquid-button cs-liquid-button--secondary cs-liquid-button--pill"
-      style={{
-        padding: '0.55rem 0.85rem',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'flex-start',
-        gap: '0.75rem',
-        width: '100%',
-        textAlign: 'left',
-        opacity: disabled ? 0.65 : 1,
-      }}
+      className="flex w-full items-center justify-between gap-3 rounded-full border border-gray-200 px-4 py-2.5 text-sm font-extrabold text-gray-700 transition hover:bg-gray-50 disabled:opacity-65 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
       disabled={disabled}
       onClick={() => onOpenInventorySection(props.section)}
     >
-      <span style={{ fontWeight: 800 }}>{props.label}</span>
-      <span style={{ fontVariantNumeric: 'tabular-nums', fontWeight: 800, marginLeft: 'auto' }}>
-        {props.ratio}
-      </span>
+      <span>{props.label}</span>
+      <span className="tabular-nums">{props.ratio}</span>
     </button>
   );
 
   return (
     <div
-      className="cs-liquid-card"
+      className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
       style={{
         padding: '0.75rem',
         display: 'flex',
@@ -70,10 +62,14 @@ export function InventorySummaryBar({ counts, onOpenInventorySection }: Inventor
       }}
       aria-label="Inventory summary"
     >
-      <Button label="Lockers" ratio={formatRatio(lockers, lockers)} section="LOCKER" />
-      <Button label="Standard" ratio={formatRatio(xStandard, yStandard)} section="STANDARD" />
-      <Button label="Double" ratio={formatRatio(xDouble, yDouble)} section="DOUBLE" />
-      <Button label="Special" ratio={formatRatio(xSpecial, ySpecial)} section="SPECIAL" />
+      <SummaryButton label="Lockers" ratio={formatRatio(lockers, lockers)} section="LOCKER" />
+      <SummaryButton
+        label="Standard"
+        ratio={formatRatio(xStandard, yStandard)}
+        section="STANDARD"
+      />
+      <SummaryButton label="Double" ratio={formatRatio(xDouble, yDouble)} section="DOUBLE" />
+      <SummaryButton label="Special" ratio={formatRatio(xSpecial, ySpecial)} section="SPECIAL" />
     </div>
   );
 }

@@ -40,8 +40,12 @@ type Params = {
 };
 
 export function useCustomerSpendLedgerState({ session, notifications }: Params) {
-  const [groupsByCustomerId, setGroupsByCustomerId] = useState<Record<string, SpendLedgerGroup[]>>({});
-  const [entriesByVisitKey, setEntriesByVisitKey] = useState<Record<string, SpendLedgerEntry[]>>({});
+  const [groupsByCustomerId, setGroupsByCustomerId] = useState<Record<string, SpendLedgerGroup[]>>(
+    {}
+  );
+  const [entriesByVisitKey, setEntriesByVisitKey] = useState<Record<string, SpendLedgerEntry[]>>(
+    {}
+  );
   const [loadingByCustomerId, setLoadingByCustomerId] = useState<Record<string, boolean>>({});
   const [errorByCustomerId, setErrorByCustomerId] = useState<Record<string, string | null>>({});
   const [loadedByCustomerId, setLoadedByCustomerId] = useState<Record<string, boolean>>({});

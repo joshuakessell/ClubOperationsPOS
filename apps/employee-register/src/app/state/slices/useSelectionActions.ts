@@ -152,7 +152,9 @@ export function useSelectionActions({
     const effectiveDesiredTypes = options?.waitlistDesiredTypes ?? [];
     const effectiveDesiredType =
       effectiveDesiredTypes[0] ??
-      (waitlistDesiredTier === 'STANDARD' || waitlistDesiredTier === 'DOUBLE' || waitlistDesiredTier === 'SPECIAL'
+      (waitlistDesiredTier === 'STANDARD' ||
+      waitlistDesiredTier === 'DOUBLE' ||
+      waitlistDesiredTier === 'SPECIAL'
         ? waitlistDesiredTier
         : undefined);
     if (!effectiveDesiredType && !options?.waitlistRequestedResourceNumber) return;
@@ -192,7 +194,9 @@ export function useSelectionActions({
       }
       await pollOnce();
     } catch (error) {
-      notifications.warn(error instanceof Error ? error.message : 'Failed to select waitlist backup');
+      notifications.warn(
+        error instanceof Error ? error.message : 'Failed to select waitlist backup'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -284,7 +288,9 @@ export function useSelectionActions({
 
       await pollOnce();
     } catch (error) {
-      notifications.warn(error instanceof Error ? error.message : 'Failed to select waitlist backup');
+      notifications.warn(
+        error instanceof Error ? error.message : 'Failed to select waitlist backup'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -372,7 +378,9 @@ export function useSelectionActions({
       }
       await pollOnce();
     } catch (error) {
-      notifications.warn(error instanceof Error ? error.message : 'Failed to confirm physical agreement');
+      notifications.warn(
+        error instanceof Error ? error.message : 'Failed to confirm physical agreement'
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -4,12 +4,7 @@ import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
 import { safeJsonParse } from '@club-ops/ui';
 
 import type { DetailedInventory, DetailedLocker, DetailedRoom } from './types';
-import {
-  alertLevelFromMsUntil,
-  getMsUntil,
-  isRecord,
-  readJson,
-} from './utils';
+import { alertLevelFromMsUntil, getMsUntil, isRecord, readJson } from './utils';
 import { getRoomTier } from '../utils/getRoomTier';
 
 type Params = {

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getCustomerMembershipStatus } from '@club-ops/shared';
+import { Button } from '@club-ops/ui/tailadmin';
 import { EmployeeAssistStepContent } from './employee-assist/EmployeeAssistStepContent';
 import type {
   EmployeeAssistStep,
@@ -39,14 +40,20 @@ export interface EmployeeAssistPanelProps {
   directSelect?: boolean;
 
   // Flow-step driven state (server-authoritative)
-  flowStep?: 'RENTAL' | 'WAITLIST_PREFERENCES' | 'WAITLIST_BACKUP' | 'PAYMENT' | 'AGREEMENT' | 'COMPLETE' | null;
+  flowStep?:
+    | 'RENTAL'
+    | 'WAITLIST_PREFERENCES'
+    | 'WAITLIST_BACKUP'
+    | 'PAYMENT'
+    | 'AGREEMENT'
+    | 'COMPLETE'
+    | null;
   ledgerLineItems?: Array<{ description: string; amount: number }>;
   ledgerTotal?: number | null;
   paymentStatus?: 'DUE' | 'PAID' | null;
   agreementBypassPending?: boolean;
   assignedResourceType?: 'room' | 'locker' | null;
   assignedResourceNumber?: string | null;
-
 
   onHighlightMembership: (choice: 'ONE_TIME' | 'SIX_MONTH' | null) => void;
   onConfirmMembershipOneTime?: () => Promise<void> | void;
@@ -81,7 +88,6 @@ export interface EmployeeAssistPanelProps {
 
   onBack?: () => Promise<void> | void;
   onCancel?: () => Promise<void> | void;
-
 }
 
 export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
@@ -123,7 +129,6 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
   } = props;
 
   const [pending, setPending] = useState<PendingState>(null);
-
 
   const membershipStatus = getCustomerMembershipStatus(
     {
@@ -259,117 +264,94 @@ export function EmployeeAssistPanel(props: EmployeeAssistPanelProps) {
 
   return (
     <div
-      className= "cs-liquid-card"
-  style = {{
-    padding: '0.9rem',
-      flex: 1,
+      className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+      style={{
+        padding: '0.9rem',
+        flex: 1,
         minHeight: 0,
-          display: 'flex',
-            flexDirection: 'column',
-              overflow: 'hidden',
-      }
-}
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden',
+      }}
     >
-  <div
-        style={
-  {
-    display: 'flex',
-      justifyContent: 'space-between',
-        gap: '0.75rem',
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: '0.75rem',
           alignItems: 'baseline',
-        }
-}
-      >
-  <div style={ { fontWeight: 950, fontSize: '1rem' } }> Employee Assist </div>
-    < div style = {{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-      {
-        onBack?(
-            <button
-              type = "button"
-              className = "cs-liquid-button cs-liquid-button--secondary"
-              onClick = {() => void onBack()}
-style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
-            >
-  Back
-  </button>
-          ) : null}
-{
-  onCancel ? (
-    <button
-              type= "button"
-              className = "cs-liquid-button cs-liquid-button--secondary"
-  onClick = {() => void onCancel()
-}
-style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 900 }}
-            >
-  Cancel
-  </button>
-          ) : null}
-{
-  onClearSession ? (
-    <button
-              type= "button"
-              className = "cs-liquid-button cs-liquid-button--danger"
-  onClick = { onClearSession }
-  style = {{ padding: '0.35rem 0.6rem', minHeight: 0, fontSize: '0.78rem', fontWeight: 800 }
-}
-            >
-  Clear Session
-    </button>
-          ) : (
-  <div className= "er-text-sm" style = {{ color: '#94a3b8', fontWeight: 800 }}>
-    Step: { step }
-</div>
-          )}
-</div>
-  </div>
-
-  < div
-style = {{
-  flex: 1,
-    minHeight: 0,
-      marginTop: '0.75rem',
-        overflowY: 'auto',
-          paddingRight: '0.25rem',
-            display: 'grid',
-              gap: '0.7rem',
-                alignContent: 'start',
         }}
       >
-  <EmployeeAssistStepContent
-          step={ step }
-directSelect = { directSelect }
-isSubmitting = { isSubmitting }
-pending = { pending }
-setPending = { setPending }
-showSixMonthMembershipAdd = { showSixMonthMembershipAdd }
-waitlistDesiredTier = { waitlistDesiredTier }
-waitlistDesiredTypes = { waitlistDesiredTypes }
-waitlistRequestedResourceNumber = { waitlistRequestedResourceNumber }
-waitlistRequestedResourceType = { waitlistRequestedResourceType }
-waitlistUnavailableOptions = { waitlistUnavailableOptions }
-rentalButtons = { rentalButtons }
-waitlistBackupButtons = { waitlistBackupButtons }
-ledgerLineItems = { ledgerLineItems }
-ledgerTotal = { ledgerTotal }
-paymentStatus = { paymentStatus }
-agreementBypassPending = { agreementBypassPending }
-assignedResourceType = { assignedResourceType }
-assignedResourceNumber = { assignedResourceNumber }
-inventoryAvailable = { inventoryAvailable }
-proposedRentalType = { proposedRentalType }
-onHighlightMembership = { onHighlightMembership }
-onConfirmMembershipSixMonth = { onConfirmMembershipSixMonth }
-onHighlightRental = { onHighlightRental }
-onApproveRental = { onApproveRental }
-onDirectSelectRental = { onDirectSelectRental }
-onHighlightWaitlistBackup = { onHighlightWaitlistBackup }
-onSelectWaitlistBackupAsCustomer = { onSelectWaitlistBackupAsCustomer }
-onSelectRentalAsCustomer = { props.onSelectRentalAsCustomer }
-onDirectSelectWaitlistBackup = { onDirectSelectWaitlistBackup }
-onBypassAgreement = { onBypassAgreement }
-  />
-  </div>
-  </div>
+        <div style={{ fontWeight: 950, fontSize: '1rem' }}> Employee Assist </div>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {onBack ? (
+            <Button variant="outline" size="sm" onClick={() => void onBack()}>
+              Back
+            </Button>
+          ) : null}
+          {onCancel ? (
+            <Button variant="outline" size="sm" onClick={() => void onCancel()}>
+              Cancel
+            </Button>
+          ) : null}
+          {onClearSession ? (
+            <Button variant="danger" size="sm" onClick={onClearSession}>
+              Clear Session
+            </Button>
+          ) : (
+            <div className="text-xs text-gray-400 font-extrabold dark:text-gray-500">
+              Step: {step}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div
+        style={{
+          flex: 1,
+          minHeight: 0,
+          marginTop: '0.75rem',
+          overflowY: 'auto',
+          paddingRight: '0.25rem',
+          display: 'grid',
+          gap: '0.7rem',
+          alignContent: 'start',
+        }}
+      >
+        <EmployeeAssistStepContent
+          step={step}
+          directSelect={directSelect}
+          isSubmitting={isSubmitting}
+          pending={pending}
+          setPending={setPending}
+          showSixMonthMembershipAdd={showSixMonthMembershipAdd}
+          waitlistDesiredTier={waitlistDesiredTier}
+          waitlistDesiredTypes={waitlistDesiredTypes}
+          waitlistRequestedResourceNumber={waitlistRequestedResourceNumber}
+          waitlistRequestedResourceType={waitlistRequestedResourceType}
+          waitlistUnavailableOptions={waitlistUnavailableOptions}
+          rentalButtons={rentalButtons}
+          waitlistBackupButtons={waitlistBackupButtons}
+          ledgerLineItems={ledgerLineItems}
+          ledgerTotal={ledgerTotal}
+          paymentStatus={paymentStatus}
+          agreementBypassPending={agreementBypassPending}
+          assignedResourceType={assignedResourceType}
+          assignedResourceNumber={assignedResourceNumber}
+          inventoryAvailable={inventoryAvailable}
+          proposedRentalType={proposedRentalType}
+          onHighlightMembership={onHighlightMembership}
+          onConfirmMembershipSixMonth={onConfirmMembershipSixMonth}
+          onHighlightRental={onHighlightRental}
+          onApproveRental={onApproveRental}
+          onDirectSelectRental={onDirectSelectRental}
+          onHighlightWaitlistBackup={onHighlightWaitlistBackup}
+          onSelectWaitlistBackupAsCustomer={onSelectWaitlistBackupAsCustomer}
+          onSelectRentalAsCustomer={props.onSelectRentalAsCustomer}
+          onDirectSelectWaitlistBackup={onDirectSelectWaitlistBackup}
+          onBypassAgreement={onBypassAgreement}
+        />
+      </div>
+    </div>
   );
 }

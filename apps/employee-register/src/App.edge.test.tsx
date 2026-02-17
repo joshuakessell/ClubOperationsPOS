@@ -76,16 +76,36 @@ const RealtimeSocketMock = vi.fn((url?: string) => {
   return ws;
 }) as unknown as typeof WebSocket;
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).OPEN = 1;
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).CONNECTING = 0;
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).CLOSING = 2;
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).CLOSED = 3;
 Object.defineProperty(globalThis, 'WebSocket', {
   value: RealtimeSocketMock,
@@ -156,7 +176,9 @@ function mockAuthenticatedFetch() {
     })
   );
 
-  const fetchMock = global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>;
+  const fetchMock = global.fetch as Mock<
+    (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+  >;
   fetchMock.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
     const u = toUrlString(url);
 
@@ -225,7 +247,6 @@ function mockAuthenticatedFetch() {
           }),
       } as unknown as Response);
     }
-
 
     if (u.includes('/api/v1/inventory/detailed')) {
       return Promise.resolve({

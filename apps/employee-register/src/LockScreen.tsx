@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react';
 import { LiquidGlassPinInput } from '@club-ops/ui';
+import { Alert, Button } from '@club-ops/ui/tailadmin';
 import {
   isWebAuthnSupported,
   requestAuthenticationOptions,
@@ -50,6 +51,9 @@ interface LockScreenProps {
   deviceId: string;
 }
 
+const inputClass =
+  'h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white dark:placeholder:text-white/30';
+
 export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
   const [mode, setMode] = useState<'webauthn' | 'pin'>('webauthn');
   const [staffLookup, setStaffLookup] = useState('');
@@ -58,7 +62,6 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [webauthnSupported, setWebauthnSupported] = useState(false);
 
-  // Check WebAuthn support on mount
   useEffect(() => {
     setWebauthnSupported(isWebAuthnSupported());
     if (!isWebAuthnSupported()) {
@@ -76,16 +79,9 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
     setError(null);
 
     try {
-      // Request authentication options
       const options = await requestAuthenticationOptions(staffLookup.trim(), deviceId);
-
-      // Get credential from authenticator
       const credential = await getCredential(options);
-
-      // Convert to JSON
       const credentialResponse = authenticationCredentialToJSON(credential);
-
-      // Verify with server
       const result = await verifyAuthentication(deviceId, credentialResponse);
 
       if (result.verified) {
@@ -151,17 +147,25 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
   };
 
   return (
-    <div className="lock-screen">
-      <div className="lock-screen-content cs-liquid-card">
-        <div className="lock-screen-header">
-          <h1>Staff Login</h1>
-          <p>Sign in with fingerprint or PIN</p>
+    <div className="fixed inset-0 z-99999 flex items-center justify-center bg-gray-100 dark:bg-gray-900">
+      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900">
+        {/* Header */}
+        <div className="mb-6 text-center">
+          <h1 className="text-2xl font-bold text-gray-800 dark:text-white/90">Staff Login</h1>
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            Sign in with fingerprint or PIN
+          </p>
         </div>
 
-        <div className="lock-screen-tabs">
+        {/* Tab buttons */}
+        <nav className="mb-5 flex overflow-hidden rounded-lg bg-gray-100 p-1 dark:bg-gray-800">
           {webauthnSupported && (
             <button
-              className={`tab-button cs-liquid-button cs-liquid-button--secondary ${mode === 'webauthn' ? 'cs-liquid-button--selected' : ''}`}
+              className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+                mode === 'webauthn'
+                  ? 'bg-white text-gray-900 shadow-theme-xs dark:bg-white/[0.03] dark:text-white'
+                  : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+              }`}
               onClick={() => {
                 setMode('webauthn');
                 setError(null);
@@ -172,7 +176,11 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
             </button>
           )}
           <button
-            className={`tab-button cs-liquid-button cs-liquid-button--secondary ${mode === 'pin' ? 'cs-liquid-button--selected' : ''}`}
+            className={`flex-1 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              mode === 'pin'
+                ? 'bg-white text-gray-900 shadow-theme-xs dark:bg-white/[0.03] dark:text-white'
+                : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
+            }`}
             onClick={() => {
               setMode('pin');
               setError(null);
@@ -181,32 +189,37 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
           >
             PIN
           </button>
-        </div>
+        </nav>
 
-        {error && <div className="lock-screen-error">{error}</div>}
+        {/* Error */}
+        {error && (
+          <div className="mb-4">
+            <Alert variant="error" title="Error" message={error} />
+          </div>
+        )}
 
+        {/* WebAuthn mode */}
         {mode === 'webauthn' ? (
-          <div className="lock-screen-webauthn">
+          <div className="flex flex-col gap-4">
             <input
               type="text"
-              className="staff-lookup-input cs-liquid-input"
+              className={inputClass}
               placeholder="Enter your name or staff ID"
               value={staffLookup}
               onChange={(e) => setStaffLookup(e.target.value)}
               disabled={isLoading}
               autoFocus
             />
-            <button
-              type="button"
-              className="webauthn-button cs-liquid-button"
+            <Button
+              fullWidth
               onClick={() => void handleWebAuthnLogin()}
               disabled={isLoading || !staffLookup.trim()}
             >
               {isLoading ? 'Authenticating...' : 'Sign in with fingerprint'}
-            </button>
-            <button
-              type="button"
-              className="pin-fallback-button cs-liquid-button cs-liquid-button--secondary"
+            </Button>
+            <Button
+              variant="outline"
+              fullWidth
               onClick={() => {
                 setMode('pin');
                 setError(null);
@@ -214,13 +227,14 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
               disabled={isLoading}
             >
               Use PIN instead
-            </button>
+            </Button>
           </div>
         ) : (
-          <div className="lock-screen-pin">
+          /* PIN mode */
+          <div className="flex flex-col gap-4">
             <input
               type="text"
-              className="staff-lookup-input cs-liquid-input"
+              className={inputClass}
               placeholder="Enter your name or staff ID"
               value={staffLookup}
               onChange={(e) => setStaffLookup(e.target.value)}
@@ -238,9 +252,9 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
               displayAriaLabel="Staff PIN"
             />
             {webauthnSupported && (
-              <button
-                type="button"
-                className="webauthn-fallback-button cs-liquid-button cs-liquid-button--secondary"
+              <Button
+                variant="outline"
+                fullWidth
                 onClick={() => {
                   setMode('webauthn');
                   setError(null);
@@ -248,7 +262,7 @@ export function LockScreen({ onLogin, deviceId }: LockScreenProps) {
                 disabled={isLoading}
               >
                 Use fingerprint instead
-              </button>
+              </Button>
             )}
           </div>
         )}

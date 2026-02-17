@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Badge, Button } from '@club-ops/ui/tailadmin';
 import { SignInModal } from './SignInModal';
 import type { RealtimeEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
@@ -349,13 +350,10 @@ export function RegisterSignIn({
   // If not signed in, show initial state
   if (!registerSession) {
     return (
-      <div className="register-sign-in-container">
-        <button
-          className="register-sign-in-button cs-liquid-button"
-          onClick={() => setShowSignInModal(true)}
-        >
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <Button size="lg" onClick={() => setShowSignInModal(true)}>
           Sign In
-        </button>
+        </Button>
         <SignInModal
           isOpen={showSignInModal}
           onClose={() => setShowSignInModal(false)}
@@ -368,68 +366,52 @@ export function RegisterSignIn({
 
   // Signed in state
   return (
-    <div className="register-sign-in-container">
+    <div className="flex h-screen flex-col bg-white dark:bg-gray-900">
       {realtimeMode === 'lan' ? (
-        <div
-          style={{
-            background: '#c66a00',
-            color: '#fff',
-            padding: '0.35rem 0.75rem',
-            fontWeight: 700,
-            textAlign: 'center',
-          }}
-        >
+        <div className="bg-warning-500 px-3 py-1.5 text-center text-sm font-bold text-white">
           LAN mode (offline fallback)
         </div>
       ) : null}
-      <div className="register-top-bar">
-        <div className="register-top-bar-left">
-          <div className="register-top-bar-title">{topTitle}</div>
-        </div>
 
-        <div className="register-top-bar-center">
-          <span>
+      {/* Top bar */}
+      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+        <span className="text-sm font-semibold text-gray-800 dark:text-white/90">{topTitle}</span>
+
+        <div className="flex items-center gap-3">
+          <span className="text-sm text-gray-600 dark:text-gray-300">
             {registerSession.employeeName} • Register {registerSession.registerNumber}
           </span>
 
           {import.meta.env.DEV && (
-            <span className="register-top-bar-dev">
-              {lane ? <span className="cs-badge cs-badge--info">Lane: {lane}</span> : null}
-              <span
-                className={`cs-badge ${apiStatus === 'ok' ? 'cs-badge--success' : 'cs-badge--error'}`}
-              >
+            <span className="flex items-center gap-2">
+              {lane ? (
+                <Badge color="info" variant="light" size="sm">
+                  Lane: {lane}
+                </Badge>
+              ) : null}
+              <Badge color={apiStatus === 'ok' ? 'success' : 'error'} variant="light" size="sm">
                 API: {apiStatus ?? '...'}
-              </span>
-              <span
-                className={`cs-badge ${realtimeConnected ? 'cs-badge--success' : 'cs-badge--error'}`}
-              >
+              </Badge>
+              <Badge color={realtimeConnected ? 'success' : 'error'} variant="light" size="sm">
                 Realtime: {realtimeConnected ? 'Live' : 'Offline'}
-              </span>
+              </Badge>
             </span>
           )}
         </div>
 
-        <div className="register-top-bar-right">
+        <div className="flex items-center gap-2">
           {onSignOut && (
-            <button
-              type="button"
-              onClick={() => void onSignOut()}
-              className="cs-liquid-button cs-liquid-button--secondary er-header-action-btn"
-            >
+            <Button variant="outline" size="sm" onClick={() => void onSignOut()}>
               Sign Out
-            </button>
+            </Button>
           )}
           {onCloseOut && (
-            <button
-              type="button"
-              onClick={() => void onCloseOut()}
-              className="cs-liquid-button cs-liquid-button--danger er-header-action-btn"
-            >
+            <Button variant="danger" size="sm" onClick={() => void onCloseOut()}>
               Close Out
-            </button>
+            </Button>
           )}
         </div>
-      </div>
+      </header>
 
       {signedInRealtime}
       {children}

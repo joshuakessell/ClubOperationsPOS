@@ -19,78 +19,78 @@ describe('App flow: first time customer', () => {
     );
 
     const calls: Array<{ url: string; body?: unknown }> = [];
-    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
-      (url: RequestInfo | URL, init?: RequestInit) => {
-        const u =
-          typeof url === 'string'
-            ? url
-            : url instanceof URL
-              ? url.toString()
-              : url instanceof Request
-                ? url.url
-                : '';
+    (
+      global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>
+    ).mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const u =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : url instanceof Request
+              ? url.url
+              : '';
 
-        let body: unknown = undefined;
-        if (typeof init?.body === 'string') {
-          body = JSON.parse(init.body) as unknown;
-        }
-        calls.push({ url: u, body });
+      let body: unknown = undefined;
+      if (typeof init?.body === 'string') {
+        body = JSON.parse(init.body) as unknown;
+      }
+      calls.push({ url: u, body });
 
-        if (u.includes('/v1/realtime/auth')) {
-          return Promise.resolve(buildRealtimeAuthResponse(init));
-        }
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse(init));
+      }
 
-        if (u.includes('/v1/registers/status')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                signedIn: true,
-                employee: { id: 'emp-1', name: 'Test Employee' },
-                registerNumber: 1,
-              }),
-          } as unknown as Response);
-        }
-        if (u.includes('/health')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
-          } as unknown as Response);
-        }
-        if (u.includes('/v1/customers/match-identity')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                matchCount: 1,
-                bestMatch: {
-                  id: 'cust-1',
-                  name: 'John Smith',
-                  dob: '1988-01-02',
-                  membershipNumber: null,
-                },
-              }),
-          } as unknown as Response);
-        }
-        if (u.includes('/v1/checkin/lane/lane-1/start')) {
-          return Promise.resolve({
-            ok: true,
-            json: () =>
-              Promise.resolve({
-                sessionId: 'sess-1',
-                customerName: 'John Smith',
-                membershipNumber: null,
-              }),
-          } as unknown as Response);
-        }
-
+      if (u.includes('/v1/registers/status')) {
         return Promise.resolve({
           ok: true,
-          json: () => Promise.resolve({}),
+          json: () =>
+            Promise.resolve({
+              signedIn: true,
+              employee: { id: 'emp-1', name: 'Test Employee' },
+              registerNumber: 1,
+            }),
         } as unknown as Response);
       }
-    );
+      if (u.includes('/health')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
+        } as unknown as Response);
+      }
+      if (u.includes('/v1/customers/match-identity')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              matchCount: 1,
+              bestMatch: {
+                id: 'cust-1',
+                name: 'John Smith',
+                dob: '1988-01-02',
+                membershipNumber: null,
+              },
+            }),
+        } as unknown as Response);
+      }
+      if (u.includes('/v1/checkin/lane/lane-1/start')) {
+        return Promise.resolve({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              sessionId: 'sess-1',
+              customerName: 'John Smith',
+              membershipNumber: null,
+            }),
+        } as unknown as Response);
+      }
+
+      return Promise.resolve({
+        ok: true,
+        json: () => Promise.resolve({}),
+      } as unknown as Response);
+    });
 
     act(() => {
       render(<App />);

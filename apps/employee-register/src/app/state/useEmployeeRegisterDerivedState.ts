@@ -115,10 +115,7 @@ export function useEmployeeRegisterDerivedState(params: EmployeeRegisterDerivedP
     [laneBindings.assignedResourceType, customerSelectedType, proposedRentalType]
   );
 
-  const pastDueLineItems = useMemo(
-    () => derivePastDueLineItems(pastDueBalance),
-    [pastDueBalance]
-  );
+  const pastDueLineItems = useMemo(() => derivePastDueLineItems(pastDueBalance), [pastDueBalance]);
 
   return { externalBlocking, checkinStage, assignedLabel, pastDueLineItems };
 }

@@ -48,12 +48,7 @@ export type ExtractedAamvaIdentity = {
   idTypeOther?: string;
 };
 
-export type AamvaActiveField =
-  | 'firstName'
-  | 'lastName'
-  | 'dob'
-  | 'idExpirationDate'
-  | 'idNumber';
+export type AamvaActiveField = 'firstName' | 'lastName' | 'dob' | 'idExpirationDate' | 'idNumber';
 
 export function normalizeScanText(raw: string): string {
   if (!raw) return '';

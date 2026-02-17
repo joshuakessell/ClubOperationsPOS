@@ -65,7 +65,9 @@ export function useManualEntryState({
     const idTypeOther = manualIdType === 'OTHER' ? manualIdTypeOther.trim() : '';
     const idNumber = manualIdNumber.trim();
     if (!firstName || !lastName || !dobIso) {
-      notifications.warn('Please enter First Name, Last Name, and a valid Date of Birth (MM/DD/YYYY).');
+      notifications.warn(
+        'Please enter First Name, Last Name, and a valid Date of Birth (MM/DD/YYYY).'
+      );
       return;
     }
     if (!idExpirationDate) {

@@ -35,7 +35,10 @@ export function CustomerDetailsCard({
   membershipNumber,
 }: CustomerDetailsCardProps) {
   return (
-    <div className="cs-liquid-card" style={{ padding: '0.9rem' }}>
+    <div
+      className="rounded-2xl border border-gray-200 bg-white p-4 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+      style={{ padding: '0.9rem' }}
+    >
       <div style={{ fontWeight: 950, fontSize: '1rem', marginBottom: '0.6rem' }}>
         Customer Details
       </div>

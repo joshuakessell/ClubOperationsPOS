@@ -23,7 +23,7 @@ export function PaymentDeclineToast({ message, onDismiss }: PaymentDeclineToastP
       onClick={onDismiss}
     >
       <div
-        className="cs-liquid-card"
+        className="rounded-2xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
         style={{
           width: 'min(520px, 92vw)',
           background: '#ef4444',
@@ -46,7 +46,7 @@ export function PaymentDeclineToast({ message, onDismiss }: PaymentDeclineToastP
           <div style={{ fontWeight: 900 }}>Payment Declined</div>
           <button
             onClick={onDismiss}
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2 py-1 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             style={{
               fontSize: '1.25rem',
               cursor: 'pointer',
