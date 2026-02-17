@@ -48,7 +48,7 @@ function build_frontends() {
     log_info "Building frontend images..."
     docker build -f Dockerfile.customer-kiosk -t club-ops-customer-kiosk \
         --build-arg VITE_KIOSK_TOKEN="${VITE_KIOSK_TOKEN:-}" .
-    docker build -f Dockerfile.employee-register -t club-ops-employee-register \
+    docker build -f Dockerfile.employee-kiosk -t club-ops-employee-kiosk \
         --build-arg VITE_KIOSK_TOKEN="${VITE_KIOSK_TOKEN:-}" .
     docker build -f Dockerfile.office-dashboard -t club-ops-office-dashboard \
         --build-arg VITE_KIOSK_TOKEN="${VITE_KIOSK_TOKEN:-}" .
@@ -113,7 +113,7 @@ function clean() {
     if [[ "$response" =~ ^([yY][eE][sS]|[yY])$ ]]; then
         log_info "Cleaning up Docker resources..."
         docker compose down -v
-        docker image rm -f club-ops-api club-ops-customer-kiosk club-ops-employee-register club-ops-office-dashboard 2>/dev/null || true
+        docker image rm -f club-ops-api club-ops-customer-kiosk club-ops-employee-kiosk club-ops-office-dashboard 2>/dev/null || true
         log_info "Cleanup complete"
     else
         log_info "Cancelled"

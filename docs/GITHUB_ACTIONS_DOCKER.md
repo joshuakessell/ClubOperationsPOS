@@ -142,7 +142,7 @@ VITE_KIOSK_TOKEN=<resolved from KIOSK_TOKEN_SECRET_ARN at deploy time>
 ```
 
 ### 4. **Matrix Strategy for Parallelization**
-All four services (api, customer-kiosk, employee-register, office-dashboard) build in parallel.
+All four services (api, customer-kiosk, employee-kiosk, office-dashboard) build in parallel.
 
 **Time savings:** 15 minutes sequential → 4 minutes parallel
 

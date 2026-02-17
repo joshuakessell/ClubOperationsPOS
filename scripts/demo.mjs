@@ -47,7 +47,7 @@ async function main() {
       'pnpm exec turbo run dev --parallel',
       '--filter=@club-ops/api',
       '--filter=@club-ops/customer-kiosk',
-      '--filter=@club-ops/employee-register',
+      '--filter=@club-ops/employee-kiosk',
       '--filter=@club-ops/office-dashboard',
     ].join(' ')
   );

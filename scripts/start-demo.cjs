@@ -59,7 +59,7 @@ async function main() {
       'run',
       'dev',
       '--filter=@club-ops/customer-kiosk',
-      '--filter=@club-ops/employee-register',
+      '--filter=@club-ops/employee-kiosk',
       '--filter=@club-ops/office-dashboard',
     ],
     { DEMO_MODE: 'true' }

@@ -203,7 +203,7 @@ Expected: HTTP 200 from CloudFront.
 - Rebuild from a previous commit and redeploy:
   ```bash
   git checkout <commit>
-  scripts/aws/deploy-employee-register.sh
+  scripts/aws/deploy-employee-kiosk.sh
   scripts/aws/deploy-customer-kiosk.sh
   ```
 

@@ -143,7 +143,7 @@ pnpm dev
    - Status: ✅ Running
    - URL: http://localhost:5173/
 
-3. **Employee Register** (`apps/employee-register`)
+3. **Employee Register** (`apps/employee-kiosk`)
    - Port: 5175
    - Status: ✅ Running
    - URL: http://localhost:5175/
@@ -167,7 +167,7 @@ pnpm dev
 
 #### Step 1: Employee Sign-In ✅
 
-**Action:** Sign in to employee-register as "Employee One" with PIN "444444"
+**Action:** Sign in to employee-kiosk as "Employee One" with PIN "444444"
 
 **Result:**
 
@@ -177,7 +177,7 @@ pnpm dev
 - ✅ Register selection (Register 1) successful
 - ✅ Confirmed and signed in to lane-1
 
-**Evidence:** Screenshot captured: `e2e-employee-register-signed-in-lane-1.png`
+**Evidence:** Screenshot captured: `e2e-employee-kiosk-signed-in-lane-1.png`
 
 #### Step 2: Create Lane Session ✅
 
@@ -195,7 +195,7 @@ pnpm dev
 - ✅ Realtime status: "Live"
 - ✅ Lane: "lane-1"
 
-**Evidence:** Screenshot captured: `e2e-employee-register-manual-entry-filled.png`
+**Evidence:** Screenshot captured: `e2e-employee-kiosk-manual-entry-filled.png`
 
 #### Step 3: Propose Selection ✅
 
@@ -208,7 +208,7 @@ pnpm dev
 - ✅ Confirmation button displayed
 - ✅ Selection confirmed and locked: "✓ Selection Locked: STANDARD (by You)"
 
-**Evidence:** Screenshot captured: `e2e-employee-register-propose-selection.png`
+**Evidence:** Screenshot captured: `e2e-employee-kiosk-propose-selection.png`
 
 #### Step 4: Room Assignment ✅
 
@@ -239,7 +239,7 @@ pnpm dev
 - ✅ Status updated: "✓ Paid in Square"
 - ✅ Next step: "Awaiting Signature"
 
-**Evidence:** Screenshot captured: `e2e-employee-register-payment-complete.png`
+**Evidence:** Screenshot captured: `e2e-employee-kiosk-payment-complete.png`
 
 #### Step 6: Customer Kiosk Sync ⚠️
 
@@ -253,7 +253,7 @@ pnpm dev
 
 **Evidence:** Screenshot captured: `e2e-customer-kiosk-session-active.png` (shows idle state)
 
-**Note:** This is a minor issue that doesn't block the core check-in workflow. The employee-register successfully completed all steps independently.
+**Note:** This is a minor issue that doesn't block the core check-in workflow. The employee-kiosk successfully completed all steps independently.
 
 ---
 
@@ -273,10 +273,10 @@ This phase was deferred to focus on core check-in flow validation. The availabil
 
 ### Screenshots Captured
 
-1. `e2e-employee-register-signed-in-lane-1.png` - Employee signed in, lane-1 active
-2. `e2e-employee-register-manual-entry-filled.png` - Manual entry form with customer data
-3. `e2e-employee-register-propose-selection.png` - Selection proposal and confirmation
-4. `e2e-employee-register-payment-complete.png` - Payment processed, awaiting signature
+1. `e2e-employee-kiosk-signed-in-lane-1.png` - Employee signed in, lane-1 active
+2. `e2e-employee-kiosk-manual-entry-filled.png` - Manual entry form with customer data
+3. `e2e-employee-kiosk-propose-selection.png` - Selection proposal and confirmation
+4. `e2e-employee-kiosk-payment-complete.png` - Payment processed, awaiting signature
 5. `e2e-customer-kiosk-session-active.png` - Customer kiosk idle state (sync issue noted)
 
 ### Key Validations ✅
@@ -288,7 +288,7 @@ This phase was deferred to focus on core check-in flow validation. The availabil
 - ✅ Selection proposal and confirmation
 - ✅ Inventory display and sorting
 - ✅ Payment processing (demo mode)
-- ✅ Realtime updates (employee-register)
+- ✅ Realtime updates (employee-kiosk)
 - ✅ API health and connectivity
 
 ### Known Issues / Notes
@@ -305,10 +305,10 @@ This phase was deferred to focus on core check-in flow validation. The availabil
 
 ## Conclusion
 
-The Club Operations POS system successfully passed the end-to-end smoke test for the core check-in workflow. All critical components (API, database, employee-register) are functioning correctly. The system demonstrates:
+The Club Operations POS system successfully passed the end-to-end smoke test for the core check-in workflow. All critical components (API, database, employee-kiosk) are functioning correctly. The system demonstrates:
 
 - ✅ Robust authentication and authorization
-- ✅ Realtime communication (employee-register)
+- ✅ Realtime communication (employee-kiosk)
 - ✅ Accurate inventory management and display
 - ✅ Payment processing workflow
 - ✅ Transaction state management

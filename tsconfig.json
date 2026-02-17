@@ -8,7 +8,7 @@
     { "path": "packages/shared" },
     { "path": "services/api" },
     { "path": "apps/customer-kiosk" },
-    { "path": "apps/employee-register" },
+    { "path": "apps/employee-kiosk" },
     { "path": "apps/office-dashboard" }
   ]
 }

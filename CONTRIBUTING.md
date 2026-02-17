@@ -10,7 +10,7 @@ Actively maintained:
 - `packages/shared`
 - `packages/ui`
 - `apps/customer-kiosk`
-- `apps/employee-register`
+- `apps/employee-kiosk`
 - `apps/office-dashboard`
 
 ## Source of Truth (must stay aligned)

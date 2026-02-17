@@ -1,0 +1,459 @@
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { Badge, Button } from '@club-ops/ui/tailadmin';
+import { SignInModal } from './SignInModal';
+import type { RealtimeEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
+import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
+import { safeJsonParse } from '@club-ops/ui';
+import {
+  clearStorageValue,
+  CLUBOPS_STORAGE_KEYS,
+  CLUBOPS_STORAGE_LEGACY_KEYS,
+  getApiUrl,
+  writeStorageValue,
+} from '@club-ops/shared';
+
+const API_BASE = getApiUrl('/api');
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
+
+interface RegisterSession {
+  employeeId: string;
+  employeeName: string;
+  registerNumber: number;
+  deviceId: string;
+  pin?: string; // PIN for creating staff session
+}
+
+interface RegisterSignInProps {
+  deviceId: string;
+  onSignedIn: (session: RegisterSession) => void;
+  topTitle?: string;
+  lane?: string;
+  apiStatus?: string | null;
+  realtimeConnected?: boolean;
+  realtimeMode?: 'cloud' | 'lan';
+  onSignOut?: () => void;
+  onCloseOut?: () => void;
+  children: React.ReactNode;
+}
+
+export function RegisterSignIn({
+  deviceId,
+  onSignedIn,
+  topTitle = 'Employee Register',
+  lane,
+  apiStatus,
+  realtimeConnected,
+  realtimeMode,
+  onSignOut,
+  onCloseOut,
+  children,
+}: RegisterSignInProps) {
+  const [showSignInModal, setShowSignInModal] = useState(false);
+  const [registerSession, setRegisterSession] = useState<RegisterSession | null>(null);
+  const heartbeatIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastHeartbeatOkRef = useRef(false);
+  const heartbeatFailureCountRef = useRef(0);
+  const heartbeatInvalidationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivitySentRef = useRef(0);
+  const activityInFlightRef = useRef(false);
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatIntervalRef.current) {
+      clearInterval(heartbeatIntervalRef.current);
+      heartbeatIntervalRef.current = null;
+    }
+    if (heartbeatInvalidationTimerRef.current) {
+      clearTimeout(heartbeatInvalidationTimerRef.current);
+      heartbeatInvalidationTimerRef.current = null;
+    }
+  }, []);
+
+  const handleSessionInvalidated = useCallback(() => {
+    // Clear heartbeat interval
+    stopHeartbeat();
+
+    // Clear register session state
+    setRegisterSession(null);
+    lastHeartbeatOkRef.current = false;
+    heartbeatFailureCountRef.current = 0;
+
+    // Clear staff session from localStorage
+    clearStorageValue(
+      localStorage,
+      CLUBOPS_STORAGE_KEYS.staffSession,
+      CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+    );
+
+    // Return to splash (component will re-render showing sign-in modal)
+  }, [stopHeartbeat]);
+
+  const checkRegisterStatus = useCallback(async (): Promise<boolean> => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/v1/registers/status?deviceId=${encodeURIComponent(deviceId)}`
+      );
+      if (!response.ok) return false;
+
+      const data = await readJson<{
+        signedIn?: boolean;
+        employee?: { id?: string; name?: string };
+        registerNumber?: number;
+      }>(response);
+      if (
+        data.signedIn &&
+        data.employee &&
+        typeof data.employee.id === 'string' &&
+        typeof data.employee.name === 'string' &&
+        typeof data.registerNumber === 'number'
+      ) {
+        setRegisterSession({
+          employeeId: data.employee.id,
+          employeeName: data.employee.name,
+          registerNumber: data.registerNumber,
+          deviceId,
+        });
+        onSignedIn({
+          employeeId: data.employee.id,
+          employeeName: data.employee.name,
+          registerNumber: data.registerNumber,
+          deviceId,
+        });
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.error('Failed to check register status:', error);
+      return false;
+    }
+  }, [deviceId, onSignedIn]);
+
+  // Check for existing register session on mount
+  useEffect(() => {
+    void checkRegisterStatus();
+  }, [checkRegisterStatus]);
+
+  const signedInRealtime = registerSession ? (
+    <RegisterSessionRealtime deviceId={deviceId} onInvalidated={handleSessionInvalidated} />
+  ) : null;
+
+  const sendHeartbeat = useCallback(async () => {
+    try {
+      const response = await fetch(`${API_BASE}/v1/registers/heartbeat`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        if (isRecord(errorPayload) && errorPayload.code === 'DEVICE_DISABLED') {
+          handleSessionInvalidated();
+          return;
+        }
+        if (response.status === 404) {
+          if (lastHeartbeatOkRef.current) {
+            heartbeatFailureCountRef.current += 1;
+            if (heartbeatFailureCountRef.current < 3) {
+              return;
+            }
+          }
+
+          const stillActive = await checkRegisterStatus();
+          if (!stillActive) {
+            if (heartbeatInvalidationTimerRef.current) {
+              clearTimeout(heartbeatInvalidationTimerRef.current);
+            }
+            heartbeatInvalidationTimerRef.current = setTimeout(() => {
+              heartbeatInvalidationTimerRef.current = null;
+              void checkRegisterStatus().then((active) => {
+                if (!active) {
+                  handleSessionInvalidated();
+                }
+              });
+            }, 3000);
+          }
+          return;
+        }
+        throw new Error('Heartbeat failed');
+      }
+
+      lastHeartbeatOkRef.current = true;
+      heartbeatFailureCountRef.current = 0;
+      if (heartbeatInvalidationTimerRef.current) {
+        clearTimeout(heartbeatInvalidationTimerRef.current);
+        heartbeatInvalidationTimerRef.current = null;
+      }
+    } catch (error) {
+      console.error('Heartbeat failed:', error);
+      heartbeatFailureCountRef.current += 1;
+      if (lastHeartbeatOkRef.current && heartbeatFailureCountRef.current < 3) {
+        return;
+      }
+
+      const stillActive = await checkRegisterStatus();
+      if (!stillActive) {
+        if (heartbeatInvalidationTimerRef.current) {
+          clearTimeout(heartbeatInvalidationTimerRef.current);
+        }
+        heartbeatInvalidationTimerRef.current = setTimeout(() => {
+          heartbeatInvalidationTimerRef.current = null;
+          void checkRegisterStatus().then((active) => {
+            if (!active) {
+              handleSessionInvalidated();
+            }
+          });
+        }, 3000);
+      }
+    }
+  }, [checkRegisterStatus, deviceId, handleSessionInvalidated]);
+
+  const sendActivity = useCallback(async () => {
+    if (activityInFlightRef.current) return;
+    activityInFlightRef.current = true;
+    try {
+      const response = await fetch(`${API_BASE}/v1/registers/activity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      });
+
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        if (
+          response.status === 404 ||
+          (isRecord(errorPayload) && errorPayload.code === 'DEVICE_DISABLED')
+        ) {
+          handleSessionInvalidated();
+        }
+      }
+    } catch (error) {
+      console.error('Register activity update failed:', error);
+    } finally {
+      activityInFlightRef.current = false;
+    }
+  }, [deviceId, handleSessionInvalidated]);
+
+  const startHeartbeat = useCallback(() => {
+    stopHeartbeat();
+
+    // Send heartbeat every 30 seconds (server TTL is much higher, but browsers can throttle timers).
+    void sendHeartbeat();
+    const interval = setInterval(() => {
+      void sendHeartbeat();
+    }, 30000);
+
+    heartbeatIntervalRef.current = interval;
+  }, [sendHeartbeat, stopHeartbeat]);
+
+  // Start/stop heartbeat based on register session
+  useEffect(() => {
+    if (registerSession) {
+      startHeartbeat();
+      return () => stopHeartbeat();
+    }
+    stopHeartbeat();
+    return;
+  }, [registerSession, startHeartbeat, stopHeartbeat]);
+
+  // Wake-up heartbeats: browsers can throttle timers in background tabs/windows.
+  useEffect(() => {
+    if (!registerSession) return;
+    const onFocus = () => void sendHeartbeat();
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void sendHeartbeat();
+    };
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [registerSession, sendHeartbeat]);
+
+  // Track explicit user activity to avoid idle sessions lingering.
+  useEffect(() => {
+    if (!registerSession) return;
+
+    const throttleMs = 60_000;
+    const onActivity = () => {
+      const now = Date.now();
+      if (now - lastActivitySentRef.current < throttleMs) return;
+      lastActivitySentRef.current = now;
+      void sendActivity();
+    };
+
+    onActivity();
+    window.addEventListener('pointerdown', onActivity, { passive: true });
+    window.addEventListener('keydown', onActivity);
+    window.addEventListener('focus', onActivity);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') onActivity();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      window.removeEventListener('pointerdown', onActivity);
+      window.removeEventListener('keydown', onActivity);
+      window.removeEventListener('focus', onActivity);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [registerSession, sendActivity]);
+
+  const handleSignIn = async (session: RegisterSession) => {
+    // After register sign-in, also create a staff session for API calls
+    if (session.pin) {
+      try {
+        const response = await fetch(`${API_BASE}/v1/auth/login-pin`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            staffLookup: session.employeeId,
+            deviceId: session.deviceId,
+            pin: session.pin,
+          }),
+        });
+
+        if (response.ok) {
+          const staffSession = await readJson<Record<string, unknown>>(response);
+          // Store staff session for API authentication
+          writeStorageValue(
+            localStorage,
+            CLUBOPS_STORAGE_KEYS.staffSession,
+            JSON.stringify(staffSession),
+            CLUBOPS_STORAGE_LEGACY_KEYS.staffSession
+          );
+        }
+      } catch (error) {
+        console.error('Failed to create staff session:', error);
+        // Continue anyway - register session is primary
+      }
+    }
+
+    // Remove PIN from session before storing
+    const { pin, ...sessionWithoutPin } = session;
+    void pin;
+    lastActivitySentRef.current = 0;
+    lastHeartbeatOkRef.current = false;
+    heartbeatFailureCountRef.current = 0;
+    setRegisterSession(sessionWithoutPin);
+    onSignedIn(sessionWithoutPin);
+  };
+
+  // If not signed in, show initial state
+  if (!registerSession) {
+    return (
+      <div className="flex h-screen flex-col items-center justify-center bg-gray-100 dark:bg-gray-900">
+        <Button size="lg" onClick={() => setShowSignInModal(true)}>
+          Sign In
+        </Button>
+        <SignInModal
+          isOpen={showSignInModal}
+          onClose={() => setShowSignInModal(false)}
+          onSignIn={(s) => void handleSignIn(s)}
+          deviceId={deviceId}
+        />
+      </div>
+    );
+  }
+
+  // Signed in state
+  return (
+    <div className="flex h-screen flex-col bg-white dark:bg-gray-900">
+      {realtimeMode === 'lan' ? (
+        <div className="bg-warning-500 px-3 py-1.5 text-center text-sm font-bold text-white">
+          LAN mode (offline fallback)
+        </div>
+      ) : null}
+
+      {/* Top bar */}
+      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-900">
+        <span className="text-base font-semibold text-gray-800 dark:text-white/90">{topTitle}</span>
+
+        <div className="flex items-center gap-3">
+          <span className="text-base text-gray-600 dark:text-gray-300">
+            {registerSession.employeeName} • Register {registerSession.registerNumber}
+          </span>
+
+          {import.meta.env.DEV && (
+            <span className="flex items-center gap-2">
+              {lane ? (
+                <Badge color="info" variant="light" size="sm">
+                  Lane: {lane}
+                </Badge>
+              ) : null}
+              <Badge color={apiStatus === 'ok' ? 'success' : 'error'} variant="light" size="sm">
+                API: {apiStatus ?? '...'}
+              </Badge>
+              <Badge color={realtimeConnected ? 'success' : 'error'} variant="light" size="sm">
+                Realtime: {realtimeConnected ? 'Live' : 'Offline'}
+              </Badge>
+            </span>
+          )}
+        </div>
+
+        <div className="flex items-center gap-2">
+          {onSignOut && (
+            <Button variant="outline" size="sm" onClick={() => void onSignOut()}>
+              Sign Out
+            </Button>
+          )}
+          {onCloseOut && (
+            <Button variant="danger" size="sm" onClick={() => void onCloseOut()}>
+              Close Out
+            </Button>
+          )}
+        </div>
+      </header>
+
+      {signedInRealtime}
+      {children}
+    </div>
+  );
+}
+
+function RegisterSessionRealtime({
+  deviceId,
+  onInvalidated,
+}: {
+  deviceId: string;
+  onInvalidated: () => void;
+}) {
+  const rawEnv = import.meta.env as unknown as Record<string, unknown>;
+  const kioskToken =
+    typeof rawEnv.VITE_KIOSK_TOKEN === 'string' && rawEnv.VITE_KIOSK_TOKEN.trim()
+      ? rawEnv.VITE_KIOSK_TOKEN.trim()
+      : null;
+  const { lastMessage, lastError } = useLaneSession({
+    laneId: '',
+    role: 'employee',
+    kioskToken: kioskToken ?? '',
+    enabled: true,
+  });
+
+  useEffect(() => {
+    if (!lastMessage) return;
+    const parsed = safeJsonParse<unknown>(String(lastMessage.data));
+    if (!isRecord(parsed) || typeof parsed.type !== 'string') return;
+    const message = parsed as unknown as RealtimeEvent;
+    if (message.type !== 'REGISTER_SESSION_UPDATED') return;
+    const payload = message.payload as RegisterSessionUpdatedPayload;
+    if (payload.deviceId === deviceId && !payload.active) {
+      onInvalidated();
+    }
+  }, [deviceId, lastMessage, onInvalidated]);
+
+  useEffect(() => {
+    if (!lastError) return;
+    console.error('Realtime connection error:', lastError);
+  }, [lastError]);
+
+  return null;
+}

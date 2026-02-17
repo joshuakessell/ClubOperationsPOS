@@ -2,7 +2,7 @@
 
 /**
  * Script to kill processes running on development ports
- * Ports: 3000 (API), 5173 (customer-kiosk), 5175 (employee-register), 5176 (office-dashboard)
+ * Ports: 3000 (API), 5173 (customer-kiosk), 5175 (employee-kiosk), 5176 (office-dashboard)
  */
 
 const { exec } = require('child_process');

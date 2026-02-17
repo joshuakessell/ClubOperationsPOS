@@ -64,7 +64,7 @@
   - Render step from `flowStep` (not inferred heuristics).
   - Send `BACK_STEP` / `CANCEL_STEP` commands on modal back/cancel.
   - Apply only monotonic `flowVersion` updates.
-- `employee-register`:
+- `employee-kiosk`:
   - Derive Employee Assist step from `flowStep`.
   - First-click/second-click logic backed by flow commands + versions.
   - Mirror kiosk availability ordering and hide unavailable options per shared contract.

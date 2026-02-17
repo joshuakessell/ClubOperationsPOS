@@ -113,7 +113,7 @@ export interface SessionUpdatedPayload {
     membershipPurchaseIntent?: 'PURCHASE' | 'RENEW';
     /**
      * Timestamp (ISO) when the customer kiosk acknowledged completion (tapped OK) and returned to idle UI.
-     * This must NOT end/clear the lane session; employee-register reset is the only formal completion path.
+     * This must NOT end/clear the lane session; employee-kiosk reset is the only formal completion path.
      */
     kioskAcknowledgedAt?: string;
     allowedRentals: string[];

@@ -8,14 +8,14 @@ This QA script mirrors the automated tests and is intended for on-device validat
 
 - **Setup**:
   - Have an existing customer record in `customers` with `primary_language` unset.
-  - Ensure employee-register and customer-kiosk are connected to the same lane.
+  - Ensure employee-kiosk and customer-kiosk are connected to the same lane.
 
 - **Steps**:
-  - In employee-register, **manually select a customer** (search + confirm).
+  - In employee-kiosk, **manually select a customer** (search + confirm).
   - On customer-kiosk, confirm the session starts in **English by default** (no language selection step).
   - Tap the **language toggle button** on the kiosk screen to switch to Spanish.
   - Verify the kiosk UI updates to Spanish immediately.
-  - In employee-register, open the customer profile and use the **preferred language button** to change language.
+  - In employee-kiosk, open the customer profile and use the **preferred language button** to change language.
 
 - **Expected**:
   - **No language selection step** at the start of the checkin flow.
@@ -32,7 +32,7 @@ This QA script mirrors the automated tests and is intended for on-device validat
   - Ensure no text input field is focused.
 
 - **Steps**:
-  - In employee-register, tap **Scan** to open full-screen Scan Mode.
+  - In employee-kiosk, tap **Scan** to open full-screen Scan Mode.
   - Scan a barcode that ends with **Enter** suffix.
   - Scan a barcode that does **not** send Enter/Tab (idle timeout termination).
   - Scan a multi-line PDF417 (state ID) and confirm the captured data is handled (no truncation at first newline).
@@ -66,14 +66,14 @@ Test each match type using known fixtures:
 
 ---
 
-## 4) Agreement sync (kiosk → employee-register)
+## 4) Agreement sync (kiosk → employee-kiosk)
 
 - **Setup**:
   - Create a lane session that reaches the agreement step (selection locked + payment marked PAID).
 
 - **Steps**:
   - On customer-kiosk, sign agreement and submit.
-  - Observe employee-register without refreshing.
+  - Observe employee-kiosk without refreshing.
   - On customer-kiosk complete screen, tap **OK**.
 
 - **Expected**:

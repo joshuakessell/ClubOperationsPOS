@@ -104,14 +104,14 @@ services:
       - no-new-privileges:true
 
   # Employee Register Frontend
-  employee-register:
+  employee-kiosk:
     build:
       context: .
-      dockerfile: Dockerfile.employee-register
+      dockerfile: Dockerfile.employee-kiosk
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL:-/api}
         VITE_KIOSK_TOKEN: ${KIOSK_TOKEN}
-    container_name: club-ops-employee-register
+    container_name: club-ops-employee-kiosk
     restart: unless-stopped
     ports:
       - "5175:80"

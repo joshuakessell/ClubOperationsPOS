@@ -1,0 +1,411 @@
+import { useState, useEffect } from 'react';
+import { LiquidGlassPinInput } from '@club-ops/ui';
+import { Alert, Button, Modal, Spinner } from '@club-ops/ui/tailadmin';
+import {
+  RegisterButtons,
+  type RegisterAvailability,
+  type RegisterNumber,
+} from './components/sign-in/RegisterButtons';
+import { getApiUrl } from '@club-ops/shared';
+const API_BASE = getApiUrl('/api');
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function getErrorMessage(value: unknown): string | undefined {
+  if (!isRecord(value)) return undefined;
+  const msg = value['message'];
+  const err = value['error'];
+  if (typeof msg === 'string' && msg.trim()) return msg;
+  if (typeof err === 'string' && err.trim()) return err;
+  return undefined;
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+  const data: unknown = await response.json();
+  return data as T;
+}
+
+interface Employee {
+  id: string;
+  name: string;
+  role: string;
+  signedIn: boolean;
+  registerNumbers: number[];
+}
+
+interface SignInModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+  onSignIn: (data: {
+    employeeId: string;
+    employeeName: string;
+    registerNumber: number;
+    deviceId: string;
+    pin: string;
+  }) => void;
+  deviceId: string;
+}
+
+type SignInStep = 'select-employee' | 'enter-pin' | 'assign-register' | 'confirm';
+
+export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModalProps) {
+  const [step, setStep] = useState<SignInStep>('select-employee');
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [selectedEmployee, setSelectedEmployee] = useState<Employee | null>(null);
+  const [pin, setPin] = useState('');
+  const [pinError, setPinError] = useState(false);
+  const [registerNumber, setRegisterNumber] = useState<number | null>(null);
+  const [registers, setRegisters] = useState<RegisterAvailability[] | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isOpen && step === 'select-employee') {
+      void fetchAvailableEmployees();
+    }
+  }, [isOpen, step]);
+
+  const fetchAvailableEmployees = async () => {
+    setError(null);
+    try {
+      const response = await fetch(`${API_BASE}/v1/employees/available`);
+      if (!response.ok) throw new Error(`Server returned ${response.status}`);
+      const data = await readJson<{ employees?: unknown[] }>(response);
+      const employees = (Array.isArray(data.employees) ? data.employees : [])
+        .filter(isRecord)
+        .filter(
+          (e) =>
+            typeof e.id === 'string' && typeof e.name === 'string' && typeof e.role === 'string'
+        )
+        .map((e) => ({
+          id: e.id as string,
+          name: e.name as string,
+          role: e.role as string,
+          signedIn: Boolean(e.signedIn),
+          registerNumbers: Array.isArray(e.registerNumbers)
+            ? e.registerNumbers.filter((n) => typeof n === 'number')
+            : [],
+        }));
+      setEmployees(employees);
+      if (employees.length === 0) {
+        setError('No employees found in the database. Is the database seeded?');
+      }
+    } catch (error) {
+      console.error('Failed to fetch employees:', error);
+      setError(
+        `Failed to load employees. Check that the API is running. (${API_BASE}/v1/employees/available)`
+      );
+    }
+  };
+
+  const fetchRegisterAvailability = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/v1/registers/availability`);
+      if (!response.ok) throw new Error('Failed to fetch register availability');
+      const data = await readJson<{ registers?: unknown[] }>(response);
+      setRegisters((Array.isArray(data.registers) ? data.registers : []) as RegisterAvailability[]);
+    } catch (err) {
+      console.error('Failed to fetch register availability:', err);
+      setError('Failed to load register availability');
+      setRegisters(null);
+    }
+  };
+
+  const handleSelectEmployee = (employee: Employee) => {
+    setSelectedEmployee(employee);
+    setStep('enter-pin');
+    setPin('');
+    setPinError(false);
+    setError(null);
+  };
+
+  const handlePinSubmit = async (e?: React.FormEvent) => {
+    e?.preventDefault();
+    if (!selectedEmployee || !pin.trim()) return;
+
+    setIsLoading(true);
+    setPinError(false);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/auth/verify-pin`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: selectedEmployee.id,
+          pin: pin.trim(),
+          deviceId,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        if (getErrorMessage(errorPayload) === 'Wrong PIN') {
+          setPinError(true);
+          setPin('');
+          return;
+        }
+        throw new Error(getErrorMessage(errorPayload) || 'PIN verification failed');
+      }
+
+      setStep('assign-register');
+      await fetchRegisterAvailability();
+    } catch (error) {
+      console.error('PIN verification error:', error);
+      setError(error instanceof Error ? error.message : 'PIN verification failed');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleAssignRegister = async (requestedRegisterNumber?: RegisterNumber) => {
+    if (!selectedEmployee) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/registers/assign`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: selectedEmployee.id,
+          deviceId,
+          registerNumber: requestedRegisterNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        throw new Error(getErrorMessage(errorPayload) || 'Failed to assign register');
+      }
+
+      const data = await readJson<{ registerNumber?: number }>(response);
+
+      if (typeof data.registerNumber === 'number') setRegisterNumber(data.registerNumber);
+      setStep('confirm');
+    } catch (error) {
+      console.error('Register assignment error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to assign register');
+      await fetchRegisterAvailability();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSelectRegister = async (num: RegisterNumber) => {
+    await handleAssignRegister(num);
+  };
+
+  const handleConfirm = async () => {
+    if (!selectedEmployee || !registerNumber) return;
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`${API_BASE}/v1/registers/confirm`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          employeeId: selectedEmployee.id,
+          deviceId,
+          registerNumber,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorPayload: unknown = await response.json().catch(() => null);
+        throw new Error(getErrorMessage(errorPayload) || 'Failed to confirm register assignment');
+      }
+
+      await response.json().catch(() => null);
+
+      onSignIn({
+        employeeId: selectedEmployee.id,
+        employeeName: selectedEmployee.name,
+        registerNumber,
+        deviceId,
+        pin: pin,
+      });
+
+      setStep('select-employee');
+      setSelectedEmployee(null);
+      setPin('');
+      setRegisterNumber(null);
+      setPinError(false);
+      setError(null);
+      onClose();
+    } catch (error) {
+      console.error('Confirmation error:', error);
+      setError(error instanceof Error ? error.message : 'Failed to confirm');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleBack = () => {
+    if (step === 'enter-pin') {
+      setStep('select-employee');
+      setSelectedEmployee(null);
+      setPin('');
+      setPinError(false);
+    } else if (step === 'assign-register') {
+      setStep('enter-pin');
+      setRegisterNumber(null);
+      setRegisters(null);
+    } else if (step === 'confirm') {
+      setStep('assign-register');
+      setRegisterNumber(null);
+    }
+    setError(null);
+  };
+
+  const formatSignedInLabel = (employee: Employee) => {
+    if (!employee.signedIn) return '';
+    const registers = employee.registerNumbers.map((num) => `Register ${num}`).join(', ');
+    return registers ? ` (Signed in: ${registers})` : ' (Signed in)';
+  };
+
+  /* Step title */
+  const stepTitle =
+    step === 'select-employee'
+      ? 'Select Employee'
+      : step === 'enter-pin'
+        ? 'Enter PIN'
+        : step === 'assign-register'
+          ? 'Select Register'
+          : `Assigned Register ${registerNumber}`;
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-xl p-6 lg:p-10">
+      {/* Title */}
+      <h2 className="mb-6 text-2xl font-semibold text-gray-800 dark:text-white/90">{stepTitle}</h2>
+
+      {/* Errors */}
+      {error && (
+        <div className="mb-4">
+          <Alert variant="error" title="Error" message={error} />
+        </div>
+      )}
+
+      {/* Step: Select Employee */}
+      {step === 'select-employee' && (
+        <div className="flex flex-col gap-3">
+          {employees.length === 0 && (
+            <div className="flex justify-center">
+              <Button size="lg" onClick={() => void fetchAvailableEmployees()} disabled={isLoading}>
+                Retry
+              </Button>
+            </div>
+          )}
+          <div className="flex max-h-[400px] flex-col gap-2 overflow-y-auto">
+            {employees.map((emp) => (
+              <Button
+                key={emp.id}
+                variant="outline"
+                size="lg"
+                fullWidth
+                onClick={() => handleSelectEmployee(emp)}
+                disabled={isLoading}
+                className="justify-start"
+              >
+                {emp.name}
+                {emp.signedIn && (
+                  <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
+                    {formatSignedInLabel(emp)}
+                  </span>
+                )}
+              </Button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Step: Enter PIN */}
+      {step === 'enter-pin' && selectedEmployee && (
+        <div className="flex flex-col gap-4">
+          <p className="text-base text-gray-500 dark:text-gray-400">
+            Employee:{' '}
+            <span className="font-semibold text-gray-800 dark:text-white/90">
+              {selectedEmployee.name}
+            </span>
+          </p>
+          {pinError && <Alert variant="error" title="Wrong PIN" message="Please try again." />}
+          <LiquidGlassPinInput
+            length={6}
+            value={pin}
+            onChange={(next) => {
+              setPin(next);
+              setPinError(false);
+            }}
+            onSubmit={() => void handlePinSubmit()}
+            submitLabel={isLoading ? 'Verifying…' : 'Verify PIN'}
+            submitDisabled={isLoading}
+            disabled={isLoading}
+            className={pinError ? 'shake' : undefined}
+            displayAriaLabel="Employee PIN"
+          />
+          <div className="flex justify-start">
+            <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Assign Register */}
+      {step === 'assign-register' && (
+        <div className="flex flex-col gap-4">
+          {!registers ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-base text-gray-500 dark:text-gray-400">
+              <Spinner size="sm" />
+              Loading registers...
+            </div>
+          ) : (
+            <RegisterButtons
+              registers={registers}
+              selectedEmployeeId={selectedEmployee?.id ?? null}
+              disabled={isLoading}
+              onSelect={(num) => void handleSelectRegister(num)}
+            />
+          )}
+          <div className="flex gap-3">
+            <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => void fetchRegisterAvailability()}
+              disabled={isLoading}
+            >
+              Refresh
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Confirm */}
+      {step === 'confirm' && registerNumber && (
+        <div className="flex flex-col gap-4">
+          <p className="text-base text-gray-500 dark:text-gray-400">
+            Employee:{' '}
+            <span className="font-semibold text-gray-800 dark:text-white/90">
+              {selectedEmployee?.name}
+            </span>
+          </p>
+          <div className="flex gap-3">
+            <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+            <Button size="lg" onClick={() => void handleConfirm()} disabled={isLoading}>
+              {isLoading ? 'Confirming...' : 'Confirm'}
+            </Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+}

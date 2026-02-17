@@ -14,7 +14,7 @@ The edge stack is intended to be authoritative for lanes it serves while in LAN 
 
 - Edge host has Docker available.
 - You have the kiosk token for LAN auth (`KIOSK_TOKEN`).
-- You have a plan for staff auth (employee-register may be cloud-only if staff tokens cannot be validated offline).
+- You have a plan for staff auth (employee-kiosk may be cloud-only if staff tokens cannot be validated offline).
 
 ## Deploy: Local edge stack
 
@@ -41,7 +41,7 @@ Build-time env:
 
 The kiosk will automatically switch to LAN mode when cloud health fails (hysteresis) and the LAN health is good.
 
-### employee-register
+### employee-kiosk
 
 Employee-register also supports LAN mode, but staff auth may be cloud-only depending on your auth setup.
 
@@ -50,7 +50,7 @@ Build-time env:
 - `VITE_LAN_API_BASE_URL=http://{edge-host}:3001`
 - `VITE_LAN_REALTIME_WS_URL=ws://{edge-host}:3001/v1/realtime/lan/lane/{LANE_ID}`
 
-In dev builds, employee-register shows a banner when it is running in LAN mode.
+In dev builds, employee-kiosk shows a banner when it is running in LAN mode.
 
 ## Verify LAN operation
 

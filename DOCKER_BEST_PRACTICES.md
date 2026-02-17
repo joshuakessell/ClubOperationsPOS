@@ -35,7 +35,7 @@ Your project exemplifies Docker best practices:
 ## 🎯 Recommended Improvements
 
 ### 1. Optimize Nginx Security Headers
-**File**: `Dockerfile.customer-kiosk`, `Dockerfile.employee-register`, `Dockerfile.office-dashboard`
+**File**: `Dockerfile.customer-kiosk`, `Dockerfile.employee-kiosk`, `Dockerfile.office-dashboard`
 
 Add security headers to nginx config:
 
