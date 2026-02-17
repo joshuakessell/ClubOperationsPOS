@@ -107,7 +107,7 @@ export function SelectionScreen({
               onClick={onToggleLanguage}
               disabled={isSubmitting}
             >
-              {lang === 'ES' ? 'English' : 'Español'}
+              {lang === 'ES' ? 'English?' : '¿Español?'}
             </button>
 
             {notice && (

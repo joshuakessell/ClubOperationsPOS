@@ -18,6 +18,8 @@ jobs:
     permissions:
       id-token: write
       contents: read
+    env:
+      APPSYNC_EVENTS_HTTP_ENDPOINT: https://yqg4r3pkvvhzvnultnequus77y.appsync-api.us-east-1.amazonaws.com/event
 
     steps:
       - name: Checkout repo
@@ -31,7 +33,7 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
         with:
-          version: 10.28.0
+          version: 10.29.3
 
       - name: Resolve pnpm store path
         id: pnpm-store
@@ -54,6 +56,7 @@ jobs:
       - name: Login to Amazon ECR
         id: ecr-login
         uses: aws-actions/amazon-ecr-login@v2
+
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -111,7 +114,7 @@ jobs:
                     "DB_SSL": "true",
                     "DB_SSL_CA_PATH": "",
                     "DB_LOG_QUERIES": "false",
-                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "${{ vars.APPSYNC_EVENTS_HTTP_ENDPOINT }}",
+                    "APPSYNC_EVENTS_HTTP_ENDPOINT": "${{ env.APPSYNC_EVENTS_HTTP_ENDPOINT }}",
                     "APPSYNC_EVENTS_CHANNEL_NAMESPACE": "club-ops",
                     "ALLOWED_ORIGINS": "https://employee-demo.joshuakessell.com,https://customer-demo.joshuakessell.com"
                   },
@@ -148,15 +151,15 @@ jobs:
           VITE_LAN_FALLBACK: '1'
           VITE_LAN_API_BASE_URL: 'http://localhost:3000'
         run: |
-          pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-register --force
+          pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-kiosk --force
 
       # --- Employee Register Deployment ---
-      - name: Deploy employee-register
+      - name: Deploy employee-kiosk
         env:
           EMPLOYEE_BUCKET: ${{ vars.EMPLOYEE_BUCKET }}
           EMPLOYEE_DISTRIBUTION_ID: ${{ vars.EMPLOYEE_DISTRIBUTION_ID }}
         run: |
-          aws s3 sync apps/employee-register/dist "s3://$EMPLOYEE_BUCKET" --delete
+          aws s3 sync apps/employee-kiosk/dist "s3://$EMPLOYEE_BUCKET" --delete
           aws cloudfront create-invalidation --distribution-id "$EMPLOYEE_DISTRIBUTION_ID" --paths "/*"
 
       # --- Customer Kiosk Deployment ---

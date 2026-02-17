@@ -6,6 +6,9 @@
  * that can't be expressed purely as utility classes.
  */
 
+@import "tailwindcss";
+@reference "@club-ops/ui/tailadmin/theme.css";
+
 /* ── Layout ─────────────────────────────────────────────── */
 .dashboard {
   @apply flex min-h-screen bg-gray-950 text-gray-200 font-outfit;
@@ -584,3 +587,17 @@
 .cs-liquid-numpad__secondary { @apply text-lg; }
 .cs-liquid-numpad__key:active:not(:disabled) { transform: translateY(1px) scale(0.97); }
 .cs-liquid-numpad__submit { @apply col-span-3 text-lg font-semibold; min-height: 72px; }
+
+/* ── Missing layout classes ─────────────────────────────── */
+.staff-management { @apply flex flex-col gap-4 h-full min-h-0; }
+.topbar-status { @apply flex items-center gap-2; }
+.cs-input {
+  @apply w-full px-3 py-2 text-sm rounded-lg;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: border-color 200ms;
+}
+.cs-input:focus {
+  @apply outline-none;
+  border-color: rgba(255, 255, 255, 0.35);
+}

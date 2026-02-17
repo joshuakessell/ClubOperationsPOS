@@ -188,7 +188,7 @@ export function registerCheckinMembershipRoutes(fastify: FastifyInstance): void 
    * POST /v1/checkin/lane/:laneId/membership-choice
    *
    * Persist the kiosk "membership step" choice (ONE_TIME vs SIX_MONTH) on the lane session
-   * so employee-register can mirror the kiosk step-by-step reliably.
+   * so employee-kiosk can mirror the kiosk step-by-step reliably.
    *
    * Security: optionalAuth (kiosk does not have staff token).
    *

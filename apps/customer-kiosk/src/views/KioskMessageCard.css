@@ -1,4 +1,5 @@
 /* KioskMessageCard — Tailwind edition */
+@reference "tailwindcss";
 .ck-message-card { @apply flex flex-col text-center; }
 .ck-message-card--wide { width: min(720px, 92vw); padding: clamp(2rem, 4vw, 3rem); }
 .ck-message-card--compact { @apply max-w-[720px]; padding: 1.25rem; }

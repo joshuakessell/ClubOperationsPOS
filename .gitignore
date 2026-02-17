@@ -49,3 +49,6 @@ services/api/tests/_artifacts/agreement.generated.pdf
 **/*.tfplan
 
 infra/terraform/.terraform.tfstate.lock.info
+\n# TailAdmin Pro reference copy\n.tailadmin-ref/
+\n# Deprecated — migrated to employee-kiosk\napps/employee-register/
+apps/.employee-register/

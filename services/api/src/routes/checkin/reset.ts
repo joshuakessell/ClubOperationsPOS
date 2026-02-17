@@ -43,7 +43,7 @@ export function registerCheckinResetRoutes(fastify: FastifyInstance): void {
 
           const session = sessionResult.rows[0]!;
           request.log.info(
-            { laneId, sessionId: session.id, actor: 'employee-register', action: 'reset_complete' },
+            { laneId, sessionId: session.id, actor: 'employee-kiosk', action: 'reset_complete' },
             'Completing lane session (reset)'
           );
 
@@ -108,7 +108,7 @@ export function registerCheckinResetRoutes(fastify: FastifyInstance): void {
    *
    * Public kiosk acknowledgement that the customer has tapped OK on the completion screen.
    * This must NOT clear/end the lane session. It only marks kiosk_acknowledged_at so the kiosk UI can
-   * safely return to idle while the employee-register still completes the transaction.
+   * safely return to idle while the employee-kiosk still completes the transaction.
    *
    * Security: optionalAuth (kiosk does not have staff token).
    */

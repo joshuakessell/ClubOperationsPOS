@@ -1,0 +1,62 @@
+/* SlideOutDrawer — Tailwind edition */
+@reference "tailwindcss";
+.sod-root {
+  @apply fixed block pointer-events-none;
+  top: calc(var(--er-topbar-height, 60px) + var(--er-rail-gap, 12px));
+  bottom: var(--er-rail-gap, 12px);
+  --sod-edge-gap: 12px;
+  will-change: transform;
+}
+.sod-root.sod-left { @apply left-0; }
+.sod-root.sod-right { @apply right-0; }
+.sod-root:not(.sod-dragging) { transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1); }
+
+.sod-panel {
+  @apply h-full flex overflow-hidden pointer-events-auto rounded-xl;
+  background: var(--er-surface-strong);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--er-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.45);
+}
+.sod-left .sod-panel { @apply flex-row; margin-left: var(--sod-edge-gap); }
+.sod-right .sod-panel { @apply flex-row-reverse; margin-right: var(--sod-edge-gap); }
+
+.sod-handle {
+  @apply flex items-center justify-center shrink-0 cursor-grab active:cursor-grabbing;
+  width: 28px;
+}
+.sod-handle::before {
+  content: '';
+  @apply block w-1 h-10 rounded-full;
+  background: rgba(255, 255, 255, 0.25);
+  transition: background 120ms;
+}
+.sod-handle:hover::before { background: rgba(255, 255, 255, 0.5); }
+
+.sod-body {
+  @apply flex-1 min-w-0 min-h-0 overflow-hidden flex flex-col;
+}
+.sod-body__inner {
+  @apply flex-1 min-h-0 overflow-y-auto p-3;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Peek strip */
+.sod-peek-strip {
+  @apply flex flex-col items-center justify-center shrink-0 pointer-events-auto cursor-pointer;
+  width: 36px;
+  background: var(--er-surface-strong);
+  backdrop-filter: blur(8px);
+  border: 1px solid var(--er-border);
+  transition: background 150ms;
+}
+.sod-left .sod-peek-strip { margin-left: var(--sod-edge-gap); @apply rounded-r-xl; }
+.sod-right .sod-peek-strip { margin-right: var(--sod-edge-gap); @apply rounded-l-xl; }
+.sod-peek-strip:hover { background: rgba(255, 255, 255, 0.1); }
+.sod-peek-strip__label {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  @apply text-xs font-bold;
+  color: var(--er-text-muted);
+}

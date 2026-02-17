@@ -21,6 +21,7 @@
   },
   "dependencies": {
     "@aws-crypto/sha256-js": "^5.2.0",
+    "@aws-sdk/client-cloudwatch": "^3.972.5",
     "@aws-sdk/credential-provider-node": "^3.972.5",
     "@aws-sdk/protocol-http": "^3.374.0",
     "@aws-sdk/signature-v4": "^3.374.0",
@@ -46,12 +47,13 @@
     "@types/node": "^20.10.0",
     "@types/pdf-parse": "^1.1.4",
     "@types/pg": "^8.10.9",
+    "@types/ws": "^8.5.10",
+    "@vitest/coverage-v8": "^4.0.18",
     "node-pg-migrate": "^7.7.0",
     "pdf-parse": "^1.1.1",
     "tsx": "^4.6.2",
     "typescript": "^5.3.3",
     "vitest": "^4.0.0",
-    "@types/ws": "^8.5.10",
     "ws": "^8.18.3"
   }
 }

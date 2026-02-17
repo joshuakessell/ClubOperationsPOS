@@ -79,7 +79,7 @@ Other markdown files may describe workflows, but **must not redefine** these ent
 
 ### `lane_sessions`
 
-- **Purpose**: A short-lived, device/lane-scoped coordination record for an in-progress counter check-in/renewal/upgrade flow (shared state between employee-register + customer-kiosk).
+- **Purpose**: A short-lived, device/lane-scoped coordination record for an in-progress counter check-in/renewal/upgrade flow (shared state between employee-kiosk + customer-kiosk).
 - **Primary key**: `lane_sessions.id` (UUID).
 - **Key columns** (non-exhaustive):
   - `lane_id`: Which lane the session belongs to (e.g. lane 1 / lane 2).

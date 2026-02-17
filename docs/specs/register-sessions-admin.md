@@ -112,7 +112,7 @@ Admins can force sign-out any active register session:
 
 ### Client-Side Handling
 
-When employee-register receives:
+When employee-kiosk receives:
 
 - 404 from `/v1/registers/heartbeat`: Session not found, return to splash
 - `DEVICE_DISABLED` error code: Device disabled, return to splash

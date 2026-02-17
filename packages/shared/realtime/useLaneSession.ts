@@ -292,7 +292,10 @@ export function useLaneSession({
               error: event.error instanceof Error ? event.error.message : String(event.error ?? ''),
             });
           },
-          onStatus: (status) => setConnected(status === 'connected'),
+          onStatus: (status) => {
+            setConnected(status === 'connected');
+            if (status === 'connected') transportHasConnected = true;
+          },
         },
       });
 
@@ -340,6 +343,10 @@ export function useLaneSession({
       let consecutiveCloudSuccesses = 0;
       let consecutiveLanSuccesses = 0;
       let consecutiveAllDown = 0;
+      // Track whether the AppSync transport has ever reached 'connected'.
+      // Until it does, don't count transport disconnection as a cloud failure
+      // — the WebSocket handshake is async and takes time on first load.
+      let transportHasConnected = false;
 
       const controller = new AbortController();
 
@@ -369,7 +376,13 @@ export function useLaneSession({
         const lanHealth = lanOnlyTransport ? await fetchHealth(lanApiBase, controller.signal) : false;
 
         // Cloud counters.
-        if (cloudHealth && appSyncTransport.getStatus() === 'connected') {
+        // Before the transport has ever connected, only require HTTP health so
+        // the initial async WebSocket handshake doesn't trigger a premature LAN
+        // failover.  After the first successful connection, also require the
+        // transport to be connected so genuine disconnections are detected.
+        const transportOk =
+          appSyncTransport.getStatus() === 'connected' || !transportHasConnected;
+        if (cloudHealth && transportOk) {
           consecutiveCloudSuccesses++;
           consecutiveCloudFailures = 0;
         } else {

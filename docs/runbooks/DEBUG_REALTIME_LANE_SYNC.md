@@ -26,7 +26,7 @@ In v2, the apps use the transport abstraction by default. You can force legacy b
 - LAN edge (if configured): `GET {VITE_LAN_API_BASE_URL}/health` should return 200.
 
 3) Confirm realtime connection
-- In dev builds, employee-register shows a banner when in **LAN mode**.
+- In dev builds, employee-kiosk shows a banner when in **LAN mode**.
 - In dev tools / console logs, look for realtime connect/disconnect messages when `VITE_REALTIME_DEBUG=yes`.
 
 4) Check that events are publishing
@@ -46,7 +46,7 @@ LAN auth:
 - Employee-register requires staff auth; if staff token validation is not available offline, treat edge as kiosk-only.
 
 If you suspect auth:
-- Reproduce with a single app (kiosk only), then add employee-register.
+- Reproduce with a single app (kiosk only), then add employee-kiosk.
 - Inspect the API logs for 401/403 around `/api/v1/realtime/auth` (cloud) or `/v1/realtime/lan/*` (LAN).
 
 ### B) Validate channel namespace

@@ -208,7 +208,7 @@ export async function registerRoutes(
    * GET /v1/registers/availability
    *
    * Returns which register numbers (1-3) are currently occupied.
-   * Used by the employee-register UI so the user can choose a register.
+   * Used by the employee-kiosk UI so the user can choose a register.
    */
   fastify.get(
     '/v1/registers/availability',

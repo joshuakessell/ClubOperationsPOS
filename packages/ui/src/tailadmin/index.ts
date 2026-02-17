@@ -10,9 +10,9 @@
 export { default as Button } from './ui/button/Button';
 export type { ButtonProps } from './ui/button/Button';
 
-export { Card, CardTitle, CardDescription } from './ui/card/index';
+export { Card, CardTitle, CardDescription } from './ui/card/Card';
 
-export { Modal } from './ui/modal/index';
+export { Modal } from './ui/modal/Modal';
 
 export {
   Table,
@@ -20,13 +20,18 @@ export {
   TableBody,
   TableRow,
   TableCell,
-} from './ui/table/index';
+} from './ui/table/Table';
 
 export { default as Badge } from './ui/badge/Badge';
 
 export { default as Alert } from './ui/alert/Alert';
 
 export { Spinner } from './ui/spinner/Spinner';
+
+export { Dropdown } from './ui/dropdown/Dropdown';
+export { DropdownItem } from './ui/dropdown/DropdownItem';
+
+export { default as Avatar } from './ui/avatar/Avatar';
 
 // ── Form Components ──────────────────────────────────────────
 

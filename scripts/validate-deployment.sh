@@ -28,7 +28,7 @@ echo "✅ docker-compose available"
 required_files=(
     "Dockerfile.api"
     "Dockerfile.customer-kiosk"
-    "Dockerfile.employee-register"
+    "Dockerfile.employee-kiosk"
     "Dockerfile.office-dashboard"
     "docker-compose.production.yml"
     ".env.$ENVIRONMENT"
@@ -73,7 +73,7 @@ echo "✅ All required environment variables present"
 echo ""
 echo "Building Docker images (this may take a few minutes)..."
 
-services=("api" "customer-kiosk" "employee-register" "office-dashboard")
+services=("api" "customer-kiosk" "employee-kiosk" "office-dashboard")
 for service in "${services[@]}"; do
     echo "  Building $service..."
     if ! docker build -f "Dockerfile.$service" -t "club-ops-$service:test" . > /dev/null 2>&1; then

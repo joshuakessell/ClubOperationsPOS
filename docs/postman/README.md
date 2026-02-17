@@ -4,8 +4,8 @@
 
 Files:
 
-- `docs/postman/employee-register-debug.postman_collection.json`
-- `docs/postman/employee-register-debug.postman_environment.json`
+- `docs/postman/employee-kiosk-debug.postman_collection.json`
+- `docs/postman/employee-kiosk-debug.postman_environment.json`
 
 Usage:
 

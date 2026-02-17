@@ -39,18 +39,18 @@ services:
     ports:
       - "5173:5173"
 
-  employee-register:
+  employee-kiosk:
     build:
       context: .
-      dockerfile: Dockerfile.employee-register
+      dockerfile: Dockerfile.employee-kiosk
       target: builder
-    command: pnpm --filter @club-ops/employee-register dev
+    command: pnpm --filter @club-ops/employee-kiosk dev
     volumes:
-      - ./apps/employee-register:/repo/apps/employee-register
+      - ./apps/employee-kiosk:/repo/apps/employee-kiosk
       - ./packages/shared:/repo/packages/shared
       - ./packages/ui:/repo/packages/ui
       - /repo/node_modules
-      - /repo/apps/employee-register/node_modules
+      - /repo/apps/employee-kiosk/node_modules
       - /repo/packages/shared/node_modules
       - /repo/packages/ui/node_modules
     ports:

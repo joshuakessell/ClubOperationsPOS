@@ -438,6 +438,19 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
   }
 
   try {
+    // Acquire an advisory lock to prevent concurrent seeding from multiple
+    // App Runner instances starting simultaneously. Lock key is an arbitrary
+    // constant. pg_try_advisory_lock returns false immediately if another
+    // session already holds the lock, avoiding a blocking wait.
+    const lockResult = await query<{ acquired: boolean }>(
+      `SELECT pg_try_advisory_lock(20260216) AS acquired`
+    );
+    const acquired = lockResult.rows[0]?.acquired ?? false;
+    if (!acquired) {
+      console.log('⚠️  Another instance is already seeding. Skipping demo seed.');
+      return;
+    }
+
     const now = new Date();
     await ensureDemoStateTable();
 
@@ -890,8 +903,14 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
     console.error('❌ Demo seed failed:', error);
     throw error;
   } finally {
-    await closeDatabase();
+    // Release the advisory lock so other instances can seed on the next restart.
+    try {
+      await query(`SELECT pg_advisory_unlock(20260216)`);
+    } catch { /* ignore — pool may be unavailable */ }
   }
+  // NOTE: Do NOT call closeDatabase() here — when invoked from the server's
+  // startup path (index.ts), the pool must remain open for request handling.
+  // The CLI entrypoint below handles cleanup for standalone runs.
 }
 
 // ---------------------------------------------------------------------------
@@ -899,8 +918,10 @@ export async function seedDemoData(options: { forceReseed?: boolean } = {}): Pro
 // Allows running: DEMO_MODE=true pnpm --filter @club-ops/api exec tsx src/db/seed-demo.ts
 // ---------------------------------------------------------------------------
 if (require.main === module) {
-  seedDemoData().catch((err) => {
-    console.error('❌ seed-demo CLI failed:', err);
-    process.exitCode = 1;
-  });
+  seedDemoData()
+    .catch((err) => {
+      console.error('❌ seed-demo CLI failed:', err);
+      process.exitCode = 1;
+    })
+    .finally(() => closeDatabase());
 }

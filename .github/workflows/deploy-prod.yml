@@ -61,7 +61,7 @@ jobs:
         run: |
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-api:${{ github.ref_name }}
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-customer-kiosk:${{ github.ref_name }}
-          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-employee-register:${{ github.ref_name }}
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-employee-kiosk:${{ github.ref_name }}
           docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}-office-dashboard:${{ github.ref_name }}
 
       - name: Run pre-deployment validation

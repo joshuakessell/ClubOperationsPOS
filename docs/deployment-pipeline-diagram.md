@@ -104,8 +104,8 @@ Triggered on: **Push to main** | **Manual dispatch**
 ├─────────────────────────────────────────────────────────────────┤
 │ • Get KIOSK_TOKEN from Secrets Manager                          │
 │ • VITE_API_BASE_URL=https://api-demo.joshuakessell.com         │
-│ • pnpm turbo build --filter @club-ops/employee-register         │
-│ • aws s3 sync apps/employee-register/dist/ s3://BUCKET          │
+│ • pnpm turbo build --filter @club-ops/employee-kiosk         │
+│ • aws s3 sync apps/employee-kiosk/dist/ s3://BUCKET          │
 │ • aws cloudfront create-invalidation                            │
 │                                                                 │
 │ Result: https://employee-demo.joshuakessell.com                 │
@@ -333,7 +333,7 @@ Triggered on: **Manual dispatch only**
 │  │                S3 Buckets                            │      │
 │  │                                                      │      │
 │  │  ┌────────────────────┐  ┌────────────────────┐     │      │
-│  │  │  employee-register │  │  customer-kiosk    │     │      │
+│  │  │  employee-kiosk │  │  customer-kiosk    │     │      │
 │  │  │  (static files)    │  │  (static files)    │     │      │
 │  │  └─────────┬──────────┘  └─────────┬──────────┘     │      │
 │  │            │                       │                │      │
@@ -381,7 +381,7 @@ Triggered on: **Manual dispatch only**
 | Script | Purpose |
 |--------|---------|
 | `scripts/aws/deploy-api.sh` | Build + push Docker image, run migrations, update App Runner |
-| `scripts/aws/deploy-employee-register.sh` | Build frontend, sync to S3, invalidate CloudFront |
+| `scripts/aws/deploy-employee-kiosk.sh` | Build frontend, sync to S3, invalidate CloudFront |
 | `scripts/aws/deploy-customer-kiosk.sh` | Build frontend, sync to S3, invalidate CloudFront |
 | `scripts/aws/deploy-all.sh` | Orchestrates all deployment scripts |
 | `scripts/aws/seed-demo-via-ssm.sh` | Seeds database via SSM tunnel to RDS |

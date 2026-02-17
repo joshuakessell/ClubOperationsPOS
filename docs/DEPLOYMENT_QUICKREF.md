@@ -91,7 +91,7 @@ docker build -f Dockerfile.api -t club-ops-api .
 
 # Frontends
 docker build -f Dockerfile.customer-kiosk -t club-ops-customer-kiosk .
-docker build -f Dockerfile.employee-register -t club-ops-employee-register .
+docker build -f Dockerfile.employee-kiosk -t club-ops-employee-kiosk .
 docker build -f Dockerfile.office-dashboard -t club-ops-office-dashboard .
 ```
 
@@ -153,7 +153,7 @@ export EMPLOYEE_BUCKET="..."
 export EMPLOYEE_DISTRIBUTION_ID="..."
 export SKIP_PNPM_INSTALL="false"
 
-scripts/aws/deploy-employee-register.sh
+scripts/aws/deploy-employee-kiosk.sh
 ```
 
 ### CloudFormation Stack

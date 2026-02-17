@@ -127,7 +127,7 @@ describe('Check-in Flow Commands', () => {
         actor: 'CUSTOMER',
         expectedFlowVersion: 0,
         type: 'SET_STEP',
-        payload: { step: 'LANGUAGE' },
+        payload: { step: 'RENTAL' },
       },
     });
 
@@ -146,7 +146,7 @@ describe('Check-in Flow Commands', () => {
       actor: 'CUSTOMER',
       expectedFlowVersion: 0,
       type: 'SET_STEP',
-      payload: { step: 'LANGUAGE' },
+      payload: { step: 'RENTAL' },
     };
 
     const first = await app.inject({
