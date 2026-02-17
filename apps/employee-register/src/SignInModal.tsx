@@ -279,9 +279,9 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
           : `Assigned Register ${registerNumber}`;
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} className="max-w-lg p-6 lg:p-8">
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-xl p-6 lg:p-10">
       {/* Title */}
-      <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white/90">{stepTitle}</h2>
+      <h2 className="mb-6 text-2xl font-semibold text-gray-800 dark:text-white/90">{stepTitle}</h2>
 
       {/* Errors */}
       {error && (
@@ -295,26 +295,29 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
         <div className="flex flex-col gap-3">
           {employees.length === 0 && (
             <div className="flex justify-center">
-              <Button onClick={() => void fetchAvailableEmployees()} disabled={isLoading}>
+              <Button size="lg" onClick={() => void fetchAvailableEmployees()} disabled={isLoading}>
                 Retry
               </Button>
             </div>
           )}
-          <div className="flex max-h-[300px] flex-col gap-2 overflow-y-auto">
+          <div className="flex max-h-[400px] flex-col gap-2 overflow-y-auto">
             {employees.map((emp) => (
-              <button
+              <Button
                 key={emp.id}
-                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-800 transition hover:bg-gray-50 dark:border-gray-800 dark:text-white/90 dark:hover:bg-white/[0.03]"
+                variant="outline"
+                size="lg"
+                fullWidth
                 onClick={() => handleSelectEmployee(emp)}
                 disabled={isLoading}
+                className="justify-start"
               >
                 {emp.name}
                 {emp.signedIn && (
-                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
+                  <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">
                     {formatSignedInLabel(emp)}
                   </span>
                 )}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -323,7 +326,7 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
       {/* Step: Enter PIN */}
       {step === 'enter-pin' && selectedEmployee && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-base text-gray-500 dark:text-gray-400">
             Employee:{' '}
             <span className="font-semibold text-gray-800 dark:text-white/90">
               {selectedEmployee.name}
@@ -345,7 +348,7 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
             displayAriaLabel="Employee PIN"
           />
           <div className="flex justify-start">
-            <Button variant="outline" onClick={handleBack} disabled={isLoading}>
+            <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
               Back
             </Button>
           </div>
@@ -356,7 +359,7 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
       {step === 'assign-register' && (
         <div className="flex flex-col gap-4">
           {!registers ? (
-            <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+            <div className="flex items-center justify-center gap-2 py-6 text-base text-gray-500 dark:text-gray-400">
               <Spinner size="sm" />
               Loading registers...
             </div>
@@ -369,11 +372,12 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
             />
           )}
           <div className="flex gap-3">
-            <Button variant="outline" onClick={handleBack} disabled={isLoading}>
+            <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
               Back
             </Button>
             <Button
               variant="outline"
+              size="lg"
               onClick={() => void fetchRegisterAvailability()}
               disabled={isLoading}
             >
@@ -386,17 +390,17 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
       {/* Step: Confirm */}
       {step === 'confirm' && registerNumber && (
         <div className="flex flex-col gap-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-base text-gray-500 dark:text-gray-400">
             Employee:{' '}
             <span className="font-semibold text-gray-800 dark:text-white/90">
               {selectedEmployee?.name}
             </span>
           </p>
           <div className="flex gap-3">
-            <Button variant="outline" onClick={handleBack} disabled={isLoading}>
+            <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
               Back
             </Button>
-            <Button onClick={() => void handleConfirm()} disabled={isLoading}>
+            <Button size="lg" onClick={() => void handleConfirm()} disabled={isLoading}>
               {isLoading ? 'Confirming...' : 'Confirm'}
             </Button>
           </div>
