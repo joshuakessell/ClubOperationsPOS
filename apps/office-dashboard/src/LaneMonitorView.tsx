@@ -138,7 +138,7 @@ export function LaneMonitorView({ session }: { session: StaffSession }) {
         />
         <PanelContent padding="md">
           <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>
-            Mirrored summary of employee-register + customer-kiosk lane state. Last lane event:{' '}
+            Mirrored summary of employee-kiosk + customer-kiosk lane state. Last lane event:{' '}
             {lastLaneEvent ? new Date(lastLaneEvent).toLocaleString() : '—'}
           </div>
         </PanelContent>

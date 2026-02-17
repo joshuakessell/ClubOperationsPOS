@@ -39,7 +39,7 @@ Agents MUST NOT:
 - `docs/FILE_STRUCTURE.md` — canonical repo layout; update when structure changes
 - `docs/database/DATABASE_SOURCE_OF_TRUTH.md` — database meaning and invariants (canonical)
 - `docs/database/DATABASE_ENTITY_DETAILS.md` — entity contracts and field semantics (canonical)
-- `apps/employee-register/src/app/ARCHITECTURE.md` — employee-register app layering and ownership rules
+- `apps/employee-kiosk/src/app/ARCHITECTURE.md` — employee-kiosk app layering and ownership rules
 - `apps/customer-kiosk/src/app/ARCHITECTURE.md` — customer-kiosk app layering and ownership rules
 - `apps/office-dashboard/src/app/ARCHITECTURE.md` — office-dashboard app layering and ownership rules
 

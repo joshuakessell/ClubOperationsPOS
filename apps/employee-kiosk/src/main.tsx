@@ -2,9 +2,12 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
 import '@club-ops/ui/tailadmin/theme.css';
-import './styles.css';
+import './index.css';
 import { OrientationGuard } from './ui/orientation/OrientationGuard';
 import { FatalEnvScreen } from './components/FatalEnvScreen';
+
+// Force permanent dark mode
+document.documentElement.classList.add('dark');
 
 const root = document.getElementById('root');
 if (!root) throw new Error('Root element not found');
@@ -19,7 +22,7 @@ const apiBaseUrl =
     ? rawEnv.VITE_API_BASE_URL.trim()
     : null;
 if (!kioskToken) {
-  const err = new Error('Missing required env var VITE_KIOSK_TOKEN (employee-register).');
+  const err = new Error('Missing required env var VITE_KIOSK_TOKEN (employee-kiosk).');
   createRoot(root).render(<FatalEnvScreen message={err.message} />);
   queueMicrotask(() => {
     throw err;

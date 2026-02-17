@@ -8,7 +8,7 @@ A multi-application system for managing club check-ins, room inventory, cleaning
 club-operations-pos/
 ├── apps/
 │   ├── customer-kiosk/      # Tablet-based kiosk UI for check-ins
-│   ├── employee-register/   # Employee-facing tablet app (with Square POS)
+│   ├── employee-kiosk/   # Employee-facing tablet app (with Square POS)
 │   └── office-dashboard/    # Web app for administration
 ├── services/
 │   └── api/                 # Fastify REST API + WebSocket server
@@ -212,12 +212,12 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for complete coding guidelines.
 This is the recommended end-to-end demo walkthrough across the apps. It is intentionally **workflow-only** (no database schema/column assumptions).
 
 1. **Start the stack**: `pnpm dev` (after `pnpm install`, `pnpm db:start`, `pnpm db:migrate`, `pnpm db:seed`)
-2. **Begin a lane session** in **employee-register** (scan/enter customer identity details as prompted).
+2. **Begin a lane session** in **employee-kiosk** (scan/enter customer identity details as prompted).
 3. **Customer-kiosk** displays the customer name (and membership number if captured) and shows eligible rental options.
 4. **Select and confirm** a rental type (customer and/or employee), then proceed through any required acknowledgements.
 5. **Agreement signing** occurs on the customer-kiosk when required by the flow.
-6. **Payment** is collected externally (Square) and then staff marks the payment as paid in employee-register.
-7. **Assignment**: staff assigns a room/locker in employee-register; both sides complete and reset to idle.
+6. **Payment** is collected externally (Square) and then staff marks the payment as paid in employee-kiosk.
+7. **Assignment**: staff assigns a room/locker in employee-kiosk; both sides complete and reset to idle.
 
 For the full behavioral source of truth, see `SPEC.md` → **"Counter Check-in Flow v1 (Source of Truth)"**.
 

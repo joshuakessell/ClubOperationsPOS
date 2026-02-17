@@ -39,7 +39,7 @@ Deploys to demo environment on every `main` push.
 1. Run quality gates
 2. Seed demo database via SSM tunnel
 3. Deploy API to App Runner (ECR → App Runner)
-4. Deploy employee-register to S3/CloudFront
+4. Deploy employee-kiosk to S3/CloudFront
 5. Deploy customer-kiosk to S3/CloudFront
 
 **Environment Variables (Demo):**
@@ -61,7 +61,7 @@ Deploys the API service:
 5. Seeds demo data if `DEMO_MODE=true` and `SKIP_DEMO_SEED!=true`
 6. Updates App Runner service with new image and environment
 
-### `deploy-employee-register.sh` / `deploy-customer-kiosk.sh`
+### `deploy-employee-kiosk.sh` / `deploy-customer-kiosk.sh`
 Deploys frontend apps:
 1. Builds the app with Vite
 2. Syncs `dist/` to S3 bucket

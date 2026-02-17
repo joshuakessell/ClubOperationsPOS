@@ -1,0 +1,105 @@
+@import "tailwindcss";
+@import "./register-styles.css";
+
+/*
+ * Employee Kiosk — iPad landscape, permanent dark mode
+ * Spacing is tightened for 1024×768 viewport.
+ */
+
+html, body {
+  background: #111827; /* gray-900 */
+  color: #f9fafb;      /* gray-50 */
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow: hidden;     /* prevent iPad bounce-scroll */
+}
+
+/* ---------------------------------------------------------------- */
+/* Sidebar menu items                                                */
+/* ---------------------------------------------------------------- */
+.menu-item {
+  @apply relative flex items-center gap-3 rounded-lg px-3 py-2.5 font-medium text-sm transition-all duration-200;
+}
+
+.menu-item-active {
+  @apply bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400;
+}
+
+.menu-item-inactive {
+  @apply text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.03];
+}
+
+.menu-item-icon-size {
+  @apply w-5 h-5 flex-shrink-0;
+}
+
+.menu-item-icon-active {
+  @apply text-brand-500;
+}
+
+.menu-item-icon-inactive {
+  @apply text-gray-500 dark:text-gray-400;
+}
+
+.menu-item-text {
+  @apply truncate;
+}
+
+/* ---------------------------------------------------------------- */
+/* Sidebar dropdown items                                            */
+/* ---------------------------------------------------------------- */
+.menu-dropdown-item {
+  @apply block rounded-md px-3 py-2 text-sm transition-colors duration-150;
+}
+
+.menu-dropdown-item-active {
+  @apply text-brand-600 bg-brand-50 dark:text-brand-400 dark:bg-brand-500/10;
+}
+
+.menu-dropdown-item-inactive {
+  @apply text-gray-500 hover:text-gray-700 hover:bg-gray-50 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-white/[0.02];
+}
+
+/* ---------------------------------------------------------------- */
+/* Scrollbar hiding                                                  */
+/* ---------------------------------------------------------------- */
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ---------------------------------------------------------------- */
+/* Shadow tokens                                                     */
+/* ---------------------------------------------------------------- */
+.shadow-theme-xs {
+  box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05);
+}
+.shadow-theme-md {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+}
+
+/* ---------------------------------------------------------------- */
+/* Z-index tokens                                                    */
+/* ---------------------------------------------------------------- */
+.z-99999 {
+  z-index: 99999;
+}
+
+/* ---------------------------------------------------------------- */
+/* Brand color tokens (TailAdmin default blue)                       */
+/* ---------------------------------------------------------------- */
+@theme {
+  --color-brand-50: #EFF6FF;
+  --color-brand-100: #DBEAFE;
+  --color-brand-200: #BFDBFE;
+  --color-brand-300: #93C5FD;
+  --color-brand-400: #60A5FA;
+  --color-brand-500: #3B82F6;
+  --color-brand-600: #2563EB;
+  --color-brand-700: #1D4ED8;
+  --color-brand-800: #1E40AF;
+  --color-brand-900: #1E3A8A;
+}

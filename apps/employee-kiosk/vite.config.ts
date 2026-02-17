@@ -16,7 +16,6 @@ export default defineConfig({
       output: {
         manualChunks: {
           // Keep realtime (AppSync websocket signing / transport) out of the main chunk.
-          // This is only needed after sign-in + lane selection.
           realtime: [
             '@club-ops/shared/realtime/useLaneSession',
           ],
@@ -26,7 +25,7 @@ export default defineConfig({
   },
   server: {
     host: '0.0.0.0',
-    port: 5175,
+    port: 5177,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',

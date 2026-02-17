@@ -27,7 +27,7 @@ Legend:
 
 - [x] Define canonical transition table for steps (allowed transitions)
 - [x] Implement transition-specific clearing rules for each step:
-  - [x] LANGUAGE
+  - [x] LANGUAGE (removed as active flow step; retained for backward compat with old DB records)
   - [x] RENTAL
   - [x] WAITLIST_PREFERENCES
   - [x] WAITLIST_BACKUP
@@ -45,14 +45,14 @@ Legend:
 
 ## 3) Backend: Route Legacy Endpoints Through Command Engine
 
-- [x] `set-language` increments flow_version when FLOW_COMMANDS enabled
+- [x] `set-language` updates customer preference (no longer a flow step transition)
 - [x] Route `selection` endpoints through command engine (propose/force/lock)
 - [x] Route waitlist preference + backup endpoints through command engine
 - [x] Route payment-intent creation/updates through command engine (step bump + audit)
 - [x] Route agreement signing/bypass through command engine (step bump + audit)
 - [x] Route back/cancel actions from both apps through command engine
   - [x] customer-kiosk (behind `VITE_FLOW_COMMANDS`)
-  - [x] employee-register (behind `VITE_FLOW_COMMANDS`)
+  - [x] employee-kiosk (behind `VITE_FLOW_COMMANDS`)
   - Server: `BACK_STEP` / `CANCEL_STEP` handled via `/flow-command`
 
 ## 4) Backend: Realtime Dual-Publish (Cloud + LAN)
@@ -85,7 +85,7 @@ Legend:
 
 - (Done) Health signals: AppSync status + HTTP `/health`
 - (Done) Hysteresis: 5s poll; 3 fails -> LAN; 6 successes -> cloud
-- (Done) UX: banner on employee-register
+- (Done) UX: banner on employee-kiosk
 
 ## 6) Offline Outbox + Reconciliation
 
@@ -116,7 +116,7 @@ Legend:
 - [x] Ensure monotonic flowVersion updates everywhere (already in reducer, verify all paths)
 - [x] Remove heuristic fallbacks once stable
 
-### employee-register
+### employee-kiosk
 
 - [x] Drive Employee Assist step off `flowStep`
 - [x] Implement first-click highlight / second-click confirm backed by commands

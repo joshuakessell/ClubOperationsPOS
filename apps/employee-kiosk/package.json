@@ -1,10 +1,10 @@
 {
-  "name": "@club-ops/employee-register",
+  "name": "@club-ops/employee-kiosk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 0.0.0.0 --port 5175 --strictPort",
+    "dev": "vite --host 0.0.0.0 --port 5177 --strictPort",
     "build": "tsc && vite build",
     "preview": "vite preview",
     "test": "TMPDIR=/tmp pnpm exec vitest run",
@@ -16,11 +16,15 @@
     "@club-ops/shared": "workspace:*",
     "@club-ops/ui": "workspace:*",
     "@zxing/library": "^0.21.0",
+    "clsx": "^2.1.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "react-helmet-async": "^2.0.5",
+    "react-router-dom": "^6.21.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.0.0",
+    "@testing-library/jest-dom": "^6.1.4",
     "@testing-library/react": "^14.1.2",
     "@types/react": "^18.2.45",
     "@types/react-dom": "^18.2.17",
@@ -30,6 +34,7 @@
     "tailwindcss": "^4.0.0",
     "typescript": "^5.3.3",
     "vite": "^5.0.10",
+    "vite-plugin-svgr": "^4.3.0",
     "vitest": "^4.0.0"
   }
 }

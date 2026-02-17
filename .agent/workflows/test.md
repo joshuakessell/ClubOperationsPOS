@@ -7,7 +7,7 @@ description: Run tests for the project
    pnpm -r run test
    ```
 
-2. Run employee-register tests only:
+2. Run employee-kiosk tests only:
    ```bash
-   cd /Users/joshuakessell/Projects/ClubOperationsPOS/apps/employee-register && pnpm test
+   cd /Users/joshuakessell/Projects/ClubOperationsPOS/apps/employee-kiosk && pnpm test
    ```

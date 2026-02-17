@@ -81,7 +81,7 @@ describe('Lane session lifecycle: kiosk-ack must not end session', () => {
   };
 
   it(
-    'kiosk-ack leaves session active so employee-register reset still succeeds',
+    'kiosk-ack leaves session active so employee-kiosk reset still succeeds',
     runIfDbAvailable(async () => {
       const customerId = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
       const sessionId = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';

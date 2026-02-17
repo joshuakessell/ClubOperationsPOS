@@ -36,4 +36,4 @@ These rules are mechanically verifiable and must be enforced for this app.
 
 ## Docs + structure
 
-- If structure changes, update `docs/FILE_STRUCTURE.md` and `apps/employee-register/src/app/ARCHITECTURE.md` as needed.
+- If structure changes, update `docs/FILE_STRUCTURE.md` and `apps/employee-kiosk/src/app/ARCHITECTURE.md` as needed.

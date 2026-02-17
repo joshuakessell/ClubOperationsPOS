@@ -35,7 +35,7 @@ docker-compose.dev.yml     # Development overrides with hot-reload
 docker.sh                  # Helper script for Docker operations
 Dockerfile.api             # API service image definition
 Dockerfile.customer-kiosk  # Customer kiosk image definition
-Dockerfile.employee-register # Employee register image definition
+Dockerfile.employee-kiosk # Employee register image definition
 Dockerfile.office-dashboard  # Office dashboard image definition
 .env.example               # Environment variable template
 
@@ -58,14 +58,14 @@ Customer- and staff-facing UIs (generally Vite + React).
 ```
 apps/
   customer-kiosk/          # Customer-facing kiosk UI
-  employee-register/       # Staff register UI (sign-in, register workflows; state slices + value helpers under src/app/state)
+  employee-kiosk/       # Staff register UI (sign-in, register workflows; state slices + value helpers under src/app/state)
   office-dashboard/        # Admin/office dashboard UI
 ```
 
 Notable sub-areas:
 
 ```
-apps/employee-register/src/
+apps/employee-kiosk/src/
   components/register/employee-assist/   # Employee assist step UIs
   components/register/panels/active-visit/ # Active-visit switch-room/locker flow helpers
   components/register/manual-checkout/   # Shared manual checkout UI (panel + modal)

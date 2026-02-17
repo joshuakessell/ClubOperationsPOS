@@ -55,7 +55,7 @@ docker-compose.yml               # Production orchestration
 docker-compose.dev.yml           # Development overrides
 Dockerfile.api                   # API service image
 Dockerfile.customer-kiosk        # Customer kiosk image
-Dockerfile.employee-register     # Employee register image
+Dockerfile.employee-kiosk     # Employee register image
 Dockerfile.office-dashboard      # Office dashboard image
 ```
 
@@ -93,7 +93,7 @@ Dockerfile.office-dashboard      # Office dashboard image
 ```bash
 docker build -f Dockerfile.api -t club-ops-api .
 docker build -f Dockerfile.customer-kiosk -t club-ops-customer-kiosk .
-docker build -f Dockerfile.employee-register -t club-ops-employee-register .
+docker build -f Dockerfile.employee-kiosk -t club-ops-employee-kiosk .
 docker build -f Dockerfile.office-dashboard -t club-ops-office-dashboard .
 ```
 

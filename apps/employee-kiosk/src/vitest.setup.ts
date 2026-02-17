@@ -1,5 +1,6 @@
 import { afterEach, beforeAll, vi } from 'vitest';
 import { cleanup } from '@testing-library/react';
+import '@testing-library/jest-dom/vitest';
 import { registerHangingProcessDiagnostics } from './test-utils/vitestHooks';
 
 registerHangingProcessDiagnostics();

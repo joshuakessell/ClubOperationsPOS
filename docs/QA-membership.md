@@ -14,13 +14,13 @@ This checklist validates:
 ### Preconditions
 
 - A lane session exists for the kiosk (customer shown).
-- Customer language is Spanish (`ES`) **or** language selection screen is shown and you pick Spanish.
+- Customer language is Spanish (`ES`) **or** language is toggled to Spanish via the on-screen button.
 
 ### Steps
 
-- **Language selection**
-  - If prompted, choose **Español**.
-  - Verify the kiosk does **not** keep prompting again for the same session once language is known.
+- **Language toggle**
+  - If the kiosk is in English, tap the **language toggle button** to switch to Spanish.
+  - Verify the kiosk stays in Spanish for the remainder of the session (no repeated prompts).
 - **Key screens in Spanish**
   - Verify the following screens show Spanish UI text:
     - Orientation overlay (portrait required)
