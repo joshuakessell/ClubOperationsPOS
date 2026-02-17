@@ -20,6 +20,26 @@ jobs:
   test:
     name: Unit Tests & Linting
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_DB: club_operations
+          POSTGRES_USER: clubops
+          POSTGRES_PASSWORD: club-ops-dev
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U clubops -d club_operations"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DB_HOST: localhost
+      DB_PORT: 5432
+      DB_NAME: club_operations
+      DB_USER: clubops
+      DB_PASSWORD: club-ops-dev
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
@@ -54,6 +74,12 @@ jobs:
 
       - name: Lint
         run: pnpm lint
+
+      - name: Migrate database
+        run: pnpm --filter @club-ops/api exec tsx scripts/migrate.ts
+
+      - name: Seed database (CI)
+        run: pnpm --filter @club-ops/api exec tsx src/db/seed-ci.ts
 
       - name: Test
         timeout-minutes: 5
