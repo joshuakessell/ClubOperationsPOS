@@ -63,8 +63,8 @@ describe('App', () => {
     act(() => {
       render(<App />);
     });
-    // When not authenticated, the full-page auth card is shown with the title
-    expect(screen.getByText('Employee Register')).toBeDefined();
+    // When not authenticated, the sign-in panel is shown inside the shell
+    expect(screen.getByText('Employee Sign In')).toBeDefined();
     expect(screen.getByText('Select Employee')).toBeDefined();
   });
 

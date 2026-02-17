@@ -29,7 +29,8 @@ export function SessionRoot({ children }: { children: ReactNode }) {
       onCloseOut={() => void handleCloseOut()}
     >
       {!registerSession ? (
-        <div />
+        /* Not authenticated — still render children so NavigationRoot can show the Sign In tab */
+        children
       ) : !session ? (
         <div style={{ padding: '2rem', textAlign: 'center', color: '#fff' }}>Loading...</div>
       ) : (
