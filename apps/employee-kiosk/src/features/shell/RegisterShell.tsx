@@ -1,9 +1,10 @@
-import type { ReactNode } from 'react';
+import { useEffect, type ReactNode } from 'react';
 import { Badge } from '@club-ops/ui/tailadmin';
 
 /* ── Nav key union (unchanged API) ──────────────────────── */
 
 export type ShellNavKey =
+  | 'signIn'
   | 'scan'
   | 'search'
   | 'inventory'
@@ -21,6 +22,8 @@ export type ShellNavItem = {
   icon?: ReactNode;
   badge?: ReactNode;
   disabled?: boolean;
+  /** Keyboard shortcut label shown next to the item, e.g. 'F1'. */
+  shortcut?: string;
 };
 
 export type RegisterShellProps = {
@@ -50,6 +53,41 @@ export function RegisterShell({
   items,
   children,
 }: RegisterShellProps) {
+  /* ── F-key keyboard shortcut listener ────────────────── */
+  useEffect(() => {
+    // Build a map of F-key -> item for enabled items with shortcuts
+    const shortcutMap = new Map<string, ShellNavItem>();
+    for (const item of items) {
+      if (item.shortcut && !item.disabled) {
+        shortcutMap.set(item.shortcut.toUpperCase(), item);
+      }
+    }
+    if (shortcutMap.size === 0) return;
+
+    function handleKeyDown(e: KeyboardEvent) {
+      const key = e.key.toUpperCase(); // e.g. 'F1', 'F2', ...
+      const item = shortcutMap.get(key);
+      if (!item) return;
+
+      // Block if a modal / dialog / drawer overlay is open
+      if (document.querySelector('[role="dialog"], [data-modal], .modal-backdrop')) {
+        return;
+      }
+
+      // Block if focus is inside an input / textarea (avoid hijacking form input)
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) {
+        return;
+      }
+
+      e.preventDefault();
+      onNavigate(item.key);
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [items, onNavigate]);
+
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
       {/* ── Sidebar ──────────────────────────────────────── */}
@@ -81,12 +119,13 @@ export function RegisterShell({
               <button
                 key={item.key}
                 type="button"
-                className={`menu-item group w-full justify-start gap-2.5 text-left text-sm ${
+                className={`menu-item group w-full justify-start gap-3 text-left text-base ${
                   isActive ? 'menu-item-active' : 'menu-item-inactive'
                 }`}
                 onClick={() => onNavigate(item.key)}
                 disabled={item.disabled}
                 aria-label={item.label}
+                title={item.shortcut ? `${item.label} (${item.shortcut})` : undefined}
                 aria-current={isActive ? 'page' : undefined}
               >
                 {item.icon ? (
@@ -100,6 +139,14 @@ export function RegisterShell({
                   </span>
                 ) : null}
                 <span className="flex-1 truncate">{item.label}</span>
+                {item.shortcut ? (
+                  <kbd
+                    className="ml-auto shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-gray-500 dark:bg-gray-800 dark:text-gray-400"
+                    aria-hidden="true"
+                  >
+                    {item.shortcut}
+                  </kbd>
+                ) : null}
                 {item.badge ? (
                   <span className="shrink-0" aria-hidden="true">
                     {typeof item.badge === 'number' || typeof item.badge === 'string' ? (

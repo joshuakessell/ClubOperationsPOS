@@ -12,6 +12,8 @@ import { RoomCleaningPanel } from './RoomCleaningPanel';
 import { ManualEntryPanel } from './ManualEntryPanel';
 import { RetailPanel } from './RetailPanel';
 import { ClubLogPanel } from './ClubLogPanel';
+import { SignInPanel } from '../../components/sign-in/SignInPanel';
+import { useRegisterSignInContext } from '../../RegisterSignIn';
 import type { NavTab } from '../../app/state/shared/types';
 import { RegisterShell, type ShellNavKey, type ShellNavItem } from '../shell/RegisterShell';
 import { CheckoutWorkspace } from '../workspace/CheckoutWorkspace';
@@ -40,17 +42,28 @@ export function NavigationRoot() {
     inventoryHasLate,
     hasEligibleEntries,
     canOpenAccountTab,
+    registerSession,
   } = useEmployeeRegisterState();
 
-  const active = navTabToShellKey(navTab);
+  const isAuthenticated = !!registerSession;
+
+  const signInContext = useRegisterSignInContext();
+
+  // Pick active key: when not authenticated, always show signIn
+  const active: ShellNavKey = !isAuthenticated
+    ? 'signIn'
+    : navTabToShellKey(navTab);
+
   const laneLabel = lane && lane.trim() ? lane.trim().replace(/^lane[-\s]*/i, 'Lane ') : 'Lane 1';
 
-  const items: ShellNavItem[] = [
-    { key: 'scan', label: 'Scan', icon: <span aria-hidden="true">📷</span> },
+  /* ── Build nav items ── */
+  const operationalItems: ShellNavItem[] = [
+    { key: 'scan', label: 'Scan', icon: <span aria-hidden="true">📷</span>, shortcut: 'F1' },
     {
       key: 'search',
       label: 'Search Customer',
       icon: <span aria-hidden="true">🔎</span>,
+      shortcut: 'F2',
     },
     {
       key: 'inventory',
@@ -61,6 +74,7 @@ export function NavigationRoot() {
           Late
         </Badge>
       ) : undefined,
+      shortcut: 'F3',
     },
     {
       key: 'upgrades',
@@ -71,23 +85,33 @@ export function NavigationRoot() {
           Ready
         </Badge>
       ) : undefined,
+      shortcut: 'F4',
     },
-    { key: 'retail', label: 'Retail', icon: <span aria-hidden="true">🛒</span> },
-    { key: 'checkout', label: 'Checkout', icon: <span aria-hidden="true">✅</span> },
+    { key: 'retail', label: 'Retail', icon: <span aria-hidden="true">🛒</span>, shortcut: 'F5' },
+    { key: 'checkout', label: 'Checkout', icon: <span aria-hidden="true">✅</span>, shortcut: 'F6' },
     {
       key: 'account',
       label: 'Customer Account',
       icon: <span aria-hidden="true">👤</span>,
       disabled: !canOpenAccountTab,
+      shortcut: 'F7',
     },
-    { key: 'clubLog', label: 'Club Log', icon: <span aria-hidden="true">📜</span> },
-    { key: 'manual', label: 'Manual Entry', icon: <span aria-hidden="true">📝</span> },
-    { key: 'roomCleaning', label: 'Room Cleaning', icon: <span aria-hidden="true">🧹</span> },
+    { key: 'clubLog', label: 'Club Log', icon: <span aria-hidden="true">📜</span>, shortcut: 'F8' },
+    { key: 'manual', label: 'Manual Entry', icon: <span aria-hidden="true">📝</span>, shortcut: 'F9' },
+    { key: 'roomCleaning', label: 'Room Cleaning', icon: <span aria-hidden="true">🧹</span>, shortcut: 'F10' },
   ];
+
+  // When not authenticated, show only Sign In tab (hide operational items so tests
+  // properly wait for auth before interacting with them)
+  const items: ShellNavItem[] = !isAuthenticated
+    ? [
+        { key: 'signIn', label: 'Sign In', icon: <span aria-hidden="true">🔐</span> },
+      ]
+    : operationalItems;
 
   return (
     <>
-      {checkoutRequests.size > 0 && !selectedCheckoutRequest && (
+      {isAuthenticated && checkoutRequests.size > 0 && !selectedCheckoutRequest && (
         <CheckoutRequestsBanner
           requests={Array.from(checkoutRequests.values())}
           onClaim={(id) => void handleClaimCheckout(id)}
@@ -95,7 +119,7 @@ export function NavigationRoot() {
         />
       )}
 
-      {selectedCheckoutRequest && checkoutRequests.get(selectedCheckoutRequest) ? (
+      {isAuthenticated && selectedCheckoutRequest && checkoutRequests.get(selectedCheckoutRequest) ? (
         <CheckoutVerificationModal
           request={checkoutRequests.get(selectedCheckoutRequest)!}
           isSubmitting={isSubmitting}
@@ -121,23 +145,34 @@ export function NavigationRoot() {
             onNavigate={(key) => selectShellNav(key)}
             title={laneLabel}
             statusPill={
-              <Badge color={realtimeConnected ? 'success' : 'error'} variant="light" size="sm">
-                {realtimeConnected ? 'Live' : 'Offline'}
-              </Badge>
+              isAuthenticated ? (
+                <Badge color={realtimeConnected ? 'success' : 'error'} variant="light" size="sm">
+                  {realtimeConnected ? 'Live' : 'Offline'}
+                </Badge>
+              ) : undefined
             }
             items={items}
           >
             <div style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-              {navTab === 'scan' && <ScanPanel />}
-              {navTab === 'account' && <AccountPanel />}
-              {navTab === 'search' && <SearchPanel />}
-              {navTab === 'inventory' && <InventoryPanel />}
-              {navTab === 'upgrades' && <UpgradesPanel />}
-              {navTab === 'checkout' && <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />}
-              {navTab === 'clubLog' && <ClubLogPanel />}
-              {navTab === 'roomCleaning' && <RoomCleaningPanel />}
-              {navTab === 'firstTime' && <ManualEntryPanel />}
-              {navTab === 'retail' && <RetailPanel />}
+              {/* Sign-in panel when not authenticated */}
+              {!isAuthenticated && signInContext && (
+                <SignInPanel
+                  deviceId={signInContext.deviceId}
+                  onSignedIn={signInContext.onSignedIn}
+                />
+              )}
+
+              {/* Operational panels (only rendered when authenticated) */}
+              {isAuthenticated && navTab === 'scan' && <ScanPanel />}
+              {isAuthenticated && navTab === 'account' && <AccountPanel />}
+              {isAuthenticated && navTab === 'search' && <SearchPanel />}
+              {isAuthenticated && navTab === 'inventory' && <InventoryPanel />}
+              {isAuthenticated && navTab === 'upgrades' && <UpgradesPanel />}
+              {isAuthenticated && navTab === 'checkout' && <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />}
+              {isAuthenticated && navTab === 'clubLog' && <ClubLogPanel />}
+              {isAuthenticated && navTab === 'roomCleaning' && <RoomCleaningPanel />}
+              {isAuthenticated && navTab === 'firstTime' && <ManualEntryPanel />}
+              {isAuthenticated && navTab === 'retail' && <RetailPanel />}
             </div>
           </RegisterShell>
         </section>
@@ -146,6 +181,14 @@ export function NavigationRoot() {
   );
 
   function selectShellNav(key: ShellNavKey) {
+    // Sign-in tab — no-op (it's always active when not authenticated)
+    if (key === 'signIn') {
+      return;
+    }
+
+    // Don't allow navigating to operational tabs when not authenticated
+    if (!isAuthenticated) return;
+
     if (key === 'manual') {
       selectNavTab('firstTime');
       return;
