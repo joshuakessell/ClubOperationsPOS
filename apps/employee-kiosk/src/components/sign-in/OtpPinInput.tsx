@@ -161,7 +161,7 @@ export function OtpPinInput({
       aria-label="PIN input"
     >
       {Array.from({ length }).map((_, i) => {
-        const hasDig = digits[i] && digits[i] !== ' ' && /[0-9]/.test(digits[i]!);
+        const hasDig = digits[i] && digits[i] !== ' ' && /[0-9]/.test(digits[i]);
 
         return (
           <input

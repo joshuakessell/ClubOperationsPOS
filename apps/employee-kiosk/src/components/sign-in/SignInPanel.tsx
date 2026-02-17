@@ -7,7 +7,6 @@ import {
   type RegisterNumber,
 } from './RegisterButtons';
 import {
-  clearStorageValue,
   CLUBOPS_STORAGE_KEYS,
   CLUBOPS_STORAGE_LEGACY_KEYS,
   getApiUrl,
