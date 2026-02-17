@@ -148,8 +148,6 @@ jobs:
           VITE_REALTIME_CHANNEL_NAMESPACE: club-ops
           VITE_DISABLE_REALTIME: 'false'
           VITE_KIOSK_TOKEN: ${{ env.VITE_KIOSK_TOKEN }}
-          VITE_LAN_FALLBACK: '1'
-          VITE_LAN_API_BASE_URL: 'http://localhost:3000'
         run: |
           pnpm turbo run build --filter @club-ops/customer-kiosk --filter @club-ops/employee-register --force
 
