@@ -4,7 +4,8 @@ import path from 'path';
 import { fileURLToPath, URL } from 'node:url';
 
 export default defineConfig({
-  plugins: [react()],
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  plugins: [react() as any],
   resolve: {
     alias: [
       {

@@ -1,3 +1,0 @@
-/* PanelCard — Tailwind edition */
-@reference "tailwindcss";
-.er-panel-card { @apply p-4; }

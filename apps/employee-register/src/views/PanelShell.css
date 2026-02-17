@@ -1,9 +1,0 @@
-/* PanelShell — Tailwind edition */
-@reference "tailwindcss";
-.er-panel-shell {
-  @apply min-h-0 max-h-full overflow-auto flex flex-col self-stretch;
-  flex: 0 1 auto;
-}
-.er-panel-shell--center { @apply justify-center items-center text-center; }
-.er-panel-shell--top { @apply justify-start items-stretch text-left; }
-.er-panel-shell--no-scroll { @apply overflow-hidden; }
