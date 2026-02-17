@@ -38,6 +38,7 @@ import {
 import { createBroadcaster, type Broadcaster } from './realtime/broadcaster';
 import { LocalLaneSockets } from './realtime/localSockets';
 import { initializeDatabase, closeDatabase, getPool } from './db';
+import { runPendingMigrations } from './db/migrate';
 import { cleanupAbandonedRegisterSessions } from './routes/registers';
 import { seedDemoData } from './db/seed-demo';
 import { expireWaitlistEntries } from './waitlist/expireWaitlist';
@@ -257,6 +258,16 @@ async function main() {
       }
 
       if (dbInitialized) {
+        // Run pending schema migrations before anything else
+        try {
+          await runPendingMigrations();
+        } catch (migrationErr) {
+          fastify.log.error(
+            migrationErr,
+            '❌ Schema migration failed (non-fatal) — some features may not work correctly.'
+          );
+        }
+
         // Start auto-replay for edge stack
         if (process.env.EDGE_STACK === 'true' && process.env.CLOUD_API_BASE_URL) {
           startAutoReplayOutbox({
