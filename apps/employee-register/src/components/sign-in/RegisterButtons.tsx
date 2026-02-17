@@ -54,6 +54,7 @@ export function RegisterButtons({
           <span key={num} title={title}>
             <Button
               variant={occupiedBySelectedEmployee ? 'primary' : 'outline'}
+              size="lg"
               fullWidth
               onClick={() => onSelect(num)}
               disabled={isDisabled}
