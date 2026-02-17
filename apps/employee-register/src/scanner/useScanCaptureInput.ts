@@ -84,7 +84,7 @@ export function useScanCaptureInput({
   }, [focusInput]);
 
   const getCurrentValue = useCallback(
-    () => (captureMode === 'document' ? bufferRef.current : inputRef.current?.value ?? ''),
+    () => (captureMode === 'document' ? bufferRef.current : (inputRef.current?.value ?? '')),
     [captureMode]
   );
 

@@ -99,16 +99,36 @@ const RealtimeSocketMock = vi.fn((url?: string) => {
 }) as unknown as typeof WebSocket;
 
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).OPEN = 1;
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).CONNECTING = 0;
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).CLOSING = 2;
 (
-  RealtimeSocketMock as unknown as { OPEN: number; CONNECTING: number; CLOSING: number; CLOSED: number }
+  RealtimeSocketMock as unknown as {
+    OPEN: number;
+    CONNECTING: number;
+    CLOSING: number;
+    CLOSED: number;
+  }
 ).CLOSED = 3;
 
 Object.defineProperty(globalThis, 'WebSocket', {
@@ -190,9 +210,21 @@ export function setupRegisterAppTest() {
     lastSocket = null;
 
     const fetchMock = vi.fn();
-    Object.defineProperty(globalThis, 'fetch', { value: fetchMock, writable: true, configurable: true });
-    Object.defineProperty(window, 'fetch', { value: fetchMock, writable: true, configurable: true });
-    Object.defineProperty(global, 'fetch', { value: fetchMock, writable: true, configurable: true });
+    Object.defineProperty(globalThis, 'fetch', {
+      value: fetchMock,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(window, 'fetch', {
+      value: fetchMock,
+      writable: true,
+      configurable: true,
+    });
+    Object.defineProperty(global, 'fetch', {
+      value: fetchMock,
+      writable: true,
+      configurable: true,
+    });
     const store: Record<string, string> = {};
     const storage = {
       getItem: vi.fn((key: string) => (key in store ? store[key] : null)),
@@ -210,34 +242,34 @@ export function setupRegisterAppTest() {
     Object.defineProperty(globalThis, 'localStorage', { value: storage, writable: true });
     localStorage.clear();
 
-    (global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>).mockImplementation(
-      (url: RequestInfo | URL, init?: RequestInit) => {
-        const u =
-          typeof url === 'string'
-            ? url
-            : url instanceof URL
-              ? url.toString()
-              : url instanceof Request
-                ? url.url
-                : '';
-        if (u.includes('/v1/realtime/auth')) {
-          return Promise.resolve(buildRealtimeAuthResponse(init));
-        }
-        if (u.includes('/health')) {
-          return Promise.resolve({
-            ok: true,
-            headers: new Headers({ 'content-type': 'application/json' }),
-            json: () =>
-              Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
-          } as unknown as Response);
-        }
+    (
+      global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>
+    ).mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
+      const u =
+        typeof url === 'string'
+          ? url
+          : url instanceof URL
+            ? url.toString()
+            : url instanceof Request
+              ? url.url
+              : '';
+      if (u.includes('/v1/realtime/auth')) {
+        return Promise.resolve(buildRealtimeAuthResponse(init));
+      }
+      if (u.includes('/health')) {
         return Promise.resolve({
           ok: true,
           headers: new Headers({ 'content-type': 'application/json' }),
-          json: () => Promise.resolve({}),
+          json: () =>
+            Promise.resolve({ status: 'ok', timestamp: new Date().toISOString(), uptime: 0 }),
         } as unknown as Response);
       }
-    );
+      return Promise.resolve({
+        ok: true,
+        headers: new Headers({ 'content-type': 'application/json' }),
+        json: () => Promise.resolve({}),
+      } as unknown as Response);
+    });
 
     // Disable realtime in tests to prevent the transport layer's window.setInterval
     // polling loop from causing infinite state updates that hang the test runner.

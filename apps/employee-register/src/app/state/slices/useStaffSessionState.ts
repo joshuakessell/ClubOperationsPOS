@@ -227,7 +227,7 @@ export function useStaffSessionState({
   // already produced a session — calling setSession() with a structurally-equal
   // but referentially-new object triggers an unnecessary re-render.
   useEffect(() => {
-    if (session) return;          // lazy init already succeeded
+    if (session) return; // lazy init already succeeded
     const stored = readStorageValueWithMigration(
       localStorage,
       CLUBOPS_STORAGE_KEYS.staffSession,

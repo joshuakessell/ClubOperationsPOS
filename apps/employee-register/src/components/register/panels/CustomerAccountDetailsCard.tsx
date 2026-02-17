@@ -27,7 +27,10 @@ type CustomerSpendLedgerState = {
     visitStartedAt: string | null;
     netCents: number;
   }>;
-  getVisitEntries: (customerId: string, visitId: string | null) => Array<{
+  getVisitEntries: (
+    customerId: string,
+    visitId: string | null
+  ) => Array<{
     id: string;
     summary: string;
     amountCents: number;
@@ -205,7 +208,7 @@ export function CustomerAccountDetailsCard({
             <button
               key={d.id}
               type="button"
-              className="cs-liquid-card"
+              className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
               style={{
                 padding: '0.75rem',
                 textAlign: 'left',
@@ -225,14 +228,14 @@ export function CustomerAccountDetailsCard({
                       getApiUrl(`/api/v1/documents/${encodeURIComponent(d.id)}/download`),
                       { headers: { Authorization: `Bearer ${session.sessionToken}` } }
                     );
-						if (!res.ok) {
-							const payload = await readJson<unknown>(res);
-							const message =
-								isRecord(payload) && typeof payload.error === 'string'
-									? payload.error
-									: `Failed to fetch PDF (${res.status})`;
-							throw new Error(message);
-						}
+                    if (!res.ok) {
+                      const payload = await readJson<unknown>(res);
+                      const message =
+                        isRecord(payload) && typeof payload.error === 'string'
+                          ? payload.error
+                          : `Failed to fetch PDF (${res.status})`;
+                      throw new Error(message);
+                    }
                     const blob = await res.blob();
                     const url = URL.createObjectURL(blob);
                     setAgreementPdfUrl(url);
@@ -422,7 +425,9 @@ export function CustomerAccountDetailsCard({
                   fontWeight: 800,
                 }}
               />
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 900 }}>
+              <label
+                style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 900 }}
+              >
                 <input
                   type="checkbox"
                   checked={customerNoteImportant}
@@ -433,7 +438,7 @@ export function CustomerAccountDetailsCard({
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
                   type="button"
-                  className="cs-liquid-button"
+                  className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
                   onClick={() => {
                     void (async () => {
                       await customerNotesState.createNote(customerId, {
@@ -451,7 +456,7 @@ export function CustomerAccountDetailsCard({
                 </button>
                 <button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                  className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
                   onClick={() => setNotesModalOpen(false)}
                 >
                   Close
@@ -504,7 +509,9 @@ export function CustomerAccountDetailsCard({
         closeOnEscape
       >
         {agreementError ? (
-          <div className="cs-alert cs-alert--error">{agreementError}</div>
+          <div className="rounded-lg border border-error-200 bg-error-50 p-3 text-sm font-medium text-error-600 dark:border-error-700 dark:bg-error-500/10 dark:text-error-400">
+            {agreementError}
+          </div>
         ) : null}
         {agreementPdfUrl ? (
           <iframe
@@ -518,7 +525,7 @@ export function CustomerAccountDetailsCard({
         <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 12 }}>
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             onClick={() => setAgreementPdfModalOpen(false)}
           >
             Close

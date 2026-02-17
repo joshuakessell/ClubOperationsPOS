@@ -98,7 +98,9 @@ export function useMembershipActions({
       }
       await pollOnce();
     } catch (error) {
-      notifications.warn(error instanceof Error ? error.message : 'Failed to set membership choice');
+      notifications.warn(
+        error instanceof Error ? error.message : 'Failed to set membership choice'
+      );
     } finally {
       setIsSubmitting(false);
     }

@@ -14,13 +14,13 @@ type CheckinStageInput = {
   membershipPurchaseIntent: 'PURCHASE' | 'RENEW' | null;
   membershipChoice: 'ONE_TIME' | 'SIX_MONTH' | null;
   flowStep:
-  | 'RENTAL'
-  | 'WAITLIST_PREFERENCES'
-  | 'WAITLIST_BACKUP'
-  | 'PAYMENT'
-  | 'AGREEMENT'
-  | 'COMPLETE'
-  | null;
+    | 'RENTAL'
+    | 'WAITLIST_PREFERENCES'
+    | 'WAITLIST_BACKUP'
+    | 'PAYMENT'
+    | 'AGREEMENT'
+    | 'COMPLETE'
+    | null;
 };
 
 export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | null {
@@ -69,8 +69,6 @@ export function deriveCheckinStage(input: CheckinStageInput): CheckinStage | nul
   if (selectionConfirmed) {
     return { number: 4, label: 'Signing Member Agreement' };
   }
-
-
 
   // 2 - Membership options (only when needed)
   const membershipStatus = getCustomerMembershipStatus(

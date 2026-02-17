@@ -50,7 +50,7 @@ export function UpgradePaymentModal({
         </div>
 
         <div
-          className="cs-liquid-card"
+          className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -98,7 +98,7 @@ export function UpgradePaymentModal({
         </div>
 
         <div
-          className="cs-liquid-card"
+          className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
           style={{
             display: 'flex',
             flexDirection: 'column',
@@ -123,7 +123,7 @@ export function UpgradePaymentModal({
         </div>
 
         <div
-          className="cs-liquid-card"
+          className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
           style={{
             display: 'flex',
             justifyContent: 'space-between',
@@ -145,7 +145,7 @@ export function UpgradePaymentModal({
           <button
             onClick={onPayCreditSuccess}
             disabled={isSubmitting || !canComplete}
-            className="cs-liquid-button"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
             style={{
               padding: '0.75rem 1rem',
               fontWeight: 700,
@@ -156,7 +156,7 @@ export function UpgradePaymentModal({
           <button
             onClick={onPayCashSuccess}
             disabled={isSubmitting || !canComplete}
-            className="cs-liquid-button"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
             style={{
               padding: '0.75rem 1rem',
               fontWeight: 700,
@@ -167,7 +167,7 @@ export function UpgradePaymentModal({
           <button
             onClick={onDecline}
             disabled={isSubmitting}
-            className="cs-liquid-button cs-liquid-button--danger"
+            className="inline-flex items-center justify-center rounded-lg border border-error-300 bg-error-50 px-4 py-2.5 text-sm font-semibold text-error-600 shadow-theme-xs transition hover:bg-error-100 dark:border-error-700 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
             style={{
               padding: '0.75rem 1rem',
               fontWeight: 700,
@@ -191,10 +191,10 @@ export function UpgradePaymentModal({
             onClick={onComplete}
             disabled={paymentStatus !== 'PAID' || isSubmitting || !canComplete}
             className={[
-              'cs-liquid-button',
+              'inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold shadow-theme-xs transition',
               paymentStatus === 'PAID'
-                ? 'cs-liquid-button--selected'
-                : 'cs-liquid-button--secondary',
+                ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                : 'border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
             ].join(' ')}
             style={{
               padding: '0.75rem 1.25rem',

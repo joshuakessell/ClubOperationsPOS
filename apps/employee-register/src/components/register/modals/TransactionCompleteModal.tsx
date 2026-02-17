@@ -98,7 +98,7 @@ export function TransactionCompleteModal({
     <div className="er-txn-complete-modal__overlay" role="presentation">
       <div
         ref={modalRef}
-        className="er-txn-complete-modal cs-liquid-card glass-effect"
+        className="er-txn-complete-modal rounded-2xl border border-gray-200 bg-white/80 shadow-theme-lg backdrop-blur-md dark:border-gray-800 dark:bg-gray-900/80"
         role="dialog"
         aria-modal="true"
         aria-label="Transaction ready"
@@ -162,7 +162,7 @@ export function TransactionCompleteModal({
         {agreementSigned && agreementSignedMethod !== 'MANUAL' && (
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--secondary er-txn-complete-modal__verify"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03] er-txn-complete-modal__verify"
             onClick={onVerifyAgreementArtifacts}
             disabled={verifyDisabled}
           >
@@ -173,7 +173,7 @@ export function TransactionCompleteModal({
         {showBypassAction && (
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--warning er-txn-complete-modal__verify"
+            className="inline-flex items-center justify-center rounded-lg bg-warning-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-warning-600 er-txn-complete-modal__verify"
             onClick={onStartAgreementBypass}
             disabled={completeDisabled}
           >
@@ -184,7 +184,7 @@ export function TransactionCompleteModal({
         {showPhysicalConfirmAction && (
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--success er-txn-complete-modal__verify"
+            className="inline-flex items-center justify-center rounded-lg bg-success-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-success-600 er-txn-complete-modal__verify"
             onClick={onConfirmPhysicalAgreement}
             disabled={completeDisabled}
           >
@@ -195,7 +195,7 @@ export function TransactionCompleteModal({
         {showComplete && (
           <button
             type="button"
-            className="cs-liquid-button er-txn-complete-modal__complete"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 er-txn-complete-modal__complete"
             onClick={onCompleteTransaction}
             disabled={completeDisabled}
           >

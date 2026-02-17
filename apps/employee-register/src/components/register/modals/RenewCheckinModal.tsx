@@ -32,7 +32,10 @@ export function RenewCheckinModal(props: {
           Renewals are available within 1 hour of checkout. Maximum stay is 14 hours.
         </div>
 
-        <div className="cs-liquid-card" style={{ padding: '0.85rem' }}>
+        <div
+          className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+          style={{ padding: '0.85rem' }}
+        >
           <div style={{ display: 'grid', gap: '0.5rem' }}>
             <div>
               <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
@@ -67,7 +70,7 @@ export function RenewCheckinModal(props: {
         <div className="er-renewal-modal__actions">
           <button
             type="button"
-            className="cs-liquid-button"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
             disabled={!eligibility.allowTwoHour || isSubmitting}
             onClick={() => onSelectHours(2)}
           >
@@ -75,7 +78,7 @@ export function RenewCheckinModal(props: {
           </button>
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             disabled={!eligibility.allowSixHour || isSubmitting}
             onClick={() => onSelectHours(6)}
           >

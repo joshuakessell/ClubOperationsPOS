@@ -36,10 +36,5 @@ export function useLaneSessionCustomerLink(params: {
     if (!currentSessionId && laneSessionCustomerId !== accountCustomerId) {
       setCurrentSessionCustomerId(accountCustomerId);
     }
-  }, [
-    accountCustomerId,
-    currentSessionId,
-    laneSessionCustomerId,
-    setCurrentSessionCustomerId,
-  ]);
+  }, [accountCustomerId, currentSessionId, laneSessionCustomerId, setCurrentSessionCustomerId]);
 }

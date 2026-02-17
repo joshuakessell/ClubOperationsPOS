@@ -20,7 +20,11 @@ export function IdScanBlockedModal({ isOpen, issue, onClose }: IdScanBlockedModa
       <div style={{ display: 'grid', gap: '0.75rem' }}>
         <div style={{ color: '#fca5a5', fontWeight: 800 }}>{message}</div>
         <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          <button type="button" className="cs-liquid-button" onClick={onClose}>
+          <button
+            type="button"
+            className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
+            onClick={onClose}
+          >
             OK
           </button>
         </div>

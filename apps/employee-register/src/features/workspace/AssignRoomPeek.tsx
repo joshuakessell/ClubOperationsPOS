@@ -48,25 +48,34 @@ export function AssignRoomPeek() {
 
   const canAssign = Boolean(
     lane &&
-      session?.sessionToken &&
-      currentSessionId &&
-      desiredTier &&
-      selectedInventoryItem &&
-      selectedInventoryItem.type === expectedType &&
-      selectedInventoryItem.tier === desiredTier
+    session?.sessionToken &&
+    currentSessionId &&
+    desiredTier &&
+    selectedInventoryItem &&
+    selectedInventoryItem.type === expectedType &&
+    selectedInventoryItem.tier === desiredTier
   );
 
   return (
-    <div className="cs-liquid-card" style={{ padding: '0.9rem' }}>
-      <div style={{ fontWeight: 950, fontSize: '1.05rem' }}>Assign specific {desiredTier === 'LOCKER' ? 'locker' : 'room'}</div>
-      <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800, marginTop: '0.35rem' }}>
-        While the customer signs the agreement, you can pre-select an available {desiredTier?.toLowerCase() ?? 'room'}.
+    <div
+      className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+      style={{ padding: '0.9rem' }}
+    >
+      <div style={{ fontWeight: 950, fontSize: '1.05rem' }}>
+        Assign specific {desiredTier === 'LOCKER' ? 'locker' : 'room'}
+      </div>
+      <div
+        className="er-text-sm"
+        style={{ color: '#94a3b8', fontWeight: 800, marginTop: '0.35rem' }}
+      >
+        While the customer signs the agreement, you can pre-select an available{' '}
+        {desiredTier?.toLowerCase() ?? 'room'}.
       </div>
 
       <div style={{ display: 'grid', gap: '0.6rem', marginTop: '0.85rem' }}>
         <button
           type="button"
-          className="cs-liquid-button cs-liquid-button--secondary"
+          className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
           onClick={() => {
             if (!desiredTier) {
               pushBottomToast({ message: 'Select a rental type first.', tone: 'warning' });
@@ -83,7 +92,7 @@ export function AssignRoomPeek() {
 
         <button
           type="button"
-          className="cs-liquid-button"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
           onClick={() => void handleAssignSelected()}
           disabled={!canAssign || assigning}
           style={{ width: '100%', padding: '0.85rem', fontWeight: 950 }}
@@ -97,7 +106,7 @@ export function AssignRoomPeek() {
 
         <button
           type="button"
-          className="cs-liquid-button cs-liquid-button--secondary"
+          className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
           onClick={() => setSelectedInventoryItem(null)}
           disabled={!selectedInventoryItem || assigning}
           style={{ width: '100%', padding: '0.8rem', fontWeight: 950 }}

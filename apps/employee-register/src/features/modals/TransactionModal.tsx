@@ -39,11 +39,11 @@ export function TransactionModal() {
 
   const showAssignRoomPeek = Boolean(
     agreementPending &&
-      !assignedResourceNumber &&
-      (customerSelectedType === 'STANDARD' ||
-        customerSelectedType === 'DOUBLE' ||
-        customerSelectedType === 'SPECIAL' ||
-        customerSelectedType === 'LOCKER')
+    !assignedResourceNumber &&
+    (customerSelectedType === 'STANDARD' ||
+      customerSelectedType === 'DOUBLE' ||
+      customerSelectedType === 'SPECIAL' ||
+      customerSelectedType === 'LOCKER')
   );
 
   return (

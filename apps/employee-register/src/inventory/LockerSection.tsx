@@ -104,7 +104,7 @@ export function LockerSection({
                   onClick={() => onSelectLocker(locker)}
                   type="button"
                   className={[
-                    'cs-liquid-card',
+                    'rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900',
                     'er-inv-item',
                     highlightId === locker.id ? 'er-inv-item--highlight' : '',
                     dueLevel === 'danger'

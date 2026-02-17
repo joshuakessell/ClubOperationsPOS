@@ -35,15 +35,13 @@ export function useEmployeeRegisterTabletUiTweaks() {
     const collected: BaselineVars = {};
 
     const tryCollect = () => {
-      const primaryBtn = document.querySelector<HTMLElement>(
-        '.cs-liquid-button:not(.cs-liquid-button--secondary)'
-      );
-      const secondaryBtn = document.querySelector<HTMLElement>(
-        '.cs-liquid-button.cs-liquid-button--secondary'
-      );
+      // TailAdmin Button uses an inline class list; we match on the primary bg-brand-500
+      // pattern vs outline/secondary (border-gray) for button sizing baselines.
+      const primaryBtn = document.querySelector<HTMLElement>('button.bg-brand-500');
+      const secondaryBtn = document.querySelector<HTMLElement>('button.border-gray-200');
       const labelEl =
         document.querySelector<HTMLElement>('label') ??
-        document.querySelector<HTMLElement>('.er-shell__nav-btn');
+        document.querySelector<HTMLElement>('[class*="menu-item"]');
       const searchEl = document.getElementById('customer-search');
       const iconEl = document.querySelector<HTMLElement>('.btn-icon');
 

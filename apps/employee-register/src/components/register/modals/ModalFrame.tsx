@@ -103,7 +103,7 @@ export function ModalFrame({
     >
       <div
         ref={modalRef}
-        className="cs-liquid-card"
+        className="rounded-2xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
         style={{
           maxWidth,
           width: '90%',
@@ -128,7 +128,7 @@ export function ModalFrame({
             {showCloseButton && (
               <button
                 onClick={onClose}
-                className="cs-liquid-button cs-liquid-button--secondary"
+                className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2 py-1 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
                 style={{
                   fontSize: '1.5rem',
                   cursor: 'pointer',

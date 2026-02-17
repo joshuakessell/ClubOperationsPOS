@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getApiUrl } from '@club-ops/shared';
-import { PanelCard } from '../../../views/PanelCard';
 import { PanelHeader } from '../../../views/PanelHeader';
 
 type DetailedRoom = {
@@ -130,7 +129,7 @@ export function RoomCleaningPanel({ sessionToken, staffId, onSuccess }: RoomClea
   };
 
   return (
-    <PanelCard>
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900">
       <PanelHeader title="Room Cleaning" />
 
       {error && (
@@ -181,8 +180,10 @@ export function RoomCleaningPanel({ sessionToken, staffId, onSuccess }: RoomClea
                       key={r.id}
                       type="button"
                       className={[
-                        'cs-liquid-button',
-                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+                        'rounded-lg border px-3 py-2.5 text-left transition',
+                        selected
+                          ? 'border-brand-500 bg-brand-50 font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                          : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
                       ].join(' ')}
                       aria-pressed={selected}
                       disabled={disabled || isSubmitting}
@@ -216,8 +217,10 @@ export function RoomCleaningPanel({ sessionToken, staffId, onSuccess }: RoomClea
                       key={r.id}
                       type="button"
                       className={[
-                        'cs-liquid-button',
-                        selected ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+                        'rounded-lg border px-3 py-2.5 text-left transition',
+                        selected
+                          ? 'border-brand-500 bg-brand-50 font-semibold text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                          : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
                       ].join(' ')}
                       aria-pressed={selected}
                       disabled={disabled || isSubmitting}
@@ -256,7 +259,7 @@ export function RoomCleaningPanel({ sessionToken, staffId, onSuccess }: RoomClea
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '0.75rem' }}>
             <button
               type="button"
-              className="cs-liquid-button"
+              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
               onClick={() => void handleConfirm()}
               disabled={isSubmitting || selectedRoomIds.size === 0 || !activeList}
             >
@@ -265,6 +268,6 @@ export function RoomCleaningPanel({ sessionToken, staffId, onSuccess }: RoomClea
           </div>
         </div>
       )}
-    </PanelCard>
+    </div>
   );
 }

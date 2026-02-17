@@ -37,7 +37,7 @@ export function BottomToastStack(props: {
         return (
           <div
             key={t.id}
-            className="cs-liquid-card"
+            className="rounded-2xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
             style={{
               pointerEvents: 'auto',
               background: bg,
@@ -56,7 +56,7 @@ export function BottomToastStack(props: {
             <div style={{ fontWeight: 800, fontSize: '0.95rem' }}>{t.message}</div>
             <button
               onClick={() => onDismiss(t.id)}
-              className="cs-liquid-button cs-liquid-button--secondary"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2 py-1 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
               style={{
                 fontSize: '0.95rem',
                 cursor: 'pointer',

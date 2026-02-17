@@ -20,7 +20,7 @@ export default defineConfig({
         include: ['src/**/*.test.{ts,tsx}', 'tests/**/*.test.{ts,tsx}'],
         pool: 'forks',
         maxWorkers: 1,
-        isolate: false,
+        isolate: true,
         teardownTimeout: 10000,
         forceExit: true,
         reporters: process.env.CI ? ['default', 'hanging-process'] : ['default'],

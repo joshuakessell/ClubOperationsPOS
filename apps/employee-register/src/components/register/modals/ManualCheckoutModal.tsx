@@ -3,7 +3,11 @@ import { getApiUrl } from '@club-ops/shared';
 import { ModalFrame } from './ModalFrame';
 import { ManualCheckoutModalConfirmStep } from '../manual-checkout/ManualCheckoutModalConfirmStep';
 import { ManualCheckoutModalSelectStep } from '../manual-checkout/ManualCheckoutModalSelectStep';
-import type { ManualCheckoutStep, ManualCandidate, ResolveResponse } from '../manual-checkout/types';
+import type {
+  ManualCheckoutStep,
+  ManualCandidate,
+  ResolveResponse,
+} from '../manual-checkout/types';
 
 export interface ManualCheckoutModalProps {
   isOpen: boolean;
@@ -13,7 +17,6 @@ export interface ManualCheckoutModalProps {
   prefill?: { occupancyId?: string; number?: string };
   entryMode?: 'default' | 'direct-confirm';
 }
-
 
 export function ManualCheckoutModal({
   isOpen,
@@ -259,14 +262,14 @@ export function ManualCheckoutModal({
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '0.5rem' }}>
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             onClick={() => setShowCancelWarning(false)}
           >
             Return to confirm checkout
           </button>
           <button
             type="button"
-            className="cs-liquid-button cs-liquid-button--danger"
+            className="inline-flex items-center justify-center rounded-lg border border-error-300 bg-error-50 px-4 py-2.5 text-sm font-semibold text-error-600 shadow-theme-xs transition hover:bg-error-100 dark:border-error-700 dark:bg-error-500/10 dark:text-error-400 dark:hover:bg-error-500/20"
             onClick={() => {
               setShowCancelWarning(false);
               onClose();

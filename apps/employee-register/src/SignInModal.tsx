@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { LiquidGlassPinInput } from '@club-ops/ui';
+import { Alert, Button, Modal, Spinner } from '@club-ops/ui/tailadmin';
 import {
   RegisterButtons,
   type RegisterAvailability,
@@ -41,7 +42,7 @@ interface SignInModalProps {
     employeeName: string;
     registerNumber: number;
     deviceId: string;
-    pin: string; // PIN needed to create staff session
+    pin: string;
   }) => void;
   deviceId: string;
 }
@@ -59,7 +60,6 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch available employees on open
   useEffect(() => {
     if (isOpen && step === 'select-employee') {
       void fetchAvailableEmployees();
@@ -98,7 +98,6 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
       );
     }
   };
-
 
   const fetchRegisterAvailability = async () => {
     try {
@@ -145,13 +144,11 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
         if (getErrorMessage(errorPayload) === 'Wrong PIN') {
           setPinError(true);
           setPin('');
-          // Shake animation will be handled by CSS
           return;
         }
         throw new Error(getErrorMessage(errorPayload) || 'PIN verification failed');
       }
 
-      // PIN verified, allow user to choose a register
       setStep('assign-register');
       await fetchRegisterAvailability();
     } catch (error) {
@@ -191,7 +188,6 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
     } catch (error) {
       console.error('Register assignment error:', error);
       setError(error instanceof Error ? error.message : 'Failed to assign register');
-      // Refresh availability in case occupancy changed
       await fetchRegisterAvailability();
     } finally {
       setIsLoading(false);
@@ -226,16 +222,14 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
 
       await response.json().catch(() => null);
 
-      // Sign in complete - pass PIN for staff session creation
       onSignIn({
         employeeId: selectedEmployee.id,
         employeeName: selectedEmployee.name,
         registerNumber,
         deviceId,
-        pin: pin, // Pass PIN for staff session
+        pin: pin,
       });
 
-      // Reset state
       setStep('select-employee');
       setSelectedEmployee(null);
       setPin('');
@@ -274,143 +268,140 @@ export function SignInModal({ isOpen, onClose, onSignIn, deviceId }: SignInModal
     return registers ? ` (Signed in: ${registers})` : ' (Signed in)';
   };
 
-  if (!isOpen) return null;
+  /* Step title */
+  const stepTitle =
+    step === 'select-employee'
+      ? 'Select Employee'
+      : step === 'enter-pin'
+        ? 'Enter PIN'
+        : step === 'assign-register'
+          ? 'Select Register'
+          : `Assigned Register ${registerNumber}`;
 
   return (
-    <div className="sign-in-modal-overlay" onClick={onClose}>
-      <div className="sign-in-modal cs-liquid-card" onClick={(e) => e.stopPropagation()}>
-        <button
-          className="sign-in-modal-close cs-liquid-button cs-liquid-button--secondary"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-lg p-6 lg:p-8">
+      {/* Title */}
+      <h2 className="mb-4 text-xl font-semibold text-gray-800 dark:text-white/90">{stepTitle}</h2>
 
-        {step === 'select-employee' && (
-          <div className="sign-in-step">
-            <h2>Select Employee</h2>
-            {error && <div className="sign-in-error">{error}</div>}
-            {employees.length === 0 && (
-              <div className="sign-in-actions">
-                <button
-                  className="cs-liquid-button"
-                  onClick={() => void fetchAvailableEmployees()}
-                  disabled={isLoading}
-                >
-                  Retry
-                </button>
-              </div>
-            )}
-            <div className="employee-list">
-              {employees.length === 0 ? null : (
-                employees.map((emp) => (
-                  <button
-                    key={emp.id}
-                    className="employee-item cs-liquid-button cs-liquid-button--secondary"
-                    onClick={() => handleSelectEmployee(emp)}
-                    disabled={isLoading}
-                  >
-                    {emp.name}
+      {/* Errors */}
+      {error && (
+        <div className="mb-4">
+          <Alert variant="error" title="Error" message={error} />
+        </div>
+      )}
+
+      {/* Step: Select Employee */}
+      {step === 'select-employee' && (
+        <div className="flex flex-col gap-3">
+          {employees.length === 0 && (
+            <div className="flex justify-center">
+              <Button onClick={() => void fetchAvailableEmployees()} disabled={isLoading}>
+                Retry
+              </Button>
+            </div>
+          )}
+          <div className="flex max-h-[300px] flex-col gap-2 overflow-y-auto">
+            {employees.map((emp) => (
+              <button
+                key={emp.id}
+                className="w-full rounded-lg border border-gray-200 px-4 py-3 text-left text-sm font-medium text-gray-800 transition hover:bg-gray-50 dark:border-gray-800 dark:text-white/90 dark:hover:bg-white/[0.03]"
+                onClick={() => handleSelectEmployee(emp)}
+                disabled={isLoading}
+              >
+                {emp.name}
+                {emp.signedIn && (
+                  <span className="ml-2 text-xs text-gray-500 dark:text-gray-400">
                     {formatSignedInLabel(emp)}
-                  </button>
-                ))
-              )}
-            </div>
+                  </span>
+                )}
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {step === 'enter-pin' && selectedEmployee && (
-          <div className="sign-in-step">
-            <h2>Enter PIN</h2>
-            <p className="sign-in-subtitle">Employee: {selectedEmployee.name}</p>
-            {pinError && <div className="sign-in-error shake">Wrong PIN</div>}
-            {error && <div className="sign-in-error">{error}</div>}
-            <LiquidGlassPinInput
-              length={6}
-              value={pin}
-              onChange={(next) => {
-                setPin(next);
-                setPinError(false);
-              }}
-              onSubmit={() => void handlePinSubmit()}
-              submitLabel={isLoading ? 'Verifying…' : 'Verify PIN'}
-              submitDisabled={isLoading}
+      {/* Step: Enter PIN */}
+      {step === 'enter-pin' && selectedEmployee && (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Employee:{' '}
+            <span className="font-semibold text-gray-800 dark:text-white/90">
+              {selectedEmployee.name}
+            </span>
+          </p>
+          {pinError && <Alert variant="error" title="Wrong PIN" message="Please try again." />}
+          <LiquidGlassPinInput
+            length={6}
+            value={pin}
+            onChange={(next) => {
+              setPin(next);
+              setPinError(false);
+            }}
+            onSubmit={() => void handlePinSubmit()}
+            submitLabel={isLoading ? 'Verifying…' : 'Verify PIN'}
+            submitDisabled={isLoading}
+            disabled={isLoading}
+            className={pinError ? 'shake' : undefined}
+            displayAriaLabel="Employee PIN"
+          />
+          <div className="flex justify-start">
+            <Button variant="outline" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Assign Register */}
+      {step === 'assign-register' && (
+        <div className="flex flex-col gap-4">
+          {!registers ? (
+            <div className="flex items-center justify-center gap-2 py-6 text-sm text-gray-500 dark:text-gray-400">
+              <Spinner size="sm" />
+              Loading registers...
+            </div>
+          ) : (
+            <RegisterButtons
+              registers={registers}
+              selectedEmployeeId={selectedEmployee?.id ?? null}
               disabled={isLoading}
-              className={pinError ? 'shake' : undefined}
-              displayAriaLabel="Employee PIN"
+              onSelect={(num) => void handleSelectRegister(num)}
             />
-            <div className="sign-in-actions">
-              <button
-                type="button"
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={handleBack}
-                disabled={isLoading}
-              >
-                Back
-              </button>
-            </div>
+          )}
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => void fetchRegisterAvailability()}
+              disabled={isLoading}
+            >
+              Refresh
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {step === 'assign-register' && (
-          <div className="sign-in-step">
-            <h2>Select Register</h2>
-            {error && <div className="sign-in-error">{error}</div>}
-            {!registers ? (
-              <div className="sign-in-subtitle">Loading registers...</div>
-            ) : (
-              <RegisterButtons
-                registers={registers}
-                selectedEmployeeId={selectedEmployee?.id ?? null}
-                disabled={isLoading}
-                onSelect={(num) => void handleSelectRegister(num)}
-              />
-            )}
-            <div className="sign-in-actions">
-              <button
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={handleBack}
-                disabled={isLoading}
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={() => void fetchRegisterAvailability()}
-                disabled={isLoading}
-              >
-                Refresh
-              </button>
-            </div>
+      {/* Step: Confirm */}
+      {step === 'confirm' && registerNumber && (
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Employee:{' '}
+            <span className="font-semibold text-gray-800 dark:text-white/90">
+              {selectedEmployee?.name}
+            </span>
+          </p>
+          <div className="flex gap-3">
+            <Button variant="outline" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+            <Button onClick={() => void handleConfirm()} disabled={isLoading}>
+              {isLoading ? 'Confirming...' : 'Confirm'}
+            </Button>
           </div>
-        )}
-
-        {step === 'confirm' && registerNumber && (
-          <div className="sign-in-step">
-            <h2>Assigned Register {registerNumber}</h2>
-            <p className="sign-in-subtitle">Employee: {selectedEmployee?.name}</p>
-            {error && <div className="sign-in-error">{error}</div>}
-            <div className="sign-in-actions">
-              <button
-                className="cs-liquid-button cs-liquid-button--secondary"
-                onClick={handleBack}
-                disabled={isLoading}
-              >
-                Back
-              </button>
-              <button
-                className="cs-liquid-button"
-                onClick={() => void handleConfirm()}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Confirming...' : 'Confirm'}
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
+        </div>
+      )}
+    </Modal>
   );
 }

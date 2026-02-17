@@ -1,3 +1,4 @@
+import { Badge, Button, Spinner } from '@club-ops/ui/tailadmin';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 import { PanelHeader } from '../../views/PanelHeader';
 import { PanelShell } from '../../views/PanelShell';
@@ -16,11 +17,12 @@ export function ScanPanel() {
   } = useEmployeeRegisterState();
 
   return (
-    <PanelShell align="top" className="er-scan-panel">
-      <div className="er-scan-header">
-        <div className="er-scan-icon" aria-hidden="true">
+    <PanelShell align="top">
+      {/* Header */}
+      <div className="flex flex-col items-center gap-2 text-center">
+        <span className="text-4xl" aria-hidden="true">
           📷
-        </div>
+        </span>
         <PanelHeader
           align="center"
           spacing="sm"
@@ -29,17 +31,24 @@ export function ScanPanel() {
         />
       </div>
 
-      <div className="er-scan-demo-badge" role="status" aria-live="polite">
-        DEMO MODE
+      {/* Demo badge */}
+      <div className="mt-3 flex justify-center">
+        <Badge color="info" variant="light" size="sm">
+          DEMO MODE
+        </Badge>
       </div>
 
-      <label className="er-scan-label" htmlFor="scan-input-area">
+      {/* Scanner input */}
+      <label
+        className="mt-4 block text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400"
+        htmlFor="scan-input-area"
+      >
         Scanner Input
       </label>
       <textarea
         id="scan-input-area"
         ref={scanInputRef}
-        className="er-scan-input er-scan-input--entry"
+        className="mt-1 w-full resize-none rounded-lg border border-gray-200 bg-gray-50 p-3 font-mono text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white dark:placeholder:text-white/30"
         aria-label="Scanner input"
         autoComplete="off"
         autoCorrect="off"
@@ -47,40 +56,41 @@ export function ScanPanel() {
         inputMode="text"
         disabled={!scanInputEnabled}
         placeholder="Scan or type code here..."
+        rows={3}
         {...scanInputHandlers}
       />
 
-      <div
-        className={`er-scan-processing-overlay ${scanCaptureSubmitting ? 'er-scan-processing-overlay--active' : ''}`}
-        aria-hidden={!scanCaptureSubmitting}
-      >
-        <div className="cs-liquid-card er-scan-processing-card">
-          <span className="er-spinner" aria-hidden="true" />
-          <span className="er-scan-processing-text">Processing scan…</span>
+      {/* Processing overlay */}
+      {scanCaptureSubmitting ? (
+        <div className="fixed inset-0 z-99999 flex items-center justify-center bg-gray-400/50 backdrop-blur-[32px]">
+          <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900">
+            <Spinner size="md" />
+            <span className="text-sm font-medium text-gray-500 dark:text-gray-400">
+              Processing scan…
+            </span>
+          </div>
         </div>
-      </div>
+      ) : null}
 
-      <div className="er-scan-status">
+      {/* Status text */}
+      <p className="mt-3 text-center text-xs font-semibold text-gray-500 dark:text-gray-400">
         {scanReady
           ? scanCaptureSubmitting
             ? 'Processing scan...'
             : 'Scanner ready'
           : `Scanner paused: ${scanBlockedReason || 'Unavailable'}`}
-      </div>
+      </p>
 
+      {/* Active session CTA */}
       {currentSessionId && customerName ? (
-        <div style={{ marginTop: '1.5rem', display: 'grid', gap: '0.5rem' }}>
-          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 800 }}>
-            Active lane session: <span style={{ color: '#e2e8f0' }}>{customerName}</span>
-          </div>
-          <button
-            type="button"
-            className="cs-liquid-button"
-            onClick={() => selectNavTab('account')}
-            style={{ width: '100%', padding: '0.75rem', fontWeight: 900 }}
-          >
+        <div className="mt-6 flex flex-col gap-2">
+          <p className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+            Active lane session:{' '}
+            <span className="text-gray-800 dark:text-white/90">{customerName}</span>
+          </p>
+          <Button fullWidth onClick={() => selectNavTab('account')}>
             Open Customer Account
-          </button>
+          </Button>
         </div>
       ) : null}
     </PanelShell>

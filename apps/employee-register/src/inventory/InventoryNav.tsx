@@ -35,10 +35,10 @@ export function InventoryNav({
             key={tier}
             type="button"
             className={[
-              'cs-liquid-button',
+              'inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold shadow-theme-xs transition',
               activeSection === tier
-                ? 'cs-liquid-button--selected'
-                : 'cs-liquid-button--secondary',
+                ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                : 'border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
             ].join(' ')}
             onClick={() => onSectionSelect(tier)}
             style={{
@@ -55,9 +55,7 @@ export function InventoryNav({
                 className="er-inv-nav-stats er-inv-meta"
                 style={{
                   color:
-                    activeSection === tier
-                      ? 'rgba(255,255,255,0.92)'
-                      : 'rgba(148,163,184,0.95)',
+                    activeSection === tier ? 'rgba(255,255,255,0.92)' : 'rgba(148,163,184,0.95)',
                 }}
               >
                 <div>Available {counts.available}</div>
@@ -74,9 +72,9 @@ export function InventoryNav({
         <div className="er-inv-search-label" style={{ marginBottom: '0.35rem' }}>
           Search
         </div>
-        <div className="cs-liquid-search">
+        <div className="relative">
           <input
-            className="cs-liquid-input cs-liquid-search__input"
+            className="w-full rounded-lg border border-gray-300 bg-white py-2.5 pl-3 pr-10 text-sm text-gray-800 shadow-theme-xs outline-none transition focus:border-brand-300 focus:ring focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"
             type="text"
             placeholder="Search by name or number..."
             value={effectiveFilterQuery}
@@ -84,7 +82,7 @@ export function InventoryNav({
             aria-label="Inventory search"
             disabled={filterQueryLocked}
           />
-          <div className="cs-liquid-search__icon">
+          <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3 text-gray-500 dark:text-gray-400">
             <svg
               width="16"
               height="16"

@@ -123,7 +123,10 @@ export function CustomerModals() {
           ) : null}
 
           {manualExistingPrompt ? (
-            <div className="cs-liquid-card" style={{ padding: '1rem' }}>
+            <div
+              className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
+              style={{ padding: '1rem' }}
+            >
               <div style={{ fontWeight: 900, fontSize: '1.1rem' }}>
                 {manualExistingPrompt.bestMatch.name}
               </div>
@@ -179,7 +182,7 @@ export function CustomerModals() {
           >
             <button
               type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
               disabled={manualExistingPromptSubmitting || isSubmitting}
               onClick={() => {
                 setManualExistingPrompt(null);
@@ -191,7 +194,7 @@ export function CustomerModals() {
 
             <button
               type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
               disabled={manualExistingPromptSubmitting || isSubmitting || !manualExistingPrompt}
               onClick={() => {
                 if (!manualExistingPrompt) return;
@@ -231,7 +234,7 @@ export function CustomerModals() {
 
             <button
               type="button"
-              className="cs-liquid-button"
+              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
               disabled={
                 manualExistingPromptSubmitting ||
                 isSubmitting ||

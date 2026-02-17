@@ -256,7 +256,9 @@ export function useWaitlistUpgradeState({
       dismissUpgradePulse();
     } catch (error) {
       console.error('Failed to process upgrade payment:', error);
-      notifications.warn(error instanceof Error ? error.message : 'Failed to process upgrade payment');
+      notifications.warn(
+        error instanceof Error ? error.message : 'Failed to process upgrade payment'
+      );
     } finally {
       setIsSubmitting(false);
     }

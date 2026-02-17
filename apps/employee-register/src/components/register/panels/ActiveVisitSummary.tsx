@@ -8,10 +8,7 @@ import type { ActiveVisitSummaryProps } from './active-visit/types';
 export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
   const { activeCheckin } = props;
 
-  const renewalEligibility = useMemo(
-    () => getRenewalEligibility(activeCheckin),
-    [activeCheckin]
-  );
+  const renewalEligibility = useMemo(() => getRenewalEligibility(activeCheckin), [activeCheckin]);
   const canRenew = renewalEligibility.allowTwoHour || renewalEligibility.allowSixHour;
 
   const switchFlow = useSwitchResourceFlow({
@@ -76,7 +73,7 @@ export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
           >
             <button
               type="button"
-              className="cs-liquid-button"
+              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
               onClick={() =>
                 props.onStartCheckout({
                   number: activeCheckin.assignedResourceNumber,
@@ -89,7 +86,7 @@ export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
             {props.onStartRenewal ? (
               <button
                 type="button"
-                className="cs-liquid-button cs-liquid-button--secondary"
+                className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
                 onClick={() => props.onStartRenewal?.(activeCheckin)}
                 disabled={!canRenew}
                 style={{ width: '100%', maxWidth: 260, padding: '0.7rem', fontWeight: 900 }}
@@ -99,7 +96,7 @@ export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
             ) : null}
             <button
               type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
               onClick={switchFlow.openSwitchModal}
               style={{ width: '100%', maxWidth: 260, padding: '0.7rem', fontWeight: 900 }}
             >
@@ -140,7 +137,7 @@ export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
             <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
               <button
                 type="button"
-                className={`cs-liquid-button ${switchFlow.targetType === 'room' ? '' : 'cs-liquid-button--secondary'}`}
+                className={`${switchFlow.targetType === 'room' ? 'inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600' : 'inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]'}`}
                 disabled={switchFlow.submitting || !switchFlow.hasRoomChoices}
                 onClick={switchFlow.selectRoomTarget}
                 style={{ padding: '0.6rem 0.9rem', fontWeight: 900 }}
@@ -149,7 +146,7 @@ export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
               </button>
               <button
                 type="button"
-                className={`cs-liquid-button ${switchFlow.targetType === 'locker' ? '' : 'cs-liquid-button--secondary'}`}
+                className={`${switchFlow.targetType === 'locker' ? 'inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600' : 'inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]'}`}
                 disabled={switchFlow.submitting || !switchFlow.hasLockerChoices}
                 onClick={switchFlow.selectLockerTarget}
                 style={{ padding: '0.6rem 0.9rem', fontWeight: 900 }}
@@ -241,10 +238,12 @@ export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
             </div>
           ) : null}
 
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          <div
+            style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', flexWrap: 'wrap' }}
+          >
             <button
               type="button"
-              className="cs-liquid-button cs-liquid-button--secondary"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
               onClick={switchFlow.closeSwitchModal}
               disabled={switchFlow.submitting}
               style={{ padding: '0.65rem 1rem', fontWeight: 900 }}
@@ -253,7 +252,7 @@ export function ActiveVisitSummary(props: ActiveVisitSummaryProps) {
             </button>
             <button
               type="button"
-              className="cs-liquid-button"
+              className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
               onClick={() => void switchFlow.submitSwitch()}
               disabled={switchFlow.submitting || !switchFlow.selectedResourceId}
               style={{ padding: '0.65rem 1rem', fontWeight: 900 }}

@@ -1,3 +1,4 @@
+import { Button } from '@club-ops/ui/tailadmin';
 import { ModalFrame } from '../components/register/modals/ModalFrame';
 
 type OccupancyDetails = {
@@ -28,9 +29,7 @@ export function OccupancyDetailsModal({
       isOpen={!!occupancyDetails}
       title={
         occupancyDetails
-          ? `${occupancyDetails.type === 'room' ? 'Room' : 'Locker'} ${
-              occupancyDetails.number
-            }`
+          ? `${occupancyDetails.type === 'room' ? 'Room' : 'Locker'} ${occupancyDetails.number}`
           : 'Occupancy'
       }
       onClose={onClose}
@@ -47,50 +46,40 @@ export function OccupancyDetailsModal({
             }}
           >
             {occupancyDetails.customerId && onOpenCustomerAccount ? (
-              <button
-                type="button"
-                className="cs-liquid-button cs-liquid-button--secondary"
-                style={{ padding: '0.35rem 0.7rem', minHeight: 'unset', fontWeight: 900 }}
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() =>
-                  onOpenCustomerAccount(
-                    occupancyDetails.customerId!,
-                    occupancyDetails.customerName
-                  )
+                  onOpenCustomerAccount(occupancyDetails.customerId!, occupancyDetails.customerName)
                 }
               >
                 {occupancyDetails.customerName || 'Customer'}
-              </button>
+              </Button>
             ) : (
               <span>{occupancyDetails.customerName || '—'}</span>
             )}
           </div>
 
-          <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-            <div className="er-text-sm" style={{ color: '#94a3b8', marginBottom: '0.25rem' }}>
-              Check-in
-            </div>
-            <div style={{ fontWeight: 800 }}>
+          <div className="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.03]">
+            <div className="mb-1 text-xs text-gray-400 dark:text-gray-500">Check-in</div>
+            <div className="font-extrabold text-gray-800 dark:text-white/90">
               {occupancyDetails.checkinAt
                 ? new Date(occupancyDetails.checkinAt).toLocaleString()
                 : '—'}
             </div>
           </div>
 
-          <div className="er-surface" style={{ padding: '0.75rem', borderRadius: 12 }}>
-            <div className="er-text-sm" style={{ color: '#94a3b8', marginBottom: '0.25rem' }}>
-              Checkout
-            </div>
-            <div style={{ fontWeight: 800 }}>
+          <div className="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.03]">
+            <div className="mb-1 text-xs text-gray-400 dark:text-gray-500">Checkout</div>
+            <div className="font-extrabold text-gray-800 dark:text-white/90">
               {occupancyDetails.checkoutAt
                 ? new Date(occupancyDetails.checkoutAt).toLocaleString()
                 : '—'}
             </div>
           </div>
 
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
-            <button
-              type="button"
-              className="cs-liquid-button"
+          <div className="flex justify-center">
+            <Button
               onClick={() => {
                 onRequestCheckout?.({
                   occupancyId: occupancyDetails.occupancyId,
@@ -100,7 +89,7 @@ export function OccupancyDetailsModal({
               }}
             >
               Checkout
-            </button>
+            </Button>
           </div>
         </div>
       )}

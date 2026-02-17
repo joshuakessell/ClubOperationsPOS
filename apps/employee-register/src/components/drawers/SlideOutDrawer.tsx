@@ -178,9 +178,16 @@ export function SlideOutDrawer({
     .filter(Boolean)
     .join(' ');
 
+  const tabColorMap: Record<string, string> = {
+    secondary: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300',
+    success: 'bg-success-500 text-white',
+    warning: 'bg-warning-500 text-white',
+    danger: 'bg-error-500 text-white',
+  };
+
   const tabClasses = [
-    'cs-liquid-button',
-    tabVariant === 'secondary' ? 'cs-liquid-button--secondary' : `cs-liquid-button--${tabVariant}`,
+    'rounded-lg px-3 py-2 text-sm font-semibold shadow-theme-xs transition',
+    tabColorMap[tabVariant] || tabColorMap.secondary,
     'sod-tab',
     side === 'left' ? 'sod-tab--left' : 'sod-tab--right',
     tabPulseVariant ? `er-pulse-${tabPulseVariant}` : '',
@@ -217,7 +224,7 @@ export function SlideOutDrawer({
 
         <div
           id={panelId}
-          className="cs-liquid-card sod-panel"
+          className="rounded-2xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-900 sod-panel"
           role="region"
           aria-label={label}
           hidden={!isOpen && !isDragging}

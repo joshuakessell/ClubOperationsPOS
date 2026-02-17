@@ -33,7 +33,7 @@ describe('RoomCleaningModal', () => {
     );
 
     const cleaningHeading = await screen.findByRole('heading', { name: 'Room Cleaning' });
-    const cleaningModalEl = cleaningHeading.closest('.cs-liquid-card');
+    const cleaningModalEl = cleaningHeading.closest('.rounded-2xl');
     if (!(cleaningModalEl instanceof HTMLElement))
       throw new Error('Expected room cleaning modal container');
     const m = within(cleaningModalEl);
@@ -82,7 +82,7 @@ describe('RoomCleaningModal', () => {
     );
 
     const cleaningHeading = await screen.findByRole('heading', { name: 'Room Cleaning' });
-    const cleaningModalEl = cleaningHeading.closest('.cs-liquid-card');
+    const cleaningModalEl = cleaningHeading.closest('.rounded-2xl');
     if (!(cleaningModalEl instanceof HTMLElement))
       throw new Error('Expected room cleaning modal container');
     const m = within(cleaningModalEl);

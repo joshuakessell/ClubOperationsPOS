@@ -38,7 +38,7 @@ describe('ManualCheckoutModal', () => {
     );
 
     const checkoutHeading = await screen.findByRole('heading', { name: 'Checkout' });
-    const checkoutModalEl = checkoutHeading.closest('.cs-liquid-card');
+    const checkoutModalEl = checkoutHeading.closest('.rounded-2xl');
     if (!(checkoutModalEl instanceof HTMLElement))
       throw new Error('Expected checkout modal container');
     const m = within(checkoutModalEl);
@@ -77,7 +77,7 @@ describe('ManualCheckoutModal', () => {
     );
 
     const checkoutHeading = await screen.findByRole('heading', { name: 'Checkout' });
-    const checkoutModalEl = checkoutHeading.closest('.cs-liquid-card');
+    const checkoutModalEl = checkoutHeading.closest('.rounded-2xl');
     if (!(checkoutModalEl instanceof HTMLElement))
       throw new Error('Expected checkout modal container');
     const m = within(checkoutModalEl);
@@ -143,7 +143,7 @@ describe('ManualCheckoutModal', () => {
     );
 
     const checkoutHeading = await screen.findByRole('heading', { name: 'Checkout' });
-    const checkoutModalEl = checkoutHeading.closest('.cs-liquid-card');
+    const checkoutModalEl = checkoutHeading.closest('.rounded-2xl');
     if (!(checkoutModalEl instanceof HTMLElement))
       throw new Error('Expected checkout modal container');
     const m = within(checkoutModalEl);
@@ -219,7 +219,7 @@ describe('ManualCheckoutModal', () => {
     );
 
     const checkoutHeading = await screen.findByRole('heading', { name: 'Checkout' });
-    const checkoutModalEl = checkoutHeading.closest('.cs-liquid-card');
+    const checkoutModalEl = checkoutHeading.closest('.rounded-2xl');
     if (!(checkoutModalEl instanceof HTMLElement))
       throw new Error('Expected checkout modal container');
     const m = within(checkoutModalEl);
@@ -276,7 +276,7 @@ describe('ManualCheckoutModal', () => {
 
     // Should land on confirm step without clicking Continue.
     const checkoutHeading = await screen.findByRole('heading', { name: 'Checkout' });
-    const checkoutModalEl = checkoutHeading.closest('.cs-liquid-card');
+    const checkoutModalEl = checkoutHeading.closest('.rounded-2xl');
     if (!(checkoutModalEl instanceof HTMLElement))
       throw new Error('Expected checkout modal container');
     const m = within(checkoutModalEl);

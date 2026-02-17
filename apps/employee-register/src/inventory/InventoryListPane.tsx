@@ -59,7 +59,7 @@ export function InventoryListPane({
       }}
     >
       <div
-        className="cs-liquid-card"
+        className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
         style={{
           padding: '0.85rem',
           flex: 1,

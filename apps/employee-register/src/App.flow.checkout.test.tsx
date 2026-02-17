@@ -18,7 +18,9 @@ describe('App flow: checkout', () => {
       })
     );
 
-    const fetchMock = global.fetch as Mock<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>;
+    const fetchMock = global.fetch as Mock<
+      (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>
+    >;
     fetchMock.mockImplementation((url: RequestInfo | URL, init?: RequestInit) => {
       const u =
         typeof url === 'string'

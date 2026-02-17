@@ -1,3 +1,4 @@
+import { Spinner } from '@club-ops/ui/tailadmin';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 import { PanelHeader } from '../../views/PanelHeader';
 import { PanelShell } from '../../views/PanelShell';
@@ -14,37 +15,36 @@ export function SearchPanel() {
   } = useEmployeeRegisterState();
 
   return (
-    <PanelShell align="top" scroll="hidden" className="typeahead-section">
+    <PanelShell align="top" scroll="hidden">
       <PanelHeader
         layout="inline"
         spacing="sm"
         title={<label htmlFor="customer-search">Search Customer</label>}
         subtitle="(type at least 3 letters)"
       />
+
+      {/* Search input */}
       <input
         id="customer-search"
         type="text"
-        className="cs-liquid-input"
+        className="mt-3 h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:text-white dark:placeholder:text-white/30"
         value={customerSearch}
         onChange={(e) => setCustomerSearch(e.target.value)}
         placeholder="Start typing name..."
         disabled={isSubmitting}
       />
+
+      {/* Loading indicator */}
       {customerSearchLoading && (
-        <div className="er-text-sm" style={{ marginTop: '0.25rem', color: '#94a3b8' }}>
+        <div className="mt-2 flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
+          <Spinner size="sm" />
           Searching...
         </div>
       )}
+
+      {/* Results list */}
       {customerSuggestions.length > 0 && (
-        <div
-          className="cs-liquid-card"
-          style={{
-            marginTop: '0.5rem',
-            flex: 1,
-            minHeight: 0,
-            overflowY: 'auto',
-          }}
-        >
+        <div className="mt-3 flex-1 overflow-y-auto rounded-lg border border-gray-200 dark:border-gray-800">
           {customerSuggestions.map(
             (s: {
               id: string;
@@ -58,7 +58,7 @@ export function SearchPanel() {
                 <button
                   key={s.id}
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                  className="flex w-full items-center justify-between gap-3 border-b border-gray-200 px-4 py-3 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03]"
                   onClick={() => {
                     openCustomerAccount(s.id, label, {
                       autoStart: true,
@@ -71,29 +71,14 @@ export function SearchPanel() {
                     setCustomerSearch('');
                     setCustomerSuggestions([]);
                   }}
-                  style={{
-                    padding: '0.5rem 0.75rem',
-                    width: '100%',
-                    textAlign: 'left',
-                    borderRadius: 0,
-                    border: 'none',
-                    borderBottom: '1px solid #1f2937',
-                    justifyContent: 'space-between',
-                  }}
                 >
-                  <div style={{ fontWeight: 600 }}>{label}</div>
-                  <div
-                    className="er-text-sm"
-                    style={{
-                      color: '#94a3b8',
-                      display: 'flex',
-                      gap: '0.75rem',
-                      flexWrap: 'wrap',
-                    }}
-                  >
+                  <span className="text-sm font-semibold text-gray-800 dark:text-white/90">
+                    {label}
+                  </span>
+                  <span className="flex flex-wrap gap-3 text-xs text-gray-500 dark:text-gray-400">
                     {s.dobMonthDay && <span>DOB: {s.dobMonthDay}</span>}
                     {s.membershipNumber && <span>Membership: {s.membershipNumber}</span>}
-                  </div>
+                  </span>
                 </button>
               );
             }

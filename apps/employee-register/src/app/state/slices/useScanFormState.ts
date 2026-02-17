@@ -134,28 +134,24 @@ export function useScanFormState({
     [updateScanFormFromNormalized]
   );
 
-  const updateScanFormField = useCallback(
-    function updateScanFormField<K extends keyof ScanFormData>(
-      field: K,
-      value: ScanFormData[K]
-    ) {
-      setScanFormData((prev) => {
-        const next: ScanFormData = {
-          ...prev,
-          [field]: value,
-        } as ScanFormData;
-        if (field === 'idType' && value !== 'OTHER') {
-          next.idTypeOther = '';
-        }
-        if ((field === 'firstName' || field === 'lastName') && prev.fullName) {
-          next.fullName = '';
-        }
-        return next;
-      });
-      setScanFormError(null);
-    },
-    []
-  );
+  const updateScanFormField = useCallback(function updateScanFormField<
+    K extends keyof ScanFormData,
+  >(field: K, value: ScanFormData[K]) {
+    setScanFormData((prev) => {
+      const next: ScanFormData = {
+        ...prev,
+        [field]: value,
+      } as ScanFormData;
+      if (field === 'idType' && value !== 'OTHER') {
+        next.idTypeOther = '';
+      }
+      if ((field === 'firstName' || field === 'lastName') && prev.fullName) {
+        next.fullName = '';
+      }
+      return next;
+    });
+    setScanFormError(null);
+  }, []);
 
   const submitScanForm = useCallback(async () => {
     const firstName = scanFormData.firstName.trim();

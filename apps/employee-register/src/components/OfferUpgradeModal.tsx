@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Modal, Spinner } from '@club-ops/ui/tailadmin';
 import { getApiUrl } from '@club-ops/shared';
 
 const API_BASE = getApiUrl('/api');
@@ -57,8 +58,6 @@ export function OfferUpgradeModal(props: {
 
   const fetchOfferable = async () => {
     if (heldRoom) {
-      // When the server has already held a specific room for this waitlist entry,
-      // the offer UI should default to that room (confirm/extend semantics).
       setRooms([{ id: heldRoom.id, number: heldRoom.number, type: desiredTier }]);
       setSelectedRoomId(heldRoom.id);
       return;
@@ -102,8 +101,6 @@ export function OfferUpgradeModal(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, desiredTier, waitlistId, heldRoom?.id]);
 
-  if (!isOpen) return null;
-
   const handleConfirm = async () => {
     if (!selectedRoomId) return;
     setIsLoading(true);
@@ -120,7 +117,6 @@ export function OfferUpgradeModal(props: {
       if (!res.ok) {
         const payload: unknown = await res.json().catch(() => null);
         const msg = getErrorMessage(payload) || 'Failed to offer upgrade';
-        // Conflicts should be recoverable by refreshing the list.
         if (res.status === 409) {
           setError(msg);
           await fetchOfferable();
@@ -139,69 +135,75 @@ export function OfferUpgradeModal(props: {
   };
 
   return (
-    <div className="offer-upgrade-modal-overlay" role="dialog" aria-label="Offer upgrade modal">
-      <div className="offer-upgrade-modal cs-liquid-card">
-        <div className="offer-upgrade-modal-header">
-          <div className="offer-upgrade-modal-title">{title}</div>
-          <button
-            className="offer-upgrade-modal-close cs-liquid-button cs-liquid-button--secondary"
-            onClick={onClose}
-            aria-label="Close offer modal"
-          >
-            ×
-          </button>
-        </div>
+    <Modal isOpen={isOpen} onClose={onClose} className="max-w-lg p-6 lg:p-8">
+      {/* Header */}
+      <div className="mb-4 flex items-start justify-between">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">{title}</h2>
+      </div>
 
-        {disabled && (
-          <div className="offer-upgrade-modal-note">
-            Active session present — offering is disabled
+      {disabled && (
+        <div className="mb-3">
+          <Alert
+            variant="warning"
+            title="Disabled"
+            message="Active session present — offering is disabled"
+          />
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-3">
+          <Alert variant="error" title="Error" message={error} />
+        </div>
+      )}
+
+      {/* Body */}
+      <div className="mb-5">
+        <p className="mb-3 text-sm text-gray-500 dark:text-gray-400">
+          Select a room to reserve for this offer:
+        </p>
+
+        {isLoading ? (
+          <div className="flex items-center justify-center py-6">
+            <Spinner size="sm" />
+            <span className="ml-2 text-sm text-gray-500 dark:text-gray-400">Loading…</span>
+          </div>
+        ) : rooms.length === 0 ? (
+          <p className="py-4 text-center text-sm text-gray-500 dark:text-gray-400">
+            No offerable rooms available.
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {rooms.map((r) => (
+              <button
+                key={r.id}
+                className={`rounded-lg border px-4 py-2.5 text-sm font-medium transition ${
+                  selectedRoomId === r.id
+                    ? 'border-brand-500 bg-brand-50 text-brand-600 dark:border-brand-400 dark:bg-brand-500/10 dark:text-brand-400'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]'
+                }`}
+                onClick={() => setSelectedRoomId(r.id)}
+                disabled={Boolean(disabled) || isLoading || Boolean(heldRoom)}
+              >
+                Room {r.number}
+              </button>
+            ))}
           </div>
         )}
-
-        {error && <div className="offer-upgrade-modal-error">{error}</div>}
-
-        <div className="offer-upgrade-modal-body">
-          <div className="offer-upgrade-modal-subtitle">
-            Select a room to reserve for this offer:
-          </div>
-
-          {isLoading ? (
-            <div className="offer-upgrade-modal-loading">Loading…</div>
-          ) : rooms.length === 0 ? (
-            <div className="offer-upgrade-modal-empty">No offerable rooms available.</div>
-          ) : (
-            <div className="offer-upgrade-room-list">
-              {rooms.map((r) => (
-                <button
-                  key={r.id}
-                  className={`offer-upgrade-room-item cs-liquid-button cs-liquid-button--secondary ${selectedRoomId === r.id ? 'cs-liquid-button--selected selected' : ''}`}
-                  onClick={() => setSelectedRoomId(r.id)}
-                  disabled={Boolean(disabled) || isLoading || Boolean(heldRoom)}
-                >
-                  Room {r.number}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="offer-upgrade-modal-actions">
-          <button
-            className="offer-upgrade-cancel cs-liquid-button cs-liquid-button--danger"
-            onClick={onClose}
-            disabled={isLoading}
-          >
-            Cancel
-          </button>
-          <button
-            className="offer-upgrade-confirm cs-liquid-button"
-            onClick={() => void handleConfirm()}
-            disabled={Boolean(disabled) || isLoading || !selectedRoomId}
-          >
-            {heldRoom ? 'Confirm Offer (Extend Hold)' : 'Offer Selected Room'}
-          </button>
-        </div>
       </div>
-    </div>
+
+      {/* Actions */}
+      <div className="flex justify-end gap-3">
+        <Button variant="outline" onClick={onClose} disabled={isLoading}>
+          Cancel
+        </Button>
+        <Button
+          onClick={() => void handleConfirm()}
+          disabled={Boolean(disabled) || isLoading || !selectedRoomId}
+        >
+          {heldRoom ? 'Confirm Offer (Extend Hold)' : 'Offer Selected Room'}
+        </Button>
+      </div>
+    </Modal>
   );
 }

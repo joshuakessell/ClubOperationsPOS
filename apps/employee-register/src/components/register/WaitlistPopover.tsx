@@ -30,7 +30,7 @@ export function WaitlistPopover({
   return (
     <div style={{ position: 'relative', marginTop: '0.5rem' }}>
       <div
-        className="cs-liquid-card"
+        className="rounded-2xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
         style={{
           position: 'absolute',
           right: 0,
@@ -51,7 +51,7 @@ export function WaitlistPopover({
           <div style={{ fontWeight: 700, color: '#f59e0b' }}>Waitlist</div>
           <button
             onClick={onClose}
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-2 py-1 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
             style={{
               fontSize: '0.9rem',
               padding: '0.25rem 0.6rem',
@@ -89,7 +89,12 @@ export function WaitlistPopover({
               <button
                 aria-label={`Begin upgrade for ${item.title}`}
                 onClick={() => onAction(item.id, item.customerName)}
-                className={['cs-liquid-button', item.eligible ? '' : 'cs-liquid-button--secondary']
+                className={[
+                  'inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold shadow-theme-xs transition',
+                  item.eligible
+                    ? 'bg-brand-500 text-white hover:bg-brand-600'
+                    : 'border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
+                ]
                   .filter(Boolean)
                   .join(' ')}
                 style={{

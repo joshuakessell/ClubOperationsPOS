@@ -41,9 +41,10 @@ export function MembershipIdPromptModal({
               onClick={() => onModeChange('KEEP_EXISTING')}
               disabled={isSubmitting}
               className={[
-                'cs-liquid-button',
-                'cs-liquid-button--secondary',
-                membershipIdMode === 'KEEP_EXISTING' ? 'cs-liquid-button--selected' : '',
+                'rounded-lg border px-3 py-2.5 text-left font-bold transition',
+                membershipIdMode === 'KEEP_EXISTING'
+                  ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                  : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -60,9 +61,10 @@ export function MembershipIdPromptModal({
               onClick={() => onModeChange('ENTER_NEW')}
               disabled={isSubmitting}
               className={[
-                'cs-liquid-button',
-                'cs-liquid-button--secondary',
-                membershipIdMode === 'ENTER_NEW' ? 'cs-liquid-button--selected' : '',
+                'rounded-lg border px-3 py-2.5 text-left font-bold transition',
+                membershipIdMode === 'ENTER_NEW'
+                  ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
+                  : 'border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
               ]
                 .filter(Boolean)
                 .join(' ')}
@@ -79,7 +81,7 @@ export function MembershipIdPromptModal({
 
           {membershipIdMode === 'KEEP_EXISTING' && (
             <div
-              className="cs-liquid-card"
+              className="rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900"
               style={{
                 padding: '0.75rem',
                 color: 'white',
@@ -114,7 +116,7 @@ export function MembershipIdPromptModal({
           }}
           placeholder="Membership ID"
           disabled={isSubmitting}
-          className="cs-liquid-input"
+          className="h-11 w-full rounded-lg border border-gray-200 bg-transparent px-4 py-2.5 text-sm text-gray-800 placeholder:text-gray-400 focus:border-brand-300 focus:ring-brand-500 dark:border-gray-700 dark:text-white/90"
           style={{
             width: '100%',
             padding: '0.75rem',
@@ -142,7 +144,7 @@ export function MembershipIdPromptModal({
               ? !membershipNumber
               : !membershipIdInput.trim())
           }
-          className="cs-liquid-button"
+          className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600"
           style={{
             flex: 1,
             padding: '0.75rem',
@@ -155,7 +157,7 @@ export function MembershipIdPromptModal({
         <button
           onClick={onNotNow}
           disabled={isSubmitting}
-          className="cs-liquid-button cs-liquid-button--secondary"
+          className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
           style={{
             padding: '0.75rem 1rem',
             fontSize: '1rem',
