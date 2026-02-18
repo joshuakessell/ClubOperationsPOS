@@ -17,10 +17,38 @@ import { getPool } from './index';
 const MIGRATIONS_DIR = path.resolve(__dirname, '../../migrations');
 
 /**
- * Ensure the tracking table exists.
+ * Ensure the tracking table exists with the expected `(filename, applied_at)` schema.
+ *
+ * If a legacy table exists with a different schema (e.g., `name` column),
+ * drop it and recreate. All migrations are idempotent (IF NOT EXISTS)
+ * so re-running them is safe.
  */
 async function ensureTrackingTable(): Promise<void> {
   const pool = getPool();
+
+  const tableExists = await pool.query<{ exists: boolean }>(`
+    SELECT EXISTS (
+      SELECT 1 FROM information_schema.tables
+      WHERE table_schema = 'public' AND table_name = 'schema_migrations'
+    ) AS exists
+  `);
+
+  if (tableExists.rows[0]?.exists) {
+    const colCheck = await pool.query<{ exists: boolean }>(`
+      SELECT EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'schema_migrations'
+          AND column_name = 'filename'
+      ) AS exists
+    `);
+
+    if (!colCheck.rows[0]?.exists) {
+      console.log('[migrate] Dropping legacy schema_migrations table (incompatible schema).');
+      await pool.query('DROP TABLE schema_migrations');
+    }
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       filename  TEXT PRIMARY KEY,
@@ -28,7 +56,6 @@ async function ensureTrackingTable(): Promise<void> {
     )
   `);
 }
-
 /**
  * Extract the "up" portion of a migration file.
  * Everything between `-- up migration` (or start of file) and `-- down migration`.

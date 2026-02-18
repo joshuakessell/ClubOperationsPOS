@@ -54,8 +54,8 @@ services:
       KIOSK_TOKEN: ${KIOSK_TOKEN}
       WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-localhost}
 
-      DEMO_MODE: "false"
-      SEED_ON_STARTUP: ${EDGE_SEED_ON_STARTUP:-false}
+      DEMO_MODE: "true"
+      SEED_ON_STARTUP: "true"
 
       # Auto-replay: cloud API base URL for syncing offline outbox when internet returns
       CLOUD_API_BASE_URL: ${CLOUD_API_BASE_URL:-https://api-demo.joshuakessell.com}

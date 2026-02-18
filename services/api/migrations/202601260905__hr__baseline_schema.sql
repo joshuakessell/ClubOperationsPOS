@@ -115,6 +115,8 @@ ALTER TABLE ONLY public.staff
 ALTER TABLE ONLY public.staff
     ADD CONSTRAINT staff_qr_token_hash_key UNIQUE (qr_token_hash);
 ALTER TABLE ONLY public.employee_documents
+    ADD CONSTRAINT employee_documents_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.employee_documents
     ADD CONSTRAINT employee_documents_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.staff(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.employee_documents
     ADD CONSTRAINT employee_documents_uploaded_by_fkey FOREIGN KEY (uploaded_by) REFERENCES public.staff(id) ON DELETE RESTRICT;
@@ -137,9 +139,13 @@ ALTER TABLE ONLY public.staff_webauthn_credentials
 ALTER TABLE ONLY public.staff_webauthn_credentials
     ADD CONSTRAINT staff_webauthn_credentials_staff_id_fkey FOREIGN KEY (staff_id) REFERENCES public.staff(id) ON DELETE CASCADE;
 ALTER TABLE ONLY public.time_off_requests
+    ADD CONSTRAINT time_off_requests_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.time_off_requests
     ADD CONSTRAINT time_off_requests_decided_by_fkey FOREIGN KEY (decided_by) REFERENCES public.staff(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.time_off_requests
     ADD CONSTRAINT time_off_requests_employee_id_fkey FOREIGN KEY (employee_id) REFERENCES public.staff(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.timeclock_sessions
+    ADD CONSTRAINT timeclock_sessions_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.timeclock_sessions
     ADD CONSTRAINT timeclock_sessions_created_by_fkey FOREIGN KEY (created_by) REFERENCES public.staff(id) ON DELETE SET NULL;
 ALTER TABLE ONLY public.timeclock_sessions
