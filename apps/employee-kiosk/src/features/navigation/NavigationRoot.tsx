@@ -1,4 +1,4 @@
-import { Badge } from '@club-ops/ui/tailadmin';
+import { useEffect } from 'react';
 import { CheckoutRequestsBanner } from '../../components/register/CheckoutRequestsBanner';
 import { CheckoutVerificationModal } from '../../components/register/CheckoutVerificationModal';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
@@ -12,11 +12,11 @@ import { RoomCleaningPanel } from './RoomCleaningPanel';
 import { ManualEntryPanel } from './ManualEntryPanel';
 import { RetailPanel } from './RetailPanel';
 import { ClubLogPanel } from './ClubLogPanel';
-import { SignInPanel } from '../../components/sign-in/SignInPanel';
-import { useRegisterSignInContext } from '../../RegisterSignIn';
 import type { NavTab } from '../../app/state/shared/types';
-import { RegisterShell, type ShellNavKey, type ShellNavItem } from '../shell/RegisterShell';
 import { CheckoutWorkspace } from '../workspace/CheckoutWorkspace';
+import { useAuthGate } from '../../context/AuthGateContext';
+import SignInPage from '../../pages/SignInPage';
+import AppLayout from '../../layout/AppLayout';
 
 export function NavigationRoot() {
   const {
@@ -39,79 +39,87 @@ export function NavigationRoot() {
     startCheckout,
     lane,
     realtimeConnected,
-    inventoryHasLate,
-    hasEligibleEntries,
     canOpenAccountTab,
     registerSession,
+    health,
+    realtimeMode,
+    handleLogout,
+    handleCloseOut,
   } = useEmployeeRegisterState();
 
   const isAuthenticated = !!registerSession;
 
-  const signInContext = useRegisterSignInContext();
+  const { setAuthenticated, registerSelectNavTab, setSessionInfo } = useAuthGate();
 
-  // Pick active key: when not authenticated, always show signIn
-  const active: ShellNavKey = !isAuthenticated
-    ? 'signIn'
-    : navTabToShellKey(navTab);
+  // Sync auth state and nav callbacks to the app-level AuthGateContext
+  useEffect(() => {
+    setAuthenticated(isAuthenticated);
+  }, [isAuthenticated, setAuthenticated]);
 
-  const laneLabel = lane && lane.trim() ? lane.trim().replace(/^lane[-\s]*/i, 'Lane ') : 'Lane 1';
+  useEffect(() => {
+    registerSelectNavTab(selectNavTab);
+  }, [selectNavTab, registerSelectNavTab]);
 
-  /* ── Build nav items ── */
-  const operationalItems: ShellNavItem[] = [
-    { key: 'scan', label: 'Scan', icon: <span aria-hidden="true">📷</span>, shortcut: 'F1' },
-    {
-      key: 'search',
-      label: 'Search Customer',
-      icon: <span aria-hidden="true">🔎</span>,
-      shortcut: 'F2',
-    },
-    {
-      key: 'inventory',
-      label: 'Rentals',
-      icon: <span aria-hidden="true">📦</span>,
-      badge: inventoryHasLate ? (
-        <Badge color="error" variant="light" size="sm">
-          Late
-        </Badge>
-      ) : undefined,
-      shortcut: 'F3',
-    },
-    {
-      key: 'upgrades',
-      label: 'Upgrades',
-      icon: <span aria-hidden="true">✨</span>,
-      badge: hasEligibleEntries ? (
-        <Badge color="success" variant="light" size="sm">
-          Ready
-        </Badge>
-      ) : undefined,
-      shortcut: 'F4',
-    },
-    { key: 'retail', label: 'Retail', icon: <span aria-hidden="true">🛒</span>, shortcut: 'F5' },
-    { key: 'checkout', label: 'Checkout', icon: <span aria-hidden="true">✅</span>, shortcut: 'F6' },
-    {
-      key: 'account',
-      label: 'Customer Account',
-      icon: <span aria-hidden="true">👤</span>,
-      disabled: !canOpenAccountTab,
-      shortcut: 'F7',
-    },
-    { key: 'clubLog', label: 'Club Log', icon: <span aria-hidden="true">📜</span>, shortcut: 'F8' },
-    { key: 'manual', label: 'Manual Entry', icon: <span aria-hidden="true">📝</span>, shortcut: 'F9' },
-    { key: 'roomCleaning', label: 'Room Cleaning', icon: <span aria-hidden="true">🧹</span>, shortcut: 'F10' },
-  ];
+  // Sync session display info to AuthGateContext for the kiosk header
+  useEffect(() => {
+    if (isAuthenticated && registerSession) {
+      const laneLabel = lane && lane.trim() ? lane.trim().replace(/^lane[-\s]*/i, 'Lane ') : 'Lane 1';
+      setSessionInfo({
+        employeeName: registerSession.employeeName,
+        registerNumber: registerSession.registerNumber,
+        lane: laneLabel,
+        apiStatus: health?.status ?? null,
+        realtimeConnected,
+        realtimeMode: realtimeMode ?? 'cloud',
+        onSignOut: () => void handleLogout(),
+        onCloseOut: () => void handleCloseOut(),
+      });
+    } else {
+      setSessionInfo(null);
+    }
+  }, [
+    isAuthenticated,
+    registerSession,
+    lane,
+    health?.status,
+    realtimeConnected,
+    realtimeMode,
+    handleLogout,
+    handleCloseOut,
+    setSessionInfo,
+  ]);
 
-  // When not authenticated, show only Sign In tab (hide operational items so tests
-  // properly wait for auth before interacting with them)
-  const items: ShellNavItem[] = !isAuthenticated
-    ? [
-        { key: 'signIn', label: 'Sign In', icon: <span aria-hidden="true">🔐</span> },
-      ]
-    : operationalItems;
+  /* ── Unauthenticated: full-screen sign-in page ── */
+  if (!isAuthenticated) {
+    return <SignInPage />;
+  }
+
+
+  /* ── Helper to map sidebar clicks to nav tabs ── */
+  function handleNav(tab: NavTab) {
+    if (tab === 'firstTime') {
+      selectNavTab('firstTime');
+      return;
+    }
+
+    if (tab === 'checkout') {
+      startCheckout();
+      return;
+    }
+
+    if (tab === 'account') {
+      if (canOpenAccountTab) {
+        selectNavTab('account');
+      }
+      return;
+    }
+
+    selectNavTab(tab);
+  }
 
   return (
-    <>
-      {isAuthenticated && checkoutRequests.size > 0 && !selectedCheckoutRequest && (
+    <AppLayout activeTab={navTab} onNavigate={handleNav}>
+      {checkoutRequests.size > 0 && !selectedCheckoutRequest && (
         <CheckoutRequestsBanner
           requests={Array.from(checkoutRequests.values())}
           onClaim={(id) => void handleClaimCheckout(id)}
@@ -119,7 +127,7 @@ export function NavigationRoot() {
         />
       )}
 
-      {isAuthenticated && selectedCheckoutRequest && checkoutRequests.get(selectedCheckoutRequest) ? (
+      {selectedCheckoutRequest && checkoutRequests.get(selectedCheckoutRequest) ? (
         <CheckoutVerificationModal
           request={checkoutRequests.get(selectedCheckoutRequest)!}
           isSubmitting={isSubmitting}
@@ -138,78 +146,19 @@ export function NavigationRoot() {
         />
       ) : null}
 
-      <main className="main" style={{ padding: 0 }}>
-        <section className="actions-panel">
-          <RegisterShell
-            active={active}
-            onNavigate={(key) => selectShellNav(key)}
-            title={laneLabel}
-            statusPill={
-              isAuthenticated ? (
-                <Badge color={realtimeConnected ? 'success' : 'error'} variant="light" size="sm">
-                  {realtimeConnected ? 'Live' : 'Offline'}
-                </Badge>
-              ) : undefined
-            }
-            items={items}
-          >
-            <div style={{ height: '100%', minHeight: 0, overflow: 'hidden' }}>
-              {/* Sign-in panel when not authenticated */}
-              {!isAuthenticated && signInContext && (
-                <SignInPanel
-                  deviceId={signInContext.deviceId}
-                  onSignedIn={signInContext.onSignedIn}
-                />
-              )}
-
-              {/* Operational panels (only rendered when authenticated) */}
-              {isAuthenticated && navTab === 'scan' && <ScanPanel />}
-              {isAuthenticated && navTab === 'account' && <AccountPanel />}
-              {isAuthenticated && navTab === 'search' && <SearchPanel />}
-              {isAuthenticated && navTab === 'inventory' && <InventoryPanel />}
-              {isAuthenticated && navTab === 'upgrades' && <UpgradesPanel />}
-              {isAuthenticated && navTab === 'checkout' && <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />}
-              {isAuthenticated && navTab === 'clubLog' && <ClubLogPanel />}
-              {isAuthenticated && navTab === 'roomCleaning' && <RoomCleaningPanel />}
-              {isAuthenticated && navTab === 'firstTime' && <ManualEntryPanel />}
-              {isAuthenticated && navTab === 'retail' && <RetailPanel />}
-            </div>
-          </RegisterShell>
-        </section>
-      </main>
-    </>
+      {/* Content panels */}
+      <div className="h-full min-h-0 overflow-auto">
+        {navTab === 'scan' && <ScanPanel />}
+        {navTab === 'account' && <AccountPanel />}
+        {navTab === 'search' && <SearchPanel />}
+        {navTab === 'inventory' && <InventoryPanel />}
+        {navTab === 'upgrades' && <UpgradesPanel />}
+        {navTab === 'checkout' && <CheckoutWorkspace checkoutPanel={<CheckoutPanel />} />}
+        {navTab === 'clubLog' && <ClubLogPanel />}
+        {navTab === 'roomCleaning' && <RoomCleaningPanel />}
+        {navTab === 'firstTime' && <ManualEntryPanel />}
+        {navTab === 'retail' && <RetailPanel />}
+      </div>
+    </AppLayout>
   );
-
-  function selectShellNav(key: ShellNavKey) {
-    // Sign-in tab — no-op (it's always active when not authenticated)
-    if (key === 'signIn') {
-      return;
-    }
-
-    // Don't allow navigating to operational tabs when not authenticated
-    if (!isAuthenticated) return;
-
-    if (key === 'manual') {
-      selectNavTab('firstTime');
-      return;
-    }
-
-    if (key === 'checkout') {
-      startCheckout();
-      return;
-    }
-
-    if (key === 'account') {
-      if (canOpenAccountTab) {
-        selectNavTab('account');
-      }
-      return;
-    }
-
-    selectNavTab(key);
-  }
-}
-
-function navTabToShellKey(tab: NavTab): ShellNavKey {
-  return tab === 'firstTime' ? 'manual' : (tab as ShellNavKey);
 }

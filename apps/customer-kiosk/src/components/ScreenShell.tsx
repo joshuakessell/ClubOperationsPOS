@@ -11,22 +11,34 @@ interface ScreenShellProps {
 
 export function ScreenShell({
   children,
-  backgroundVariant = 'steamroom1',
+  backgroundVariant: _backgroundVariant = 'steamroom1',
   showLogoWatermark = true,
   watermarkLayer = 'under',
 }: ScreenShellProps) {
   const { t } = useI18n();
-  const watermarkClass = `cs-kiosk-watermark ${watermarkLayer === 'under' ? 'cs-kiosk-watermark--under' : 'cs-kiosk-watermark--over'}`;
 
   return (
-    <div className={`cs-screen cs-kiosk-bg cs-kiosk-bg--${backgroundVariant}`}>
-      <div className="cs-screen-overlay" />
+    <div className="relative flex min-h-screen min-h-dvh flex-col items-center justify-center bg-gray-950">
+      {/* Subtle gradient overlay */}
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-gray-900/50 via-transparent to-gray-900/50" />
+      {/* Watermark logo */}
       {showLogoWatermark && (
-        <div className={watermarkClass}>
-          <img src={whiteLogo} alt={t('brand.clubName')} className="cs-kiosk-watermark__img" />
+        <div
+          className={[
+            'pointer-events-none absolute inset-0 flex items-center justify-center',
+            watermarkLayer === 'under' ? 'z-0' : 'z-10',
+          ].join(' ')}
+        >
+          <img
+            src={whiteLogo}
+            alt={t('brand.clubName')}
+            className="h-[60vh] max-h-[600px] w-auto opacity-[0.04]"
+          />
         </div>
       )}
-      <div className="cs-kiosk-stage">{children}</div>
+      <div className="relative z-[1] flex w-full flex-1 flex-col items-center justify-center">
+        {children}
+      </div>
     </div>
   );
 }

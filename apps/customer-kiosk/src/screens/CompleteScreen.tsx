@@ -45,7 +45,7 @@ export function CompleteScreen({
             <div className="complete-screen">
               {assignedResourceType && assignedResourceNumber ? (
                 <>
-                  <div className="assignment-info cs-liquid-card">
+                  <div className="assignment-info rounded-2xl border border-gray-700 bg-gray-800/80 p-6 shadow-lg backdrop-blur-sm">
                     <div className="assignment-row">
                       <div className="assignment-label">{t(lang, assignedResourceType)}</div>
                       <div className="assignment-value">{assignedResourceNumber}</div>
@@ -66,9 +66,9 @@ export function CompleteScreen({
                   <button
                     type="button"
                     className={[
-                      'cs-liquid-button',
+                      'rounded-lg bg-brand-500 px-8 py-4 text-lg font-semibold text-white transition hover:bg-brand-600',
                       'complete-ok-btn',
-                      isSubmitting ? 'cs-liquid-button--disabled' : '',
+                      isSubmitting ? 'opacity-50 cursor-not-allowed' : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
@@ -84,9 +84,9 @@ export function CompleteScreen({
                   <button
                     type="button"
                     className={[
-                      'cs-liquid-button',
+                      'rounded-lg bg-brand-500 px-8 py-4 text-lg font-semibold text-white transition hover:bg-brand-600',
                       'complete-ok-btn',
-                      isSubmitting ? 'cs-liquid-button--disabled' : '',
+                      isSubmitting ? 'opacity-50 cursor-not-allowed' : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}

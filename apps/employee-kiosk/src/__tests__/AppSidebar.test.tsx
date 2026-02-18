@@ -1,77 +1,55 @@
-import { describe, it, expect, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
-import { MemoryRouter } from 'react-router-dom';
-import { SidebarProvider } from '../context/SidebarContext';
+import { describe, it, expect, vi } from 'vitest';
+import { render, screen, fireEvent } from '@testing-library/react';
 import AppSidebar from '../layout/AppSidebar';
 
-// In JSDOM, window.innerWidth is 0 (< 1280), so the sidebar starts collapsed:
-// text labels are hidden, width is 72px. We test the collapsed state by default,
-// and test expanded state by mocking a wider viewport.
-
-function renderSidebar(initialRoute = '/') {
-  return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <SidebarProvider>
-        <AppSidebar />
-      </SidebarProvider>
-    </MemoryRouter>
-  );
-}
-
-function renderExpandedSidebar(initialRoute = '/') {
-  // Mock the viewport to be >= 1280px so the sidebar initialises as expanded
-  Object.defineProperty(window, 'innerWidth', { value: 1280, writable: true });
-  window.dispatchEvent(new Event('resize'));
-  return render(
-    <MemoryRouter initialEntries={[initialRoute]}>
-      <SidebarProvider>
-        <AppSidebar />
-      </SidebarProvider>
-    </MemoryRouter>
-  );
+function renderSidebar(activeTab: string = 'scan', onNavigate = vi.fn()) {
+  return {
+    onNavigate,
+    ...render(<AppSidebar activeTab={activeTab as never} onNavigate={onNavigate} />),
+  };
 }
 
 describe('AppSidebar', () => {
-  beforeEach(() => {
-    // Reset viewport to default JSDOM (0px)
-    Object.defineProperty(window, 'innerWidth', { value: 0, writable: true });
-  });
-
-  it('renders all navigation links by href', () => {
+  it('renders the app title', () => {
     renderSidebar();
-    const links = document.querySelectorAll('a[href]');
-    const hrefs = Array.from(links).map((l) => l.getAttribute('href'));
-    expect(hrefs).toContain('/');
-    expect(hrefs).toContain('/search');
-    expect(hrefs).toContain('/inventory');
-    expect(hrefs).toContain('/settings');
-  });
-
-  it('renders the app title when expanded', () => {
-    renderExpandedSidebar();
     expect(screen.getByText('Employee Kiosk')).toBeInTheDocument();
   });
 
-  it('renders the "Menu" section header when expanded', () => {
-    renderExpandedSidebar();
+  it('renders the "Menu" section header', () => {
+    renderSidebar();
     expect(screen.getByText('Menu')).toBeInTheDocument();
   });
 
-  it('renders nav text labels when expanded', () => {
-    renderExpandedSidebar();
-    expect(screen.getByText('Check-In')).toBeInTheDocument();
-    expect(screen.getByText('Customer Search')).toBeInTheDocument();
-    expect(screen.getByText('Inventory')).toBeInTheDocument();
-    expect(screen.getByText('Settings')).toBeInTheDocument();
+  it('renders all 10 navigation items', () => {
+    renderSidebar();
+    expect(screen.getByText('Scan')).toBeInTheDocument();
+    expect(screen.getByText('Search Customer')).toBeInTheDocument();
+    expect(screen.getByText('Rentals')).toBeInTheDocument();
+    expect(screen.getByText('Upgrades')).toBeInTheDocument();
+    expect(screen.getByText('Retail')).toBeInTheDocument();
+    expect(screen.getByText('Checkout')).toBeInTheDocument();
+    expect(screen.getByText('Customer Account')).toBeInTheDocument();
+    expect(screen.getByText('Club Log')).toBeInTheDocument();
+    expect(screen.getByText('Manual Entry')).toBeInTheDocument();
+    expect(screen.getByText('Room Cleaning')).toBeInTheDocument();
   });
 
-  it('marks the correct link as active based on route', () => {
-    renderExpandedSidebar('/search');
-    const searchLink = screen.getByRole('link', { name: /Customer Search/i });
-    expect(searchLink.className).toContain('menu-item-active');
+  it('highlights the active tab', () => {
+    renderSidebar('inventory');
+    const buttons = screen.getAllByRole('button');
+    const rentalsBtn = buttons.find((b) => b.textContent?.includes('Rentals'));
+    expect(rentalsBtn?.className).toContain('menu-item-active');
 
-    const checkInLink = screen.getByRole('link', { name: /Check-In/i });
-    expect(checkInLink.className).toContain('menu-item-inactive');
+    const scanBtn = buttons.find((b) => b.textContent?.includes('Scan'));
+    expect(scanBtn?.className).toContain('menu-item-inactive');
+  });
+
+  it('calls onNavigate when a nav item is clicked', () => {
+    const { onNavigate } = renderSidebar();
+    const buttons = screen.getAllByRole('button');
+    const searchBtn = buttons.find((b) => b.textContent?.includes('Search Customer'));
+    fireEvent.click(searchBtn!);
+    expect(onNavigate).toHaveBeenCalledWith('search');
   });
 
   it('applies dark mode sidebar styles (bg-gray-900)', () => {
@@ -81,9 +59,15 @@ describe('AppSidebar', () => {
     expect(aside?.className).toContain('bg-gray-900');
   });
 
-  it('uses collapsed width of 72px when not expanded (JSDOM default)', () => {
+  it('uses fixed width of 240px', () => {
     const { container } = renderSidebar();
     const aside = container.querySelector('aside');
-    expect(aside?.className).toContain('w-[72px]');
+    expect(aside?.className).toContain('w-[240px]');
+  });
+
+  it('shows F-key shortcuts next to each item', () => {
+    renderSidebar();
+    expect(screen.getByText('(F1)')).toBeInTheDocument();
+    expect(screen.getByText('(F10)')).toBeInTheDocument();
   });
 });

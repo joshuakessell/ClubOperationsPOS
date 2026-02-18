@@ -1,264 +1,159 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { useCallback, useEffect } from "react";
 import {
-  CheckInIcon,
+  ScanIcon,
   SearchIcon,
-  InventoryIcon,
-  SettingsIcon,
-  ChevronDownIcon,
-  HorizontalDotsIcon,
+  KeyIcon,
+  UpgradeIcon,
+  CartIcon,
+  CheckCircleIcon,
+  UserCircleIcon,
+  DocsIcon,
+  PencilIcon,
+  TaskIcon,
 } from "../icons";
-import { useSidebar } from "../context/SidebarContext";
+import type { NavTab } from "../app/state/shared/types";
+
+/* ── Nav item type ────────────────────────────────── */
 
 type NavItem = {
   name: string;
-  icon: React.ReactNode;
-  path?: string;
-  subItems?: { name: string; path: string }[];
+  icon: React.FC<{ className?: string }>;
+  navTab: NavTab;
+  fKey: string;        // e.g. "F1"
+  fKeyNumber: number;  // e.g. 1
 };
 
+/* ── 10 operational items (matches NavigationRoot) ── */
+
 const navItems: NavItem[] = [
-  {
-    icon: <CheckInIcon />,
-    name: "Check-In",
-    path: "/",
-  },
-  {
-    icon: <SearchIcon />,
-    name: "Customer Search",
-    path: "/search",
-  },
-  {
-    icon: <InventoryIcon />,
-    name: "Inventory",
-    path: "/inventory",
-  },
-  {
-    icon: <SettingsIcon />,
-    name: "Settings",
-    path: "/settings",
-  },
+  { icon: ScanIcon,        name: "Scan",             navTab: "scan",         fKey: "F1",  fKeyNumber: 1 },
+  { icon: SearchIcon,      name: "Search Customer",  navTab: "search",       fKey: "F2",  fKeyNumber: 2 },
+  { icon: KeyIcon,         name: "Rentals",          navTab: "inventory",    fKey: "F3",  fKeyNumber: 3 },
+  { icon: UpgradeIcon,     name: "Upgrades",         navTab: "upgrades",     fKey: "F4",  fKeyNumber: 4 },
+  { icon: CartIcon,        name: "Retail",           navTab: "retail",       fKey: "F5",  fKeyNumber: 5 },
+  { icon: CheckCircleIcon, name: "Checkout",         navTab: "checkout",     fKey: "F6",  fKeyNumber: 6 },
+  { icon: UserCircleIcon,  name: "Customer Account", navTab: "account",      fKey: "F7",  fKeyNumber: 7 },
+  { icon: DocsIcon,        name: "Club Log",         navTab: "clubLog",      fKey: "F8",  fKeyNumber: 8 },
+  { icon: PencilIcon,      name: "Manual Entry",     navTab: "firstTime",    fKey: "F9",  fKeyNumber: 9 },
+  { icon: TaskIcon,        name: "Room Cleaning",    navTab: "roomCleaning", fKey: "F10", fKeyNumber: 10 },
 ];
 
-const AppSidebar: React.FC = () => {
-  const { isExpanded, isMobileOpen, isHovered, setIsHovered, setIsMobileOpen } =
-    useSidebar();
-  const location = useLocation();
+/* ── Auto-focus helper ─────────────────────────────── */
 
-  // Auto-close sidebar on mobile after route change
+function focusFirstInteractive() {
+  requestAnimationFrame(() => {
+    setTimeout(() => {
+      const mainContent = document.querySelector('[data-main-content]');
+      if (!mainContent) return;
+      const focusable = mainContent.querySelector<HTMLElement>(
+        'input:not([disabled]):not([type="hidden"]), ' +
+        'button:not([disabled]), ' +
+        'select:not([disabled]), ' +
+        'textarea:not([disabled]), ' +
+        '[tabindex]:not([tabindex="-1"]):not([disabled])'
+      );
+      focusable?.focus();
+    }, 100);
+  });
+}
+
+/* ── Props ─────────────────────────────────────────── */
+
+export interface AppSidebarProps {
+  /** The currently active navigation tab */
+  activeTab: NavTab;
+  /** Called when a nav item is clicked */
+  onNavigate: (tab: NavTab) => void;
+}
+
+/* ── Sidebar component — always expanded at 240px ── */
+
+const AppSidebar: React.FC<AppSidebarProps> = ({ activeTab, onNavigate }) => {
+
+  /* ── Handle item click ────────────────────────────── */
+  const handleNavClick = useCallback((item: NavItem) => {
+    onNavigate(item.navTab);
+    focusFirstInteractive();
+  }, [onNavigate]);
+
+  /* ── Global F-key listener ────────────────────────── */
   useEffect(() => {
-    if (isMobileOpen) {
-      setIsMobileOpen(false);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [location.pathname]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const fKeyMap: Record<string, number> = {
+        F1: 1, F2: 2, F3: 3, F4: 4, F5: 5,
+        F6: 6, F7: 7, F8: 8, F9: 9, F10: 10,
+      };
+      const num = fKeyMap[e.key];
+      if (num === undefined) return;
 
-  const [openSubmenu, setOpenSubmenu] = useState<{
-    type: "main";
-    index: number;
-  } | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
-  const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
+      // Don't hijack if a modal is open or focus is in an input
+      if (document.querySelector('[role="dialog"], [data-modal], .modal-backdrop')) return;
+      const el = document.activeElement;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.tagName === 'SELECT')) return;
 
-  const isActive = useCallback(
-    (path: string) => location.pathname === path,
-    [location.pathname]
-  );
+      const item = navItems.find((n) => n.fKeyNumber === num);
+      if (!item) return;
 
-  useEffect(() => {
-    let submenuMatched = false;
-    navItems.forEach((nav, index) => {
-      if (nav.subItems) {
-        nav.subItems.forEach((subItem) => {
-          if (isActive(subItem.path)) {
-            setOpenSubmenu({ type: "main", index });
-            submenuMatched = true;
-          }
-        });
-      }
-    });
+      e.preventDefault();
+      onNavigate(item.navTab);
+      focusFirstInteractive();
+    };
 
-    if (!submenuMatched) {
-      setOpenSubmenu(null);
-    }
-  }, [location, isActive]);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onNavigate]);
 
-  useEffect(() => {
-    if (openSubmenu !== null) {
-      const key = `main-${openSubmenu.index}`;
-      if (subMenuRefs.current[key]) {
-        setSubMenuHeight((prevHeights) => ({
-          ...prevHeights,
-          [key]: subMenuRefs.current[key]?.scrollHeight || 0,
-        }));
-      }
-    }
-  }, [openSubmenu]);
+  /* ── Render a single menu item ────────────────────── */
+  const renderItem = (item: NavItem) => {
+    const isActive = activeTab === item.navTab;
+    const IconComponent = item.icon;
 
-  const handleSubmenuToggle = (index: number) => {
-    setOpenSubmenu((prevOpenSubmenu) => {
-      if (
-        prevOpenSubmenu &&
-        prevOpenSubmenu.type === "main" &&
-        prevOpenSubmenu.index === index
-      ) {
-        return null;
-      }
-      return { type: "main", index };
-    });
+    return (
+      <button
+        onClick={() => handleNavClick(item)}
+        className={`menu-item group cursor-pointer w-full ${
+          isActive ? "menu-item-active" : "menu-item-inactive"
+        }`}
+        tabIndex={0}
+      >
+        <span
+          className={`menu-item-icon-size ${
+            isActive ? "menu-item-icon-active" : "menu-item-icon-inactive"
+          }`}
+        >
+          <IconComponent />
+        </span>
+        <span className="menu-item-text flex w-full items-center justify-between">
+          <span>{item.name}</span>
+          <span className="text-[10px] opacity-50">({item.fKey})</span>
+        </span>
+      </button>
+    );
   };
-
-  const renderMenuItems = (items: NavItem[]) => (
-    <ul className="flex flex-col gap-1">
-      {items.map((nav, index) => (
-        <li key={nav.name}>
-          {nav.subItems ? (
-            <button
-              onClick={() => handleSubmenuToggle(index)}
-              className={`menu-item group ${
-                openSubmenu?.type === "main" && openSubmenu?.index === index
-                  ? "menu-item-active"
-                  : "menu-item-inactive"
-              } cursor-pointer ${
-                !isExpanded && !isHovered
-                  ? "xl:justify-center"
-                  : "xl:justify-start"
-              }`}
-            >
-              <span
-                className={`menu-item-icon-size ${
-                  openSubmenu?.type === "main" && openSubmenu?.index === index
-                    ? "menu-item-icon-active"
-                    : "menu-item-icon-inactive"
-                }`}
-              >
-                {nav.icon}
-              </span>
-
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{nav.name}</span>
-              )}
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon
-                  className={`ml-auto w-5 h-5 transition-transform duration-200 ${
-                    openSubmenu?.type === "main" && openSubmenu?.index === index
-                      ? "rotate-180 text-brand-500"
-                      : ""
-                  }`}
-                />
-              )}
-            </button>
-          ) : (
-            nav.path && (
-              <Link
-                to={nav.path}
-                className={`menu-item group ${
-                  isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
-                }`}
-              >
-                <span
-                  className={`menu-item-icon-size ${
-                    isActive(nav.path)
-                      ? "menu-item-icon-active"
-                      : "menu-item-icon-inactive"
-                  }`}
-                >
-                  {nav.icon}
-                </span>
-                {(isExpanded || isHovered || isMobileOpen) && (
-                  <span className="menu-item-text">{nav.name}</span>
-                )}
-              </Link>
-            )
-          )}
-          {nav.subItems && (isExpanded || isHovered || isMobileOpen) && (
-            <div
-              ref={(el) => {
-                subMenuRefs.current[`main-${index}`] = el;
-              }}
-              className="overflow-hidden transition-all duration-300"
-              style={{
-                height:
-                  openSubmenu?.type === "main" && openSubmenu?.index === index
-                    ? `${subMenuHeight[`main-${index}`]}px`
-                    : "0px",
-              }}
-            >
-              <ul className="mt-2 space-y-1 ml-9">
-                {nav.subItems.map((subItem) => (
-                  <li key={subItem.name}>
-                    <Link
-                      to={subItem.path}
-                      className={`menu-dropdown-item ${
-                        isActive(subItem.path)
-                          ? "menu-dropdown-item-active"
-                          : "menu-dropdown-item-inactive"
-                      }`}
-                    >
-                      {subItem.name}
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </li>
-      ))}
-    </ul>
-  );
 
   return (
     <aside
-      className={`fixed flex flex-col top-0 px-3 left-0 bg-gray-900 border-gray-800 text-white h-screen transition-all duration-300 ease-in-out z-50 border-r
-        ${
-          isExpanded || isMobileOpen
-            ? "w-[240px]"
-            : isHovered
-            ? "w-[240px]"
-            : "w-[72px]"
-        }
-        ${isMobileOpen ? "translate-x-0" : "-translate-x-full"}
-        xl:translate-x-0`}
-      onMouseEnter={() => !isExpanded && setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="flex w-[240px] shrink-0 flex-col bg-gray-900 border-r border-gray-800 text-white h-screen px-3"
     >
-      <div
-        className={`py-4 flex ${
-          !isExpanded && !isHovered ? "xl:justify-center" : "justify-start"
-        }`}
-      >
-        <Link to="/">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <span className="text-lg font-bold text-white">
-              Employee Kiosk
-            </span>
-          ) : (
-            <span className="text-lg font-bold text-white">
-              EK
-            </span>
-          )}
-        </Link>
+      {/* Logo */}
+      <div className="py-3 flex justify-start">
+        <span className="text-lg font-bold text-white">Employee Kiosk</span>
       </div>
-      <div className="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
-        <nav className="mb-4">
-          <div className="flex flex-col gap-2">
-            <div>
-              <h2
-                className={`mb-2 text-xs uppercase flex leading-[20px] text-gray-500 ${
-                  !isExpanded && !isHovered
-                    ? "xl:justify-center"
-                    : "justify-start"
-                }`}
-              >
-                {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
-                ) : (
-                  <HorizontalDotsIcon className="size-6" />
-                )}
+
+      {/* Nav items */}
+      <div className="flex flex-col flex-1 min-h-0 no-scrollbar">
+        <nav className="flex flex-col flex-1">
+          <div className="flex flex-col flex-1">
+            <div className="flex flex-col flex-1">
+              <h2 className="mb-1 text-xs uppercase leading-[20px] text-gray-500">
+                Menu
               </h2>
-              {renderMenuItems(navItems)}
+
+              <ul className="flex flex-col flex-1">
+                {navItems.map((item) => (
+                  <li key={item.navTab} className="flex flex-1">{renderItem(item)}</li>
+                ))}
+              </ul>
             </div>
           </div>
         </nav>

@@ -198,7 +198,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Pick lane 1 or 2; see employee + customer mirrored state with live WS updates.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/monitor')}>
+              <button className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50" onClick={() => navigate('/monitor')}>
                 Open Monitor
               </button>
             </RaisedCard>
@@ -208,7 +208,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Active / Offered lists, offer upgrades, complete or cancel, live refresh.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/waitlist')}>
+              <button className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50" onClick={() => navigate('/waitlist')}>
                 Manage Waitlist
               </button>
             </RaisedCard>
@@ -224,7 +224,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
-                      className="cs-liquid-button cs-liquid-button--secondary"
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                       onClick={() => {
                         setSelectedCustomer(null);
                         setCustomerDocs(null);
@@ -270,7 +270,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                               </td>
                               <td>
                                 <button
-                                  className="cs-liquid-button"
+                                  className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
                                   disabled={!d.has_pdf}
                                   onClick={() => {
                                     downloadCustomerDocumentPdf(session.sessionToken, d.id)
@@ -300,7 +300,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                 <>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <button
-                      className="cs-liquid-button cs-liquid-button--secondary"
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                       onClick={() => {
                         setDocCustomerName('');
                         setDocLookup(null);
@@ -333,7 +333,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                       }}
                     />
                     <button
-                      className="cs-liquid-button cs-liquid-button--secondary"
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                       disabled={docLookupBusy || !docCustomerName.trim()}
                       onClick={() => {
                         const name = docCustomerName.trim();
@@ -402,7 +402,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                                 </td>
                                 <td>
                                   <button
-                                    className="cs-liquid-button"
+                                    className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
                                     onClick={() => {
                                       setSelectedCustomer(c);
                                       setCustomerDocs(null);
@@ -443,7 +443,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Search customers; admin can waive past-due balance.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/customers')}>
+              <button className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50" onClick={() => navigate('/customers')}>
                 Open Customer Tools
               </button>
             </RaisedCard>
@@ -453,7 +453,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
               <div style={{ color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                 Inventory summary + low-availability tiers; cash totals by method/register.
               </div>
-              <button className="cs-liquid-button" onClick={() => navigate('/reports')}>
+              <button className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50" onClick={() => navigate('/reports')}>
                 Open Reports
               </button>
             </RaisedCard>
@@ -495,7 +495,7 @@ export function DemoOverview({ session }: { session: StaffSession }) {
                     <td>
                       {row.available < 5 ? (
                         <button
-                          className="cs-liquid-button cs-liquid-button--secondary"
+                          className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                           onClick={() => navigate('/monitor')}
                         >
                           Monitor lanes

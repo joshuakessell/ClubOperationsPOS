@@ -144,7 +144,7 @@ export class AppSyncTransport implements RealtimeTransport {
     const env = { ...metaEnv, ...processEnv };
 
     this.options = params.options;
-    this.authUrl = getApiUrl('/v1/realtime/auth');
+    this.authUrl = getApiUrl('/api/v1/realtime/auth');
     this.channelNamespace = getChannelNamespace(env);
 
     this.laneId = params.laneId;

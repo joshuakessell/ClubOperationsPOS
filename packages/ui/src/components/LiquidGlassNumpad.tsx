@@ -11,6 +11,13 @@ export type LiquidGlassNumpadProps = {
   submitDisabled?: boolean;
 };
 
+const keyBase =
+  'flex items-center justify-center rounded-lg border border-gray-700 bg-gray-800 text-2xl font-semibold text-white transition hover:bg-gray-700 active:scale-[0.97] active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed';
+const keySecondary =
+  'flex items-center justify-center rounded-lg border border-gray-600 bg-gray-800 text-lg font-semibold text-gray-300 transition hover:bg-gray-700 active:scale-[0.97] active:translate-y-px disabled:opacity-50 disabled:cursor-not-allowed';
+const submitBtn =
+  'col-span-3 flex items-center justify-center rounded-lg bg-brand-500 text-lg font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed';
+
 export function LiquidGlassNumpad({
   disabled,
   className,
@@ -24,12 +31,16 @@ export function LiquidGlassNumpad({
   const isSubmitDisabled = Boolean(disabled || submitDisabled || !onSubmit);
 
   return (
-    <div className={['cs-liquid-numpad', className].filter(Boolean).join(' ')}>
+    <div
+      className={['grid w-full grid-cols-3 gap-3', className].filter(Boolean).join(' ')}
+      data-testid="numpad"
+    >
       {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((d) => (
         <button
           key={d}
           type="button"
-          className="cs-liquid-button cs-liquid-numpad__key"
+          className={keyBase}
+          style={{ minHeight: 72 }}
           onClick={() => onDigit(d)}
           disabled={disabled}
           aria-label={`Digit ${d}`}
@@ -40,7 +51,8 @@ export function LiquidGlassNumpad({
 
       <button
         type="button"
-        className="cs-liquid-button cs-liquid-button--secondary cs-liquid-numpad__key cs-liquid-numpad__secondary"
+        className={keySecondary}
+        style={{ minHeight: 72 }}
         onClick={onClear}
         disabled={disabled}
         aria-label="Clear PIN"
@@ -50,7 +62,8 @@ export function LiquidGlassNumpad({
 
       <button
         type="button"
-        className="cs-liquid-button cs-liquid-numpad__key"
+        className={keyBase}
+        style={{ minHeight: 72 }}
         onClick={() => onDigit(0)}
         disabled={disabled}
         aria-label="Digit 0"
@@ -60,7 +73,8 @@ export function LiquidGlassNumpad({
 
       <button
         type="button"
-        className="cs-liquid-button cs-liquid-button--secondary cs-liquid-numpad__key cs-liquid-numpad__secondary"
+        className={keySecondary}
+        style={{ minHeight: 72 }}
         onClick={onBackspace}
         disabled={disabled}
         aria-label="Backspace"
@@ -70,7 +84,8 @@ export function LiquidGlassNumpad({
 
       <button
         type="button"
-        className="cs-liquid-button cs-liquid-numpad__submit"
+        className={submitBtn}
+        style={{ minHeight: 72 }}
         onClick={onSubmit}
         disabled={isSubmitDisabled}
         aria-label={submitLabel}

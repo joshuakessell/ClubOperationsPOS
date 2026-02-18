@@ -7,7 +7,16 @@
  */
 
 @import "tailwindcss";
-@reference "@club-ops/ui/tailadmin/theme.css";
+@import "@club-ops/ui/tailadmin/theme.css";
+@source "../../packages/ui/src/tailadmin";
+@source "./";
+
+/* ══════════════════════════════════════════════════════════════
+   All custom component classes MUST be inside @layer components
+   so Tailwind v4 keeps the preflight in @layer base and utility
+   classes in @layer utilities can override them.
+   ═════════════════════════════════════════════════════════════ */
+@layer components {
 
 /* ── Layout ─────────────────────────────────────────────── */
 .dashboard {
@@ -601,3 +610,5 @@
   @apply outline-none;
   border-color: rgba(255, 255, 255, 0.35);
 }
+
+} /* end @layer components */

@@ -75,8 +75,8 @@ export function AgreementScreen({
         {orientationOverlay}
         {welcomeOverlay}
         <div className="agreement-screen-container">
-          {/* Liquid-glass panel */}
-          <div className="agreement-paper-panel cs-liquid-card">
+          {/* Card panel */}
+          <div className="agreement-paper-panel rounded-2xl border border-gray-700 bg-gray-800/80 shadow-lg backdrop-blur-sm">
             <h1 className="agreement-title">
               {agreement?.title || t(customerPrimaryLanguage, 'agreementTitle')}
             </h1>
@@ -114,7 +114,7 @@ export function AgreementScreen({
                   <button
                     type="button"
                     className={[
-                      'cs-liquid-button',
+                      'rounded-lg bg-brand-500 px-6 py-3 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50',
                       'agreement-signature-button',
                       pulseSignButton ? 'pulse-bright' : '',
                     ]
@@ -139,13 +139,13 @@ export function AgreementScreen({
 
               <div className="agreement-submit-container">
                 <button
-                  className={[
-                    'cs-liquid-button',
-                    'submit-agreement-btn',
-                    pulseSubmitButton ? 'pulse-bright' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
+                    className={[
+                      'rounded-lg bg-green-600 px-8 py-4 text-lg font-semibold text-white transition hover:bg-green-700 disabled:opacity-50',
+                      'submit-agreement-btn',
+                      pulseSubmitButton ? 'pulse-bright' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
                   onClick={onSubmit}
                   disabled={!signatureData || isSubmitting}
                 >
@@ -164,7 +164,7 @@ export function AgreementScreen({
             role="dialog"
             aria-label={t(customerPrimaryLanguage, 'a11y.signatureDialog')}
           >
-            <div className="signature-modal cs-liquid-card" onClick={(e) => e.stopPropagation()}>
+            <div className="signature-modal rounded-2xl border border-gray-700 bg-gray-900 p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
               <div className="signature-modal-header">
                 <div className="signature-modal-title">
                   {t(customerPrimaryLanguage, 'signatureRequired')}
@@ -188,7 +188,7 @@ export function AgreementScreen({
               <div className="signature-modal-actions">
                 <button
                   type="button"
-                  className="cs-liquid-button cs-liquid-button--secondary"
+                  className="rounded-lg border border-gray-600 bg-gray-800 px-6 py-3 font-semibold text-gray-300 transition hover:bg-gray-700"
                   onClick={() => {
                     onClearSignature();
                     setSignatureModalOpen(false);
@@ -198,7 +198,7 @@ export function AgreementScreen({
                 </button>
                 <button
                   type="button"
-                  className="cs-liquid-button"
+                  className="rounded-lg bg-brand-500 px-6 py-3 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
                   disabled={!signatureData}
                   onClick={() => setSignatureModalOpen(false)}
                 >

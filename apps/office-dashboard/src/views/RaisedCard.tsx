@@ -11,7 +11,7 @@ export interface RaisedCardProps extends HTMLAttributes<HTMLDivElement> {
 export function RaisedCard({ padding = 'md', className, children, ...rest }: RaisedCardProps) {
   const classes = [
     'csRaisedCard',
-    'cs-liquid-card',
+    'rounded-2xl border border-gray-700 bg-gray-800/80 p-6 shadow-lg',
     padding !== 'md' ? `csRaisedCard--${padding}` : '',
     className,
   ]

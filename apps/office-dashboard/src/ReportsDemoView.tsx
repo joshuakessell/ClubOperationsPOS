@@ -132,7 +132,7 @@ export function ReportsDemoView({ session }: { session: StaffSession }) {
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', marginBottom: '1rem' }}>
             <span style={{ color: 'var(--text-muted)' }}>Range:</span>
             <select
-              className="cs-liquid-input"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               value={rangeDays}
               onChange={(e) => setRangeDays(e.target.value)}
               style={{ minWidth: 120 }}

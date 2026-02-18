@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ReactNode } from 'react';
-import './KioskModal.css';
 
 export interface KioskModalProps {
   isOpen: boolean;
@@ -75,17 +74,26 @@ export function KioskModal({
   if (!isOpen) return null;
 
   return (
-    <div className="ck-modal-overlay" onClick={handleOverlayClick} role="presentation">
+    <div
+      className="fixed inset-0 z-[99999] flex items-center justify-center bg-black/60 backdrop-blur-sm"
+      onClick={handleOverlayClick}
+      role="presentation"
+    >
       <div
         ref={modalRef}
-        className={['ck-modal-content', 'cs-liquid-card', className].filter(Boolean).join(' ')}
+        className={[
+          'relative w-full max-w-lg rounded-2xl border border-gray-700 bg-gray-900 p-8 shadow-2xl',
+          className,
+        ]
+          .filter(Boolean)
+          .join(' ')}
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
       >
-        <h2 className="ck-modal-title">{title}</h2>
-        <div className="ck-modal-body">{children}</div>
+        <h2 className="mb-6 text-center text-2xl font-bold text-white">{title}</h2>
+        <div>{children}</div>
       </div>
     </div>
   );

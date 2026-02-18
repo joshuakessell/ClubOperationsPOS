@@ -12,7 +12,6 @@ const MIGRATIONS_SCHEMA = 'public';
 // Assumption: scripts run from the API package root (services/api).
 const MIGRATIONS_DIR = join(process.cwd(), 'migrations');
 const BASELINE_MIGRATION_NAME = '000_baseline';
-const INCLUDE_BASELINE_ENV = process.env.PGMIGRATE_INCLUDE_BASELINE === '1';
 
 // node-pg-migrate hardcodes run_on; our canonical schema uses executed_at.
 const RUN_ON_COLUMN = 'run_on';
@@ -132,9 +131,10 @@ async function run(direction: 'up' | 'down'): Promise<void> {
 
   try {
     await ensureBaselineRecorded(client);
-    const ignorePattern = INCLUDE_BASELINE_ENV
-      ? '(?!(?:000_baseline\\.sql$|.*__baseline_schema.*)).*'
-      : '.*__baseline_schema.*';
+    // Only ignore the legacy 000_baseline file (archived).
+    // Domain-split baselines (*__baseline_schema*) are idempotent (IF NOT EXISTS)
+    // and MUST run so that incremental migrations can reference their tables.
+    const ignorePattern = '000_baseline\\.sql$';
     const logger = {
       ...console,
       error: (message?: unknown, ...args: unknown[]) => {

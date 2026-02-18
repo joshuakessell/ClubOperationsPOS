@@ -31,7 +31,7 @@ export function IdScanBlockedModal({
       <p>{t(customerPrimaryLanguage, bodyKey)}</p>
       <KioskModalActions>
         <button
-          className="cs-liquid-button ck-modal-btn"
+          className="rounded-lg bg-brand-500 px-6 py-3 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
           onClick={onAcknowledge}
           disabled={isSubmitting}
         >

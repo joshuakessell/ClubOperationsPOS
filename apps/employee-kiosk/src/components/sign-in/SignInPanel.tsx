@@ -314,156 +314,151 @@ export function SignInPanel({ deviceId, onSignedIn }: SignInPanelProps) {
           : `Register ${registerNumber}`;
 
   return (
-    <div className="flex h-full items-center justify-center">
-      {/* Sign-in card */}
-      <div className="w-full max-w-lg rounded-2xl border border-white/[0.08] bg-white/[0.03] p-8 shadow-theme-xl backdrop-blur-sm">
-        {/* Header */}
-        <div className="mb-8 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-white">Employee Sign In</h1>
-          <p className="mt-2 text-sm text-gray-400">{stepTitle}</p>
+    <div className="flex w-full flex-col">
+      {/* Step subtitle */}
+      <p className="mb-4 text-sm font-medium text-gray-400">{stepTitle}</p>
+
+      {/* Error banner */}
+      {error && (
+        <div className="mb-6">
+          <Alert variant="error" title="Error" message={error} />
         </div>
+      )}
 
-        {/* Error banner */}
-        {error && (
-          <div className="mb-6">
-            <Alert variant="error" title="Error" message={error} />
+      {/* ── Step: Select Employee ── */}
+      {step === 'select-employee' && (
+        <div className="flex flex-col gap-3">
+          {employees.length === 0 && !error && (
+            <div className="flex items-center justify-center gap-2 py-8 text-gray-400">
+              <Spinner size="sm" /> Loading employees…
+            </div>
+          )}
+          {employees.length === 0 && error && (
+            <div className="flex justify-center">
+              <Button size="lg" onClick={() => void fetchAvailableEmployees()}>
+                Retry
+              </Button>
+            </div>
+          )}
+          <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto custom-scrollbar">
+            {employees.map((emp) => (
+              <button
+                key={emp.id}
+                onClick={() => handleSelectEmployee(emp)}
+                disabled={isLoading}
+                className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-4 py-3 text-left transition-all duration-150 hover:border-brand-400/40 hover:bg-white/[0.08] focus-visible:ring-2 focus-visible:ring-brand-400/60 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-base font-bold text-brand-300">
+                  {emp.name.charAt(0).toUpperCase()}
+                </div>
+                <div className="flex flex-col gap-1">
+                  <span className="text-base font-semibold leading-tight text-white">{emp.name}</span>
+                  <span className="text-xs leading-tight text-gray-400">
+                    {emp.role}
+                    {emp.signedIn && (
+                      <span className="ml-1 text-brand-400">{formatSignedInLabel(emp)}</span>
+                    )}
+                  </span>
+                </div>
+              </button>
+            ))}
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── Step: Select Employee ── */}
-        {step === 'select-employee' && (
-          <div className="flex flex-col gap-3">
-            {employees.length === 0 && !error && (
-              <div className="flex items-center justify-center gap-2 py-8 text-gray-400">
-                <Spinner size="sm" /> Loading employees…
-              </div>
-            )}
-            {employees.length === 0 && error && (
-              <div className="flex justify-center">
-                <Button size="lg" onClick={() => void fetchAvailableEmployees()}>
-                  Retry
-                </Button>
-              </div>
-            )}
-            <div className="flex max-h-[400px] flex-col gap-2 overflow-y-auto custom-scrollbar">
-              {employees.map((emp) => (
-                <button
-                  key={emp.id}
-                  onClick={() => handleSelectEmployee(emp)}
-                  disabled={isLoading}
-                  className="flex items-center gap-3 rounded-xl border border-white/[0.08] bg-white/[0.04] px-5 py-4 text-left transition-all duration-150 hover:border-brand-400/40 hover:bg-white/[0.08] disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500/20 text-sm font-bold text-brand-300">
-                    {emp.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="flex flex-col">
-                    <span className="text-base font-semibold text-white">{emp.name}</span>
-                    <span className="text-xs text-gray-400">
-                      {emp.role}
-                      {emp.signedIn && (
-                        <span className="ml-1 text-brand-400">{formatSignedInLabel(emp)}</span>
-                      )}
-                    </span>
-                  </div>
-                </button>
-              ))}
+      {/* ── Step: Enter PIN ── */}
+      {step === 'enter-pin' && selectedEmployee && (
+        <div className="flex flex-col items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-500/20 text-lg font-bold text-brand-300">
+              {selectedEmployee.name.charAt(0).toUpperCase()}
+            </div>
+            <div>
+              <p className="text-lg font-semibold text-white">{selectedEmployee.name}</p>
+              <p className="text-xs text-gray-400">Enter your 6-digit PIN</p>
             </div>
           </div>
-        )}
 
-        {/* ── Step: Enter PIN ── */}
-        {step === 'enter-pin' && selectedEmployee && (
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-500/20 text-lg font-bold text-brand-300">
-                {selectedEmployee.name.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <p className="text-lg font-semibold text-white">{selectedEmployee.name}</p>
-                <p className="text-xs text-gray-400">Enter your 6-digit PIN</p>
-              </div>
+          {pinError && (
+            <Alert variant="error" title="Wrong PIN" message="Please try again." />
+          )}
+
+          <OtpPinInput
+            value={pin}
+            onChange={(next) => {
+              setPin(next);
+              setPinError(false);
+            }}
+            onComplete={(completedPin) => void handlePinComplete(completedPin)}
+            disabled={isLoading}
+            shake={pinError}
+            autoFocus
+          />
+
+          {isLoading && (
+            <div className="flex items-center gap-2 text-sm text-gray-400">
+              <Spinner size="sm" /> Verifying…
             </div>
+          )}
 
-            {pinError && (
-              <Alert variant="error" title="Wrong PIN" message="Please try again." />
-            )}
+          <Button variant="outline" size="sm" onClick={handleBack} disabled={isLoading}>
+            ← Back
+          </Button>
+        </div>
+      )}
 
-            <OtpPinInput
-              value={pin}
-              onChange={(next) => {
-                setPin(next);
-                setPinError(false);
-              }}
-              onComplete={(completedPin) => void handlePinComplete(completedPin)}
+      {/* ── Step: Assign Register ── */}
+      {step === 'assign-register' && (
+        <div className="flex flex-col gap-4">
+          {!registers ? (
+            <div className="flex items-center justify-center gap-2 py-8 text-gray-400">
+              <Spinner size="sm" /> Loading registers…
+            </div>
+          ) : (
+            <RegisterButtons
+              registers={registers}
+              selectedEmployeeId={selectedEmployee?.id ?? null}
               disabled={isLoading}
-              shake={pinError}
-              autoFocus
+              onSelect={(num) => void handleAssignRegister(num)}
             />
-
-            {isLoading && (
-              <div className="flex items-center gap-2 text-sm text-gray-400">
-                <Spinner size="sm" /> Verifying…
-              </div>
-            )}
-
+          )}
+          <div className="flex gap-3">
             <Button variant="outline" size="sm" onClick={handleBack} disabled={isLoading}>
               ← Back
             </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => void fetchRegisterAvailability()}
+              disabled={isLoading}
+            >
+              Refresh
+            </Button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* ── Step: Assign Register ── */}
-        {step === 'assign-register' && (
-          <div className="flex flex-col gap-4">
-            {!registers ? (
-              <div className="flex items-center justify-center gap-2 py-8 text-gray-400">
-                <Spinner size="sm" /> Loading registers…
-              </div>
-            ) : (
-              <RegisterButtons
-                registers={registers}
-                selectedEmployeeId={selectedEmployee?.id ?? null}
-                disabled={isLoading}
-                onSelect={(num) => void handleAssignRegister(num)}
-              />
-            )}
-            <div className="flex gap-3">
-              <Button variant="outline" size="sm" onClick={handleBack} disabled={isLoading}>
-                ← Back
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => void fetchRegisterAvailability()}
-                disabled={isLoading}
-              >
-                Refresh
-              </Button>
-            </div>
+      {/* ── Step: Confirm ── */}
+      {step === 'confirm' && registerNumber && (
+        <div className="flex flex-col items-center gap-6">
+          <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-brand-400/30 bg-brand-500/15 text-3xl font-black text-brand-300">
+            {registerNumber}
           </div>
-        )}
-
-        {/* ── Step: Confirm ── */}
-        {step === 'confirm' && registerNumber && (
-          <div className="flex flex-col items-center gap-6">
-            <div className="flex h-20 w-20 items-center justify-center rounded-2xl border border-brand-400/30 bg-brand-500/15 text-3xl font-black text-brand-300">
-              {registerNumber}
-            </div>
-            <p className="text-base text-gray-400">
-              Employee:{' '}
-              <span className="font-semibold text-white">{selectedEmployee?.name}</span>
-            </p>
-            <div className="flex gap-3">
-              <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
-                Back
-              </Button>
-              <Button size="lg" onClick={() => void handleConfirm()} disabled={isLoading}>
-                {isLoading ? 'Confirming…' : 'Confirm'}
-              </Button>
-            </div>
+          <p className="text-base text-gray-400">
+            Employee:{' '}
+            <span className="font-semibold text-white">{selectedEmployee?.name}</span>
+          </p>
+          <div className="flex gap-3">
+            <Button variant="outline" size="lg" onClick={handleBack} disabled={isLoading}>
+              Back
+            </Button>
+            <Button size="lg" onClick={() => void handleConfirm()} disabled={isLoading}>
+              {isLoading ? 'Confirming…' : 'Confirm'}
+            </Button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
+

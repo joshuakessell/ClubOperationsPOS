@@ -132,7 +132,7 @@ export function CustomerAdminDetailPanel({
             value={newNoteText}
             onChange={(e) => onNewNoteTextChange(e.target.value)}
             placeholder="Add a note…"
-            className="cs-liquid-input"
+            className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
             style={{ minHeight: 80 }}
           />
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 800 }}>
@@ -144,7 +144,7 @@ export function CustomerAdminDetailPanel({
             Important
           </label>
           <button
-            className="cs-liquid-button"
+            className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
             disabled={structuredNotesBusy}
             onClick={onCreateStructuredNote}
           >
@@ -284,7 +284,7 @@ export function CustomerAdminDetailPanel({
                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.75rem' }}>
                   <div style={{ fontWeight: 900 }}>{new Date(v.visitStartedAt).toLocaleString()}</div>
                   <button
-                    className="cs-liquid-button cs-liquid-button--secondary"
+                    className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                     onClick={() => navigator.clipboard.writeText(v.visitId)}
                   >
                     Copy visit id
@@ -320,7 +320,7 @@ export function CustomerAdminDetailPanel({
                           </td>
                           <td>
                             <button
-                              className="cs-liquid-button"
+                              className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
                               disabled={!b.hasPdf}
                               onClick={() => {
                                 downloadCustomerDocumentPdf(sessionToken, b.checkinBlockId)

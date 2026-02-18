@@ -202,11 +202,11 @@ export function SelectionScreen({
                       <button
                         type="button"
                         className={[
-                          'cs-liquid-button',
+                          'rounded-lg border px-5 py-3 font-semibold transition',
                           hasStaffProposedUnavailable
-                            ? 'cs-liquid-button--staff-proposed'
-                            : 'cs-liquid-button--secondary',
-                          'ck-waitlist-entry-btn',
+                            ? 'border-amber-400/60 bg-amber-500/10 text-amber-300 animate-pulse'
+                            : 'border-gray-600 bg-gray-800 text-gray-300 hover:bg-gray-700',
+                          'mt-4 w-full',
                         ].join(' ')}
                         onClick={() => {
                           if (!canInteract) return;
@@ -219,7 +219,7 @@ export function SelectionScreen({
                     ) : null}
                   </>
                 ) : (
-                  <div className="cs-liquid-button cs-liquid-button--disabled">
+                  <div className="rounded-lg border border-gray-700 bg-gray-800/50 px-5 py-3 text-center text-gray-500 opacity-50">
                     {t(lang, 'noOptionsAvailable')}
                   </div>
                 )}

@@ -41,7 +41,7 @@ describe('Office Dashboard PIN flow', () => {
     fireEvent.click(manager);
 
     await waitFor(() => {
-      expect(container.querySelector('.cs-liquid-numpad')).not.toBeNull();
+      expect(container.querySelector('[data-testid="numpad"]')).not.toBeNull();
     });
     expect(container.querySelector('input[type="password"]')).toBeNull();
   });

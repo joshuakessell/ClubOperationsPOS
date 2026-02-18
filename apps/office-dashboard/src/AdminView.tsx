@@ -150,7 +150,7 @@ export function AdminView({ session }: AdminViewProps) {
         <div className="admin-unauthorized">
           <h1>Not authorized</h1>
           <p>You must be an administrator to access this page.</p>
-          <button onClick={() => navigate('/')} className="cs-liquid-button">
+          <button onClick={() => navigate('/')} className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50">
             Return to Dashboard
           </button>
         </div>
@@ -202,13 +202,13 @@ export function AdminView({ session }: AdminViewProps) {
           </div>
           <button
             onClick={() => navigate('/admin/staff')}
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
           >
             Staff Management
           </button>
           <button
             onClick={() => navigate('/')}
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
           >
             ← Back to Dashboard
           </button>
@@ -230,11 +230,11 @@ export function AdminView({ session }: AdminViewProps) {
             loadOperationsData();
           }}
           className={[
-            'cs-liquid-button',
-            'cs-liquid-button--pill',
+            'rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50',
+            'rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50--pill',
             activeTab === 'operations'
-              ? 'cs-liquid-button--selected'
-              : 'cs-liquid-button--secondary',
+              ? 'rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50--selected'
+              : 'rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50',
           ].join(' ')}
         >
           Operations
@@ -245,9 +245,9 @@ export function AdminView({ session }: AdminViewProps) {
             loadMetricsData();
           }}
           className={[
-            'cs-liquid-button',
-            'cs-liquid-button--pill',
-            activeTab === 'metrics' ? 'cs-liquid-button--selected' : 'cs-liquid-button--secondary',
+            'rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50',
+            'rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50--pill',
+            activeTab === 'metrics' ? 'rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50--selected' : 'rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50',
           ].join(' ')}
         >
           Metrics
