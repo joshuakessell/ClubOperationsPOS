@@ -135,7 +135,7 @@ describe('App flow: upgrades', () => {
       render(<App />);
     });
 
-    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    const searchTab = await screen.findByRole('button', { name: /Search Customer/ });
     act(() => {
       fireEvent.click(searchTab);
     });
@@ -156,7 +156,7 @@ describe('App flow: upgrades', () => {
     });
 
     // Upgrades now live in the left drawer; they should remain accessible during an active session.
-    const upgradesTab = await screen.findByRole('button', { name: 'Upgrades' });
+    const upgradesTab = await screen.findByRole('button', { name: /Upgrades/ });
     act(() => {
       fireEvent.click(upgradesTab);
     });
