@@ -8,8 +8,6 @@
  * Keyframes and pseudo-elements remain as raw CSS.
  */
 
-@import "tailwindcss";
-
 /* ── Design tokens ─────────────────────────────────────────── */
 :root {
   --er-bg: var(--color-gray-950, #0a0a0f);
@@ -23,16 +21,22 @@
   --er-radius: 10px;
 }
 
-/* ── Global resets ─────────────────────────────────────────── */
-* { @apply m-0 p-0 box-border; }
-html { @apply h-full overflow-hidden; }
-body {
-  @apply min-h-screen overflow-hidden font-sans;
-  -webkit-font-smoothing: antialiased;
-  background: var(--er-bg);
-  color: var(--er-text);
+/* ── Global resets (in base layer so utilities can override) ── */
+@layer base {
+  *, ::after, ::before, ::backdrop {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+  html { @apply h-full overflow-hidden; }
+  body {
+    @apply min-h-screen overflow-hidden;
+    -webkit-font-smoothing: antialiased;
+    background: var(--er-bg);
+    color: var(--er-text);
+  }
+  #root { @apply h-screen flex flex-col; }
 }
-#root { @apply h-screen flex flex-col; }
 
 /* ── Main app container ───────────────────────────────────── */
 .container {

@@ -104,7 +104,7 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
 
   return (
     <div className="lock-screen">
-      <div className="lock-screen-content cs-liquid-card">
+      <div className="lock-screen-content rounded-2xl border border-gray-700 bg-gray-800/80 p-6 shadow-lg">
         {!selectedEmployee ? (
           <div className="lock-screen-step">
             <div className="lock-screen-header">
@@ -126,7 +126,7 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
                   <button
                     key={employee.id}
                     type="button"
-                    className="lock-screen-employee cs-liquid-button cs-liquid-button--secondary"
+                    className="lock-screen-employee rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                     onClick={() => handleEmployeeSelect(employee)}
                     disabled={isLoading}
                   >
@@ -171,7 +171,7 @@ export function LockScreen({ onLogin, deviceType, deviceId }: LockScreenProps) {
             <div className="lock-screen-actions">
               <button
                 type="button"
-                className="cs-liquid-button cs-liquid-button--secondary"
+                className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                 onClick={handleBack}
                 disabled={isLoading}
               >

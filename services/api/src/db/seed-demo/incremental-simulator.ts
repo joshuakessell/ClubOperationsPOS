@@ -240,6 +240,9 @@ export async function appendIncrementalDemoSimulation(params: {
     rentalType: string;
     paidAt: Date;
     laneSessionId: string | null;
+    customerId: string;
+    staffId: string;
+    staffName: string;
   }> = [];
 
   // Checkout requests for room visits (completed)
@@ -331,6 +334,39 @@ export async function appendIncrementalDemoSimulation(params: {
         [checkinBlockId, visitId, start, scheduledEnd, lockerId, roomId, signedAt, rentalType]
       );
 
+      // CHECKIN_STARTED — lane session created ~3 min before checkin
+      const checkinStartedAt = new Date(start.getTime() - 3 * 60 * 1000);
+      await params.client.query(
+        `
+        INSERT INTO customer_activity_events
+          (occurred_at, customer_id, action_type, action_category, source_app,
+           actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+        VALUES
+          ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+        ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+        `,
+        [
+          checkinStartedAt,
+          customer.id,
+          'CHECKIN_STARTED',
+          'CHECKIN',
+          'EMPLOYEE_REGISTER',
+          'STAFF',
+          staffMember.id,
+          staffMember.name,
+          `Check-in started`,
+          {
+            visitId,
+            rentalType,
+            registerNumber: register.register_number,
+            registerSessionId: register.id,
+          },
+          `Check-in started ${customer.name} ${rentalType} ${visitId} ${staffMember.name}`,
+          `ACT:DEMO:CHECKIN_STARTED:${visitId}`,
+        ]
+      );
+
+      // CHECKIN_COMPLETED — check-in finalized
       await params.client.query(
         `
         INSERT INTO customer_activity_events
@@ -451,6 +487,9 @@ export async function appendIncrementalDemoSimulation(params: {
           rentalType,
           paidAt: signedAt,
           laneSessionId: null,
+          customerId: customer.id,
+          staffId: staffMember.id,
+          staffName: staffMember.name,
         });
       }
 
@@ -543,7 +582,10 @@ export async function appendIncrementalDemoSimulation(params: {
       ]
     );
 
+    // NOTE_ADDED for late checkout notes (existing customer_notes insert above)
     if (rng() < 0.06) {
+      const noteAt = new Date(ev.occurredAt.getTime() + 2 * 60 * 1000);
+      const noteText = `Late checkout noted. Please remind customer to check out on time.`;
       await params.client.query(
         `INSERT INTO customer_notes
            (id, customer_id, created_at, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
@@ -551,10 +593,121 @@ export async function appendIncrementalDemoSimulation(params: {
         [
           randomUUID(),
           ev.customer.id,
-          new Date(ev.occurredAt.getTime() + 2 * 60 * 1000),
+          noteAt,
           ev.staffId,
           ev.staffName,
-          `Late checkout noted. Please remind customer to check out on time.`,
+          noteText,
+        ]
+      );
+
+      await params.client.query(
+        `
+        INSERT INTO customer_activity_events
+          (occurred_at, customer_id, action_type, action_category, source_app,
+           actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+        VALUES
+          ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+        ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+        `,
+        [
+          noteAt,
+          ev.customer.id,
+          'NOTE_ADDED',
+          'NOTE',
+          'EMPLOYEE_REGISTER',
+          'STAFF',
+          ev.staffId,
+          ev.staffName,
+          noteText,
+          { visitId: ev.visitId, noteType: 'late_checkout' },
+          `${noteText} ${ev.customer.name} ${ev.staffName}`,
+          `ACT:DEMO:NOTE_ADDED:LATE:${ev.visitId}`,
+        ]
+      );
+    }
+
+    // ~10% additional staff notes for general interactions
+    if (rng() < 0.10) {
+      const generalNotes = [
+        'Guest requested extra towels',
+        'Regular customer — VIP treatment',
+        'First-time visitor, gave new member orientation',
+        'Customer asked about membership upgrade options',
+        'Reminded about locker policy',
+        'Guest mentioned they were referred by a friend',
+        'Customer left personal items — placed in lost and found',
+        'Quiet room preference noted for next visit',
+      ];
+      const noteText = generalNotes[Math.floor(rng() * generalNotes.length)]!;
+      const noteAt = new Date(
+        ev.occurredAt.getTime() - Math.floor(rng() * 60) * 60 * 1000 // during the visit
+      );
+
+      await params.client.query(
+        `INSERT INTO customer_notes
+           (id, customer_id, created_at, created_by_staff_id, created_by_staff_name, source_app, note, is_important)
+         VALUES ($1, $2::uuid, $3, $4::uuid, $5, 'EMPLOYEE_REGISTER', $6, false)`,
+        [randomUUID(), ev.customer.id, noteAt, ev.staffId, ev.staffName, noteText]
+      );
+
+      await params.client.query(
+        `
+        INSERT INTO customer_activity_events
+          (occurred_at, customer_id, action_type, action_category, source_app,
+           actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+        VALUES
+          ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+        ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+        `,
+        [
+          noteAt,
+          ev.customer.id,
+          'NOTE_ADDED',
+          'NOTE',
+          'EMPLOYEE_REGISTER',
+          'STAFF',
+          ev.staffId,
+          ev.staffName,
+          noteText,
+          { visitId: ev.visitId, noteType: 'general' },
+          `${noteText} ${ev.customer.name} ${ev.staffName}`,
+          `ACT:DEMO:NOTE_ADDED:GENERAL:${ev.visitId}:${noteAt.getTime()}`,
+        ]
+      );
+    }
+
+    // ~5% customer kiosk feedback notes
+    if (rng() < 0.05) {
+      const feedbackNotes = [
+        'Feedback: Great experience today!',
+        'Feedback: Room could use better lighting',
+        'Feedback: Staff was very helpful',
+        'Feedback: Would love more towels available',
+        'Feedback: Clean and comfortable, will return!',
+      ];
+      const noteText = feedbackNotes[Math.floor(rng() * feedbackNotes.length)]!;
+      const noteAt = new Date(ev.occurredAt.getTime() + 1 * 60 * 1000);
+
+      await params.client.query(
+        `
+        INSERT INTO customer_activity_events
+          (occurred_at, customer_id, action_type, action_category, source_app,
+           actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+        VALUES
+          ($1, $2::uuid, $3, $4, $5, $6, NULL, NULL, $7, $8::jsonb, $9, $10)
+        ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+        `,
+        [
+          noteAt,
+          ev.customer.id,
+          'NOTE_ADDED',
+          'NOTE',
+          'CUSTOMER_KIOSK',
+          'CUSTOMER',
+          noteText,
+          { visitId: ev.visitId, noteType: 'customer_feedback' },
+          `${noteText} ${ev.customer.name}`,
+          `ACT:DEMO:NOTE_ADDED:FEEDBACK:${ev.visitId}`,
         ]
       );
     }
@@ -722,6 +875,118 @@ export async function appendIncrementalDemoSimulation(params: {
         ug.upgradeAt,
       ]
     );
+
+    // Resolve staff name for activity events
+    const upgradeStaff = params.staff.find((s) => s.id === ug.staffId) ?? params.staff[0]!;
+
+    // UPGRADE_STARTED activity event (5 min before upgrade)
+    await params.client.query(
+      `
+      INSERT INTO customer_activity_events
+        (occurred_at, customer_id, action_type, action_category, source_app,
+         actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+      VALUES
+        ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+      ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+      `,
+      [
+        new Date(ug.upgradeAt.getTime() - 5 * 60 * 1000),
+        ug.customerId,
+        'UPGRADE_STARTED',
+        'UPGRADE',
+        'EMPLOYEE_REGISTER',
+        'STAFF',
+        ug.staffId,
+        upgradeStaff.name,
+        `Upgrade started: Locker → ${upgradeRentalType}`,
+        { visitId: ug.visitId, fromType: 'LOCKER', toType: upgradeRentalType, waitlistId },
+        `Upgrade started Locker ${upgradeRentalType} ${ug.visitId} ${upgradeStaff.name}`,
+        `ACT:DEMO:UPGRADE_STARTED:${ug.visitId}`,
+      ]
+    );
+
+    // UPGRADE_COMPLETED activity event
+    await params.client.query(
+      `
+      INSERT INTO customer_activity_events
+        (occurred_at, customer_id, action_type, action_category, source_app,
+         actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+      VALUES
+        ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+      ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+      `,
+      [
+        ug.upgradeAt,
+        ug.customerId,
+        'UPGRADE_COMPLETED',
+        'UPGRADE',
+        'EMPLOYEE_REGISTER',
+        'STAFF',
+        ug.staffId,
+        upgradeStaff.name,
+        `Upgrade completed: Locker → ${upgradeRentalType}`,
+        {
+          visitId: ug.visitId,
+          fromType: 'LOCKER',
+          toType: upgradeRentalType,
+          roomId: ug.roomId,
+          paymentIntentId,
+          priceCents: upgradePriceCents,
+        },
+        `Upgrade completed Locker ${upgradeRentalType} ${ug.visitId} ${upgradeStaff.name}`,
+        `ACT:DEMO:UPGRADE_COMPLETED:${ug.visitId}`,
+      ]
+    );
+
+    // ROOM_CHANGED resource-change event
+    await params.client.query(
+      `
+      INSERT INTO customer_activity_events
+        (occurred_at, customer_id, action_type, action_category, source_app,
+         actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+      VALUES
+        ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+      ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+      `,
+      [
+        ug.upgradeAt,
+        ug.customerId,
+        'ROOM_CHANGED',
+        'RESOURCE_CHANGE',
+        'EMPLOYEE_REGISTER',
+        'STAFF',
+        ug.staffId,
+        upgradeStaff.name,
+        `Moved from locker to room (upgrade)`,
+        { visitId: ug.visitId, fromLockerId: ug.lockerId, toRoomId: ug.roomId, toRoomType: upgradeRentalType },
+        `Room changed locker room ${upgradeRentalType} ${ug.visitId} ${upgradeStaff.name}`,
+        `ACT:DEMO:ROOM_CHANGED:${ug.visitId}`,
+      ]
+    );
+
+    // UPGRADE_FEE spend ledger entry
+    await params.client.query(
+      `
+      INSERT INTO customer_spend_ledger_entries
+        (occurred_at, customer_id, visit_id, entry_type, amount_cents, currency,
+         source_app, actor_type, actor_staff_id, actor_staff_name, summary, metadata, dedupe_key)
+      VALUES
+        ($1, $2::uuid, $3::uuid, 'UPGRADE_FEE', $4::bigint, $5,
+         'EMPLOYEE_REGISTER', 'STAFF', $6::uuid, $7, 'Upgrade fee paid', $8::jsonb, $9)
+      ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+      `,
+      [
+        ug.upgradeAt,
+        ug.customerId,
+        ug.visitId,
+        upgradePriceCents,
+        currencyUSD(),
+        ug.staffId,
+        upgradeStaff.name,
+        { paymentIntentId, fromType: 'LOCKER', toType: upgradeRentalType, priceCents: upgradePriceCents },
+        `LEDGER:DEMO:UPGRADE_FEE:${ug.visitId}`,
+      ]
+    );
   }
 
   // 5) Payment intents & charges for initial checkin fees
@@ -755,6 +1020,30 @@ export async function appendIncrementalDemoSimulation(params: {
         priceCents / 100,
         paymentIntentId,
         pe.paidAt,
+      ]
+    );
+
+    // CHECKIN_FEE spend ledger entry
+    await params.client.query(
+      `
+      INSERT INTO customer_spend_ledger_entries
+        (occurred_at, customer_id, visit_id, entry_type, amount_cents, currency,
+         source_app, actor_type, actor_staff_id, actor_staff_name, summary, metadata, dedupe_key)
+      VALUES
+        ($1, $2::uuid, $3::uuid, 'CHECKIN_FEE', $4::bigint, $5,
+         'EMPLOYEE_REGISTER', 'STAFF', $6::uuid, $7, 'Check-in fee', $8::jsonb, $9)
+      ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+      `,
+      [
+        pe.paidAt,
+        pe.customerId,
+        pe.visitId,
+        priceCents,
+        currencyUSD(),
+        pe.staffId,
+        pe.staffName,
+        { paymentIntentId, rentalType: pe.rentalType, priceCents },
+        `LEDGER:DEMO:CHECKIN_FEE:${pe.checkinBlockId}`,
       ]
     );
   }
@@ -818,6 +1107,7 @@ export async function appendIncrementalDemoSimulation(params: {
     if (le.feeAmount > 0) {
       const paymentIntentId = randomUUID();
       const chargeId = randomUUID();
+      const feeAmountCents = Math.round(le.feeAmount * 100);
 
       await params.client.query(
         `INSERT INTO payment_intents
@@ -843,6 +1133,106 @@ export async function appendIncrementalDemoSimulation(params: {
           le.createdAt,
         ]
       );
+
+      // Resolve staff for checkout — use first staff member as the checkout staff
+      const lateStaff = params.staff[0]!;
+
+      // CHECKOUT_FEE_PAID activity event
+      await params.client.query(
+        `
+        INSERT INTO customer_activity_events
+          (occurred_at, customer_id, action_type, action_category, source_app,
+           actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+        VALUES
+          ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+        ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+        `,
+        [
+          le.createdAt,
+          le.customerId,
+          'CHECKOUT_FEE_PAID',
+          'CHECKOUT',
+          'EMPLOYEE_REGISTER',
+          'STAFF',
+          lateStaff.id,
+          lateStaff.name,
+          `Late fee paid: $${le.feeAmount.toFixed(2)} (${le.lateMinutes} min late)`,
+          {
+            checkinBlockId: le.checkinBlockId,
+            lateMinutes: le.lateMinutes,
+            feeAmount: le.feeAmount,
+            paymentIntentId,
+          },
+          `Late fee paid $${le.feeAmount.toFixed(2)} ${le.lateMinutes} min ${le.checkinBlockId} ${lateStaff.name}`,
+          `ACT:DEMO:CHECKOUT_FEE_PAID:${le.checkinBlockId}`,
+        ]
+      );
+
+      // LATE_FEE spend ledger entry
+      await params.client.query(
+        `
+        INSERT INTO customer_spend_ledger_entries
+          (occurred_at, customer_id, visit_id, entry_type, amount_cents, currency,
+           source_app, actor_type, actor_staff_id, actor_staff_name, summary, metadata, dedupe_key)
+        VALUES
+          ($1, $2::uuid,
+           (SELECT visit_id FROM checkin_blocks WHERE id = $3),
+           'LATE_FEE', $4::bigint, $5,
+           'EMPLOYEE_REGISTER', 'STAFF', $6::uuid, $7, 'Late checkout fee', $8::jsonb, $9)
+        ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+        `,
+        [
+          le.createdAt,
+          le.customerId,
+          le.checkinBlockId,
+          feeAmountCents,
+          currencyUSD(),
+          lateStaff.id,
+          lateStaff.name,
+          { paymentIntentId, lateMinutes: le.lateMinutes, feeAmount: le.feeAmount },
+          `LEDGER:DEMO:LATE_FEE:${le.checkinBlockId}`,
+        ]
+      );
+    }
+
+    // BAN_APPROVED / BAN_DENIED activity events (for bans applied due to ≥60 min late)
+    if (le.banApplied) {
+      const banDecision = rng() < 0.80 ? 'BAN_APPROVED' : 'BAN_DENIED';
+      const adminStaff = params.staff.find((s) => s.name.includes('Manager')) ?? params.staff[0]!;
+      const banDecisionAt = new Date(le.createdAt.getTime() + (10 + Math.floor(rng() * 30)) * 60 * 1000);
+      if (banDecisionAt <= params.to) {
+        await params.client.query(
+          `
+          INSERT INTO customer_activity_events
+            (occurred_at, customer_id, action_type, action_category, source_app,
+             actor_type, actor_staff_id, actor_staff_name, summary, metadata, search_blob, dedupe_key)
+          VALUES
+            ($1, $2::uuid, $3, $4, $5, $6, $7::uuid, $8, $9, $10::jsonb, $11, $12)
+          ON CONFLICT (dedupe_key) WHERE dedupe_key IS NOT NULL DO NOTHING
+          `,
+          [
+            banDecisionAt,
+            le.customerId,
+            banDecision,
+            'ADMIN',
+            'OFFICE_DASHBOARD',
+            'STAFF',
+            adminStaff.id,
+            adminStaff.name,
+            banDecision === 'BAN_APPROVED'
+              ? `Ban approved: ${le.lateMinutes} min late checkout`
+              : `Ban denied: ${le.lateMinutes} min late checkout — warning issued`,
+            {
+              checkinBlockId: le.checkinBlockId,
+              lateMinutes: le.lateMinutes,
+              feeAmount: le.feeAmount,
+              decision: banDecision === 'BAN_APPROVED' ? 'approve' : 'deny',
+            },
+            `${banDecision === 'BAN_APPROVED' ? 'Ban approved' : 'Ban denied'} ${le.lateMinutes} min ${le.checkinBlockId} ${adminStaff.name}`,
+            `ACT:DEMO:BAN_DECISION:${le.checkinBlockId}`,
+          ]
+        );
+      }
     }
   }
 

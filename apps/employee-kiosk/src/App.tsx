@@ -1,21 +1,18 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import AppLayout from "./layout/AppLayout";
+import { BrowserRouter as Router } from "react-router-dom";
+import { AuthGateProvider } from "./context/AuthGateContext";
 import CheckInPage from "./pages/CheckInPage";
-import CustomerSearchPage from "./pages/CustomerSearchPage";
-import InventoryPage from "./pages/InventoryPage";
-import SettingsPage from "./pages/SettingsPage";
 
+/**
+ * App always renders CheckInPage (→ AppRoot → NavigationRoot).
+ * NavigationRoot handles auth state and conditionally shows
+ * SignInPage vs the main content with sidebar/header.
+ */
 export default function App() {
   return (
-    <Router>
-      <Routes>
-        <Route element={<AppLayout />}>
-          <Route index path="/" element={<CheckInPage />} />
-          <Route path="/search" element={<CustomerSearchPage />} />
-          <Route path="/inventory" element={<InventoryPage />} />
-          <Route path="/settings" element={<SettingsPage />} />
-        </Route>
-      </Routes>
-    </Router>
+    <AuthGateProvider>
+      <Router>
+        <CheckInPage />
+      </Router>
+    </AuthGateProvider>
   );
 }

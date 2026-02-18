@@ -97,7 +97,7 @@ describe('App flow: suggestions', () => {
       render(<App />);
     });
 
-    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    const searchTab = await screen.findByRole('button', { name: /Search Customer/ });
     act(() => {
       fireEvent.click(searchTab);
     });

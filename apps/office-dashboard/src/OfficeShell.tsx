@@ -42,7 +42,7 @@ export function OfficeShell({
 
   return (
     <div className="dashboard">
-      <aside className="sidebar glass-effect">
+      <aside className="sidebar border-r border-gray-800 bg-gray-900">
         <div
           className="logo"
           onClick={() => navigate(isAdmin ? '/overview' : '/schedule')}
@@ -79,11 +79,11 @@ export function OfficeShell({
       </aside>
 
       <main className="main-content">
-        <header className="topbar glass-effect">
+        <header className="topbar border-b border-gray-800 bg-gray-900">
           <h1>{isAdmin ? 'Office Dashboard (Admin)' : 'Office Dashboard (Staff)'}</h1>
           <div className="topbar-status" style={{ display: 'flex', alignItems: 'center' }}>
             <span style={{ color: 'var(--text-muted)' }}>{location.pathname}</span>
-            <button onClick={onLogout} className="cs-liquid-button cs-liquid-button--danger">
+            <button onClick={onLogout} className="rounded-lg border border-red-500/40 bg-red-500/10 px-4 py-2 font-semibold text-red-400 transition hover:bg-red-500/20 disabled:opacity-50">
               Sign Out
             </button>
           </div>

@@ -225,14 +225,14 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
           )}
 
           <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
-            <div className="cs-liquid-search" style={{ minWidth: 360 }}>
+            <div className="relative w-full" style={{ minWidth: 360 }}>
               <input
-                className="cs-liquid-input cs-liquid-search__input"
+                className="w-full rounded-lg border border-gray-700 bg-gray-800 py-2 pl-9 pr-4 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search by name or membership #"
               />
-              <div className="cs-liquid-search__icon">
+              <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">
                 <svg
                   width="16"
                   height="16"
@@ -257,7 +257,7 @@ export function CustomerAdminToolsView({ session }: { session: StaffSession }) {
                 </svg>
               </div>
             </div>
-            <button className="cs-liquid-button" disabled={!canSearch || busy} onClick={runSearch}>
+            <button className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50" disabled={!canSearch || busy} onClick={runSearch}>
               {busy ? 'Searching…' : 'Search'}
             </button>
             <div style={{ color: 'var(--text-muted)', fontSize: '0.875rem' }}>

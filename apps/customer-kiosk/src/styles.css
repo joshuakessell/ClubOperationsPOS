@@ -8,7 +8,13 @@
  * Keyframes and pseudo-elements remain as raw CSS.
  */
 
+/* Outfit font is loaded via <link> in index.html to avoid
+   CSS @import ordering issues with Tailwind v4's compilation. */
+
 @import "tailwindcss";
+@import "@club-ops/ui/tailadmin/theme.css";
+@source "../../packages/ui/src/tailadmin";
+@source "./";
 
 /* ── Design tokens (CSS vars bridge) ───────────────────────── */
 :root {
@@ -19,20 +25,31 @@
 }
 
 /* ── Global resets ─────────────────────────────────────────── */
-* { @apply m-0 p-0 box-border; }
-html { @apply h-full overflow-hidden; }
-body {
-  @apply min-h-screen overflow-hidden font-sans;
-  background: var(--bg);
-  color: var(--text);
-}
-#root { @apply max-w-[1200px] mx-auto; }
+/* Tailwind v4 preflight handles *, html, body resets.
+   We only add app-specific overrides here. */
+@layer base {
+  html { overflow: hidden; }
+  body {
+    overflow: hidden;
+    font-family: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+  }
+  #root { max-width: 1200px; margin-left: auto; margin-right: auto; }
 
-/* iPad kiosk hardening */
-#root, #root * { -webkit-touch-callout: none; }
-#root { @apply select-none; }
-#root input, #root textarea { @apply select-auto; }
-#root button, #root a, #root [role='button'] { -webkit-tap-highlight-color: transparent; }
+  /* iPad kiosk hardening */
+  #root, #root * { -webkit-touch-callout: none; }
+  #root { user-select: none; -webkit-user-select: none; }
+  #root input, #root textarea { user-select: auto; -webkit-user-select: auto; }
+  #root button, #root a, #root [role='button'] { -webkit-tap-highlight-color: transparent; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   All custom component classes MUST be inside @layer components
+   so Tailwind v4 keeps the preflight in @layer base and utility
+   classes in @layer utilities can override them.
+   ═════════════════════════════════════════════════════════════ */
+@layer components {
 
 .cs-screen-overlay { @apply bg-transparent z-2; }
 
@@ -558,6 +575,8 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), 0 0 9px rgba(0, 0, 0, 0.2), 0 3px 8px rgba(0, 0, 0, 0.15);
 }
 .cs-liquid-card > * { @apply relative z-1; }
+
+} /* end @layer components */
 
 /* ═══════════════════════════════════════════════════════════ */
 /* ── Keyframes ─────────────────────────────────────────────  */

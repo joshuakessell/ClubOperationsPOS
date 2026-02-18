@@ -118,7 +118,7 @@ export function LateCheckoutBanAlertsView({ session }: Props) {
         title={`Late Checkout Ban Alerts (${pendingCount})`}
         actions={
           <button
-            className="cs-liquid-button cs-liquid-button--secondary"
+            className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
             type="button"
             onClick={() => void refresh()}
             disabled={busy}
@@ -182,7 +182,7 @@ export function LateCheckoutBanAlertsView({ session }: Props) {
                     <div style={{ display: 'flex', gap: 8 }}>
                       <button
                         type="button"
-                        className="cs-liquid-button"
+                        className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
                         onClick={() => void decide(a.id, 'APPROVE')}
                         disabled={busy}
                       >
@@ -190,7 +190,7 @@ export function LateCheckoutBanAlertsView({ session }: Props) {
                       </button>
                       <button
                         type="button"
-                        className="cs-liquid-button cs-liquid-button--secondary"
+                        className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                         onClick={() => void decide(a.id, 'DENY')}
                         disabled={busy}
                       >

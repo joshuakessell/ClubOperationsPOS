@@ -1,4 +1,8 @@
+/* Outfit font is loaded via <link> in index.html */
+
 @import "tailwindcss";
+@import "@club-ops/ui/tailadmin/theme.css";
+@source "../../packages/ui/src/tailadmin";
 @import "./register-styles.css";
 
 /*
@@ -18,7 +22,7 @@ html, body {
 /* Sidebar menu items                                                */
 /* ---------------------------------------------------------------- */
 .menu-item {
-  @apply relative flex items-center gap-3 rounded-lg px-4 py-3.5 font-medium text-base transition-all duration-200;
+  @apply relative flex flex-1 items-center gap-3 rounded-lg px-4 font-medium text-sm transition-all duration-200;
 }
 
 .menu-item-active {
@@ -27,6 +31,19 @@ html, body {
 
 .menu-item-inactive {
   @apply text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-white/[0.03];
+}
+
+.menu-item-disabled {
+  @apply text-gray-700 opacity-40 cursor-not-allowed pointer-events-none;
+}
+
+/* Focus styles for keyboard navigation */
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  @apply outline-none ring-2 ring-brand-400/60 ring-offset-1 ring-offset-gray-900;
 }
 
 .menu-item-icon-size {

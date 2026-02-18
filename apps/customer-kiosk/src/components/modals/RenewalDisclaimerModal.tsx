@@ -25,7 +25,7 @@ export function RenewalDisclaimerModal({
       title={t(customerPrimaryLanguage, 'renewal.title')}
       onClose={onClose}
     >
-      <ul className="ck-modal-list">
+      <ul className="my-4 list-disc space-y-2 pl-6 text-gray-300">
         <li>
           {t(customerPrimaryLanguage, 'renewal.bullet.extendsStay')}
           {blockEndsAt && (
@@ -37,7 +37,7 @@ export function RenewalDisclaimerModal({
             </span>
           )}
         </li>
-        <li className="ck-modal-list__warning">
+        <li className="font-semibold text-amber-400">
           {t(customerPrimaryLanguage, 'renewal.bullet.approachingMax')}
         </li>
         <li>{t(customerPrimaryLanguage, 'renewal.bullet.finalExtension')}</li>
@@ -45,7 +45,7 @@ export function RenewalDisclaimerModal({
       </ul>
       <KioskModalActions>
         <button
-          className="cs-liquid-button ck-modal-btn"
+          className="rounded-lg bg-brand-500 px-6 py-3 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
           onClick={() => void onProceed()}
           disabled={isSubmitting}
         >

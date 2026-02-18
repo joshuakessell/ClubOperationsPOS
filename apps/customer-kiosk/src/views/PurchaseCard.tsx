@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import './PurchaseCard.css';
 
 export interface PurchaseCardProps {
   title: ReactNode;
@@ -18,11 +17,19 @@ export function PurchaseCard({
   className,
   children,
 }: PurchaseCardProps) {
+  const variantAccent =
+    variant === 'membership'
+      ? 'border-brand-500/30'
+      : variant === 'rental'
+        ? 'border-amber-500/30'
+        : 'border-gray-700';
+
+  const activeCls = active ? 'ring-2 ring-brand-400/40 border-brand-500/50' : '';
+
   const classes = [
-    'cs-liquid-card',
-    'purchase-card',
-    variant ? `purchase-card--${variant}` : '',
-    active ? 'ck-step-active' : '',
+    'rounded-2xl border bg-gray-800/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-200',
+    variantAccent,
+    activeCls,
     className,
   ]
     .filter(Boolean)
@@ -30,11 +37,11 @@ export function PurchaseCard({
 
   return (
     <section className={classes}>
-      <div className="purchase-card__header">
-        <div className="purchase-card__title">{title}</div>
-        {status ? <div className="purchase-card__status">{status}</div> : null}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="text-lg font-bold text-white">{title}</div>
+        {status ? <div className="text-sm text-gray-400">{status}</div> : null}
       </div>
-      <div className="purchase-card__body">{children}</div>
+      <div>{children}</div>
     </section>
   );
 }

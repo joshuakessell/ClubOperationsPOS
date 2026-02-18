@@ -22,7 +22,7 @@ export function PanelShell<T extends ElementType = 'section'>({
   const Component = (as ?? 'section') as ElementType;
   const classes = [
     'panel',
-    card ? 'cs-liquid-card' : '',
+    card ? 'rounded-2xl border border-gray-700 bg-gray-800/80 p-6 shadow-lg' : '',
     spacing === 'md' ? 'panel--spaced' : '',
     className,
   ]

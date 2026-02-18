@@ -106,8 +106,8 @@ export function WaitlistModal({
         })}
       </p>
       {position !== null && (
-        <div className="ck-modal-info-box">
-          <p className="ck-modal-info-title">{t(customerPrimaryLanguage, 'waitlist.infoTitle')}</p>
+        <div className="my-4 rounded-xl border border-gray-700 bg-gray-800/60 p-4">
+          <p className="mb-2 font-semibold text-white">{t(customerPrimaryLanguage, 'waitlist.infoTitle')}</p>
           <p>
             {t(customerPrimaryLanguage, 'waitlist.position')}: <strong>#{position}</strong>
           </p>
@@ -123,7 +123,7 @@ export function WaitlistModal({
             </p>
           )}
           {upgradeFee !== null && upgradeFee > 0 && (
-            <p className="ck-modal-info-warning">
+            <p className="mt-2 font-semibold text-amber-400">
               {t(customerPrimaryLanguage, 'waitlist.upgradeFee')}:{' '}
               <strong>${upgradeFee.toFixed(2)}</strong>
             </p>
@@ -132,13 +132,13 @@ export function WaitlistModal({
       )}
       {!showBackupStep ? (
         <>
-          <div className="ck-modal-section">
-            <p className="ck-modal-section-title">{t(customerPrimaryLanguage, 'waitlist.selectDesired')}</p>
-            <div className="ck-modal-stack">
+          <div className="mt-4">
+            <p className="mb-2 font-semibold text-gray-200">{t(customerPrimaryLanguage, 'waitlist.selectDesired')}</p>
+            <div className="flex flex-col gap-2">
               {unavailableChoices.map((rental) => {
                 const checked = currentDesiredSet.has(rental);
                 return (
-                  <label key={rental} className="ck-waitlist-checkbox-row">
+                  <label key={rental} className="flex items-center gap-3 rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 cursor-pointer hover:bg-gray-700">
                     <input
                       type="checkbox"
                       checked={checked}
@@ -160,10 +160,10 @@ export function WaitlistModal({
             </div>
           </div>
 
-          <div className="ck-modal-section">
-            <p className="ck-modal-section-title">{t(customerPrimaryLanguage, 'waitlist.requestSpecific')}</p>
+          <div className="mt-4">
+            <p className="mb-2 font-semibold text-gray-200">{t(customerPrimaryLanguage, 'waitlist.requestSpecific')}</p>
             <select
-              className="cs-liquid-input"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-3 text-white focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               value={
                 requestedResourceNumber
                   ? `${requestedResourceType ?? 'room'}:${requestedResourceNumber}`
@@ -212,14 +212,14 @@ export function WaitlistModal({
 
           <KioskModalActions>
             <button
-              className="cs-liquid-button ck-modal-btn"
+              className="rounded-lg bg-brand-500 px-6 py-3 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
               onClick={() => setShowBackupStep(true)}
               disabled={isSubmitting || !canProceedFromPreferences}
             >
               {t(customerPrimaryLanguage, 'waitlist.nextToBackup')}
             </button>
             <button
-              className="cs-liquid-button cs-liquid-button--secondary ck-modal-btn"
+              className="rounded-lg border border-gray-600 bg-gray-800 px-6 py-3 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
               onClick={onClose}
               disabled={isSubmitting}
             >
@@ -229,12 +229,12 @@ export function WaitlistModal({
         </>
       ) : (
         <>
-          <p className="ck-modal-spaced">{t(customerPrimaryLanguage, 'waitlist.instructions')}</p>
-          <p className="ck-modal-note">{t(customerPrimaryLanguage, 'waitlist.noteChargedBackup')}</p>
+          <p className="my-3 text-gray-300">{t(customerPrimaryLanguage, 'waitlist.instructions')}</p>
+          <p className="text-sm text-gray-400">{t(customerPrimaryLanguage, 'waitlist.noteChargedBackup')}</p>
 
-          <div className="ck-modal-section">
-            <p className="ck-modal-section-title">{t(customerPrimaryLanguage, 'waitlist.selectBackup')}</p>
-            <div className="ck-modal-stack">
+          <div className="mt-4">
+            <p className="mb-2 font-semibold text-gray-200">{t(customerPrimaryLanguage, 'waitlist.selectBackup')}</p>
+            <div className="flex flex-col gap-2">
               {backupChoices.map((rental) => {
                 const availableCount =
                   inventory?.rooms[rental] ||
@@ -246,9 +246,8 @@ export function WaitlistModal({
                   <button
                     key={rental}
                     className={[
-                      'cs-liquid-button',
-                      'ck-modal-btn',
-                      highlightedBackupRental === rental ? 'ck-option-highlight' : '',
+                      'rounded-lg border border-gray-700 bg-gray-800 px-5 py-3 font-semibold text-white transition hover:bg-gray-700',
+                      highlightedBackupRental === rental ? 'ring-2 ring-brand-400/50' : '',
                     ]
                       .filter(Boolean)
                       .join(' ')}
@@ -269,14 +268,14 @@ export function WaitlistModal({
 
           <KioskModalActions>
             <button
-              className="cs-liquid-button ck-modal-btn"
+              className="rounded-lg bg-brand-500 px-6 py-3 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
               onClick={onSubmit}
               disabled={isSubmitting || !canProceedFromPreferences || !backupChoices.length}
             >
               {t(customerPrimaryLanguage, 'common.continue')}
             </button>
             <button
-              className="cs-liquid-button cs-liquid-button--secondary ck-modal-btn"
+              className="rounded-lg border border-gray-600 bg-gray-800 px-6 py-3 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
               onClick={() => {
                 setShowBackupStep(false);
                 onBackToPreferences?.();

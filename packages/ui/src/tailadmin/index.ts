@@ -42,7 +42,6 @@ export { default as TextArea } from './form/TextArea';
 export { default as Checkbox } from './form/Checkbox';
 export { default as Radio } from './form/Radio';
 
-// ── Context & Hooks ──────────────────────────────────────────
+// ── Hooks ────────────────────────────────────────────────────
 
-export { ThemeProvider, useTheme } from './context/ThemeContext';
 export { useModal } from './hooks/useModal';

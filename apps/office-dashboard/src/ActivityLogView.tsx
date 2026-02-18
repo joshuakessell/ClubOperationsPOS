@@ -130,19 +130,19 @@ export function ActivityLogView({ session }: { session: StaffSession }) {
           )}
 
           <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
-            <div className="cs-liquid-search" style={{ minWidth: 360 }}>
+            <div className="relative w-full" style={{ minWidth: 360 }}>
               <input
-                className="cs-liquid-input cs-liquid-search__input"
+                className="w-full rounded-lg border border-gray-700 bg-gray-800 py-2 pl-9 pr-4 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
                 placeholder="Search (customer, staff, order id, room #)"
               />
-              <div className="cs-liquid-search__icon">🔎</div>
+              <div className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">🔎</div>
             </div>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="cs-liquid-input"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               style={{ minWidth: 220 }}
             >
               <option value="">All categories</option>
@@ -156,7 +156,7 @@ export function ActivityLogView({ session }: { session: StaffSession }) {
             <select
               value={actionType}
               onChange={(e) => setActionType(e.target.value)}
-              className="cs-liquid-input"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               style={{ minWidth: 220 }}
             >
               <option value="">All types</option>
@@ -174,25 +174,25 @@ export function ActivityLogView({ session }: { session: StaffSession }) {
               <option value="PAST_DUE_WAIVED">Past due waived</option>
             </select>
             <input
-              className="cs-liquid-input"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               type="date"
               value={from}
               onChange={(e) => setFrom(e.target.value)}
             />
             <input
-              className="cs-liquid-input"
+              className="w-full rounded-lg border border-gray-700 bg-gray-800 px-4 py-2 text-white placeholder:text-gray-500 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/40"
               type="date"
               value={to}
               onChange={(e) => setTo(e.target.value)}
             />
             <button
-              className="cs-liquid-button"
+              className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
               disabled={busy}
               onClick={applyFilters}
             >
               {busy ? 'Loading…' : 'Apply'}
             </button>
-            <button className="cs-liquid-button cs-liquid-button--secondary" onClick={exportCsv}>
+            <button className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50" onClick={exportCsv}>
               Export CSV
             </button>
           </div>
@@ -238,7 +238,7 @@ export function ActivityLogView({ session }: { session: StaffSession }) {
                   <td className="room-number">{new Date(e.occurredAt).toLocaleString()}</td>
                   <td>
                     <button
-                      className="cs-liquid-button cs-liquid-button--secondary"
+                      className="rounded-lg border border-gray-600 bg-gray-800 px-4 py-2 font-semibold text-gray-300 transition hover:bg-gray-700 disabled:opacity-50"
                       onClick={() =>
                         navigate(`/customers?customerId=${e.customerId}&centerEventId=${e.id}`)
                       }
@@ -256,7 +256,7 @@ export function ActivityLogView({ session }: { session: StaffSession }) {
 
         <div style={{ marginTop: '0.75rem', display: 'flex', justifyContent: 'center' }}>
           <button
-            className="cs-liquid-button"
+            className="rounded-lg bg-brand-500 px-4 py-2 font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50"
             disabled={busy || !nextCursor}
             onClick={() => void runSearch(false)}
           >

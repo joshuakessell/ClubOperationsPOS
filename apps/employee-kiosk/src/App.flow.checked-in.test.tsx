@@ -107,7 +107,7 @@ describe('App flow: already checked in', () => {
       render(<App />);
     });
 
-    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    const searchTab = await screen.findByRole('button', { name: /Search Customer/ });
     act(() => {
       fireEvent.click(searchTab);
     });
@@ -249,7 +249,7 @@ describe('App flow: already checked in', () => {
       render(<App />);
     });
 
-    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    const searchTab = await screen.findByRole('button', { name: /Search Customer/ });
     act(() => {
       fireEvent.click(searchTab);
     });
@@ -413,7 +413,7 @@ describe('App flow: already checked in', () => {
       render(<App />);
     });
 
-    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    const searchTab = await screen.findByRole('button', { name: /Search Customer/ });
     act(() => {
       fireEvent.click(searchTab);
     });

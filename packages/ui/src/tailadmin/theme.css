@@ -3,10 +3,11 @@
    Source: tailadmin-react-pro-2.0-main/src/index.css
    Only core tokens + base resets are kept here.
    Third-party plugin styles (flatpickr, apexcharts, etc.) removed.
-   ═══════════════════════════════════════════════════════════════ */
 
-@import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap")
-layer(base);
+   NOTE: The Outfit font import was moved to each app's entry CSS:
+     @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@100..900&display=swap") layer(base);
+   CSS spec requires @import to precede all other statements.
+   ═══════════════════════════════════════════════════════════════ */
 
 
 @reference "tailwindcss";
@@ -284,10 +285,6 @@ layer(base);
   }
 }
 
-.dark .custom-scrollbar::-webkit-scrollbar-thumb {
-  background-color: #344054;
-}
-
 /* ── Form Utilities ───────────────────────────────────────── */
 
 @layer utilities {
@@ -300,15 +297,21 @@ layer(base);
   }
 }
 
-.tableCheckbox:checked ~ span span {
-  @apply opacity-100;
-}
-.tableCheckbox:checked ~ span {
-  @apply border-brand-500 bg-brand-500;
-}
+@layer components {
+  .dark .custom-scrollbar::-webkit-scrollbar-thumb {
+    background-color: #344054;
+  }
 
-/* ── Radio / Checkbox Form Helpers ────────────────────────── */
+  .tableCheckbox:checked ~ span span {
+    @apply opacity-100;
+  }
+  .tableCheckbox:checked ~ span {
+    @apply border-brand-500 bg-brand-500;
+  }
 
-.form-check-input:checked ~ span {
-  @apply border-[6px] border-brand-500 bg-brand-500 dark:border-brand-500;
+  /* ── Radio / Checkbox Form Helpers ────────────────────────── */
+
+  .form-check-input:checked ~ span {
+    @apply border-[6px] border-brand-500 bg-brand-500 dark:border-brand-500;
+  }
 }

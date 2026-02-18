@@ -64,7 +64,7 @@ describe('App', () => {
       render(<App />);
     });
     // When not authenticated, the sign-in panel is shown inside the shell
-    expect(screen.getByText('Employee Sign In')).toBeDefined();
+    expect(screen.getByText('Sign In')).toBeDefined();
     expect(screen.getByText('Select Employee')).toBeDefined();
   });
 
@@ -108,7 +108,7 @@ describe('App', () => {
       render(<App />);
     });
 
-    const scanTab = await screen.findByRole('button', { name: 'Scan' });
+    const scanTab = await screen.findByRole('button', { name: /Scan/ });
     act(() => {
       fireEvent.click(scanTab);
     });
@@ -136,7 +136,7 @@ describe('App', () => {
       render(<App />);
     });
 
-    const scanTab = await screen.findByRole('button', { name: 'Scan' });
+    const scanTab = await screen.findByRole('button', { name: /Scan/ });
     act(() => {
       fireEvent.click(scanTab);
     });
@@ -257,7 +257,7 @@ describe('App', () => {
       render(<App />);
     });
 
-    const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+    const searchTab = await screen.findByRole('button', { name: /Search Customer/ });
     act(() => {
       fireEvent.click(searchTab);
     });
@@ -316,7 +316,7 @@ describe('App', () => {
       render(<App />);
     });
 
-    const scanTab = await screen.findByRole('button', { name: 'Scan' });
+    const scanTab = await screen.findByRole('button', { name: /Scan/ });
     act(() => {
       fireEvent.click(scanTab);
     });

@@ -278,7 +278,7 @@ function mockAuthenticatedFetch() {
 }
 
 async function openAccountViaSearch() {
-  const searchTab = await screen.findByRole('button', { name: 'Search Customer' });
+  const searchTab = await screen.findByRole('button', { name: /Search Customer/ });
   act(() => {
     fireEvent.click(searchTab);
   });
@@ -355,14 +355,14 @@ describe('App edge flows', () => {
 
     await openAccountViaSearch();
 
-    const roomCleaningTab = await screen.findByRole('button', { name: 'Room Cleaning' });
+    const roomCleaningTab = await screen.findByRole('button', { name: /Room Cleaning/ });
     act(() => {
       fireEvent.click(roomCleaningTab);
     });
 
     expect(await screen.findByText('Select rooms to begin or finish cleaning')).toBeDefined();
 
-    const accountTab = screen.getByRole('button', { name: 'Customer Account' });
+    const accountTab = screen.getByRole('button', { name: /Customer Account/ });
     act(() => {
       fireEvent.click(accountTab);
     });
@@ -382,14 +382,14 @@ describe('App edge flows', () => {
 
     await openAccountViaSearch();
 
-    const checkoutTab = await screen.findByRole('button', { name: 'Checkout' });
+    const checkoutTab = await screen.findByRole('button', { name: /Checkout/ });
     act(() => {
       fireEvent.click(checkoutTab);
     });
 
     expect(await screen.findByPlaceholderText(/Enter room\/locker number/)).toBeDefined();
 
-    const accountTab = screen.getByRole('button', { name: 'Customer Account' });
+    const accountTab = screen.getByRole('button', { name: /Customer Account/ });
     act(() => {
       fireEvent.click(accountTab);
     });
@@ -407,14 +407,14 @@ describe('App edge flows', () => {
 
     await openAccountViaSearch();
 
-    const manualEntryTab = await screen.findByRole('button', { name: 'Manual Entry' });
+    const manualEntryTab = await screen.findByRole('button', { name: /Manual Entry/ });
     act(() => {
       fireEvent.click(manualEntryTab);
     });
 
     expect(await screen.findByText('First Time Customer')).toBeDefined();
 
-    const accountTab = screen.getByRole('button', { name: 'Customer Account' });
+    const accountTab = screen.getByRole('button', { name: /Customer Account/ });
     act(() => {
       fireEvent.click(accountTab);
     });

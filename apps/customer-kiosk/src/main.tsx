@@ -1,7 +1,6 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import App from './App';
-import '@club-ops/ui/tailadmin/theme.css';
 import './styles.css';
 import { OrientationGuard } from './ui/orientation/OrientationGuard';
 import { FatalEnvScreen } from './components/FatalEnvScreen';

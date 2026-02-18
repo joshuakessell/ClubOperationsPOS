@@ -1,5 +1,4 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { Badge, Button } from '@club-ops/ui/tailadmin';
 import type { RegisterSession } from './components/sign-in/SignInPanel';
 import type { RealtimeEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
@@ -44,13 +43,13 @@ interface RegisterSignInProps {
 export function RegisterSignIn({
   deviceId,
   onSignedIn,
-  topTitle = 'Employee Register',
-  lane,
-  apiStatus,
-  realtimeConnected,
+  topTitle: _topTitle = 'Employee Register',
+  lane: _lane,
+  apiStatus: _apiStatus,
+  realtimeConnected: _realtimeConnected,
   realtimeMode,
-  onSignOut,
-  onCloseOut,
+  onSignOut: _onSignOut,
+  onCloseOut: _onCloseOut,
   children,
 }: RegisterSignInProps) {
   const [registerSession, setRegisterSession] = useState<RegisterSession | null>(null);
@@ -288,72 +287,19 @@ export function RegisterSignIn({
 
   const signInContextValue = { deviceId, onSignedIn: handleSignInComplete };
 
-  /* ── Not signed in → render shell with sign-in tab ── */
-  if (!registerSession) {
-    return (
-      <div className="flex h-screen flex-col bg-white dark:bg-gray-900">
-        {signedInRealtime}
-        <RegisterSignInContext.Provider value={signInContextValue}>
-          {children}
-        </RegisterSignInContext.Provider>
-      </div>
-    );
-  }
-
-  /* ── Signed in → normal shell ── */
+  /* ── Render: just context provider + children (no header/wrapper — kiosk AppHeader handles that) ── */
   return (
-    <div className="flex h-screen flex-col bg-white dark:bg-gray-900">
+    <>
+      {signedInRealtime}
       {realtimeMode === 'lan' ? (
         <div className="bg-warning-500 px-3 py-1.5 text-center text-sm font-bold text-white">
           LAN mode (offline fallback)
         </div>
       ) : null}
-
-      {/* Top bar */}
-      <header className="flex items-center justify-between border-b border-gray-200 bg-white px-4 py-2.5 dark:border-gray-800 dark:bg-gray-900">
-        <span className="text-base font-semibold text-gray-800 dark:text-white/90">{topTitle}</span>
-
-        <div className="flex items-center gap-3">
-          <span className="text-base text-gray-600 dark:text-gray-300">
-            {registerSession.employeeName} • Register {registerSession.registerNumber}
-          </span>
-
-          {import.meta.env.DEV && (
-            <span className="flex items-center gap-2">
-              {lane ? (
-                <Badge color="info" variant="light" size="sm">
-                  Lane: {lane}
-                </Badge>
-              ) : null}
-              <Badge color={apiStatus === 'ok' ? 'success' : 'error'} variant="light" size="sm">
-                API: {apiStatus ?? '...'}
-              </Badge>
-              <Badge color={realtimeConnected ? 'success' : 'error'} variant="light" size="sm">
-                Realtime: {realtimeConnected ? 'Live' : 'Offline'}
-              </Badge>
-            </span>
-          )}
-        </div>
-
-        <div className="flex items-center gap-2">
-          {onSignOut && (
-            <Button variant="outline" size="sm" onClick={() => void onSignOut()}>
-              Sign Out
-            </Button>
-          )}
-          {onCloseOut && (
-            <Button variant="danger" size="sm" onClick={() => void onCloseOut()}>
-              Close Out
-            </Button>
-          )}
-        </div>
-      </header>
-
-      {signedInRealtime}
       <RegisterSignInContext.Provider value={signInContextValue}>
         {children}
       </RegisterSignInContext.Provider>
-    </div>
+    </>
   );
 }
 
