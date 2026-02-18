@@ -12,7 +12,7 @@ const DEMO_STATE_KEY = 'busy_saturday_demo_v1';
 // Bump whenever demo snapshot schema or seed behavior changes.
 // This forces the demo DB to rebuild the snapshot schema so restore doesn't
 // fail due to column mismatch between demo_snapshot.* and public.*.
-const DEMO_SNAPSHOT_VERSION = 6;
+const DEMO_SNAPSHOT_VERSION = 7;
 const DEMO_FORCE_RESEED = process.env.DEMO_FORCE_RESEED === 'true';
 const DEMO_SHIFT_REGENERATE_PDFS = process.env.DEMO_SHIFT_REGENERATE_PDFS !== 'false';
 const DEMO_RESET_ON_STARTUP = process.env.DEMO_RESET_ON_STARTUP !== 'false';
@@ -25,6 +25,7 @@ const DEMO_INCREMENTAL = process.env.DEMO_INCREMENTAL !== 'false';
 const DEMO_SNAPSHOT_TABLES = [
   'agreements',
   'customer_activity_events',
+  'customer_spend_ledger_entries',
   'customer_notes',
   'customers',
   'rooms',
@@ -57,6 +58,8 @@ const DEMO_SNAPSHOT_TABLES = [
 
 const DEMO_TIMESTAMP_TABLES = [
   'agreements',
+  'customer_activity_events',
+  'customer_spend_ledger_entries',
   'customers',
   'rooms',
   'lockers',

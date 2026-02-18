@@ -68,39 +68,31 @@ async function ensureBaselineRecorded(client: pg.Client): Promise<void> {
   if (rows.rows.length === 0) return;
 
   const toDate = (value: Date | string) => (value instanceof Date ? value : new Date(value));
-  const executedAtValues = rows.rows
-    .map((row) => row.executed_at)
-    .filter((value): value is Date | string => Boolean(value))
-    .map(toDate);
-
-  if (executedAtValues.length === 0) return;
-
-  const earliestExecutedAt = executedAtValues.reduce((min, current) =>
-    current.getTime() < min.getTime() ? current : min
-  );
-  const baselineExecutedAt = new Date(earliestExecutedAt.getTime() - 1000);
-
+  const nonBaselineRows = rows.rows.filter((row) => row.name !== BASELINE_MIGRATION_NAME);
   const baselineRow = rows.rows.find((row) => row.name === BASELINE_MIGRATION_NAME);
 
-  if (!baselineRow) {
+  // If real domain-split migrations are already recorded (e.g. after snapshot
+  // restore), the 000_baseline sentinel is no longer needed and in fact breaks
+  // node-pg-migrate's checkOrder — it sorts first by timestamp but has no
+  // corresponding migration file. Remove it.
+  if (nonBaselineRows.length > 0 && baselineRow) {
     await client.query(
-      `INSERT INTO "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" (name, ${EXECUTED_AT_COLUMN})
-       VALUES ($1, $2)
-       ON CONFLICT (name) DO NOTHING`,
-      [BASELINE_MIGRATION_NAME, baselineExecutedAt]
+      `DELETE FROM "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" WHERE name = $1`,
+      [BASELINE_MIGRATION_NAME]
     );
     return;
   }
 
-  const baselineRowTime = toDate(baselineRow.executed_at).getTime();
-  if (baselineRowTime <= baselineExecutedAt.getTime()) return;
-
-  await client.query(
-    `UPDATE "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}"
-     SET ${EXECUTED_AT_COLUMN} = $2
-     WHERE name = $1`,
-    [BASELINE_MIGRATION_NAME, baselineExecutedAt]
-  );
+  // No real migrations recorded yet: ensure the baseline sentinel exists
+  // so the first run of domain-split migrations works correctly.
+  if (!baselineRow && nonBaselineRows.length === 0) {
+    await client.query(
+      `INSERT INTO "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" (name, ${EXECUTED_AT_COLUMN})
+       VALUES ($1, $2)
+       ON CONFLICT (name) DO NOTHING`,
+      [BASELINE_MIGRATION_NAME, new Date(Date.now() - 1000)]
+    );
+  }
 }
 
 async function run(direction: 'up' | 'down'): Promise<void> {
