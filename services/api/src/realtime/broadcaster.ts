@@ -21,12 +21,13 @@ import type {
   SessionUpdatedPayload,
   WaitlistCreatedPayload,
 } from '@club-ops/shared';
-import {
-  buildChannelPath,
-  getAppSyncChannelNamespace,
-  isAppSyncEventsEnabled,
-  publishAppSyncEvent,
-} from './appsyncEvents';
+// DEPRECATED: AppSync imports preserved for future re-activation
+// import {
+//   buildChannelPath,
+//   getAppSyncChannelNamespace,
+//   isAppSyncEventsEnabled,
+//   publishAppSyncEvent,
+// } from './appsyncEvents';
 import type { LocalLaneSockets } from './localSockets';
 
 /**
@@ -102,25 +103,33 @@ function isLanFallbackEnabled(): boolean {
 }
 
 export function createBroadcaster(params?: { localLaneSockets?: LocalLaneSockets }): Broadcaster {
-  const appSyncEnabled = isAppSyncEventsEnabled();
-  const channelNamespace = getAppSyncChannelNamespace();
-  const globalChannel = buildChannelPath(channelNamespace, 'global');
-  const laneChannel = (lane: string) => buildChannelPath(channelNamespace, 'lane', lane);
+  // DEPRECATED: AppSync variables preserved for future re-activation
+  // const appSyncEnabled = isAppSyncEventsEnabled();
+  // const channelNamespace = getAppSyncChannelNamespace();
+  // const globalChannel = buildChannelPath(channelNamespace, 'global');
+  // const laneChannel = (lane: string) => buildChannelPath(channelNamespace, 'lane', lane);
   const localLaneSockets = params?.localLaneSockets;
   const lastLaneVersions = new Map<string, number>();
 
-  const publishGlobal = (event: RealtimeEvent<unknown>) => {
-    if (!appSyncEnabled) return;
-    void publishAppSyncEvent(globalChannel, event).catch((error) => {
-      console.error('AppSync Events publish failed (global):', error);
-    });
+  // ──────────────────────────────────────────────────────────────
+  // DEPRECATED: AppSync publishing disabled (AWS services torn down 2026-02-18).
+  // To re-enable: set APPSYNC_EVENTS_HTTP_ENDPOINT env var and restore
+  // AppSync Event APIs. See docs/AWS_ARCHITECTURE_REFERENCE.md.
+  // ──────────────────────────────────────────────────────────────
+  const publishGlobal = (_event: RealtimeEvent<unknown>) => {
+    // AppSync disabled — no-op. Re-enable by uncommenting below:
+    // if (!appSyncEnabled) return;
+    // void publishAppSyncEvent(globalChannel, event).catch((error) => {
+    //   console.error('AppSync Events publish failed (global):', error);
+    // });
   };
 
-  const publishToLane = (event: RealtimeEvent<unknown>, lane: string) => {
-    if (!appSyncEnabled) return;
-    void publishAppSyncEvent(laneChannel(lane), event).catch((error) => {
-      console.error(`AppSync Events publish failed (lane ${lane}):`, error);
-    });
+  const publishToLane = (_event: RealtimeEvent<unknown>, _lane: string) => {
+    // AppSync disabled — no-op. Re-enable by uncommenting below:
+    // if (!appSyncEnabled) return;
+    // void publishAppSyncEvent(laneChannel(lane), event).catch((error) => {
+    //   console.error(`AppSync Events publish failed (lane ${lane}):`, error);
+    // });
   };
 
   const publishToLaneLocal = (event: RealtimeEvent<unknown>, lane: string) => {

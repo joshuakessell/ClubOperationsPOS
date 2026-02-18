@@ -18,14 +18,18 @@ import {
 
 const NAMESPACE = 'ClubOperations';
 
-let client: CloudWatchClient | null = null;
+// let client: CloudWatchClient | null = null; // AWS deprecated
 
+// DEPRECATED: AWS services torn down 2026-02-18. Always returns null.
+// To re-enable: remove the early return and set AWS_REGION env var.
+// See docs/AWS_ARCHITECTURE_REFERENCE.md.
 function getClient(): CloudWatchClient | null {
-  if (!process.env.AWS_REGION) return null;
-  if (!client) {
-    client = new CloudWatchClient({ region: process.env.AWS_REGION });
-  }
-  return client;
+  return null; // AWS deprecated
+  // if (!process.env.AWS_REGION) return null;
+  // if (!client) {
+  //   client = new CloudWatchClient({ region: process.env.AWS_REGION });
+  // }
+  // return client;
 }
 
 /**

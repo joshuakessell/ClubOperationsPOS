@@ -24,6 +24,8 @@ env:
 
 jobs:
   deploy:
+    # DEPRECATED: AWS services torn down 2026-02-18. See docs/AWS_ARCHITECTURE_REFERENCE.md
+    if: false
     name: Deploy to ${{ matrix.environment }}
     runs-on: ubuntu-latest
     strategy:

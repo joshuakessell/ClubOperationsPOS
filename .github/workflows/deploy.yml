@@ -13,6 +13,8 @@ permissions: read-all
 
 jobs:
   deploy:
+    # DEPRECATED: AWS services torn down 2026-02-18. See docs/AWS_ARCHITECTURE_REFERENCE.md
+    if: false
     name: Deploy dev (API + frontends)
     runs-on: ubuntu-latest
     permissions:
