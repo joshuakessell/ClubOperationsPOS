@@ -19,9 +19,13 @@ const MIGRATIONS_DIR = path.resolve(__dirname, '../../migrations');
 /**
  * Ensure the tracking table exists with the expected `(filename, applied_at)` schema.
  *
- * If a legacy table exists with a different schema (e.g., `name` column),
- * drop it and recreate. All migrations are idempotent (IF NOT EXISTS)
- * so re-running them is safe.
+ * Handles two possible pre-existing schemas:
+ * 1. CLI node-pg-migrate schema: `(id, name, executed_at)` — created by `scripts/migrate.ts`
+ * 2. Built-in schema: `(filename, applied_at)` — created by this file
+ *
+ * When the CLI schema is detected (has `name` but no `filename`), add a
+ * `filename` column and backfill from `name` (appending `.sql` where needed).
+ * This avoids dropping migration history and re-running all migrations.
  */
 async function ensureTrackingTable(): Promise<void> {
   const pool = getPool();
@@ -34,21 +38,38 @@ async function ensureTrackingTable(): Promise<void> {
   `);
 
   if (tableExists.rows[0]?.exists) {
-    const colCheck = await pool.query<{ exists: boolean }>(`
-      SELECT EXISTS (
-        SELECT 1 FROM information_schema.columns
-        WHERE table_schema = 'public'
-          AND table_name = 'schema_migrations'
-          AND column_name = 'filename'
-      ) AS exists
+    // Check which columns exist
+    const cols = await pool.query<{ column_name: string }>(`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'schema_migrations'
+        AND column_name IN ('filename', 'name')
     `);
+    const colNames = new Set(cols.rows.map((r) => r.column_name));
+    const hasFilename = colNames.has('filename');
+    const hasName = colNames.has('name');
 
-    if (!colCheck.rows[0]?.exists) {
-      console.log('[migrate] Dropping legacy schema_migrations table (incompatible schema).');
-      await pool.query('DROP TABLE schema_migrations');
+    if (hasName && !hasFilename) {
+      // CLI schema detected — add `filename` column and backfill from `name`
+      console.log('[migrate] Detected CLI schema (name/executed_at). Adding filename column...');
+      await pool.query(`ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS filename TEXT`);
+      // Backfill: name stores migration names without .sql extension
+      await pool.query(`
+        UPDATE schema_migrations
+        SET filename = CASE
+          WHEN name LIKE '%.sql' THEN name
+          ELSE name || '.sql'
+        END
+        WHERE filename IS NULL AND name IS NOT NULL
+      `);
+      return; // Table is now compatible
+    }
+
+    if (hasFilename) {
+      return; // Already has the expected schema
     }
   }
 
+  // Create fresh table
   await pool.query(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       filename  TEXT PRIMARY KEY,

@@ -61,13 +61,57 @@ async function ensureBaselineRecorded(client: pg.Client): Promise<void> {
 
   if (!tableCheck.rows[0]?.exists) return;
 
+  // Detect which schema variant we have
+  const cols = await client.query<{ column_name: string }>(
+    `SELECT column_name FROM information_schema.columns
+     WHERE table_schema = $1 AND table_name = $2
+       AND column_name IN ('name', 'filename', 'id', '${EXECUTED_AT_COLUMN}')`,
+    [MIGRATIONS_SCHEMA, MIGRATIONS_TABLE]
+  );
+  const colNames = new Set(cols.rows.map((r) => r.column_name));
+  const hasName = colNames.has('name');
+  const hasFilename = colNames.has('filename');
+  const hasId = colNames.has('id');
+  const hasExecutedAt = colNames.has(EXECUTED_AT_COLUMN);
+
+  // Ensure node-pg-migrate required columns always exist (id, name, executed_at)
+  if (!hasId) {
+    await client.query(
+      `ALTER TABLE "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" ADD COLUMN IF NOT EXISTS id SERIAL`
+    );
+  }
+  if (!hasName) {
+    await client.query(
+      `ALTER TABLE "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" ADD COLUMN IF NOT EXISTS name VARCHAR(255) UNIQUE`
+    );
+  }
+  if (!hasExecutedAt) {
+    await client.query(
+      `ALTER TABLE "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" ADD COLUMN IF NOT EXISTS "${EXECUTED_AT_COLUMN}" TIMESTAMPTZ DEFAULT NOW()`
+    );
+  }
+
+  // Built-in schema (filename/applied_at, no name column before this run):
+  // backfill name from filename (strip .sql extension)
+  if (hasFilename && !hasName) {
+    console.log('[migrate] Detected built-in schema (filename/applied_at). Backfilling name column...');
+    await client.query(
+      `UPDATE "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}"
+       SET name = REPLACE(filename, '.sql', ''),
+           "${EXECUTED_AT_COLUMN}" = COALESCE(applied_at, NOW())
+       WHERE name IS NULL AND filename IS NOT NULL`
+    );
+  }
+
+  if (!hasName && !hasFilename && cols.rows.length === 0) return; // Empty table or unexpected state
+
+  // Now we can safely query by name
   const rows = await client.query<{ name: string; executed_at: Date | string }>(
-    `SELECT name, ${EXECUTED_AT_COLUMN} AS executed_at FROM "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}"`
+    `SELECT name, ${EXECUTED_AT_COLUMN} AS executed_at FROM "${MIGRATIONS_SCHEMA}"."${MIGRATIONS_TABLE}" WHERE name IS NOT NULL`
   );
 
   if (rows.rows.length === 0) return;
 
-  const toDate = (value: Date | string) => (value instanceof Date ? value : new Date(value));
   const nonBaselineRows = rows.rows.filter((row) => row.name !== BASELINE_MIGRATION_NAME);
   const baselineRow = rows.rows.find((row) => row.name === BASELINE_MIGRATION_NAME);
 
