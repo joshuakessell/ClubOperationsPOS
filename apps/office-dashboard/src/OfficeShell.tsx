@@ -27,6 +27,8 @@ export function OfficeShell({
       { to: '/monitor', label: 'Monitor', icon: '🛰️', adminOnly: true },
       { to: '/waitlist', label: 'Waitlist', icon: '🕒', adminOnly: true },
       { to: '/reports', label: 'Reports', icon: '📊', adminOnly: true },
+      { to: '/analytics', label: 'Analytics', icon: '📈', adminOnly: true },
+      { to: '/products', label: 'Products', icon: '🏪', adminOnly: true },
       { to: '/customers', label: 'Customers', icon: '🗂️', adminOnly: true },
       { to: '/late-checkout-alerts', label: 'Late Alerts', icon: '🚨', adminOnly: true },
       { to: '/logs', label: 'Logs', icon: '🧾', adminOnly: true },

@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 import { API_BASE } from '../../app/state/shared/api';
 import { InventoryDrawer } from '../../components/inventory/InventoryDrawer';
 import { SlideOutDrawer } from '../../components/drawers/SlideOutDrawer';

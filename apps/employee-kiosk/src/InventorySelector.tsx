@@ -342,32 +342,17 @@ export function InventorySelector({
         }}
       >
         <PanelHeader title="Rentals" />
-
-        {!occupancyLookupMode && !disableSelection && selectedItem && onClearSelection && (
-          <button
-            className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
-            onClick={onClearSelection}
-            style={{ width: '100%', marginBottom: '0.75rem', padding: '0.6rem', fontWeight: 800 }}
-          >
-            Clear selection (currently {selectedItem.type === 'room' ? 'Room' : 'Locker'}{' '}
-            {selectedItem.number})
-          </button>
-        )}
-
-        {/* Single card layout: left buttons + right scrollable list pane */}
+        {/* Vertical tabs + content layout filling available space */}
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(140px, 40%) minmax(0, 1fr)',
-            gridTemplateRows: 'minmax(0, 1fr)',
-            alignItems: 'stretch',
-            gap: '1.5rem',
+            display: 'flex',
+            gap: '1.25rem',
             flex: 1,
             minHeight: 0,
             overflow: 'hidden',
           }}
         >
-          <div style={{ minHeight: 0, overflow: 'auto' }}>
+          <div style={{ minHeight: 0, overflow: 'auto', minWidth: '170px', maxWidth: '220px' }}>
             <InventoryNav
               activeSection={activeSection}
               navCounts={navCounts}
@@ -378,7 +363,16 @@ export function InventorySelector({
             />
           </div>
 
-          <div style={{ minHeight: 0, overflow: 'hidden' }}>
+          <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
+            {!occupancyLookupMode && !disableSelection && selectedItem && onClearSelection && (
+              <button
+                className="mb-2 inline-flex w-full items-center justify-center rounded-lg border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+                onClick={onClearSelection}
+              >
+                Clear selection ({selectedItem.type === 'room' ? 'Room' : 'Locker'}{' '}
+                {selectedItem.number})
+              </button>
+            )}
             <InventoryListPane
               activeSection={activeSection}
               roomsByTier={roomsByTier}

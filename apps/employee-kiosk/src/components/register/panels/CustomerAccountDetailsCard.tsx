@@ -2,7 +2,7 @@ import { useState } from 'react';
 import type { ReactNode } from 'react';
 import { ModalFrame } from '../modals/ModalFrame';
 import { getApiUrl } from '@club-ops/shared';
-import { isRecord, readJson } from '@club-ops/ui';
+import { isRecord, readJson } from '@club-ops/shared';
 import { useEmployeeRegisterState } from '../../../app/state/useEmployeeRegisterState';
 
 type CustomerNotesState = {

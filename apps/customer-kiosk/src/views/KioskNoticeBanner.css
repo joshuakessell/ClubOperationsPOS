@@ -1,9 +1,0 @@
-/* KioskNoticeBanner — Tailwind edition */
-@reference "tailwindcss";
-.ck-notice { @apply p-4 mb-4 rounded-lg text-white; }
-.ck-notice--info { @apply bg-blue-600; }
-.ck-notice--success { @apply bg-emerald-500; }
-.ck-notice--warning { @apply bg-amber-500 text-gray-900; }
-.ck-notice--muted { @apply bg-slate-700; }
-.ck-notice__title { @apply font-semibold mb-2; }
-.ck-notice__title--solo { @apply mb-0; }

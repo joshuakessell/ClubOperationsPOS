@@ -4,6 +4,7 @@ import { buildFullSessionUpdatedPayload } from '../../checkin/payload';
 import type { CustomerRow, LaneSessionRow } from '../../checkin/types';
 import { transaction } from '../../db';
 import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
+import { insertClubEvent } from '../../activity/clubEventLog';
 
 export function registerCheckinNoteRoutes(fastify: FastifyInstance): void {
   /**
@@ -85,6 +86,24 @@ export function registerCheckinNoteRoutes(fastify: FastifyInstance): void {
               noteId,
               isImportant: false,
             },
+          });
+
+          // Emit unified club event for analytics
+          await insertClubEvent(client, {
+            eventType: 'NOTE_ADDED',
+            eventDomain: 'ADMIN',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            staffId: staff.staffId,
+            staffName: staff.name,
+            customerId: session.customer_id,
+            summary: `Note added: ${preview}`,
+            metadata: {
+              noteId,
+              isImportant: false,
+              laneId,
+              laneSessionId: session.id,
+            },
+            dedupeKey: `CLUB:NOTE_ADDED:${noteId}`,
           });
 
           return { sessionId: session.id, success: true, noteId };

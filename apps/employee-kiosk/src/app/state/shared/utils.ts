@@ -1,4 +1,4 @@
-import { isRecord } from '@club-ops/ui';
+import { isRecord } from '@club-ops/shared';
 import type { StaffSession } from './types';
 
 export function parseStaffSession(value: unknown): StaffSession | null {

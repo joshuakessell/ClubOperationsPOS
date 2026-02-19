@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
-import { getErrorMessage, readJson } from '@club-ops/ui';
+import { getErrorMessage, readJson } from '@club-ops/shared';
 import { RETAIL_CATALOG } from '../../../components/retail/retailCatalog';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';

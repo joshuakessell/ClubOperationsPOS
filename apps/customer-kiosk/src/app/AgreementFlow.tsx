@@ -8,7 +8,7 @@ import {
   type SetStateAction,
   type TouchEvent,
 } from 'react';
-import { getErrorMessage, readJson } from '@club-ops/ui';
+import { getErrorMessage, readJson } from '@club-ops/shared';
 import { t } from '../i18n';
 import { AgreementScreen, type Agreement } from '../screens/AgreementScreen';
 import type { SessionState } from '../utils/membership';

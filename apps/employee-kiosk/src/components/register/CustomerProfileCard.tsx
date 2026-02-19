@@ -24,39 +24,15 @@ export interface CustomerProfileCardProps {
   onToggleLanguage?: () => void;
 }
 
-function Detail({ label, value }: { label: string; value: ReactNode }) {
-  return (
-    <div style={{ minWidth: 0 }}>
-      <div
-        className="er-text-sm"
-        style={{ color: '#94a3b8', marginBottom: '0.15rem', fontWeight: 800 }}
-      >
-        {label}
-      </div>
-      <div
-        className="er-text-md"
-        style={{
-          fontWeight: 900,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-        }}
-      >
-        {value}
-      </div>
-    </div>
-  );
-}
+/* ── Helpers ─────────────────────────────────────────────── */
 
 function formatMmYyFromYyyyMmDd(value: string | null | undefined): string {
   if (!value) return '—';
   if (/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const yyyy = value.slice(0, 4);
     const mm = value.slice(5, 7);
-    const yy = yyyy.slice(-2);
+    const yy = value.slice(2, 4);
     return `${mm}/${yy}`;
   }
-
   const d = new Date(value);
   if (!Number.isFinite(d.getTime())) return '—';
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -72,7 +48,6 @@ function formatMmDdYyyyFromYyyyMmDd(value: string | null | undefined): string {
     const dd = value.slice(8, 10);
     return `${mm}/${dd}/${yyyy}`;
   }
-
   const d = new Date(value);
   if (!Number.isFinite(d.getTime())) return '—';
   const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -90,6 +65,8 @@ function formatMmYyFromTimestamp(value: string | null | undefined): string {
   return `${mm}/${yy}`;
 }
 
+/* ── Component ───────────────────────────────────────────── */
+
 export function CustomerProfileCard(props: CustomerProfileCardProps) {
   const membershipStatus = getCustomerMembershipStatus(
     {
@@ -99,6 +76,7 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
     new Date()
   );
   const isMember = membershipStatus === 'ACTIVE';
+
   const dobDisplay = props.dob
     ? formatMmDdYyyyFromYyyyMmDd(props.dob)
     : props.dobMonthDay
@@ -111,6 +89,7 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
       : props.preferredLanguage === 'ES'
         ? 'Español'
         : '—';
+
   const idTypeLabel = (() => {
     switch (props.idType) {
       case 'STATE_ID':
@@ -128,120 +107,133 @@ export function CustomerProfileCard(props: CustomerProfileCardProps) {
 
   const compact = Boolean(props.compact);
 
+  /* ── TailAdmin UserInfoCard-style layout ──────────────── */
   return (
     <div
       className={
         compact
           ? undefined
-          : 'rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900'
+          : 'p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6'
       }
-      style={{ padding: compact ? 0 : '0.9rem' }}
     >
-      {props.checkinStage ? (
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            marginBottom: '0.35rem',
-          }}
-        >
-          <div className="er-text-sm" style={{ color: '#94a3b8', fontWeight: 900 }}>
-            Check -in Stage: {props.checkinStage.number} — {props.checkinStage.label}
-          </div>
-        </div>
-      ) : null}
+      {/* Header: customer name + checkin stage */}
+      <div className="flex items-center justify-between mb-4">
+        <h4 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+          {props.name || '—'}
+        </h4>
+        {props.checkinStage ? (
+          <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+            Stage {props.checkinStage.number} — {props.checkinStage.label}
+          </span>
+        ) : null}
+      </div>
 
-      <div
-        style={{
-          marginTop: '0.6rem',
-          display: 'grid',
-          gridTemplateColumns: compact
-            ? 'repeat(auto-fit, minmax(150px, 1fr))'
-            : 'repeat(auto-fit, minmax(170px, 1fr))',
-          gap: '0.65rem 0.9rem',
-          alignItems: 'start',
-        }}
-      >
-        <Detail label="Name" value={props.name || '—'} />
-        <div style={{ minWidth: 0 }}>
-          <div
-            className="er-text-sm"
-            style={{ color: '#94a3b8', marginBottom: '0.15rem', fontWeight: 800 }}
-          >
+      {/* Detail grid — TailAdmin UserInfoCard pattern */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-7">
+        {/* Language */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
             Preferred Language
-          </div>
+          </p>
           {props.onToggleLanguage ? (
             <button
               type="button"
-              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
+              className="inline-flex items-center justify-center rounded-lg border border-gray-200 px-3 py-1.5 text-sm font-medium text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]"
               onClick={props.onToggleLanguage}
-              style={{
-                padding: '0.25rem 0.65rem',
-                fontSize: '0.85rem',
-                fontWeight: 900,
-                minWidth: 0,
-              }}
             >
               {languageLabel === '—' ? 'Set Language' : languageLabel}
             </button>
           ) : (
-            <div
-              className="er-text-md"
-              style={{
-                fontWeight: 900,
-                whiteSpace: 'nowrap',
-                overflow: 'hidden',
-                textOverflow: 'ellipsis',
-              }}
-            >
-              {languageLabel}
-            </div>
+            <p className="text-sm font-medium text-gray-800 dark:text-white/90">{languageLabel}</p>
           )}
         </div>
-        <Detail label="DOB (MM/DD/YYYY)" value={dobDisplay} />
-        <Detail label="ID Type" value={idTypeLabel} />
-        <Detail label="ID #" value={props.idNumber || '—'} />
-        <Detail
-          label="ID Exp (MM/DD/YYYY)"
-          value={formatMmDdYyyyFromYyyyMmDd(props.idExpirationDate)}
-        />
-        <Detail label="Member" value={isMember ? 'Yes' : 'No'} />
-        <Detail label="Membership ID" value={props.membershipNumber || '—'} />
-        <Detail
-          label="Membership Exp (MM/YY)"
-          value={isMember ? formatMmYyFromYyyyMmDd(props.membershipValidUntil) : '—'}
-        />
-        <Detail label="Last Visit (MM/YY)" value={formatMmYyFromTimestamp(props.lastVisitAt)} />
+
+        {/* DOB */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">DOB</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">{dobDisplay}</p>
+        </div>
+
+        {/* ID Type */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">ID Type</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">{idTypeLabel}</p>
+        </div>
+
+        {/* ID # */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">ID #</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+            {props.idNumber || '—'}
+          </p>
+        </div>
+
+        {/* ID Expiration */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">ID Exp</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+            {formatMmDdYyyyFromYyyyMmDd(props.idExpirationDate)}
+          </p>
+        </div>
+
+        {/* Member */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">Member</p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+            {isMember ? 'Yes' : 'No'}
+          </p>
+        </div>
+
+        {/* Membership ID */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+            Membership ID
+          </p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+            {props.membershipNumber || '—'}
+          </p>
+        </div>
+
+        {/* Membership Exp */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+            Membership Exp
+          </p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+            {isMember ? formatMmYyFromYyyyMmDd(props.membershipValidUntil) : '—'}
+          </p>
+        </div>
+
+        {/* Last Visit */}
+        <div>
+          <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
+            Last Visit
+          </p>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+            {formatMmYyFromTimestamp(props.lastVisitAt)}
+          </p>
+        </div>
       </div>
 
+      {/* Waitlist banner */}
       {props.waitlistDesiredTier && props.waitlistBackupType ? (
         <div
-          className={
-            compact
-              ? undefined
-              : 'rounded-2xl border border-gray-200 bg-white shadow-theme-xs dark:border-gray-800 dark:bg-gray-900'
-          }
-          style={{
-            marginTop: '0.75rem',
-            padding: '0.75rem',
-            background: '#fef3c7',
-            border: '2px solid #f59e0b',
-            borderRadius: '10px',
-            color: '#92400e',
-          }}
+          className="mt-4 rounded-lg border-2 border-warning-500 bg-warning-50 p-3"
+          style={{ color: '#92400e' }}
         >
-          <div style={{ fontWeight: 900, marginBottom: '0.35rem' }}> Customer Waitlisted </div>
-          <div className="er-text-sm" style={{ fontWeight: 800 }}>
-            Requested <strong> {props.waitlistDesiredTier} </strong>; backup{' '}
-            <strong> {props.waitlistBackupType} </strong>.
+          <div className="text-sm font-semibold" style={{ marginBottom: '0.25rem' }}>
+            Customer Waitlisted
+          </div>
+          <div className="text-xs">
+            Requested <strong>{props.waitlistDesiredTier}</strong>; backup{' '}
+            <strong>{props.waitlistBackupType}</strong>.
           </div>
         </div>
       ) : null}
 
+      {/* Footer (e.g. Start Checkin button) */}
       {props.footer ? (
-        <div style={{ marginTop: '0.85rem', display: 'flex', justifyContent: 'center' }}>
-          {props.footer}
-        </div>
+        <div className="mt-4 flex justify-center">{props.footer}</div>
       ) : null}
     </div>
   );

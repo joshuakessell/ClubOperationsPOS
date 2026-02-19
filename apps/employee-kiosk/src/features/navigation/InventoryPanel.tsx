@@ -24,27 +24,27 @@ export function InventoryPanel() {
   if (!session?.sessionToken) return null;
 
   return (
-    <PanelShell align="top" scroll="hidden">
-      <div style={{ flex: 1, minHeight: 0, overflow: 'hidden' }}>
-        <InventoryDrawer
-          lane={lane}
-          sessionToken={session.sessionToken}
-          forcedExpandedSection={inventoryForcedSection}
-          onExpandedSectionChange={setInventoryForcedSection}
-          customerSelectedType={customerSelectedType}
-          waitlistDesiredTier={waitlistDesiredTier}
-          waitlistBackupType={waitlistBackupType}
-          onSelect={handleInventorySelect}
-          onClearSelection={() => setSelectedInventoryItem(null)}
-          selectedItem={selectedInventoryItem}
-          sessionId={currentSessionId}
-          disableSelection={false}
-          onAlertSummaryChange={({ hasLate }) => setInventoryHasLate(hasLate)}
-          onRequestCheckout={startCheckoutFromInventory}
-          onOpenCustomerAccount={openCustomerAccount}
-          externalRefreshNonce={inventoryRefreshNonce}
-        />
-      </div>
+    <PanelShell align="top" scroll="hidden" card={false}>
+      <InventoryDrawer
+        lane={lane}
+        sessionToken={session.sessionToken}
+        forcedExpandedSection={inventoryForcedSection}
+        onExpandedSectionChange={setInventoryForcedSection}
+        customerSelectedType={customerSelectedType}
+        waitlistDesiredTier={waitlistDesiredTier}
+        waitlistBackupType={waitlistBackupType}
+        onSelect={handleInventorySelect}
+        onClearSelection={() => setSelectedInventoryItem(null)}
+        selectedItem={selectedInventoryItem}
+        sessionId={currentSessionId}
+        disableSelection={false}
+        onAlertSummaryChange={({ hasLate }) => setInventoryHasLate(hasLate)}
+        onRequestCheckout={startCheckoutFromInventory}
+        onOpenCustomerAccount={openCustomerAccount}
+        externalRefreshNonce={inventoryRefreshNonce}
+      />
     </PanelShell>
   );
 }
+
+

@@ -4,6 +4,7 @@ import { query, transaction } from '../db';
 import { verifyPin } from '../auth/utils';
 import { requireAuth } from '../auth/middleware';
 import { insertAuditLog } from '../audit/auditLog';
+import { insertClubEvent } from '../activity/clubEventLog';
 import { buildTenderSummaryFromPayments } from '../money/tenderSummary';
 import { buildCloseoutSnapshot, type CashDrawerSessionRow } from '../money/closeout';
 
@@ -835,6 +836,41 @@ export async function registerRoutes(
             entityId: session.id,
           });
 
+          // Emit club events for analytics
+          await insertClubEvent(client, {
+            eventType: 'REGISTER_SIGN_IN',
+            eventDomain: 'HR',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            registerId: `register-${session.register_number}`,
+            staffId: body.employeeId,
+            staffName: employee.name,
+            summary: `${employee.name} signed into Register ${session.register_number}`,
+            metadata: {
+              registerSessionId: session.id,
+              registerNumber: session.register_number,
+              deviceId: body.deviceId,
+            },
+            dedupeKey: `CLUB:REGISTER_SIGN_IN:${session.id}`,
+          });
+
+          if (existingTimeclock.rows.length === 0) {
+            // New timeclock session was created — emit clock-in event
+            await insertClubEvent(client, {
+              eventType: 'EMPLOYEE_CLOCK_IN',
+              eventDomain: 'HR',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              registerId: `register-${session.register_number}`,
+              staffId: body.employeeId,
+              staffName: employee.name,
+              summary: `${employee.name} clocked in`,
+              metadata: {
+                registerSessionId: session.id,
+                shiftId: shiftId,
+              },
+              dedupeKey: `CLUB:CLOCK_IN:${session.id}`,
+            });
+          }
+
           // Broadcast REGISTER_SESSION_UPDATED event
           const payload = {
             registerNumber: session.register_number as 1 | 2 | 3,
@@ -1105,6 +1141,44 @@ export async function registerRoutes(
             entityType: 'register_session',
             entityId: session.id,
           });
+
+          // Emit club events for analytics
+          await insertClubEvent(client, {
+            eventType: 'REGISTER_SIGN_OUT',
+            eventDomain: 'HR',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            registerId: `register-${session.register_number}`,
+            staffId: request.staff!.staffId,
+            staffName: request.staff!.name,
+            summary: `${request.staff!.name} signed out of Register ${session.register_number}`,
+            metadata: {
+              registerSessionId: session.id,
+              registerNumber: session.register_number,
+              deviceId,
+            },
+            dedupeKey: `CLUB:REGISTER_SIGN_OUT:${session.id}`,
+          });
+
+          // Emit clock-out if timeclock was closed
+          if (
+            parseInt(otherRegisterSession.rows[0]?.count || '0', 10) === 0 &&
+            parseInt(otherStaffSession.rows[0]?.count || '0', 10) === 0
+          ) {
+            await insertClubEvent(client, {
+              eventType: 'EMPLOYEE_CLOCK_OUT',
+              eventDomain: 'HR',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              registerId: `register-${session.register_number}`,
+              staffId: request.staff!.staffId,
+              staffName: request.staff!.name,
+              summary: `${request.staff!.name} clocked out`,
+              metadata: {
+                registerSessionId: session.id,
+                lastRegisterNumber: session.register_number,
+              },
+              dedupeKey: `CLUB:CLOCK_OUT:${session.id}`,
+            });
+          }
 
           // Broadcast REGISTER_SESSION_UPDATED event
           const payload = {

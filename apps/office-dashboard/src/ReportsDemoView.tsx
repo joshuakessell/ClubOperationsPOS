@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { InventoryUpdatedPayload, RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
-import { safeJsonParse } from '@club-ops/ui';
+import { safeJsonParse } from '@club-ops/shared';
 import type { StaffSession } from './LockScreen';
 import { apiJson } from './api';
 import { PanelContent } from './views/PanelContent';

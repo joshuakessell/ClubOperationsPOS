@@ -510,6 +510,7 @@ export function useLaneSession({
       channels.push(buildChannel(channelNamespace, 'lane', laneSegment));
     }
 
+    // @ts-ignore — connectAppSync intentionally unused (AWS deprecated 2026-02-18)
     const connectAppSync = async () => {
       try {
         const res = await fetch(authUrl, {
@@ -687,7 +688,12 @@ export function useLaneSession({
       }
     };
 
-    void connectAppSync();
+    // DEPRECATED: AppSync connection disabled (AWS services torn down 2026-02-18).
+    // The app will use polling fallback (usePollingFallback) for session updates.
+    // To re-enable: uncomment the line below and restore AppSync Event APIs.
+    // See docs/AWS_ARCHITECTURE_REFERENCE.md.
+    // void connectAppSync();
+    setLastError(new Event('realtime_not_configured'));
 
     return () => {
       const socket = appSyncSocketRef.current;

@@ -1,4 +1,4 @@
-export type LiquidGlassNumpadProps = {
+export type NumpadProps = {
   disabled?: boolean;
   className?: string;
 
@@ -18,7 +18,7 @@ const keySecondary =
 const submitBtn =
   'col-span-3 flex items-center justify-center rounded-lg bg-brand-500 text-lg font-semibold text-white transition hover:bg-brand-600 disabled:opacity-50 disabled:cursor-not-allowed';
 
-export function LiquidGlassNumpad({
+export function Numpad({
   disabled,
   className,
   onDigit,
@@ -27,7 +27,7 @@ export function LiquidGlassNumpad({
   onSubmit,
   submitLabel = 'Enter',
   submitDisabled,
-}: LiquidGlassNumpadProps) {
+}: NumpadProps) {
   const isSubmitDisabled = Boolean(disabled || submitDisabled || !onSubmit);
 
   return (
@@ -95,3 +95,8 @@ export function LiquidGlassNumpad({
     </div>
   );
 }
+
+/** @deprecated Use `Numpad` instead. */
+export const LiquidGlassNumpad = Numpad;
+/** @deprecated Use `NumpadProps` instead. */
+export type LiquidGlassNumpadProps = NumpadProps;

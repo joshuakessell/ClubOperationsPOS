@@ -1,5 +1,5 @@
 import { getApiUrl } from '@club-ops/shared';
-import { getErrorMessage, isRecord } from '@club-ops/ui';
+import { getErrorMessage, isRecord } from '@club-ops/shared';
 import type { ActiveCheckinDetails } from '../components/register/modals/AlreadyCheckedInModal';
 
 const API_BASE = getApiUrl('/api');

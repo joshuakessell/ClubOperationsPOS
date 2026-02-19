@@ -147,7 +147,7 @@ export function NavigationRoot() {
       ) : null}
 
       {/* Content panels */}
-      <div className="h-full min-h-0 overflow-auto">
+      <div className="h-full min-h-0 overflow-auto p-4 sm:p-6">
         {navTab === 'scan' && <ScanPanel />}
         {navTab === 'account' && <AccountPanel />}
         {navTab === 'search' && <SearchPanel />}

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { SessionUpdatedPayloadSchema, type SessionUpdatedPayload } from '@club-ops/shared';
-import { isRecord, readJson } from '@club-ops/ui';
+import { isRecord, readJson } from '@club-ops/shared';
 import { API_BASE } from '../shared/api';
 
 type LaneSessionActions = {

@@ -13,6 +13,7 @@ import { RoomStatus } from '@club-ops/shared';
 import { broadcastInventoryUpdate } from '../../inventory/broadcast';
 import { insertAuditLog } from '../../audit/auditLog';
 import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
+import { insertClubEvent } from '../../activity/clubEventLog';
 import { insertCustomerSpendLedgerEntry } from '../../ledger/customerSpendLedger';
 import { looksLikeUuid } from '../../checkout/utils';
 import { computeOrderTotals, ensureOrderWithReceipt, toCents } from '../../money/orderAudit';
@@ -748,6 +749,29 @@ export function registerCheckoutStaffRoutes(fastify: FastifyInstance): void {
             },
             'customer_activity_event'
           );
+
+          // Emit unified club event for analytics
+          await insertClubEvent(client, {
+            eventType: 'CHECKOUT_COMPLETED',
+            eventDomain: 'CHECKOUT',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            staffId,
+            staffName: request.staff!.name,
+            customerId: checkoutRequest.customer_id,
+            visitId: block.visit_id,
+            summary: `Checkout completed`,
+            metadata: {
+              checkoutRequestId: checkoutRequest.id,
+              visitId: block.visit_id,
+              checkinBlockId: block.id,
+              roomId: block.room_id,
+              lockerId: block.locker_id,
+              lateMinutes: checkoutRequest.late_minutes,
+              feeAmount: Number(checkoutRequest.late_fee_amount) || 0,
+              banApplied: checkoutRequest.ban_applied,
+            },
+            dedupeKey: `CLUB:CHECKOUT_COMPLETED:${checkoutRequest.id}`,
+          });
 
           return {
             requestId: checkoutRequest.id,

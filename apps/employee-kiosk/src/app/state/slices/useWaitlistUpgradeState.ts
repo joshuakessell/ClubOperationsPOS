@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getErrorMessage, readJson } from '@club-ops/ui';
+import { getErrorMessage, readJson } from '@club-ops/shared';
 import { deriveWaitlistEligibility } from '../../../shared/derive/waitlistEligibility';
 import { API_BASE } from '../shared/api';
 import type { NavTab, StaffSession } from '../shared/types';

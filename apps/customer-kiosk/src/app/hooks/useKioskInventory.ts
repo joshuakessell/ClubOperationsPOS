@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { isRecord, readJson } from '@club-ops/ui';
+import { isRecord, readJson } from '@club-ops/shared';
 
 interface HealthStatus {
   status: string;

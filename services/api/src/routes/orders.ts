@@ -4,6 +4,7 @@ import { requireAuth } from '../auth/middleware';
 import { query, transaction } from '../db';
 import { insertCustomerActivityEvent } from '../activity/customerActivityLog';
 import { insertCustomerSpendLedgerEntry } from '../ledger/customerSpendLedger';
+import { insertClubEvent } from '../activity/clubEventLog';
 
 const CreateOrderSchema = z.object({
   customerId: z.string().uuid().optional().nullable(),
@@ -369,6 +370,54 @@ export async function orderRoutes(fastify: FastifyInstance): Promise<void> {
               'customer_activity_event'
             );
           }
+
+          // Determine event type from line items
+          const lineItems = await client.query<LineItemRow>(
+            `SELECT * FROM order_line_items WHERE order_id = $1`,
+            [paidOrder.id]
+          );
+          const kinds = new Set(lineItems.rows.map((li) => li.kind));
+          let saleEventType: 'SALE_COMPLETED' | 'ADDON_SOLD' | 'UPGRADE_PAID' = 'SALE_COMPLETED';
+          if (kinds.size === 1 && kinds.has('ADDON')) saleEventType = 'ADDON_SOLD';
+          if (kinds.size === 1 && kinds.has('UPGRADE')) saleEventType = 'UPGRADE_PAID';
+
+          // Look up register number for attribution
+          let registerId: string | null = null;
+          if (paidOrder.register_session_id) {
+            const regResult = await client.query<{ register_number: number }>(
+              `SELECT register_number FROM register_sessions WHERE id = $1`,
+              [paidOrder.register_session_id]
+            );
+            if (regResult.rows.length > 0) {
+              registerId = `register-${regResult.rows[0]!.register_number}`;
+            }
+          }
+
+          // Emit unified club event for analytics
+          await insertClubEvent(client, {
+            eventType: saleEventType,
+            eventDomain: 'SALES',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            registerId,
+            staffId: request.staff!.staffId,
+            staffName: request.staff!.name,
+            customerId: paidOrder.customer_id,
+            visitId: (paidOrder.metadata_json as any)?.visitId ?? null,
+            orderId: paidOrder.id,
+            amountCents: paidOrder.total_cents,
+            summary: `${saleEventType === 'ADDON_SOLD' ? 'Add-on' : saleEventType === 'UPGRADE_PAID' ? 'Upgrade' : 'Sale'} — $${(paidOrder.total_cents / 100).toFixed(2)}`,
+            metadata: {
+              subtotalCents: paidOrder.subtotal_cents,
+              discountCents: paidOrder.discount_cents,
+              taxCents: paidOrder.tax_cents,
+              tipCents: paidOrder.tip_cents,
+              totalCents: paidOrder.total_cents,
+              registerSessionId: paidOrder.register_session_id,
+              lineItemCount: lineItems.rows.length,
+              itemKinds: Array.from(kinds),
+            },
+            dedupeKey: `CLUB:SALE:${paidOrder.id}`,
+          });
 
           return paidOrder;
         });

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { RoomStatus, getApiUrl } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
-import { safeJsonParse } from '@club-ops/ui';
+import { safeJsonParse } from '@club-ops/shared';
 
 import type { DetailedInventory, DetailedLocker, DetailedRoom } from './types';
 import { alertLevelFromMsUntil, getMsUntil, isRecord, readJson } from './utils';

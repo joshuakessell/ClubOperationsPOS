@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { safeParseRealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
-import { safeJsonParse } from '@club-ops/ui';
+import { safeJsonParse } from '@club-ops/shared';
 import {
   applyRegisterRealtimeEvent,
   type RegisterRealtimeParams,

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import type { CustomerIdType } from '@club-ops/shared';
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 import { parseDobDigitsToIso } from '../../../utils/dob';
 import { API_BASE } from '../shared/api';
 import type { ScanResult, StaffSession } from '../shared/types';

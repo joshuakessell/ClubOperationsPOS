@@ -149,3 +149,20 @@ export {
   clearStorageValue,
   type StorageLike,
 } from './storageKeys.js';
+
+// Type-guard utilities (moved from @club-ops/ui)
+export { isRecord, getErrorMessage } from './typeGuards.js';
+
+// HTTP / JSON utilities (moved from @club-ops/ui)
+export { readJson, safeJsonParse } from './http.js';
+
+// Club Event Log schemas (analytics / unified event log)
+export {
+  ClubEventDomainSchema,
+  ClubEventTypeSchema,
+  ClubEventSourceAppSchema,
+  type ClubEventDomain,
+  type ClubEventType,
+  type ClubEventSourceApp,
+  type ClubEventRow,
+} from './clubEventSchemas.js';
