@@ -180,8 +180,7 @@ export function ClubLogPanel() {
                         type="button"
                         className="text-sm font-bold text-brand-500 hover:text-brand-600 dark:text-brand-400"
                         onClick={() =>
-                          // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by the ternary condition above
-                          openCustomerAccount(it.customerId!, it.customerName!, {
+                          openCustomerAccount(it.customerId!, it.customerName, {
                             autoStart: false,
                           })
                         }
