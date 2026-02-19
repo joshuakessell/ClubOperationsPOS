@@ -2,6 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import { requireAuth } from '../auth/middleware';
 import { transaction } from '../db';
+import { insertClubEvent } from '../activity/clubEventLog';
 
 const StartBreakSchema = z.object({
   breakType: z.enum(['MEAL', 'REST', 'OTHER']),
@@ -74,7 +75,25 @@ export async function breakRoutes(fastify: FastifyInstance): Promise<void> {
           [request.staff!.staffId, timeclock.rows[0]!.id, body.breakType, body.notes || null]
         );
 
-        return insert.rows[0]!;
+        const breakRow = insert.rows[0]!;
+
+        // Emit club event for analytics
+        await insertClubEvent(client, {
+          eventType: 'BREAK_START',
+          eventDomain: 'HR',
+          sourceApp: 'EMPLOYEE_REGISTER',
+          staffId: request.staff!.staffId,
+          staffName: request.staff!.name,
+          summary: `${request.staff!.name} started ${body.breakType.toLowerCase()} break`,
+          metadata: {
+            breakId: breakRow.id,
+            breakType: body.breakType,
+            timeclockSessionId: breakRow.timeclock_session_id,
+          },
+          dedupeKey: `CLUB:BREAK_START:${breakRow.id}`,
+        });
+
+        return breakRow;
       });
 
       return reply.send({
@@ -139,7 +158,27 @@ export async function breakRoutes(fastify: FastifyInstance): Promise<void> {
           [body.notes ?? null, current.id]
         );
 
-        return updated.rows[0]!;
+        const endedBreak = updated.rows[0]!;
+
+        // Emit club event for analytics
+        await insertClubEvent(client, {
+          eventType: 'BREAK_END',
+          eventDomain: 'HR',
+          sourceApp: 'EMPLOYEE_REGISTER',
+          staffId: request.staff!.staffId,
+          staffName: request.staff!.name,
+          summary: `${request.staff!.name} ended ${endedBreak.break_type.toLowerCase()} break`,
+          metadata: {
+            breakId: endedBreak.id,
+            breakType: endedBreak.break_type,
+            timeclockSessionId: endedBreak.timeclock_session_id,
+            startedAt: endedBreak.started_at.toISOString(),
+            endedAt: endedBreak.ended_at?.toISOString(),
+          },
+          dedupeKey: `CLUB:BREAK_END:${endedBreak.id}`,
+        });
+
+        return endedBreak;
       });
 
       return reply.send({

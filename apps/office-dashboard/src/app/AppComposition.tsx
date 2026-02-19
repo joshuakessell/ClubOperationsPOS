@@ -11,6 +11,8 @@ import { ActivityHub } from '../activity/ActivityHub';
 import { LateCheckoutBanAlertsView } from '../LateCheckoutBanAlertsView';
 import { ReportsView } from '../reports/ReportsView';
 import { MessagesView } from '../MessagesView';
+import { ClubAnalyticsView } from '../ClubAnalyticsView';
+import { ProductManagementView } from '../ProductManagementView';
 import { RouteErrorBoundary } from './RouteErrorBoundary';
 import {
   clearStorageValue,
@@ -239,6 +241,18 @@ export function AppComposition() {
           path="/reports"
           element={
             isAdmin ? <RouteErrorBoundary routeName="Reports"><ReportsView sessionToken={session.sessionToken} /></RouteErrorBoundary> : <Navigate to="/schedule" replace />
+          }
+        />
+        <Route
+          path="/analytics"
+          element={
+            isAdmin ? <RouteErrorBoundary routeName="Analytics"><ClubAnalyticsView session={session} /></RouteErrorBoundary> : <Navigate to="/schedule" replace />
+          }
+        />
+        <Route
+          path="/products"
+          element={
+            isAdmin ? <RouteErrorBoundary routeName="Products"><ProductManagementView session={session} /></RouteErrorBoundary> : <Navigate to="/schedule" replace />
           }
         />
         <Route

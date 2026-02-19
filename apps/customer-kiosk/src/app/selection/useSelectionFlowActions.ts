@@ -1,4 +1,4 @@
-import { getErrorMessage, isRecord } from '@club-ops/ui';
+import { getErrorMessage, isRecord } from '@club-ops/shared';
 import { t } from '../../i18n';
 import type {
   SelectionFlowCallbacks,

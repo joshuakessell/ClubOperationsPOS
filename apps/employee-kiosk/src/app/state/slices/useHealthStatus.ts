@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { isRecord, readJson } from '@club-ops/ui';
+import { isRecord, readJson } from '@club-ops/shared';
 import { API_BASE } from '../shared/api';
 import type { HealthStatus } from '../shared/types';
 

@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { RegisterSession } from './components/sign-in/SignInPanel';
 import type { RealtimeEvent, RegisterSessionUpdatedPayload } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
-import { safeJsonParse } from '@club-ops/ui';
+import { safeJsonParse } from '@club-ops/shared';
 import {
   clearStorageValue,
   CLUBOPS_STORAGE_KEYS,
@@ -340,7 +340,7 @@ function RegisterSessionRealtime({
   });
 
   useEffect(() => {
-    if (lastError) {
+    if (lastError && lastError.type !== 'realtime_not_configured') {
       console.error('Realtime error:', lastError);
     }
   }, [lastError]);

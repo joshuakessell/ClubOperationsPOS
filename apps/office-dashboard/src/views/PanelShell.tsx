@@ -1,5 +1,4 @@
 import type { ComponentPropsWithoutRef, ElementType, ReactNode } from 'react';
-import './PanelShell.css';
 
 type PanelSpacing = 'none' | 'md';
 
@@ -21,9 +20,11 @@ export function PanelShell<T extends ElementType = 'section'>({
 }: PanelShellProps<T>) {
   const Component = (as ?? 'section') as ElementType;
   const classes = [
-    'panel',
-    card ? 'rounded-2xl border border-gray-700 bg-gray-800/80 p-6 shadow-lg' : '',
-    spacing === 'md' ? 'panel--spaced' : '',
+    'relative overflow-hidden',
+    card
+      ? 'rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12'
+      : '',
+    spacing === 'md' ? 'mb-6' : '',
     className,
   ]
     .filter(Boolean)

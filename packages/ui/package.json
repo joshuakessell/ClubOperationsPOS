@@ -14,15 +14,7 @@
       "types": "./src/tailadmin/index.ts",
       "import": "./src/tailadmin/index.ts"
     },
-    "./tailadmin/theme.css": "./src/tailadmin/theme.css",
-    "./styles": {
-      "types": "./dist/styles.d.ts",
-      "import": "./dist/styles.js"
-    },
-    "./styles/index.css": "./src/styles/index.css",
-    "./styles/tokens.css": "./src/styles/tokens.css",
-    "./styles/components.css": "./src/styles/components.css",
-    "./styles/liquid-glass.css": "./src/styles/liquid-glass.css"
+    "./tailadmin/theme.css": "./src/tailadmin/theme.css"
   },
   "scripts": {
     "build": "tsc",

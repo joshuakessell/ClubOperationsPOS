@@ -1,5 +1,4 @@
 import type { ReactNode } from 'react';
-import './PanelHeader.css';
 
 export interface PanelHeaderProps {
   title: ReactNode;
@@ -18,11 +17,22 @@ export function PanelHeader({
 }: PanelHeaderProps) {
   const TitleTag = titleAs;
   return (
-    <div className={['panel-header', className].filter(Boolean).join(' ')}>
-      <TitleTag className={['panel-title', titleClassName].filter(Boolean).join(' ')}>
+    <div
+      className={[
+        'flex flex-wrap items-center justify-between gap-4 border-b border-gray-200 px-6 py-4 dark:border-gray-800',
+        className,
+      ]
+        .filter(Boolean)
+        .join(' ')}
+    >
+      <TitleTag
+        className={['text-base font-semibold text-gray-800 dark:text-white/90', titleClassName]
+          .filter(Boolean)
+          .join(' ')}
+      >
         {title}
       </TitleTag>
-      {actions ? <div className="panel-header__actions">{actions}</div> : null}
+      {actions ? <div className="flex flex-wrap items-center gap-3">{actions}</div> : null}
     </div>
   );
 }

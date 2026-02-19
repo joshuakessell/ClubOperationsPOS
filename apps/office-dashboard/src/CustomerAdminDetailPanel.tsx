@@ -1,5 +1,211 @@
+import { useState } from 'react';
 import { RaisedCard } from './views/RaisedCard';
+import { apiJson } from './api';
 import { downloadCustomerDocumentPdf } from './api/customerDocuments';
+
+// ---------------------------------------------------------------------------
+// Ledger entry type (from GET /v1/customers/:id/visits/:visitId/spend-ledger)
+// ---------------------------------------------------------------------------
+type LedgerEntry = {
+  id: string;
+  occurredAt: string;
+  entryType: string;
+  amountCents: number;
+  currency: string;
+  summary: string;
+};
+
+type LedgerResult = {
+  entries: LedgerEntry[];
+  totals: { grossCents: number; refundsCents: number; netCents: number };
+};
+
+// ---------------------------------------------------------------------------
+// Spending Section with click-to-expand invoice detail
+// ---------------------------------------------------------------------------
+function SpendingSection({
+  customer,
+  spendGroups,
+  spendBusy,
+  sessionToken,
+  onError,
+}: {
+  customer: { id: string };
+  spendGroups: SpendGroup[];
+  spendBusy: boolean;
+  sessionToken: string;
+  onError: (msg: string) => void;
+}) {
+  const [expandedVisitId, setExpandedVisitId] = useState<string | null>(null);
+  const [ledger, setLedger] = useState<LedgerResult | null>(null);
+  const [ledgerBusy, setLedgerBusy] = useState(false);
+
+  const toggle = async (visitId: string | null) => {
+    const key = visitId ?? 'unassigned';
+    if (expandedVisitId === key) {
+      setExpandedVisitId(null);
+      setLedger(null);
+      return;
+    }
+    setExpandedVisitId(key);
+    setLedgerBusy(true);
+    try {
+      const vid = visitId ?? 'unassigned';
+      const result = await apiJson<LedgerResult>(
+        `/v1/customers/${customer.id}/visits/${encodeURIComponent(vid)}/spend-ledger?limit=200`,
+        { sessionToken }
+      );
+      setLedger(result);
+    } catch (e) {
+      onError(e instanceof Error ? e.message : 'Failed to load invoice');
+      setExpandedVisitId(null);
+    } finally {
+      setLedgerBusy(false);
+    }
+  };
+
+  return (
+    <RaisedCard style={{ marginBottom: '1rem', maxHeight: '20rem', overflow: 'auto' }}>
+      <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>
+        Spending per visit{' '}
+        <span style={{ fontWeight: 400, fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+          (click row to view invoice)
+        </span>
+      </div>
+      {spendBusy ? (
+        <div style={{ color: 'var(--text-muted)' }}>Loading…</div>
+      ) : spendGroups.length === 0 ? (
+        <div style={{ color: 'var(--text-muted)' }}>No ledger entries.</div>
+      ) : (
+        <table className="rooms-table">
+          <thead>
+            <tr>
+              <th>Visit</th>
+              <th>Net</th>
+              <th>Gross</th>
+              <th>Refunds</th>
+            </tr>
+          </thead>
+          <tbody>
+            {spendGroups.map((g) => {
+              const key = g.visitId ?? 'unassigned';
+              const isExpanded = expandedVisitId === key;
+              return (
+                <>
+                  <tr
+                    key={key}
+                    onClick={() => void toggle(g.visitId)}
+                    style={{
+                      cursor: 'pointer',
+                      background: isExpanded ? 'rgba(43, 102, 184, 0.12)' : undefined,
+                    }}
+                  >
+                    <td className="room-number">
+                      {isExpanded ? '▼ ' : '▶ '}
+                      {g.visitStartedAt
+                        ? new Date(g.visitStartedAt).toLocaleString()
+                        : g.visitId
+                          ? g.visitId.slice(0, 8)
+                          : 'Unassigned'}
+                    </td>
+                    <td>${(g.netCents / 100).toFixed(2)}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>${(g.grossCents / 100).toFixed(2)}</td>
+                    <td style={{ color: 'var(--text-muted)' }}>${(g.refundsCents / 100).toFixed(2)}</td>
+                  </tr>
+                  {isExpanded && (
+                    <tr key={`${key}-detail`}>
+                      <td colSpan={4} style={{ padding: '0.5rem 1rem', background: 'rgba(30, 41, 59, 0.5)' }}>
+                        {ledgerBusy ? (
+                          <div style={{ color: 'var(--text-muted)', padding: '0.5rem' }}>Loading invoice…</div>
+                        ) : !ledger ? (
+                          <div style={{ color: 'var(--text-muted)', padding: '0.5rem' }}>No data.</div>
+                        ) : ledger.entries.length === 0 ? (
+                          <div style={{ color: 'var(--text-muted)', padding: '0.5rem' }}>
+                            No line items for this visit.
+                          </div>
+                        ) : (
+                          <>
+                            <table className="rooms-table" style={{ width: '100%', marginBottom: '0.5rem' }}>
+                              <thead>
+                                <tr>
+                                  <th>Time</th>
+                                  <th>Type</th>
+                                  <th>Description</th>
+                                  <th style={{ textAlign: 'right' }}>Amount</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {ledger.entries.map((e) => (
+                                  <tr key={e.id}>
+                                    <td style={{ fontSize: '0.8rem', whiteSpace: 'nowrap' }}>
+                                      {new Date(e.occurredAt).toLocaleString()}
+                                    </td>
+                                    <td>
+                                      <span
+                                        style={{
+                                          display: 'inline-block',
+                                          padding: '1px 6px',
+                                          borderRadius: 999,
+                                          fontSize: '0.7rem',
+                                          fontWeight: 700,
+                                          background:
+                                            e.amountCents >= 0
+                                              ? 'rgba(34, 197, 94, 0.15)'
+                                              : 'rgba(239, 68, 68, 0.15)',
+                                          color: e.amountCents >= 0 ? '#22c55e' : '#ef4444',
+                                        }}
+                                      >
+                                        {e.entryType}
+                                      </span>
+                                    </td>
+                                    <td>{e.summary}</td>
+                                    <td
+                                      style={{
+                                        textAlign: 'right',
+                                        fontWeight: 700,
+                                        color: e.amountCents < 0 ? '#ef4444' : undefined,
+                                      }}
+                                    >
+                                      ${(e.amountCents / 100).toFixed(2)}
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                            <div
+                              style={{
+                                display: 'flex',
+                                gap: '1.5rem',
+                                fontSize: '0.85rem',
+                                fontWeight: 700,
+                                padding: '0.25rem 0',
+                                borderTop: '1px solid rgba(148, 163, 184, 0.15)',
+                              }}
+                            >
+                              <span>
+                                Gross: ${(ledger.totals.grossCents / 100).toFixed(2)}
+                              </span>
+                              <span style={{ color: '#ef4444' }}>
+                                Refunds: ${(ledger.totals.refundsCents / 100).toFixed(2)}
+                              </span>
+                              <span style={{ color: '#22c55e' }}>
+                                Net: ${(ledger.totals.netCents / 100).toFixed(2)}
+                              </span>
+                            </div>
+                          </>
+                        )}
+                      </td>
+                    </tr>
+                  )}
+                </>
+              );
+            })}
+          </tbody>
+        </table>
+      )}
+    </RaisedCard>
+  );
+}
 
 export type CustomerAdminSummary = {
   id: string;
@@ -232,41 +438,13 @@ export function CustomerAdminDetailPanel({
         )}
       </RaisedCard>
 
-      <RaisedCard style={{ marginBottom: '1rem', maxHeight: '14rem', overflow: 'auto' }}>
-        <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Spending per visit</div>
-        {spendBusy ? (
-          <div style={{ color: 'var(--text-muted)' }}>Loading…</div>
-        ) : spendGroups.length === 0 ? (
-          <div style={{ color: 'var(--text-muted)' }}>No ledger entries.</div>
-        ) : (
-          <table className="rooms-table">
-            <thead>
-              <tr>
-                <th>Visit</th>
-                <th>Net</th>
-                <th>Gross</th>
-                <th>Refunds</th>
-              </tr>
-            </thead>
-            <tbody>
-              {spendGroups.map((g) => (
-                <tr key={g.visitId ?? 'unassigned'}>
-                  <td className="room-number">
-                    {g.visitStartedAt
-                      ? new Date(g.visitStartedAt).toLocaleString()
-                      : g.visitId
-                        ? g.visitId.slice(0, 8)
-                        : 'Unassigned'}
-                  </td>
-                  <td>${(g.netCents / 100).toFixed(2)}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>${(g.grossCents / 100).toFixed(2)}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>${(g.refundsCents / 100).toFixed(2)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </RaisedCard>
+      <SpendingSection
+        customer={customer}
+        spendGroups={spendGroups}
+        spendBusy={spendBusy}
+        sessionToken={sessionToken}
+        onError={onError}
+      />
 
       <RaisedCard style={{ marginBottom: '1rem', maxHeight: '14rem', overflow: 'auto' }}>
         <div style={{ fontWeight: 800, marginBottom: '0.5rem' }}>Agreements</div>

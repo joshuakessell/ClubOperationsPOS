@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
 import type { ToastNotifier } from '../shared/notifications';
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 
 export type CustomerDocument = {
   id: string;

@@ -1,4 +1,4 @@
-import { isRecord } from '@club-ops/ui';
+import { isRecord } from '@club-ops/shared';
 import type {
   SelectionFlowSetters,
   SelectionInventory,

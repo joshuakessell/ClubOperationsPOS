@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 import { getRoomTier } from '../../../../utils/getRoomTier';
 import type { AvailableLocker, AvailableRoom } from './types';
 

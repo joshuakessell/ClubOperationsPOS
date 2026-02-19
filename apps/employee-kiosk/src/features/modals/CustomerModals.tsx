@@ -1,5 +1,5 @@
 import { getApiUrl } from '@club-ops/shared';
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 import { ModalFrame } from '../../components/register/modals/ModalFrame';
 import { CustomerConfirmationPendingModal } from '../../components/register/modals/CustomerConfirmationPendingModal';
 import { CreateFromScanModal } from '../../components/register/modals/CreateFromScanModal';

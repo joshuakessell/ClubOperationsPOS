@@ -32,7 +32,7 @@ export function PanelShell<T extends ElementType = 'div'>({
   const alignClass = align === 'center' ? 'items-center justify-center' : 'items-start';
   const scrollClass = scroll === 'hidden' ? 'overflow-hidden' : 'overflow-y-auto';
   const cardClass = card
-    ? 'rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xs dark:border-gray-800 dark:bg-gray-900'
+    ? 'rounded-2xl border border-gray-200 bg-white px-5 py-7 dark:border-gray-800 dark:bg-white/[0.03] xl:px-10 xl:py-12'
     : '';
 
   const classes = ['flex flex-1 min-h-0 flex-col', alignClass, scrollClass, cardClass, className]

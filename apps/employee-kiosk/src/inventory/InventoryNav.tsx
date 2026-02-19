@@ -1,3 +1,5 @@
+import { Badge } from '@club-ops/ui/tailadmin';
+
 type InventoryTier = 'LOCKER' | 'STANDARD' | 'DOUBLE' | 'SPECIAL';
 
 type InventoryCounts = Record<InventoryTier, { available: number; nearing: number; late: number }>;
@@ -11,6 +13,13 @@ type Props = {
   filterQueryLocked: boolean;
 };
 
+const TIERS: Array<[InventoryTier, string]> = [
+  ['LOCKER', 'Lockers'],
+  ['STANDARD', 'Standard'],
+  ['DOUBLE', 'Double'],
+  ['SPECIAL', 'Special'],
+];
+
 export function InventoryNav({
   activeSection,
   navCounts,
@@ -20,56 +29,49 @@ export function InventoryNav({
   filterQueryLocked,
 }: Props) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem', minWidth: 0 }}>
-      {(
-        [
-          ['LOCKER', 'Lockers'],
-          ['STANDARD', 'Standard'],
-          ['DOUBLE', 'Double'],
-          ['SPECIAL', 'Special'],
-        ] as const
-      ).map(([tier, label]) => {
-        const counts = navCounts[tier];
-        return (
-          <button
-            key={tier}
-            type="button"
-            className={[
-              'inline-flex items-center justify-center rounded-lg px-4 py-2.5 text-sm font-semibold shadow-theme-xs transition',
-              activeSection === tier
-                ? 'border-brand-500 bg-brand-50 text-brand-600 dark:bg-brand-500/10 dark:text-brand-400'
-                : 'border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]',
-            ].join(' ')}
-            onClick={() => onSectionSelect(tier)}
-            style={{
-              width: '100%',
-              textAlign: 'left',
-              padding: '0.9rem 0.85rem',
-              fontWeight: 900,
-              minHeight: '74px',
-            }}
-          >
-            <div className="er-inv-nav">
-              <div className="er-inv-nav-label">{label}</div>
-              <div
-                className="er-inv-nav-stats er-inv-meta"
-                style={{
-                  color:
-                    activeSection === tier ? 'rgba(255,255,255,0.92)' : 'rgba(148,163,184,0.95)',
-                }}
-              >
-                <div>Available {counts.available}</div>
-                <div>Nearing Checkout {counts.nearing}</div>
-                <div>Past Checkout {counts.late}</div>
+    <div className="flex flex-col gap-1.5" style={{ minWidth: 0 }}>
+      <nav className="flex flex-col space-y-1">
+        {TIERS.map(([tier, label]) => {
+          const counts = navCounts[tier];
+          const isActive = activeSection === tier;
+          return (
+            <button
+              key={tier}
+              type="button"
+              className={[
+                'inline-flex flex-col items-start rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-in-out',
+                isActive
+                  ? 'text-brand-500 bg-brand-50 dark:bg-brand-400/20 dark:text-brand-400'
+                  : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+              ].join(' ')}
+              onClick={() => onSectionSelect(tier)}
+              style={{ width: '100%', textAlign: 'left' }}
+            >
+              <span style={{ fontWeight: 900, fontSize: '0.95rem', marginBottom: '0.35rem' }}>
+                {label}
+              </span>
+              <div className="flex flex-wrap gap-1.5">
+                <Badge variant="light" color="success" size="sm">
+                  Available {counts.available}
+                </Badge>
+                <Badge variant="light" color="warning" size="sm">
+                  Near {counts.nearing}
+                </Badge>
+                <Badge variant="light" color="error" size="sm">
+                  Late {counts.late}
+                </Badge>
               </div>
-            </div>
-          </button>
-        );
-      })}
+            </button>
+          );
+        })}
+      </nav>
 
-      {/* Search directly beneath the Special button */}
+      {/* Search */}
       <div style={{ marginTop: '0.5rem' }}>
-        <div className="er-inv-search-label" style={{ marginBottom: '0.35rem' }}>
+        <div
+          className="text-xs font-medium text-gray-500 dark:text-gray-400"
+          style={{ marginBottom: '0.35rem' }}
+        >
           Search
         </div>
         <div className="relative">

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getErrorMessage, isRecord } from '@club-ops/ui';
+import { getErrorMessage, isRecord } from '@club-ops/shared';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
 import type { ToastNotifier } from '../shared/notifications';

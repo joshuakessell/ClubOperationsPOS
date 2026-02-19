@@ -1,7 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
-import { LiquidGlassNumpad } from './LiquidGlassNumpad.js';
+import { Numpad } from './Numpad.js';
 
-export type LiquidGlassPinInputProps = {
+export type PinInputProps = {
   /** Fixed PIN length (e.g. 6). If set, submit is disabled until exact length is reached. */
   length?: number;
   /** Max length when `length` is not set. Defaults to unlimited. */
@@ -27,7 +27,7 @@ function clampDigits(raw: string, max: number): string {
   return digitsOnly.slice(0, max);
 }
 
-export function LiquidGlassPinInput({
+export function PinInput({
   length,
   maxLength,
   value,
@@ -39,7 +39,7 @@ export function LiquidGlassPinInput({
   disabled,
   className,
   displayAriaLabel = 'PIN',
-}: LiquidGlassPinInputProps) {
+}: PinInputProps) {
   const [internal, setInternal] = useState(() => clampDigits(defaultValue ?? '', 10_000));
   const pin = value ?? internal;
 
@@ -90,36 +90,33 @@ export function LiquidGlassPinInput({
     onSubmit?.(pin);
   }, [isSubmitDisabled, onSubmit, pin]);
 
+  // PIN dot display — uses TailAdmin-compatible Tailwind classes
+  const dotCount = typeof length === 'number' ? length : Math.max(1, pin.length);
+
   return (
-    <div className={['cs-liquid-pin', className].filter(Boolean).join(' ')}>
+    <div className={['flex flex-col items-center gap-6', className].filter(Boolean).join(' ')}>
       <div
-        className="cs-liquid-pin__display glass-effect"
+        className="flex w-full items-center justify-center gap-3 rounded-xl border border-gray-700 bg-gray-800/60 px-6 py-5"
         role="textbox"
         aria-label={displayAriaLabel}
         aria-readonly="true"
       >
-        <div className="cs-liquid-pin__dots" aria-hidden="true">
-          {typeof length === 'number' ? (
-            Array.from({ length }).map((_, i) => (
-              <span
-                key={i}
-                className={['cs-liquid-pin__dot', i < pin.length ? 'is-filled' : ''].join(' ')}
-              />
-            ))
-          ) : (
-            <>
-              {Array.from({ length: Math.max(1, pin.length) }).map((_, i) => (
-                <span
-                  key={i}
-                  className={['cs-liquid-pin__dot', i < pin.length ? 'is-filled' : ''].join(' ')}
-                />
-              ))}
-            </>
-          )}
+        <div className="flex gap-3" aria-hidden="true">
+          {Array.from({ length: dotCount }).map((_, i) => (
+            <span
+              key={i}
+              className={[
+                'h-4 w-4 rounded-full border-2 transition-colors',
+                i < pin.length
+                  ? 'border-brand-500 bg-brand-500 is-filled'
+                  : 'border-gray-500 bg-transparent',
+              ].join(' ')}
+            />
+          ))}
         </div>
       </div>
 
-      <LiquidGlassNumpad
+      <Numpad
         disabled={disabled}
         onDigit={handleDigit}
         onBackspace={handleBackspace}
@@ -131,3 +128,8 @@ export function LiquidGlassPinInput({
     </div>
   );
 }
+
+/** @deprecated Use `PinInput` instead. */
+export const LiquidGlassPinInput = PinInput;
+/** @deprecated Use `PinInputProps` instead. */
+export type LiquidGlassPinInputProps = PinInputProps;

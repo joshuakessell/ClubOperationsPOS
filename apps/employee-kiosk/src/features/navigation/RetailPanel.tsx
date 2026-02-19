@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Button } from '@club-ops/ui/tailadmin';
+import { getApiUrl } from '@club-ops/shared';
 import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterState';
 import { RequiredTenderOutcomeModal } from '../../components/register/modals/RequiredTenderOutcomeModal';
 import { RetailSaleCard } from '../../components/retail/RetailSaleCard';
@@ -7,16 +8,26 @@ import {
   RETAIL_CATALOG,
   buildRetailCartItems,
   getRetailCartTotal,
+  fetchRetailCatalog,
   type RetailCart,
+  type RetailCatalogItem,
 } from '../../components/retail/retailCatalog';
 import { PanelShell } from '../../views/PanelShell';
 
 export function RetailPanel() {
-  const { setSuccessToastMessage } = useEmployeeRegisterState();
+  const { session, setSuccessToastMessage } = useEmployeeRegisterState();
   const [cart, setCart] = useState<RetailCart>({});
   const [showTenderOptions, setShowTenderOptions] = useState(false);
+  const [catalog, setCatalog] = useState<RetailCatalogItem[]>(RETAIL_CATALOG);
 
-  const cartItems = useMemo(() => buildRetailCartItems(cart), [cart]);
+  // Fetch dynamic catalog on mount
+  useEffect(() => {
+    if (!session?.sessionToken) return;
+    const apiBase = getApiUrl('/api');
+    void fetchRetailCatalog(apiBase, session.sessionToken).then(setCatalog);
+  }, [session?.sessionToken]);
+
+  const cartItems = useMemo(() => buildRetailCartItems(cart, catalog), [cart, catalog]);
   const total = useMemo(() => getRetailCartTotal(cartItems), [cartItems]);
 
   useEffect(() => {
@@ -56,7 +67,7 @@ export function RetailPanel() {
     <PanelShell align="top" scroll="hidden">
       <RetailSaleCard
         title="Retail"
-        items={RETAIL_CATALOG}
+        items={catalog}
         cartItems={cartItems}
         total={total}
         onAddItem={addItem}
@@ -89,3 +100,4 @@ export function RetailPanel() {
     </PanelShell>
   );
 }
+

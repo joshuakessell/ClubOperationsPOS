@@ -1,16 +1,16 @@
-// CSS files are available for direct import in consuming applications
-// Import paths:
-// - './styles/index.css' (recommended single entrypoint)
-// - './styles/tokens.css'
-// - './styles/components.css'
-// - './styles/liquid-glass.css'
-//
-// Example usage in Vite apps:
-// import '@club-ops/ui/styles/index.css';
+// PinInput (renamed from LiquidGlassPinInput — TailAdmin-styled)
+export { PinInput } from './components/PinInput.js';
+export type { PinInputProps } from './components/PinInput.js';
 
-export * from './utils/typeGuards.js';
-export * from './utils/http.js';
-export * from './components/LiquidGlassNumpad.js';
-export * from './components/LiquidGlassPinInput.js';
+// Numpad (renamed from LiquidGlassNumpad — TailAdmin-styled)
+export { Numpad } from './components/Numpad.js';
+export type { NumpadProps } from './components/Numpad.js';
 
+// Backward-compat aliases (deprecated)
+export { LiquidGlassPinInput } from './components/PinInput.js';
+export type { LiquidGlassPinInputProps } from './components/PinInput.js';
+export { LiquidGlassNumpad } from './components/Numpad.js';
+export type { LiquidGlassNumpadProps } from './components/Numpad.js';
+
+// WebAuthn client (auth infrastructure)
 export * from './webauthn/client.js';

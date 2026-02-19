@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 import {
   CLUBOPS_STORAGE_KEYS,
   CLUBOPS_STORAGE_LEGACY_KEYS,

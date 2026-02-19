@@ -5,6 +5,7 @@ import { RoomStatus, RoomStatusSchema, validateTransition } from '@club-ops/shar
 import type { Broadcaster } from '../realtime/broadcaster';
 import { broadcastInventoryUpdate } from '../inventory/broadcast';
 import { insertAuditLog } from '../audit/auditLog';
+import { insertClubEvent } from '../activity/clubEventLog';
 import { requireAuth } from '../auth/middleware';
 
 /**
@@ -253,6 +254,28 @@ export async function cleaningRoutes(fastify: FastifyInstance): Promise<void> {
               roomNumber: room.number,
               previousStatus: fromStatus,
               newStatus: toStatus,
+            });
+
+            // Emit club event for analytics
+            await insertClubEvent(client, {
+              eventType: isOverrideTransition ? 'OVERRIDE_APPLIED' : 'ROOM_STATUS_CHANGED',
+              eventDomain: isOverrideTransition ? 'ADMIN' : 'INVENTORY',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              staffId,
+              staffName: request.staff!.name,
+              summary: isOverrideTransition
+                ? `Override: Room ${room.number} ${fromStatus} → ${toStatus} (${body.overrideReason})`
+                : `Room ${room.number} ${fromStatus} → ${toStatus}`,
+              metadata: {
+                roomId,
+                roomNumber: room.number,
+                fromStatus,
+                toStatus,
+                batchId,
+                override: isOverrideTransition,
+                overrideReason: isOverrideTransition ? body.overrideReason : undefined,
+              },
+              dedupeKey: `CLUB:ROOM_STATUS:${batchId}:${roomId}`,
             });
           }
 

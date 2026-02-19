@@ -7,6 +7,7 @@ import { PastDueBypassSchema } from '../../checkin/schemas';
 import type { LaneSessionRow } from '../../checkin/types';
 import { getHttpError } from '../../checkin/utils';
 import { transaction } from '../../db';
+import { insertClubEvent } from '../../activity/clubEventLog';
 
 export function registerCheckinPastDueRoutes(fastify: FastifyInstance): void {
   /**
@@ -180,6 +181,24 @@ export function registerCheckinPastDueRoutes(fastify: FastifyInstance): void {
            WHERE id = $2`,
             [managerId, session.id]
           );
+
+          // Emit unified club event for analytics
+          await insertClubEvent(client, {
+            eventType: 'PAST_DUE_WAIVED',
+            eventDomain: 'ADMIN',
+            sourceApp: 'EMPLOYEE_REGISTER',
+            staffId: managerId,
+            customerId: session.customer_id,
+            summary: `Past-due balance bypassed by manager`,
+            metadata: {
+              laneId,
+              laneSessionId: session.id,
+              customerId: session.customer_id,
+              bypassedByManagerId: managerId,
+              requestingStaffId: request.staff!.staffId,
+            },
+            dedupeKey: `CLUB:PAST_DUE_WAIVED:${session.id}`,
+          });
 
           return { sessionId: session.id, success: true };
         });

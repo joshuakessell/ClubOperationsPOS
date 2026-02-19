@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { isRecord, readJson } from '@club-ops/ui';
+import { isRecord, readJson } from '@club-ops/shared';
 import {
   clearStorageValue,
   CLUBOPS_STORAGE_KEYS,

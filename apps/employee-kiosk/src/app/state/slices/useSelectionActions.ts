@@ -1,4 +1,4 @@
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 import { API_BASE } from '../shared/api';
 import type { StaffSession } from '../shared/types';
 import type { ToastNotifier } from '../shared/notifications';

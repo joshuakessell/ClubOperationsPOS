@@ -6,7 +6,7 @@ import { useEmployeeRegisterState } from '../../app/state/useEmployeeRegisterSta
 import { PanelHeader } from '../../views/PanelHeader';
 import { PanelShell } from '../../views/PanelShell';
 import { getApiUrl } from '@club-ops/shared';
-import { isRecord, readJson } from '@club-ops/ui';
+import { isRecord, readJson } from '@club-ops/shared';
 import type { CustomerProfile, LaneSessionPatch } from './accountTypes';
 import type { RegisterLaneSessionState } from '../../app/useRegisterLaneSessionState';
 import type { WaitlistUnavailableOptions } from '../../components/register/employee-assist/types';

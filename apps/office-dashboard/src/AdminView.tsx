@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import type { StaffSession } from './LockScreen';
 import type { RealtimeEvent } from '@club-ops/shared';
 import { useLaneSession } from '@club-ops/shared/realtime/useLaneSession';
-import { safeJsonParse } from '@club-ops/ui';
+import { safeJsonParse } from '@club-ops/shared';
 import { RaisedCard } from './views/RaisedCard';
 import {
   fetchAdminKpi,

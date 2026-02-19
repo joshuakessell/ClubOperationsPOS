@@ -5,7 +5,7 @@ import { CustomerAccountDetailsCard } from './CustomerAccountDetailsCard';
 import { useEffect, useState } from 'react';
 import { useStartLaneCheckinForCustomerIfNotVisiting } from '../../../app/useStartLaneCheckinForCustomerIfNotVisiting';
 import { PanelHeader } from '../../../views/PanelHeader';
-import { PanelShell } from '../../../views/PanelShell';
+
 import { ActiveVisitSummary } from './ActiveVisitSummary';
 import { useEmployeeRegisterState } from '../../../app/state/useEmployeeRegisterState';
 import type { ActiveCheckinDetails } from '../modals/AlreadyCheckedInModal';
@@ -230,42 +230,38 @@ export function CustomerAccountPanel(props: {
     </button>
   );
 
-  const tabs = (
-    <div style={{ display: 'flex', gap: '0.5rem' }}>
+  const verticalTabs = (
+    <nav className="flex flex-col space-y-2" style={{ minWidth: '140px' }}>
       <button
         type="button"
-        className={
+        className={[
+          'inline-flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-in-out',
           activeTab === 'profile'
-            ? 'inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600'
-            : 'inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]'
-        }
+            ? 'text-brand-500 bg-brand-50 dark:bg-brand-400/20 dark:text-brand-400'
+            : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+        ].join(' ')}
         onClick={() => setActiveTab('profile')}
       >
         Profile
       </button>
       <button
         type="button"
-        className={
+        className={[
+          'inline-flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-in-out',
           activeTab === 'guided'
-            ? 'inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-2.5 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600'
-            : 'inline-flex items-center justify-center rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-semibold text-gray-700 shadow-theme-xs transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]'
-        }
+            ? 'text-brand-500 bg-brand-50 dark:bg-brand-400/20 dark:text-brand-400'
+            : 'bg-transparent text-gray-500 border-transparent hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200',
+        ].join(' ')}
         onClick={() => setActiveTab('guided')}
       >
-        Guided Access
+        Check-in Assist
       </button>
-    </div>
+    </nav>
   );
 
-  const headerAction = hasActiveSession ? tabs : null;
-
   return (
-    <PanelShell align="top" scroll="hidden">
-      <PanelHeader
-        title={props.customerName || 'Customer Account'}
-        spacing="none"
-        action={headerAction}
-      />
+    <div style={{ height: '100%', minHeight: 0, overflow: 'hidden', padding: '0.5rem' }}>
+      <PanelHeader title={props.customerName || 'Customer Account'} spacing="none" />
       {state.mode === 'ALREADY_VISITING' ? (
         <div
           className="er-account-already-visiting"
@@ -332,16 +328,17 @@ export function CustomerAccountPanel(props: {
       ) : (
         <div
           style={{
-            marginTop: '0.75rem',
             display: 'flex',
             flexDirection: 'column',
             gap: '0.75rem',
             minHeight: 0,
+            flex: 1,
           }}
         >
           {hasActiveSession ? (
-            <div style={{ padding: '0.85rem' }}>
-              <div style={{ marginTop: '0.25rem' }}>
+            <div style={{ display: 'flex', gap: '1.25rem', flex: 1, minHeight: 0 }}>
+              {verticalTabs}
+              <div style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
                 {activeTab === 'profile' ? (
                   <CustomerAccountDetailsCard
                     customerId={props.customerId}
@@ -422,6 +419,6 @@ export function CustomerAccountPanel(props: {
           )}
         </div>
       )}
-    </PanelShell>
+    </div>
   );
 }

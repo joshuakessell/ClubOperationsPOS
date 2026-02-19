@@ -11,6 +11,9 @@ import { registerAdminRoomRoutes } from './admin/rooms';
 import { registerAdminStaffRoutes } from './admin/staff';
 import { registerAdminLateCheckoutBanAlertRoutes } from './admin/late-checkout-ban-alerts';
 import { registerShiftTemplateRoutes } from './admin/shift-templates';
+import { registerAdminClubLogRoutes } from './admin/club-log';
+import { registerAdminClubAnalyticsRoutes } from './admin/club-analytics';
+import { registerAdminProductRoutes } from './admin/products';
 
 /**
  * Admin-only routes for operations management and metrics.
@@ -38,4 +41,8 @@ export async function adminRoutes(fastify: FastifyInstance): Promise<void> {
   registerAdminReportRoutes(fastify);
 
   registerShiftTemplateRoutes(fastify);
+
+  registerAdminClubLogRoutes(fastify);
+  registerAdminClubAnalyticsRoutes(fastify);
+  registerAdminProductRoutes(fastify);
 }

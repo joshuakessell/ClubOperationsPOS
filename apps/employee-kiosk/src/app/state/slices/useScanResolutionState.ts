@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react';
 import type { CustomerIdType } from '@club-ops/shared';
-import { getErrorMessage } from '@club-ops/ui';
+import { getErrorMessage } from '@club-ops/shared';
 import type { MultipleMatchCandidate } from '../../../components/register/modals/MultipleMatchesModal';
 import { API_BASE } from '../shared/api';
 import type { ScanResult, StaffSession } from '../shared/types';

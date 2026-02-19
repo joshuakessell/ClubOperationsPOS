@@ -13,6 +13,7 @@ import type { CustomerRow, LaneSessionRow } from '../../checkin/types';
 import { toDate } from '../../checkin/utils';
 import { transaction } from '../../db';
 import { insertCustomerActivityEvent } from '../../activity/customerActivityLog';
+import { insertClubEvent } from '../../activity/clubEventLog';
 
 export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void {
   /**
@@ -513,6 +514,26 @@ export function registerCheckinLaneSessionRoutes(fastify: FastifyInstance): void
               },
               'customer_activity_event'
             );
+
+            // Emit unified club event for analytics
+            await insertClubEvent(client, {
+              eventType: 'CHECKIN_STARTED',
+              eventDomain: 'CHECKIN',
+              sourceApp: 'EMPLOYEE_REGISTER',
+              staffId,
+              staffName: request.staff!.name,
+              customerId: result.customerId,
+              customerName: result.customerName,
+              visitId: result.visitId ?? null,
+              summary: `Check-in started for ${result.customerName}`,
+              metadata: {
+                laneId,
+                laneSessionId: result.sessionId,
+                mode: result.mode,
+                visitId: result.visitId ?? null,
+              },
+              dedupeKey: `CLUB:CHECKIN_STARTED:${result.sessionId}`,
+            });
           });
         }
 
